@@ -80,6 +80,8 @@
   --animate-slide-up: slide-up 300ms ease-out both;
   --animate-scale-in: scale-in 200ms ease-out both;
   --animate-ember-pulse: ember-pulse 3s ease-in-out infinite;
+  --animate-slide-in-right: slide-in-right 300ms ease-out both;
+  --animate-slide-in-left: slide-in-left 300ms ease-out both;
 }
 
 /* -------------------------------------------------------------------
@@ -106,6 +108,16 @@
   50%       { opacity: 0.7; }
 }
 
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
 /* -------------------------------------------------------------------
    CUSTOM UTILITIES
    Available as Tailwind classes: glass, glow-ember, glow-gold,
@@ -125,6 +137,14 @@
 
 @utility glow-gold {
   box-shadow: 0 0 20px rgba(212, 160, 74, 0.15);
+}
+
+@utility slide-in-right {
+  animation: slide-in-right 300ms ease-out both;
+}
+
+@utility slide-in-left {
+  animation: slide-in-left 300ms ease-out both;
 }
 
 @utility text-gradient-gold {
@@ -367,6 +387,14 @@
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
   .input::placeholder { color: var(--muted-foreground); }
+
+  /* Native <select> inherits .input styles; the option dropdown is OS-rendered
+     but we can at least set its background so it isn't jarring on dark themes. */
+  select.input option {
+    background-color: var(--muted);
+    color: var(--foreground);
+  }
+
   .input:focus {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px rgba(193, 120, 23, 0.18);
