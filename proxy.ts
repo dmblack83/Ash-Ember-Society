@@ -2,11 +2,13 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /*
- * Paths the proxy will never gate behind authentication.
- * - /login, /signup  — the auth pages themselves
- * - /auth/callback   — Supabase redirect target (code exchange)
+ * Paths the proxy will never gate behind authentication or onboarding.
  */
 const PUBLIC_PATHS = ["/login", "/signup", "/auth/callback"];
+
+function isPublicAuthPage(pathname: string): boolean {
+  return pathname === "/login" || pathname === "/signup";
+}
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PATHS.some(
@@ -16,10 +18,9 @@ function isPublic(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   /*
-   * supabaseResponse is the response we return at the end of this function.
-   * It must be the response that is passed to NextResponse.next() so that
-   * any Set-Cookie headers written by the Supabase client are forwarded to
-   * the browser.  Never replace or discard this object after setAll runs.
+   * supabaseResponse must be the object we return so that any Set-Cookie
+   * headers written by the Supabase client (session refresh) are forwarded.
+   * Never discard or replace it after setAll has run.
    */
   let supabaseResponse = NextResponse.next({ request });
 
@@ -32,9 +33,6 @@ export async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Mirror cookies onto the request first (needed by Server Components
-          // that read cookies() in this same request), then onto the response
-          // (needed so the browser receives the updated session cookie).
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
@@ -48,9 +46,9 @@ export async function proxy(request: NextRequest) {
   );
 
   /*
-   * getUser() refreshes the session if it has expired and writes the new
-   * tokens back via setAll above.  Always call this before any conditional
-   * logic — do NOT use getSession() here, its data is unverified.
+   * getUser() validates the JWT with the Supabase Auth server and refreshes
+   * the session if needed. user.user_metadata comes from auth.users — no
+   * extra DB query required to check onboarding status.
    */
   const {
     data: { user },
@@ -58,24 +56,42 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  // ── Auth gate ──────────────────────────────────────────────────────────
-  // Unauthenticated user hitting a protected route → send to /login.
-  // We preserve the intended destination in `?next=` so the login page
-  // can redirect back after a successful sign-in.
+  // ── 1. Unauthenticated → protected route ──────────────────────────────
+  // Preserve the intended destination so the login page can redirect back.
   if (!user && !isPublic(pathname)) {
-    const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = "/login";
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
-  // Authenticated user hitting an auth page → send to /dashboard.
-  // Prevents signed-in users from landing on /login or /signup.
-  if (user && (pathname === "/login" || pathname === "/signup")) {
-    const dashboardUrl = request.nextUrl.clone();
-    dashboardUrl.pathname = "/dashboard";
-    dashboardUrl.search = "";
-    return NextResponse.redirect(dashboardUrl);
+  if (user) {
+    const onboardingComplete = Boolean(
+      (user.user_metadata as Record<string, unknown>)?.onboarding_completed
+    );
+
+    // ── 2. Authenticated on a public auth page ─────────────────────────
+    // Send to onboarding or dashboard depending on whether they've completed it.
+    if (isPublicAuthPage(pathname)) {
+      const url = request.nextUrl.clone();
+      url.pathname = onboardingComplete ? "/dashboard" : "/onboarding";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+
+    // ── 3. Authenticated but onboarding incomplete ─────────────────────
+    // Gate every app route behind /onboarding. The /onboarding page itself
+    // (and /auth/callback) must be excluded to avoid redirect loops.
+    if (
+      !onboardingComplete &&
+      pathname !== "/onboarding" &&
+      !pathname.startsWith("/onboarding/")
+    ) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/onboarding";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
   }
 
   return supabaseResponse;
@@ -85,8 +101,8 @@ export const config = {
   matcher: [
     /*
      * Run on all paths except Next.js internals and static assets.
-     * Note: _next/data routes are intentionally NOT excluded — excluding them
-     * would leave RSC data fetches unprotected even when the page is protected.
+     * _next/data routes are intentionally NOT excluded — they carry RSC
+     * payloads and must be protected the same way their page routes are.
      */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
