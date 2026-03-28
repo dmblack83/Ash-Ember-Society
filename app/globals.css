@@ -367,6 +367,14 @@
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
   .input::placeholder { color: var(--muted-foreground); }
+
+  /* Native <select> inherits .input styles; the option dropdown is OS-rendered
+     but we can at least set its background so it isn't jarring on dark themes. */
+  select.input option {
+    background-color: var(--muted);
+    color: var(--foreground);
+  }
+
   .input:focus {
     border-color: var(--ring);
     box-shadow: 0 0 0 3px rgba(193, 120, 23, 0.18);
