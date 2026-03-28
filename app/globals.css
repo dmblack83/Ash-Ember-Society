@@ -1,26 +1,437 @@
 @import "tailwindcss";
 
+/* ===================================================================
+   ASH & EMBER SOCIETY — DESIGN SYSTEM
+   Tailwind v4 CSS-first configuration
+   =================================================================== */
+
+/* -------------------------------------------------------------------
+   DESIGN TOKENS
+   All tokens on :root. Dark palette is the default and only theme.
+   ------------------------------------------------------------------- */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Core palette */
+  --background: #1A1210;
+  --foreground: #F5E6D3;
+  --card: #241C17;
+  --card-foreground: #F5E6D3;
+  --popover: #241C17;
+  --popover-foreground: #F5E6D3;
+  --primary: #C17817;
+  --primary-foreground: #FFFFFF;
+  --secondary: #3D2E23;
+  --secondary-foreground: #F5E6D3;
+  --muted: #2D221B;
+  --muted-foreground: #A69080;
+  --accent: #D4A04A;
+  --accent-foreground: #1A1210;
+  --destructive: #C44536;
+  --border: #3D2E23;
+  --input: #3D2E23;
+  --ring: #C17817;
+  --radius: 0.5rem;
+
+  /* Extended lounge tokens */
+  --ember: #E8642C;
+  --ash: #8A7E76;
+  --smoke: rgba(245, 230, 211, 0.06);
+  --gold: #D4A04A;
+  --lounge-gradient: linear-gradient(180deg, #1A1210 0%, #241C17 50%, #1A1210 100%);
 }
+
+/* -------------------------------------------------------------------
+   TAILWIND V4 THEME MAPPING
+   Maps CSS variables to Tailwind color/font/animation utility names.
+   Note: Tailwind v4 uses CSS-first configuration — no tailwind.config.ts
+   needed for design tokens. All theme values live here.
+   ------------------------------------------------------------------- */
 
 @theme inline {
+  /* Colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ember: var(--ember);
+  --color-ash: var(--ash);
+  --color-gold: var(--gold);
+
+  /* Typography — variables are injected by next/font/google on <html> */
+  --font-serif: var(--font-playfair), Georgia, 'Times New Roman', serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+
+  /* Animation tokens */
+  --animate-fade-in: fade-in 300ms ease-out both;
+  --animate-slide-up: slide-up 300ms ease-out both;
+  --animate-scale-in: scale-in 200ms ease-out both;
+  --animate-ember-pulse: ember-pulse 3s ease-in-out infinite;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* -------------------------------------------------------------------
+   KEYFRAMES
+   ------------------------------------------------------------------- */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes ember-pulse {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.7; }
+}
+
+/* -------------------------------------------------------------------
+   CUSTOM UTILITIES
+   Available as Tailwind classes: glass, glow-ember, glow-gold,
+   text-gradient-gold
+   ------------------------------------------------------------------- */
+
+@utility glass {
+  background: var(--smoke);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+}
+
+@utility glow-ember {
+  box-shadow: 0 0 20px rgba(232, 100, 44, 0.15);
+}
+
+@utility glow-gold {
+  box-shadow: 0 0 20px rgba(212, 160, 74, 0.15);
+}
+
+@utility text-gradient-gold {
+  background-image: linear-gradient(135deg, #C17817, #D4A04A, #C17817);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* -------------------------------------------------------------------
+   BASE STYLES
+   ------------------------------------------------------------------- */
+
+@layer base {
+  /*
+   * Background: radial vignette gives the warm-room-at-night feel.
+   * Slightly warmer center, deep near-black at edges — like a single
+   * amber bulb illuminating a leather chair across the room.
+   * background-attachment: fixed keeps the vignette stable while scrolling.
+   */
+  html {
+    background-color: var(--background);
+    background-image: radial-gradient(
+      ellipse at 50% 35%,
+      #2D1F18 0%,
+      #1A1210 55%,
+      #0F0B09 100%
+    );
+    background-attachment: fixed;
+    min-height: 100%;
+    color-scheme: dark;
+  }
+
+  body {
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+    position: relative;
+    isolation: isolate;
+  }
+
+  /*
+   * Noise texture overlay — gives the surface a tactile leather/wood-grain
+   * quality without being heavy. Opacity 0.035 is intentionally subtle.
+   * Uses an inline SVG feTurbulence filter, no external asset required.
+   */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.035;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  /* Typography scale */
+  h1 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--foreground);
+    line-height: 1.15;
+  }
+
+  h2 {
+    font-family: var(--font-serif);
+    font-size: clamp(1.25rem, 3vw, 1.5rem);
+    font-weight: 600;
+    color: var(--foreground);
+    line-height: 1.25;
+  }
+
+  h3 {
+    font-family: var(--font-sans);
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--foreground);
+    line-height: 1.35;
+  }
+
+  p {
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    color: var(--foreground);
+    line-height: 1.65;
+  }
+
+  /* Scrollbar — thin amber-on-dark, rounded thumb */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--muted);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--primary);
+    border-radius: 9999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+  }
+
+  /* Hide scrollbar on mobile but preserve scroll */
+  @media (max-width: 768px) {
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    * {
+      scrollbar-width: none;
+    }
+  }
+
+  /* Text selection — warm amber tint */
+  ::selection {
+    background-color: rgba(193, 120, 23, 0.3);
+    color: var(--foreground);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* -------------------------------------------------------------------
+   COMPONENT BASE CLASSES
+   Use these directly or as reference for shadcn/ui overrides.
+   All components follow the lounge aesthetic: warm, dark, refined.
+   ------------------------------------------------------------------- */
+
+@layer components {
+
+  /* ---- Buttons ---------------------------------------------------- */
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: calc(var(--radius) + 4px); /* rounded-lg */
+    font-family: var(--font-sans);
+    font-weight: 500;
+    font-size: 0.875rem;
+    line-height: 1;
+    padding: 0.5625rem 1.125rem;
+    cursor: pointer;
+    transition: all 200ms ease;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid transparent;
+    outline: none;
+  }
+
+  .btn-primary {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+  }
+  .btn-primary:hover  { filter: brightness(1.12); }
+  .btn-primary:active { filter: brightness(0.94); }
+
+  .btn-secondary {
+    background-color: var(--secondary);
+    color: var(--secondary-foreground);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover  { filter: brightness(1.18); }
+  .btn-secondary:active { filter: brightness(0.95); }
+
+  .btn-ghost {
+    background-color: transparent;
+    color: var(--foreground);
+  }
+  .btn-ghost:hover { background-color: var(--muted); }
+
+  /* Gold gradient — for membership / premium CTAs */
+  .btn-gold {
+    background-image: linear-gradient(135deg, #C17817 0%, #D4A04A 50%, #C17817 100%);
+    background-size: 200% auto;
+    color: var(--accent-foreground);
+    font-weight: 600;
+    border-color: transparent;
+  }
+  .btn-gold:hover {
+    background-position: right center;
+    box-shadow: 0 0 20px rgba(212, 160, 74, 0.2);
+  }
+
+  /* ---- Cards ----------------------------------------------------- */
+
+  .card {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 8px); /* rounded-xl */
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.55),
+      0 4px 10px -4px rgba(0, 0, 0, 0.4);
+    padding: 1rem;
+    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+  }
+
+  @media (min-width: 768px) {
+    .card { padding: 1.5rem; }
+  }
+
+  /* Lift effect on interactive cards */
+  .card-interactive {
+    cursor: pointer;
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 20px 40px -10px rgba(0, 0, 0, 0.65),
+      0 8px 16px -6px rgba(0, 0, 0, 0.5);
+    border-color: rgba(193, 120, 23, 0.4);
+  }
+
+  /* Premium card: gold border glow */
+  .card-premium {
+    border-color: rgba(212, 160, 74, 0.3);
+    box-shadow:
+      0 10px 25px -5px rgba(0, 0, 0, 0.55),
+      0 0 24px rgba(212, 160, 74, 0.08);
+  }
+
+  /* ---- Inputs ---------------------------------------------------- */
+
+  .input {
+    width: 100%;
+    background-color: var(--muted);
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 4px);
+    padding: 0.5625rem 0.875rem;
+    font-size: 0.875rem;
+    font-family: var(--font-sans);
+    color: var(--foreground);
+    outline: none;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+  .input::placeholder { color: var(--muted-foreground); }
+  .input:focus {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px rgba(193, 120, 23, 0.18);
+  }
+
+  /* ---- Badges ---------------------------------------------------- */
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 9999px;
+    padding: 0.1875rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    font-family: var(--font-sans);
+    letter-spacing: 0.02em;
+    background-color: var(--muted);
+    color: var(--muted-foreground);
+  }
+
+  /* Strength ratings — muted, sophisticated, not neon */
+  .badge-strength-mild {
+    background-color: rgba(16, 85, 50, 0.28);
+    color: rgba(120, 210, 150, 0.85);
+  }
+
+  .badge-strength-medium {
+    background-color: rgba(120, 70, 10, 0.3);
+    color: rgba(210, 155, 65, 0.85);
+  }
+
+  .badge-strength-full {
+    background-color: rgba(100, 20, 15, 0.35);
+    color: rgba(210, 85, 75, 0.85);
+  }
+
+  /* Membership tiers */
+  .badge-member {
+    background-color: rgba(193, 120, 23, 0.2);
+    color: var(--primary);
+  }
+
+  .badge-premium {
+    background-image: linear-gradient(
+      135deg,
+      rgba(193, 120, 23, 0.2),
+      rgba(212, 160, 74, 0.2)
+    );
+    color: var(--gold);
+    border: 1px solid rgba(212, 160, 74, 0.3);
+    box-shadow: 0 0 16px rgba(212, 160, 74, 0.1);
+  }
+
+  /* ---- Toast notifications --------------------------------------- */
+
+  .toast {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    border-radius: calc(var(--radius) + 4px);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 0.875rem 1rem;
+    box-shadow:
+      0 10px 30px -5px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(193, 120, 23, 0.08);
+  }
 }
