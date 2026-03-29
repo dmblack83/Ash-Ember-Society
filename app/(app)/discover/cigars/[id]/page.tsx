@@ -2,6 +2,7 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
+import { CigarActions } from "@/components/cigars/CigarActions";
 
 /* ------------------------------------------------------------------
    Types
@@ -141,6 +142,22 @@ export default async function CigarDetailPage({
   if (error || !data) notFound();
 
   const c = data as CigarDetail;
+
+  /* Check if the current user has this cigar on their wishlist */
+  let isWishlisted = false;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) {
+    const { data: wishlistRow } = await supabase
+      .from("humidor_items")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("cigar_id", id)
+      .eq("is_wishlist", true)
+      .maybeSingle();
+    isWishlisted = !!wishlistRow;
+  }
   const badge = strengthStyle(c.strength);
 
   const subtitle =
@@ -257,17 +274,9 @@ export default async function CigarDetailPage({
             )}
           </div>
 
-          {/* Quick actions — visible on desktop, repeated below on mobile */}
-          <div className="hidden sm:flex flex-col gap-3 mt-6">
-            <Link
-              href={`/humidor/add?cigar=${c.id}`}
-              className="btn btn-primary w-full"
-            >
-              Add to Humidor
-            </Link>
-            <button type="button" className="btn btn-secondary w-full">
-              Add to Wishlist
-            </button>
+          {/* Actions — desktop inline in hero */}
+          <div className="hidden sm:block mt-6">
+            <CigarActions cigarId={c.id} initialIsWishlisted={isWishlisted} />
           </div>
         </div>
       </section>
@@ -308,20 +317,12 @@ export default async function CigarDetailPage({
 
       <Divider className="my-6" />
 
-      {/* ── Action buttons (mobile) ──────────────────────────────── */}
-      <section className="flex flex-col gap-3 sm:hidden">
-        <Link
-          href={`/humidor/add?cigar=${c.id}`}
-          className="btn btn-primary w-full"
-        >
-          Add to Humidor
-        </Link>
-        <button type="button" className="btn btn-secondary w-full">
-          Add to Wishlist
-        </button>
+      {/* ── Actions (mobile only — desktop shown inline in hero) ─── */}
+      <section className="sm:hidden">
+        <CigarActions cigarId={c.id} initialIsWishlisted={isWishlisted} />
       </section>
 
-      <Divider className="my-6 sm:hidden" />
+      <Divider className="my-6" />
 
       {/* ── Reviews ─────────────────────────────────────────────── */}
       <section className="space-y-4 animate-slide-up">
