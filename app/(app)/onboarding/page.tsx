@@ -709,7 +709,7 @@ export default function OnboardingPage() {
       // Upsert profile row
       await supabase.from("profiles").upsert({
         id: userId,
-        display_name: displayName.trim() || user.email?.split("@")[0] || "Member",
+        display_name: displayName.trim() || (await supabase.auth.getUser()).data.user?.email?.split("@")[0] || "Member",
         city: city.trim() || null,
         state: stateVal || null,
         avatar_url: avatarUrl,
