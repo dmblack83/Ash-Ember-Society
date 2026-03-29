@@ -57,7 +57,7 @@ const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
    Cigar data
    ------------------------------------------------------------------ */
 
-type Strength = "Mild" | "Mild-Medium" | "Medium" | "Medium-Full" | "Full";
+type Strength = "mild" | "mild_medium" | "medium" | "medium_full" | "full";
 
 interface CigarSeed {
   brand: string;
@@ -71,7 +71,6 @@ interface CigarSeed {
   strength: Strength;
   ring_gauge: number;
   length_inches: number;
-  msrp: number;
   is_verified: boolean;
 }
 
@@ -86,10 +85,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 5.0,
-    msrp: 38.0,
     is_verified: true,
   },
   {
@@ -101,10 +99,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 5.25,
-    msrp: 40.0,
     is_verified: true,
   },
   {
@@ -116,10 +113,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 49,
     length_inches: 4.0,
-    msrp: 15.0,
     is_verified: true,
   },
   {
@@ -131,10 +127,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 52,
     length_inches: 7.0,
-    msrp: 22.0,
     is_verified: true,
   },
   {
@@ -146,10 +141,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 25.0,
     is_verified: true,
   },
 
@@ -163,10 +157,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 6.25,
-    msrp: 30.0,
     is_verified: true,
   },
   {
@@ -178,10 +171,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 46,
     length_inches: 4.5,
-    msrp: 24.0,
     is_verified: true,
   },
   {
@@ -193,10 +185,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 20.0,
     is_verified: true,
   },
   {
@@ -208,10 +199,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 56,
     length_inches: 6.5,
-    msrp: 22.0,
     is_verified: true,
   },
   {
@@ -223,10 +213,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 56,
     length_inches: 5.5,
-    msrp: 35.0,
     is_verified: true,
   },
 
@@ -240,10 +229,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -255,10 +243,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 6.5,
-    msrp: 15.0,
     is_verified: true,
   },
   {
@@ -270,10 +257,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 10.0,
     is_verified: true,
   },
   {
@@ -285,10 +271,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 50,
     length_inches: 7.0,
-    msrp: 12.0,
     is_verified: true,
   },
   {
@@ -300,10 +285,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 12.0,
     is_verified: true,
   },
 
@@ -317,10 +301,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 5.0,
-    msrp: 18.0,
     is_verified: true,
   },
   {
@@ -332,10 +315,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 6.0,
-    msrp: 20.0,
     is_verified: true,
   },
   {
@@ -347,10 +329,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 57,
     length_inches: 6.25,
-    msrp: 16.0,
     is_verified: true,
   },
   {
@@ -362,10 +343,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 57,
     length_inches: 4.5,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -377,10 +357,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 52,
     length_inches: 5.0,
-    msrp: 10.0,
     is_verified: true,
   },
 
@@ -394,10 +373,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 16.0,
     is_verified: true,
   },
   {
@@ -409,10 +387,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 6.0,
-    msrp: 18.0,
     is_verified: true,
   },
   {
@@ -424,10 +401,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 5.0,
-    msrp: 16.0,
     is_verified: true,
   },
   {
@@ -439,10 +415,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 6.5,
-    msrp: 19.0,
     is_verified: true,
   },
   {
@@ -454,10 +429,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 54,
     length_inches: 5.0,
-    msrp: 10.0,
     is_verified: true,
   },
 
@@ -471,10 +445,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 18.0,
     is_verified: true,
   },
   {
@@ -486,10 +459,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 52,
     length_inches: 6.25,
-    msrp: 21.0,
     is_verified: true,
   },
   {
@@ -501,10 +473,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 7.0,
-    msrp: 24.0,
     is_verified: true,
   },
   {
@@ -516,10 +487,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Mild-Medium",
+    strength: "mild_medium",
     ring_gauge: 44,
     length_inches: 6.75,
-    msrp: 16.0,
     is_verified: true,
   },
   {
@@ -531,10 +501,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Mild-Medium",
+    strength: "mild_medium",
     ring_gauge: 52,
     length_inches: 6.0,
-    msrp: 18.0,
     is_verified: true,
   },
 
@@ -548,10 +517,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua/Honduras",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 16.0,
     is_verified: true,
   },
   {
@@ -563,10 +531,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua/Honduras",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 6.0,
-    msrp: 18.0,
     is_verified: true,
   },
   {
@@ -578,10 +545,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua/Honduras",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 50,
     length_inches: 7.0,
-    msrp: 20.0,
     is_verified: true,
   },
   {
@@ -593,10 +559,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua/Honduras",
     country: "Honduras",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -608,10 +573,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua/Honduras",
     country: "Honduras",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 54,
     length_inches: 6.0,
-    msrp: 16.0,
     is_verified: true,
   },
 
@@ -625,10 +589,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Mild",
+    strength: "mild",
     ring_gauge: 43,
     length_inches: 5.5,
-    msrp: 28.0,
     is_verified: true,
   },
   {
@@ -640,10 +603,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Mild",
+    strength: "mild",
     ring_gauge: 43,
     length_inches: 4.5,
-    msrp: 25.0,
     is_verified: true,
   },
   {
@@ -655,10 +617,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Mild",
+    strength: "mild",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 32.0,
     is_verified: true,
   },
   {
@@ -670,10 +631,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 24.0,
     is_verified: true,
   },
   {
@@ -685,10 +645,9 @@ const cigars: CigarSeed[] = [
     binder: "Dominican",
     filler: "Dominican",
     country: "Dominican Republic",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 52,
     length_inches: 6.0,
-    msrp: 28.0,
     is_verified: true,
   },
 
@@ -702,10 +661,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 60,
     length_inches: 6.0,
-    msrp: 12.0,
     is_verified: true,
   },
   {
@@ -717,10 +675,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 5.5,
-    msrp: 11.0,
     is_verified: true,
   },
   {
@@ -732,10 +689,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua",
     country: "Honduras",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 70,
     length_inches: 7.0,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -747,10 +703,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua",
     country: "Honduras",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 60,
     length_inches: 5.25,
-    msrp: 10.0,
     is_verified: true,
   },
   {
@@ -762,10 +717,9 @@ const cigars: CigarSeed[] = [
     binder: "Honduras",
     filler: "Nicaragua",
     country: "Honduras",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 60,
     length_inches: 6.0,
-    msrp: 11.0,
     is_verified: true,
   },
 
@@ -779,10 +733,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 50,
     length_inches: 5.0,
-    msrp: 9.0,
     is_verified: true,
   },
   {
@@ -794,10 +747,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium",
+    strength: "medium",
     ring_gauge: 48,
     length_inches: 7.0,
-    msrp: 11.0,
     is_verified: true,
   },
   {
@@ -809,10 +761,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Medium-Full",
+    strength: "medium_full",
     ring_gauge: 54,
     length_inches: 5.0,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -824,10 +775,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 5.0,
-    msrp: 14.0,
     is_verified: true,
   },
   {
@@ -839,10 +789,9 @@ const cigars: CigarSeed[] = [
     binder: "Nicaragua",
     filler: "Nicaragua",
     country: "Nicaragua",
-    strength: "Full",
+    strength: "full",
     ring_gauge: 54,
     length_inches: 5.0,
-    msrp: 14.0,
     is_verified: true,
   },
 ];
@@ -854,9 +803,20 @@ const cigars: CigarSeed[] = [
 async function seed() {
   console.log(`Seeding ${cigars.length} cigars…`);
 
+  // Clear existing rows so the script is safe to re-run
+  const { error: deleteError } = await supabase
+    .from("cigars")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000"); // delete all rows
+
+  if (deleteError) {
+    console.error("Failed to clear table:", deleteError.message);
+    process.exit(1);
+  }
+
   const { data, error } = await supabase
     .from("cigars")
-    .upsert(cigars, { onConflict: "brand,line,name,vitola" })
+    .insert(cigars)
     .select("id, brand, line, name");
 
   if (error) {
@@ -864,7 +824,7 @@ async function seed() {
     process.exit(1);
   }
 
-  console.log(`✓ Inserted / updated ${data?.length ?? 0} cigars`);
+  console.log(`✓ Inserted ${data?.length ?? 0} cigars`);
 
   if (data) {
     for (const row of data) {

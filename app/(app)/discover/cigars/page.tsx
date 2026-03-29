@@ -26,13 +26,16 @@ interface Cigar {
    Constants
    ------------------------------------------------------------------ */
 
-const STRENGTHS = [
-  "Mild",
-  "Mild-Medium",
-  "Medium",
-  "Medium-Full",
-  "Full",
+/* Strength options: value = DB enum, label = display text */
+const STRENGTH_OPTIONS = [
+  { value: "mild",        label: "Mild" },
+  { value: "mild_medium", label: "Mild-Medium" },
+  { value: "medium",      label: "Medium" },
+  { value: "medium_full", label: "Medium-Full" },
+  { value: "full",        label: "Full" },
 ] as const;
+
+type StrengthValue = typeof STRENGTH_OPTIONS[number]["value"];
 
 const PAGE_SIZE = 20;
 
@@ -40,13 +43,21 @@ const PAGE_SIZE = 20;
    Strength badge — muted, sophisticated, not neon
    ------------------------------------------------------------------ */
 
+const STRENGTH_LABEL: Record<string, string> = {
+  mild:         "Mild",
+  mild_medium:  "Mild-Medium",
+  medium:       "Medium",
+  medium_full:  "Medium-Full",
+  full:         "Full",
+};
+
 function strengthStyle(s: string): { backgroundColor: string; color: string } {
   const map: Record<string, { backgroundColor: string; color: string }> = {
-    Mild:           { backgroundColor: "#1E3A2A", color: "#5A9A72" },
-    "Mild-Medium":  { backgroundColor: "#2A2A1A", color: "#8A8A42" },
-    Medium:         { backgroundColor: "var(--secondary)", color: "#C17817" },
-    "Medium-Full":  { backgroundColor: "#2A1A0A", color: "#C17817" },
-    Full:           { backgroundColor: "#2A1010", color: "#C44536" },
+    mild:         { backgroundColor: "#1E3A2A", color: "#5A9A72" },
+    mild_medium:  { backgroundColor: "#2A2A1A", color: "#8A8A42" },
+    medium:       { backgroundColor: "var(--secondary)", color: "#C17817" },
+    medium_full:  { backgroundColor: "#2A1A0A", color: "#C17817" },
+    full:         { backgroundColor: "#2A1010", color: "#C44536" },
   };
   return (
     map[s] ?? {
@@ -143,7 +154,7 @@ function CigarCard({ cigar }: { cigar: Cigar }) {
               className="badge text-[10px] px-2.5 py-0.5 rounded-full font-medium"
               style={badge}
             >
-              {cigar.strength}
+              {STRENGTH_LABEL[cigar.strength] ?? cigar.strength}
             </span>
             {cigar.avg_rating != null && (
               <span
@@ -212,7 +223,7 @@ function EmptyState() {
 export default function CigarsPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedStrengths, setSelectedStrengths] = useState<string[]>([]);
+  const [selectedStrengths, setSelectedStrengths] = useState<StrengthValue[]>([]);
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [countries, setCountries] = useState<string[]>([]);
   const [cigars, setCigars] = useState<Cigar[]>([]);
@@ -306,7 +317,7 @@ export default function CigarsPage() {
     fetchCigars(true);
   }, [fetchCigars]);
 
-  function toggleStrength(s: string) {
+  function toggleStrength(s: StrengthValue) {
     setSelectedStrengths((prev) =>
       prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
     );
@@ -369,13 +380,13 @@ export default function CigarsPage() {
             Strength
           </p>
           <div className="flex flex-wrap gap-2">
-            {STRENGTHS.map((s) => {
-              const active = selectedStrengths.includes(s);
+            {STRENGTH_OPTIONS.map(({ value, label }) => {
+              const active = selectedStrengths.includes(value);
               return (
                 <button
-                  key={s}
+                  key={value}
                   type="button"
-                  onClick={() => toggleStrength(s)}
+                  onClick={() => toggleStrength(value)}
                   className="badge cursor-pointer transition-all duration-150 text-xs px-3 py-1 hover:opacity-80"
                   style={
                     active
@@ -386,7 +397,7 @@ export default function CigarsPage() {
                       : undefined
                   }
                 >
-                  {s}
+                  {label}
                 </button>
               );
             })}

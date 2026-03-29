@@ -20,7 +20,7 @@ interface CigarDetail {
   strength: string;
   ring_gauge: number | null;
   length_inches: number | null;
-  msrp: number | null;
+  msrp_cents: number | null;
   image_url: string | null;
   avg_rating: number | null;
   total_ratings: number | null;
@@ -32,13 +32,21 @@ interface CigarDetail {
    Strength badge styles — mirrors discover page
    ------------------------------------------------------------------ */
 
+const STRENGTH_LABEL: Record<string, string> = {
+  mild:         "Mild",
+  mild_medium:  "Mild-Medium",
+  medium:       "Medium",
+  medium_full:  "Medium-Full",
+  full:         "Full",
+};
+
 function strengthStyle(s: string): { backgroundColor: string; color: string } {
   const map: Record<string, { backgroundColor: string; color: string }> = {
-    Mild:           { backgroundColor: "#1E3A2A", color: "#5A9A72" },
-    "Mild-Medium":  { backgroundColor: "#2A2A1A", color: "#8A8A42" },
-    Medium:         { backgroundColor: "var(--secondary)", color: "#C17817" },
-    "Medium-Full":  { backgroundColor: "#2A1A0A", color: "#C17817" },
-    Full:           { backgroundColor: "#2A1010", color: "#C44536" },
+    mild:         { backgroundColor: "#1E3A2A", color: "#5A9A72" },
+    mild_medium:  { backgroundColor: "#2A2A1A", color: "#8A8A42" },
+    medium:       { backgroundColor: "var(--secondary)", color: "#C17817" },
+    medium_full:  { backgroundColor: "#2A1A0A", color: "#C17817" },
+    full:         { backgroundColor: "#2A1010", color: "#C44536" },
   };
   return (
     map[s] ?? {
@@ -150,8 +158,8 @@ export default async function CigarDetailPage({
     c.length_inches != null
       ? { label: "Length", value: `${c.length_inches}"` }
       : null,
-    c.msrp != null
-      ? { label: "MSRP", value: `$${c.msrp.toFixed(2)}` }
+    c.msrp_cents != null
+      ? { label: "MSRP", value: `$${(c.msrp_cents / 100).toFixed(2)}` }
       : null,
   ].filter((d): d is { label: string; value: string } => d !== null);
 
@@ -218,7 +226,7 @@ export default async function CigarDetailPage({
               className="badge text-xs px-3 py-1 rounded-full font-medium"
               style={badge}
             >
-              {c.strength}
+              {STRENGTH_LABEL[c.strength] ?? c.strength}
             </span>
             {c.is_verified && (
               <span className="text-[11px] text-muted-foreground flex items-center gap-1">
