@@ -829,12 +829,18 @@ export function HumidorItemClient({
 
       {/* ── Actions ──────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3">
+        <Link
+          href={`/humidor/${item.id}/burn-report`}
+          className="btn btn-primary w-full text-center"
+        >
+          File Burn Report
+        </Link>
         <button
           type="button"
-          className="btn btn-primary w-full"
+          className="btn btn-secondary w-full"
           onClick={() => setSmokeOpen(true)}
         >
-          Smoke One
+          Quick Smoke Log
         </button>
         <button
           type="button"
