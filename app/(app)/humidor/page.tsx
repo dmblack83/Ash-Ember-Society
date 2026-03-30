@@ -265,7 +265,7 @@ function GridCard({ item }: { item: HumidorItem }) {
     c.name && c.name !== c.line ? `${c.line} — ${c.name}` : c.line;
 
   return (
-    <Link href={`/discover/cigars/${c.id}`} className="block">
+    <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive relative flex flex-col gap-2 h-full p-0 overflow-hidden">
         {/* Quantity badge */}
         {item.quantity > 1 && (
@@ -327,7 +327,7 @@ function ListRow({ item }: { item: HumidorItem }) {
     c.name && c.name !== c.line ? `${c.line} — ${c.name}` : c.line;
 
   return (
-    <Link href={`/discover/cigars/${c.id}`} className="block">
+    <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
