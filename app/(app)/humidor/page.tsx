@@ -604,9 +604,15 @@ export default function HumidorPage() {
         </span>
         <Link
           href="/humidor/wishlist"
-          className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150"
+          className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150 mr-6"
         >
           Wishlist
+        </Link>
+        <Link
+          href="/humidor/stats"
+          className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150"
+        >
+          Stats
         </Link>
       </div>
 
