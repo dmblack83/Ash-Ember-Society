@@ -376,6 +376,28 @@ export default function WishlistPage() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
+        {/* Tab navigation */}
+        <div className="flex border-b border-border/50 -mx-4 sm:-mx-6 px-4 sm:px-6">
+          <Link
+            href="/humidor"
+            className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150 mr-6"
+          >
+            Humidor
+          </Link>
+          <span
+            className="px-1 pb-3 text-sm font-medium border-b-2 mr-6"
+            style={{ borderColor: "var(--primary)", color: "var(--foreground)" }}
+          >
+            Wishlist
+          </span>
+          <Link
+            href="/humidor/stats"
+            className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150"
+          >
+            Stats
+          </Link>
+        </div>
+
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="space-y-1">

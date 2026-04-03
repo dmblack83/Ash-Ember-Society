@@ -1,0 +1,990 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+import { Divider } from "@/components/ui/divider";
+import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
+
+/* ------------------------------------------------------------------
+   Design-system helpers
+   ------------------------------------------------------------------ */
+
+const STRENGTH_LABEL: Record<string, string> = {
+  mild: "Mild",
+  mild_medium: "Mild-Medium",
+  medium: "Medium",
+  medium_full: "Medium-Full",
+  full: "Full",
+};
+
+function strengthStyle(s: string): { backgroundColor: string; color: string } {
+  const map: Record<string, { backgroundColor: string; color: string }> = {
+    mild: { backgroundColor: "#1E3A2A", color: "#5A9A72" },
+    mild_medium: { backgroundColor: "#2A2A1A", color: "#8A8A42" },
+    medium: { backgroundColor: "var(--secondary)", color: "#C17817" },
+    medium_full: { backgroundColor: "#2A1A0A", color: "#C17817" },
+    full: { backgroundColor: "#2A1010", color: "#C44536" },
+  };
+  return map[s] ?? { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" };
+}
+
+function agingDays(startDate: string | null): number {
+  if (!startDate) return 0;
+  return Math.max(0, Math.floor((Date.now() - new Date(startDate).getTime()) / 86_400_000));
+}
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+/* ------------------------------------------------------------------
+   Sub-components
+   ------------------------------------------------------------------ */
+
+function CigarPlaceholder({ brand }: { brand: string }) {
+  let hash = 0;
+  for (let i = 0; i < brand.length; i++) {
+    hash = (hash << 5) - hash + brand.charCodeAt(i);
+    hash |= 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return (
+    <div
+      className="flex items-center justify-center w-full h-full text-4xl font-semibold select-none"
+      style={{
+        backgroundColor: `hsl(${hue}, 18%, 16%)`,
+        color: `hsl(${hue}, 35%, 60%)`,
+        fontFamily: "var(--font-serif)",
+      }}
+    >
+      {brand.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
+function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div
+      className="text-center py-5 px-4 rounded-xl"
+      style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}
+    >
+      <p
+        className="text-3xl font-bold text-foreground"
+        style={{ fontFamily: "var(--font-serif)" }}
+      >
+        {value}
+      </p>
+      {sub && <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>}
+      <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium mt-2">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function Chip({ label, value }: { label: string; value: string }) {
+  return (
+    <div
+      className="flex flex-col gap-0.5 px-3 py-2 rounded-lg"
+      style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}
+    >
+      <span className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+        {label}
+      </span>
+      <span className="text-sm text-foreground font-medium">{value}</span>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Toast
+   ------------------------------------------------------------------ */
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-[60] card animate-slide-up flex items-center gap-3 max-w-xs"
+      style={{ borderLeft: "4px solid var(--primary)" }}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: "var(--primary)" }} aria-hidden="true">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <p className="text-sm text-foreground">{message}</p>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Delete confirmation dialog
+   ------------------------------------------------------------------ */
+
+function DeleteDialog({
+  onConfirm,
+  onCancel,
+  loading,
+}: {
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) {
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-40 transition-opacity duration-200"
+        style={{ backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={onCancel}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <div className="card w-full max-w-sm space-y-5 animate-fade-in">
+          <h3 style={{ fontFamily: "var(--font-serif)" }}>Remove from humidor?</h3>
+          <p className="text-sm text-muted-foreground">
+            This will permanently remove this cigar entry from your humidor. Your smoke logs will be preserved.
+          </p>
+          <div className="flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={onConfirm}
+              disabled={loading}
+              className="btn w-full"
+              style={{ backgroundColor: "#C44536", color: "#fff" }}
+            >
+              {loading ? "Removing…" : "Remove from Humidor"}
+            </button>
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={loading}
+              className="btn btn-ghost w-full"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Edit details sheet (bottom sheet on mobile, modal on desktop)
+   ------------------------------------------------------------------ */
+
+function EditSheet({
+  item,
+  isOpen,
+  onClose,
+  onSaved,
+}: {
+  item: HumidorItemDetail;
+  isOpen: boolean;
+  onClose: () => void;
+  onSaved: (updated: Partial<HumidorItemDetail>) => void;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+
+  const [purchaseDate, setPurchaseDate] = useState(item.purchase_date ?? "");
+  const [priceDollars, setPriceDollars] = useState(
+    item.price_paid_cents != null ? (item.price_paid_cents / 100).toFixed(2) : ""
+  );
+  const [source, setSource] = useState(item.source ?? "");
+  const [agingStartDate, setAgingStartDate] = useState(item.aging_start_date ?? "");
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* Reset fields when reopened */
+  useEffect(() => {
+    if (!isOpen) return;
+    setPurchaseDate(item.purchase_date ?? "");
+    setPriceDollars(item.price_paid_cents != null ? (item.price_paid_cents / 100).toFixed(2) : "");
+    setSource(item.source ?? "");
+    setAgingStartDate(item.aging_start_date ?? "");
+    setNotes(item.notes ?? "");
+    setError(null);
+  }, [isOpen, item]);
+
+  /* Lock body scroll while open */
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    const priceCents = priceDollars.trim()
+      ? Math.round(parseFloat(priceDollars) * 100)
+      : null;
+
+    const updates = {
+      purchase_date: purchaseDate || null,
+      price_paid_cents: isNaN(priceCents!) ? null : priceCents,
+      source: source.trim() || null,
+      aging_start_date: agingStartDate || null,
+      notes: notes.trim() || null,
+    };
+
+    const supabase = createClient();
+    const { error: updateError } = await supabase
+      .from("humidor_items")
+      .update(updates)
+      .eq("id", item.id);
+
+    setSubmitting(false);
+    if (updateError) {
+      setError(updateError.message);
+      return;
+    }
+
+    onSaved(updates);
+    onClose();
+  }
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.65)",
+          backdropFilter: "blur(4px)",
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+        }}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit humidor entry"
+        className={[
+          "fixed z-50 bg-card shadow-2xl overflow-y-auto transition-all duration-300 ease-out",
+          "inset-x-0 bottom-0 rounded-t-2xl max-h-[92dvh]",
+          "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit sm:max-h-[90dvh]",
+        ].join(" ")}
+        style={{
+          transform: isOpen ? "translateY(0)" : "translateY(100%)",
+          opacity: isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
+        }}
+      >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-muted" />
+        </div>
+        <div className="px-5 pb-10 pt-4 sm:pt-6">
+          <div className="flex items-center justify-between mb-6">
+            <h2 style={{ fontFamily: "var(--font-serif)" }}>Edit Details</h2>
+            <button type="button" onClick={onClose} className="btn btn-ghost p-2 -mr-2" aria-label="Close">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+          <form onSubmit={handleSave} className="space-y-5">
+            <div className="space-y-1.5">
+              <label htmlFor="edit-purchase-date" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Purchase Date
+              </label>
+              <input
+                id="edit-purchase-date"
+                type="date"
+                className="input"
+                value={purchaseDate}
+                max={today}
+                onChange={(e) => setPurchaseDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-price" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Price per Stick
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none select-none">$</span>
+                <input
+                  id="edit-price"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  className="input pl-7"
+                  value={priceDollars}
+                  onChange={(e) => setPriceDollars(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-source" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Source
+              </label>
+              <input
+                id="edit-source"
+                type="text"
+                className="input"
+                placeholder="Where did you buy it?"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-aging-date" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Aging Start Date
+              </label>
+              <input
+                id="edit-aging-date"
+                type="date"
+                className="input"
+                value={agingStartDate}
+                max={today}
+                onChange={(e) => setAgingStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-notes" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Notes <span className="normal-case tracking-normal font-normal">(optional)</span>
+              </label>
+              <textarea
+                id="edit-notes"
+                className="input resize-none"
+                placeholder="Any notes about this purchase…"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+              />
+            </div>
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+              {submitting ? "Saving…" : "Save Changes"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Smoke One modal
+   ------------------------------------------------------------------ */
+
+function SmokeModal({
+  isOpen,
+  onClose,
+  onSmoked,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSmoked: (log: SmokeLog) => void;
+}) {
+  const today = new Date().toISOString().split("T")[0];
+  const [smokedAt, setSmokedAt] = useState(today);
+  const [rating, setRating] = useState<number>(8);
+  const [reviewText, setReviewText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setSmokedAt(today);
+    setRating(8);
+    setReviewText("");
+    setError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError("Not authenticated.");
+      setSubmitting(false);
+      return;
+    }
+
+    // We need the cigar_id — passed via onSmoked callback shape
+    // The modal doesn't have it directly; parent handles the insert
+    onSmoked({
+      id: "", // placeholder — parent will fill after insert
+      smoked_at: smokedAt,
+      overall_rating: rating,
+      review_text: reviewText.trim() || null,
+    });
+  }
+
+  return (
+    <>
+      <div
+        aria-hidden="true"
+        className="fixed inset-0 z-40"
+        style={{ backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      >
+        <div className="card w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl animate-slide-up">
+          <div className="flex justify-center pt-3 pb-1 sm:hidden">
+            <div className="w-10 h-1 rounded-full bg-muted" />
+          </div>
+          <div className="px-5 pb-10 pt-4 sm:pt-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 style={{ fontFamily: "var(--font-serif)" }}>Log a Smoke</h2>
+              <button type="button" onClick={onClose} className="btn btn-ghost p-2 -mr-2" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div className="space-y-1.5">
+                <label htmlFor="smoke-date" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                  Date Smoked
+                </label>
+                <input
+                  id="smoke-date"
+                  type="date"
+                  className="input"
+                  value={smokedAt}
+                  max={today}
+                  onChange={(e) => setSmokedAt(e.target.value)}
+                />
+              </div>
+              <div className="space-y-3">
+                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                  Overall Rating
+                </p>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setRating((r) => Math.max(1, r - 1))}
+                    className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center flex-shrink-0 text-xl leading-none"
+                  >
+                    −
+                  </button>
+                  <span
+                    className="text-4xl font-bold w-12 text-center"
+                    style={{ fontFamily: "var(--font-serif)", color: "var(--primary)" }}
+                  >
+                    {rating}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRating((r) => Math.min(10, r + 1))}
+                    className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center flex-shrink-0 text-xl leading-none"
+                  >
+                    +
+                  </button>
+                  <span className="text-sm text-muted-foreground">/ 10</span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="smoke-review" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                  Notes <span className="normal-case tracking-normal font-normal">(optional)</span>
+                </label>
+                <textarea
+                  id="smoke-review"
+                  className="input resize-none"
+                  placeholder="Tasting notes, occasion, pairing…"
+                  rows={3}
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                />
+              </div>
+              {error && <p className="text-sm text-destructive">{error}</p>}
+              <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
+                {submitting ? "Logging…" : "Log Smoke"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Main client component
+   ------------------------------------------------------------------ */
+
+export function HumidorItemClient({
+  item: initialItem,
+  initialSmokeLogs,
+}: {
+  item: HumidorItemDetail;
+  initialSmokeLogs: SmokeLog[];
+}) {
+  const router = useRouter();
+
+  /* Mutable item fields */
+  const [quantity, setQuantity] = useState(initialItem.quantity);
+  const [itemFields, setItemFields] = useState({
+    purchase_date: initialItem.purchase_date,
+    price_paid_cents: initialItem.price_paid_cents,
+    source: initialItem.source,
+    aging_start_date: initialItem.aging_start_date,
+    notes: initialItem.notes,
+  });
+  const item = { ...initialItem, ...itemFields, quantity };
+
+  /* Smoke logs */
+  const [smokeLogs, setSmokeLogs] = useState<SmokeLog[]>(initialSmokeLogs);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+
+  /* UI state */
+  const [qtyLoading, setQtyLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [smokeOpen, setSmokeOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const c = item.cigar;
+  const days = agingDays(item.aging_start_date);
+  const agingProgress = Math.min(days / 180, 1) * 100;
+
+  /* ── Quantity stepper ─────────────────────────────────────── */
+
+  async function updateQuantity(next: number) {
+    if (next < 0 || qtyLoading) return;
+    const prev = quantity;
+    setQuantity(next);
+    setQtyLoading(true);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("humidor_items")
+      .update({ quantity: next })
+      .eq("id", item.id);
+
+    setQtyLoading(false);
+    if (error) {
+      setQuantity(prev);
+      setToast("Failed to update quantity.");
+    }
+  }
+
+  /* ── Smoke One ────────────────────────────────────────────── */
+
+  async function handleSmoked(draft: SmokeLog) {
+    setSmokeOpen(false);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setToast("Not authenticated."); return; }
+
+    /* Insert smoke log */
+    const { data: inserted, error: logError } = await supabase
+      .from("smoke_logs")
+      .insert({
+        user_id: user.id,
+        cigar_id: item.cigar_id,
+        smoked_at: draft.smoked_at,
+        overall_rating: draft.overall_rating,
+        review_text: draft.review_text,
+      })
+      .select("id, smoked_at, overall_rating, review_text")
+      .single();
+
+    if (logError) {
+      setToast("Smoke logged, but failed to save.");
+    } else if (inserted) {
+      setSmokeLogs((prev) => [inserted as SmokeLog, ...prev]);
+      setToast("Smoke logged!");
+    }
+
+    /* Decrement quantity (optimistic) */
+    if (quantity > 0) {
+      await updateQuantity(quantity - 1);
+    }
+  }
+
+  /* ── Edit saved ───────────────────────────────────────────── */
+
+  function handleSaved(updated: Partial<typeof itemFields>) {
+    setItemFields((prev) => ({ ...prev, ...updated }));
+    setToast("Details saved.");
+  }
+
+  /* ── Delete ───────────────────────────────────────────────── */
+
+  async function handleDelete() {
+    setDeleteLoading(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("humidor_items").delete().eq("id", item.id);
+    setDeleteLoading(false);
+
+    if (error) {
+      setToast("Failed to remove cigar.");
+      setDeleteOpen(false);
+      return;
+    }
+
+    router.push("/humidor");
+  }
+
+  /* ── Derived stats ────────────────────────────────────────── */
+
+  const timesSmoked = smokeLogs.length;
+  const avgPersonalRating =
+    timesSmoked > 0
+      ? (smokeLogs.reduce((s, l) => s + (l.overall_rating ?? 0), 0) / timesSmoked).toFixed(1)
+      : null;
+
+  /* ── Render ───────────────────────────────────────────────── */
+
+  return (
+    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+
+      {/* Toasts */}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+
+      {/* Back */}
+      <Link
+        href="/humidor"
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+          <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Back to humidor
+      </Link>
+
+      {/* ── Hero ─────────────────────────────────────────────────── */}
+      <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
+        {/* Image */}
+        <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
+          {c.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={c.image_url} alt={`${c.brand} ${c.line}`} className="w-full h-full object-cover" />
+          ) : (
+            <CigarPlaceholder brand={c.brand} />
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex flex-col gap-2 flex-1 min-w-0 pt-1">
+          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            {c.brand}
+          </p>
+          <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
+            {c.line}
+          </h1>
+          {c.name && c.name !== c.line && (
+            <p className="text-base text-foreground/75 -mt-1">{c.name}</p>
+          )}
+          <p className="text-sm text-muted-foreground">{c.vitola}</p>
+
+          {/* Strength badge */}
+          <div className="mt-1">
+            <span
+              className="badge text-xs px-3 py-1 rounded-full font-medium"
+              style={strengthStyle(c.strength)}
+            >
+              {STRENGTH_LABEL[c.strength] ?? c.strength}
+            </span>
+          </div>
+
+          {/* Wrapper / binder / filler chips */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <Chip label="Wrapper" value={c.wrapper} />
+            {c.binder && <Chip label="Binder" value={c.binder} />}
+            {c.filler && <Chip label="Filler" value={c.filler} />}
+          </div>
+        </div>
+      </section>
+
+      <Divider className="my-6" />
+
+      {/* ── Item details ─────────────────────────────────────────── */}
+      <section className="space-y-6 animate-slide-up">
+        <h2>Your Entry</h2>
+
+        {/* Quantity stepper */}
+        <div className="space-y-2">
+          <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+            Quantity
+          </p>
+          <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => updateQuantity(quantity - 1)}
+              disabled={quantity <= 0 || qtyLoading}
+              className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center text-xl leading-none disabled:opacity-40"
+              aria-label="Decrease quantity"
+            >
+              −
+            </button>
+            <span
+              className="text-3xl font-bold text-foreground w-10 text-center"
+              style={{ fontFamily: "var(--font-serif)" }}
+            >
+              {quantity}
+            </span>
+            <button
+              type="button"
+              onClick={() => updateQuantity(quantity + 1)}
+              disabled={qtyLoading}
+              className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center text-xl leading-none"
+              aria-label="Increase quantity"
+            >
+              +
+            </button>
+            <span className="text-sm text-muted-foreground">
+              {quantity === 1 ? "cigar" : "cigars"}
+            </span>
+          </div>
+        </div>
+
+        {/* Aging progress bar */}
+        {item.aging_start_date && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Aging
+              </p>
+              <p
+                className="text-sm font-medium"
+                style={{ color: days >= 180 ? "var(--accent)" : days >= 90 ? "var(--primary)" : "var(--muted-foreground)" }}
+              >
+                {days >= 180 ? `${days} days — Well rested ✦` : `${days} days`}
+              </p>
+            </div>
+            <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--muted)" }}>
+              <div
+                className="h-full rounded-full transition-all duration-700"
+                style={{
+                  width: `${agingProgress}%`,
+                  backgroundColor: days >= 180 ? "var(--accent)" : "var(--primary)",
+                }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-muted-foreground">
+              <span>{formatDate(item.aging_start_date)}</span>
+              <span>180d target</span>
+            </div>
+          </div>
+        )}
+
+        {/* Purchase details grid */}
+        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-4">
+          {item.purchase_date && (
+            <div className="space-y-0.5">
+              <dt className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Purchased</dt>
+              <dd className="text-sm text-foreground font-medium">{formatDate(item.purchase_date)}</dd>
+            </div>
+          )}
+          {item.price_paid_cents != null && (
+            <div className="space-y-0.5">
+              <dt className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Price / Stick</dt>
+              <dd className="text-sm text-foreground font-medium">${(item.price_paid_cents / 100).toFixed(2)}</dd>
+            </div>
+          )}
+          {item.source && (
+            <div className="space-y-0.5">
+              <dt className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Source</dt>
+              <dd className="text-sm text-foreground font-medium">{item.source}</dd>
+            </div>
+          )}
+        </dl>
+
+        {/* Notes */}
+        {item.notes && (
+          <div className="space-y-1">
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Notes</p>
+            <p className="text-sm text-foreground leading-relaxed">{item.notes}</p>
+          </div>
+        )}
+      </section>
+
+      {/* ── Actions ──────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <Link
+          href={`/humidor/${item.id}/burn-report`}
+          className="btn btn-primary w-full text-center"
+        >
+          File Burn Report
+        </Link>
+        <button
+          type="button"
+          className="btn btn-secondary w-full"
+          onClick={() => setSmokeOpen(true)}
+        >
+          Quick Smoke Log
+        </button>
+        <button
+          type="button"
+          className="btn btn-secondary w-full"
+          onClick={() => setEditOpen(true)}
+        >
+          Edit Details
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost w-full text-sm"
+          style={{ color: "#C44536" }}
+          onClick={() => setDeleteOpen(true)}
+        >
+          Remove from Humidor
+        </button>
+      </div>
+
+      <Divider className="my-6" />
+
+      {/* ── Stats ────────────────────────────────────────────────── */}
+      <section className="space-y-4 animate-slide-up">
+        <h2>Stats</h2>
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard label="Times Smoked" value={String(timesSmoked)} />
+          <StatCard
+            label="Avg. Personal"
+            value={avgPersonalRating ?? "—"}
+            sub={avgPersonalRating ? "/ 10" : undefined}
+          />
+          <StatCard
+            label="Community Avg"
+            value={c.avg_rating != null ? c.avg_rating.toFixed(1) : "—"}
+            sub={c.avg_rating != null ? "/ 10" : undefined}
+          />
+        </div>
+      </section>
+
+      <Divider className="my-6" />
+
+      {/* ── Smoke history ─────────────────────────────────────────── */}
+      <section className="space-y-4 animate-slide-up">
+        <h2>Smoke History</h2>
+
+        {smokeLogs.length === 0 ? (
+          <div className="card text-center py-10 space-y-2">
+            <p className="text-sm text-muted-foreground">No smoke logs yet.</p>
+            <button
+              type="button"
+              className="btn btn-ghost text-sm mt-2"
+              onClick={() => setSmokeOpen(true)}
+            >
+              Log your first smoke
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {smokeLogs.map((log) => {
+              const expanded = expandedLogId === log.id;
+              return (
+                <button
+                  key={log.id}
+                  type="button"
+                  className="card card-interactive w-full text-left"
+                  onClick={() => setExpandedLogId(expanded ? null : log.id)}
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Rating */}
+                    <div
+                      className="text-4xl font-bold flex-shrink-0 leading-none mt-0.5"
+                      style={{
+                        fontFamily: "var(--font-serif)",
+                        color: log.overall_rating != null ? "var(--primary)" : "var(--muted-foreground)",
+                      }}
+                    >
+                      {log.overall_rating ?? "—"}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        {formatDate(log.smoked_at)}
+                      </p>
+                      {log.review_text && (
+                        <p
+                          className={`text-sm text-muted-foreground mt-1 transition-all duration-200 ${
+                            expanded ? "" : "line-clamp-2"
+                          }`}
+                        >
+                          {log.review_text}
+                        </p>
+                      )}
+                      {!log.review_text && (
+                        <p className="text-xs text-muted-foreground/60 mt-1 italic">No notes</p>
+                      )}
+                    </div>
+
+                    {/* Expand chevron */}
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      aria-hidden="true"
+                      className="flex-shrink-0 mt-1 text-muted-foreground transition-transform duration-200"
+                      style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}
+                    >
+                      <path
+                        d="M3 5L7 9L11 5"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Overlays ─────────────────────────────────────────────── */}
+      <EditSheet
+        item={initialItem}
+        isOpen={editOpen}
+        onClose={() => setEditOpen(false)}
+        onSaved={handleSaved}
+      />
+
+      <SmokeModal
+        isOpen={smokeOpen}
+        onClose={() => setSmokeOpen(false)}
+        onSmoked={handleSmoked}
+      />
+
+      {deleteOpen && (
+        <DeleteDialog
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteOpen(false)}
+          loading={deleteLoading}
+        />
+      )}
+    </div>
+  );
+}
