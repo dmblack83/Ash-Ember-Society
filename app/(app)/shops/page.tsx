@@ -1,20 +1,18 @@
-import { createClient } from "@/utils/supabase/server";
-import { redirect }     from "next/navigation";
-import { getMembershipTier } from "@/lib/membership";
-import { ShopsClient }  from "@/components/shops/ShopsClient";
+import { createClient }      from "@/utils/supabase/server";
+import { redirect }           from "next/navigation";
+import { getMembershipTier }  from "@/lib/membership";
+import { ShopsPageClient }    from "@/components/shops/ShopsPageClient";
 import type { MembershipTier } from "@/lib/stripe";
 
-export const metadata = {
-  title: "Partner Shops — Ash & Ember Society",
-};
+export const metadata = { title: "Find a Lounge — Ash & Ember Society" };
 
 /* ------------------------------------------------------------------
-   Shop type (mirrors the `shops` Supabase table)
+   Shared shop types (also imported by detail page and client)
    ------------------------------------------------------------------ */
 
 export interface ShopHours {
-  open:   string;  // "10:00"
-  close:  string;  // "20:00"
+  open:    string;
+  close:   string;
   closed?: boolean;
 }
 
@@ -64,21 +62,19 @@ export default async function ShopsPage() {
     supabase
       .from("shops")
       .select("*")
+      .order("is_founding_partner", { ascending: false })
+      .order("is_partner", { ascending: false })
       .order("name"),
   ]);
 
-  const tier        = getMembershipTier(profileData) as MembershipTier;
-  const shops       = (shopsData ?? []) as Shop[];
-  const displayName = profileData?.display_name ?? user.email?.split("@")[0] ?? "Member";
-  const memberSince = profileData?.created_at ?? null;
+  const tier  = getMembershipTier(profileData) as MembershipTier;
+  const shops = (shopsData ?? []) as Shop[];
 
   return (
-    <ShopsClient
+    <ShopsPageClient
       shops={shops}
       userTier={tier}
       userId={user.id}
-      displayName={displayName}
-      memberSince={memberSince}
     />
   );
 }
