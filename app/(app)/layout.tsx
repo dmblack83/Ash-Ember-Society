@@ -15,20 +15,31 @@ const NAV_ITEMS = [
     match: (p: string) => p.startsWith("/discover"),
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-        <circle
-          cx="11" cy="11" r="8"
+        <circle cx="11" cy="11" r="8" stroke={active ? "var(--primary)" : "currentColor"} strokeWidth="1.6"/>
+        <path d="M14.5 7.5l-2.8 5.6-5.6 2.8 2.8-5.6 5.6-2.8z" stroke={active ? "var(--primary)" : "currentColor"} strokeWidth="1.4" strokeLinejoin="round"/>
+        <circle cx="11" cy="11" r="1.2" fill={active ? "var(--primary)" : "currentColor"}/>
+      </svg>
+    ),
+  },
+  {
+    href:  "/feed",
+    label: "Lounge",
+    match: (p: string) => p.startsWith("/feed"),
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <path
+          d="M2 4.5A1.5 1.5 0 013.5 3h15A1.5 1.5 0 0120 4.5v9A1.5 1.5 0 0118.5 15H7l-4 4V4.5z"
           stroke={active ? "var(--primary)" : "currentColor"}
-          strokeWidth="1.6"
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          fill={active ? "rgba(193,120,23,0.12)" : "none"}
         />
         <path
-          d="M14.5 7.5l-2.8 5.6-5.6 2.8 2.8-5.6 5.6-2.8z"
+          d="M6 8h10M6 11.5h6"
           stroke={active ? "var(--primary)" : "currentColor"}
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-        <circle
-          cx="11" cy="11" r="1.2"
-          fill={active ? "var(--primary)" : "currentColor"}
+          strokeWidth="1.3"
+          strokeLinecap="round"
+          opacity={active ? 1 : 0.7}
         />
       </svg>
     ),
