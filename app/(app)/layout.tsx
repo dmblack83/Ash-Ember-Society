@@ -45,6 +45,35 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href:  "/shops",
+    label: "Shops",
+    match: (p: string) => p.startsWith("/shops"),
+    icon: (active: boolean) => (
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+        <path
+          d="M3 9.5V19a1 1 0 001 1h14a1 1 0 001-1V9.5"
+          stroke={active ? "var(--primary)" : "currentColor"}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+        <path
+          d="M1 5h20l-1.5 5a2 2 0 01-1.92 1.5H4.42A2 2 0 012.5 10L1 5z"
+          stroke={active ? "var(--primary)" : "currentColor"}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+          fill={active ? "rgba(193,120,23,0.12)" : "none"}
+        />
+        <path
+          d="M9 20v-6h4v6"
+          stroke={active ? "var(--primary)" : "currentColor"}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
     href:  "/humidor",
     label: "Humidor",
     match: (p: string) => p.startsWith("/humidor"),
