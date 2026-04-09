@@ -22,9 +22,9 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href:  "/feed",
+    href:  "/lounge",
     label: "Lounge",
-    match: (p: string) => p.startsWith("/feed"),
+    match: (p: string) => p.startsWith("/lounge"),
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
         <path
