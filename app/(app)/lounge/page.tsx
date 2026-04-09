@@ -12,7 +12,7 @@ export default async function LoungePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, membership_tier")
+    .select("display_name")
     .eq("id", user.id)
     .single();
 

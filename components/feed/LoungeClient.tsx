@@ -203,6 +203,7 @@ function ComposeBox({ userId, displayName, onPosted }: ComposeProps) {
   const [cigarBrand,   setCigarBrand]   = useState("");
   const [showCigar,    setShowCigar]    = useState(false);
   const [posting,      setPosting]      = useState(false);
+  const [postError,    setPostError]    = useState<string | null>(null);
   const fileRef  = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
@@ -216,43 +217,52 @@ function ComposeBox({ userId, displayName, onPosted }: ComposeProps) {
   async function handlePost() {
     if (!content.trim() || posting) return;
     setPosting(true);
+    setPostError(null);
 
-    let image_url: string | null = null;
-    if (imageFile) {
-      const ext  = imageFile.name.split(".").pop();
-      const path = `${userId}/${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from("post-images")
-        .upload(path, imageFile);
-      if (!upErr) {
-        const { data } = supabase.storage.from("post-images").getPublicUrl(path);
-        image_url = data.publicUrl;
+    try {
+      let image_url: string | null = null;
+      if (imageFile) {
+        const ext  = imageFile.name.split(".").pop();
+        const path = `${userId}/${Date.now()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("post-images")
+          .upload(path, imageFile);
+        if (!upErr) {
+          const { data } = supabase.storage.from("post-images").getPublicUrl(path);
+          image_url = data.publicUrl;
+        }
       }
+
+      const { data, error } = await supabase
+        .from("posts")
+        .insert({
+          user_id:     userId,
+          content:     content.trim(),
+          image_url,
+          cigar_name:  cigarName.trim()  || null,
+          cigar_brand: cigarBrand.trim() || null,
+        })
+        .select("*, profiles(display_name)")
+        .single();
+
+      if (error) {
+        console.error("Post insert error:", error);
+        setPostError(error.message);
+      } else if (data) {
+        onPosted({ ...data, liked_by_me: false } as Post);
+        setContent("");
+        setImageFile(null);
+        setPreview(null);
+        setCigarName("");
+        setCigarBrand("");
+        setShowCigar(false);
+      }
+    } catch (err) {
+      console.error("Unexpected post error:", err);
+      setPostError("Something went wrong. Please try again.");
+    } finally {
+      setPosting(false);
     }
-
-    const { data, error } = await supabase
-      .from("posts")
-      .insert({
-        user_id:     userId,
-        content:     content.trim(),
-        image_url,
-        cigar_name:  cigarName.trim()  || null,
-        cigar_brand: cigarBrand.trim() || null,
-      })
-      .select("*, profiles(display_name)")
-      .single();
-
-    if (!error && data) {
-      onPosted({ ...data, liked_by_me: false } as Post);
-      setContent("");
-      setImageFile(null);
-      setPreview(null);
-      setCigarName("");
-      setCigarBrand("");
-      setShowCigar(false);
-    }
-
-    setPosting(false);
   }
 
   const hasCigar = cigarName.trim().length > 0;
@@ -331,6 +341,13 @@ function ComposeBox({ userId, displayName, onPosted }: ComposeProps) {
             onClose={() => setShowCigar(false)}
           />
         </div>
+      )}
+
+      {/* Error message */}
+      {postError && (
+        <p className="ml-[52px] text-xs" style={{ color: "var(--destructive)" }}>
+          {postError}
+        </p>
       )}
 
       {/* Footer: actions + post button */}
