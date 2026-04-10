@@ -11,14 +11,14 @@ import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
 
 interface Cigar {
   id: string;
-  brand: string;
-  line: string;
+  brand: string | null;
+  series: string | null;
   name: string;
-  vitola: string;
-  strength: string;
-  wrapper: string;
-  image_url: string | null;
-  avg_rating: number | null;
+  format: string | null;
+  wrapper: string | null;
+  wrapper_country: string | null;
+  ring_gauge: number | null;
+  length_inches: number | null;
 }
 
 interface HumidorItem {
@@ -39,46 +39,20 @@ type SortOption =
   | "date_oldest"
   | "brand_asc"
   | "brand_desc"
-  | "rating_highest"
   | "aging_longest"
   | "price_highest";
-type StrengthFilter =
-  | "all"
-  | "mild"
-  | "mild_medium"
-  | "medium"
-  | "medium_full"
-  | "full";
 
 /* ------------------------------------------------------------------
    Constants
    ------------------------------------------------------------------ */
 
 const SORT_LABELS: Record<SortOption, string> = {
-  date_newest:    "Date Added (newest)",
-  date_oldest:    "Date Added (oldest)",
-  brand_asc:      "Brand A–Z",
-  brand_desc:     "Brand Z–A",
-  rating_highest: "Rating (highest)",
-  aging_longest:  "Aging (longest)",
-  price_highest:  "Price (highest)",
-};
-
-const STRENGTH_FILTER_LABELS: Record<StrengthFilter, string> = {
-  all:         "All strengths",
-  mild:        "Mild",
-  mild_medium: "Mild-Medium",
-  medium:      "Medium",
-  medium_full: "Medium-Full",
-  full:        "Full",
-};
-
-const STRENGTH_LABEL: Record<string, string> = {
-  mild:        "Mild",
-  mild_medium: "Mild-Medium",
-  medium:      "Medium",
-  medium_full: "Medium-Full",
-  full:        "Full",
+  date_newest:  "Date Added (newest)",
+  date_oldest:  "Date Added (oldest)",
+  brand_asc:    "Brand A–Z",
+  brand_desc:   "Brand Z–A",
+  aging_longest: "Aging (longest)",
+  price_highest: "Price (highest)",
 };
 
 /* ------------------------------------------------------------------
@@ -107,13 +81,9 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
     case "brand_asc":
-      return arr.sort((a, b) => a.cigar.brand.localeCompare(b.cigar.brand));
+      return arr.sort((a, b) => (a.cigar.brand ?? "").localeCompare(b.cigar.brand ?? ""));
     case "brand_desc":
-      return arr.sort((a, b) => b.cigar.brand.localeCompare(a.cigar.brand));
-    case "rating_highest":
-      return arr.sort(
-        (a, b) => (b.cigar.avg_rating ?? 0) - (a.cigar.avg_rating ?? 0)
-      );
+      return arr.sort((a, b) => (b.cigar.brand ?? "").localeCompare(a.cigar.brand ?? ""));
     case "aging_longest":
       return arr.sort(
         (a, b) => agingDays(b.aging_start_date) - agingDays(a.aging_start_date)
@@ -123,11 +93,6 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
         (a, b) => (b.price_paid_cents ?? 0) - (a.price_paid_cents ?? 0)
       );
   }
-}
-
-function filterItems(items: HumidorItem[], filter: StrengthFilter): HumidorItem[] {
-  if (filter === "all") return items;
-  return items.filter((i) => i.cigar.strength === filter);
 }
 
 /* ------------------------------------------------------------------
@@ -262,8 +227,7 @@ function SkeletonListRow() {
 function GridCard({ item }: { item: HumidorItem }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
-  const displayName =
-    c.name && c.name !== c.line ? `${c.line} — ${c.name}` : c.line;
+  const displayName = c.series ?? c.name;
 
   return (
     <Link href={`/humidor/${item.id}`} className="block">
@@ -281,18 +245,9 @@ function GridCard({ item }: { item: HumidorItem }) {
           </div>
         )}
 
-        {/* Image / brand placeholder */}
+        {/* Brand placeholder */}
         <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0">
-          {c.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={c.image_url}
-              alt={`${c.brand} ${c.line}`}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <BrandPlaceholder brand={c.brand} />
-          )}
+          <BrandPlaceholder brand={c.brand ?? "?"} />
         </div>
 
         {/* Info */}
@@ -303,12 +258,16 @@ function GridCard({ item }: { item: HumidorItem }) {
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
             {displayName}
           </p>
-          <p className="text-xs text-muted-foreground">{c.vitola}</p>
+          {c.format && (
+            <p className="text-xs text-muted-foreground">{c.format}</p>
+          )}
 
           <div className="flex items-center justify-between mt-auto pt-1.5 flex-wrap gap-1">
             <AgingBadge days={days} />
-            {c.avg_rating != null && (
-              <RatingStars rating={c.avg_rating} />
+            {c.wrapper && (
+              <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
+                {c.wrapper}
+              </span>
             )}
           </div>
         </div>
@@ -324,24 +283,14 @@ function GridCard({ item }: { item: HumidorItem }) {
 function ListRow({ item }: { item: HumidorItem }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
-  const displayName =
-    c.name && c.name !== c.line ? `${c.line} — ${c.name}` : c.line;
+  const displayName = c.series ?? c.name;
 
   return (
     <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-          {c.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={c.image_url}
-              alt={`${c.brand} ${c.line}`}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <BrandPlaceholder brand={c.brand} />
-          )}
+          <BrandPlaceholder brand={c.brand ?? "?"} />
         </div>
 
         {/* Brand + name */}
@@ -352,7 +301,9 @@ function ListRow({ item }: { item: HumidorItem }) {
           <p className="text-sm font-semibold text-foreground truncate">
             {displayName}
           </p>
-          <p className="text-xs text-muted-foreground">{c.vitola}</p>
+          {c.format && (
+            <p className="text-xs text-muted-foreground">{c.format}</p>
+          )}
         </div>
 
         {/* Quantity */}
@@ -371,16 +322,11 @@ function ListRow({ item }: { item: HumidorItem }) {
           <AgingBadge days={days} />
         </div>
 
-        {/* Strength badge (hidden on mobile) */}
-        <span className="flex-shrink-0 text-[10px] font-medium hidden md:block text-muted-foreground">
-          {STRENGTH_LABEL[c.strength] ?? c.strength}
-        </span>
-
-        {/* Rating */}
-        {c.avg_rating != null && (
-          <div className="flex-shrink-0 hidden sm:block">
-            <RatingStars rating={c.avg_rating} />
-          </div>
+        {/* Wrapper (hidden on mobile) */}
+        {c.wrapper && (
+          <span className="flex-shrink-0 text-[10px] font-medium hidden md:block text-muted-foreground">
+            {c.wrapper}
+          </span>
         )}
 
         {/* Chevron */}
@@ -526,7 +472,6 @@ export default function HumidorPage() {
   const [hasWishlist, setHasWishlist] = useState(false);
   const [view, setView] = useState<ViewMode>("grid");
   const [sort, setSort] = useState<SortOption>("date_newest");
-  const [strengthFilter, setStrengthFilter] = useState<StrengthFilter>("all");
   const [showAddSheet, setShowAddSheet] = useState(false);
   const hasMounted = useRef(false);
 
@@ -551,10 +496,10 @@ export default function HumidorPage() {
     } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    /* Fetch humidor items with embedded cigar data */
+    /* Fetch humidor items with embedded cigar data from cigar_catalog */
     const { data, error: fetchError } = await supabase
       .from("humidor_items")
-      .select("*, cigar:cigars(*)")
+      .select("*, cigar:cigar_catalog(*)")
       .eq("user_id", user.id)
       .eq("is_wishlist", false)
       .order("created_at", { ascending: false });
@@ -582,8 +527,8 @@ export default function HumidorPage() {
     fetchItems();
   }, [fetchItems]);
 
-  /* Derived — sort then filter */
-  const displayed = filterItems(sortItems(items, sort), strengthFilter);
+  /* Derived — sorted */
+  const displayed = sortItems(items, sort);
 
   /* Stats */
   const totalCount = items.reduce((s, i) => s + i.quantity, 0);
@@ -698,22 +643,6 @@ export default function HumidorPage() {
             ))}
           </select>
 
-          {/* Strength filter */}
-          <select
-            className="input py-2 text-sm flex-1 sm:flex-none sm:w-44"
-            value={strengthFilter}
-            onChange={(e) => setStrengthFilter(e.target.value as StrengthFilter)}
-            aria-label="Filter by strength"
-          >
-            {(Object.keys(STRENGTH_FILTER_LABELS) as StrengthFilter[]).map(
-              (key) => (
-                <option key={key} value={key}>
-                  {STRENGTH_FILTER_LABELS[key]}
-                </option>
-              )
-            )}
-          </select>
-
           {/* Refresh */}
           <button
             type="button"
@@ -772,20 +701,6 @@ export default function HumidorPage() {
         </div>
       ) : items.length === 0 ? (
         <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowAddSheet(true)} />
-      ) : displayed.length === 0 ? (
-        /* No results after filtering */
-        <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-          <p className="text-base font-medium text-foreground">
-            No {STRENGTH_FILTER_LABELS[strengthFilter]} cigars in your humidor
-          </p>
-          <button
-            type="button"
-            className="text-sm text-muted-foreground underline underline-offset-2"
-            onClick={() => setStrengthFilter("all")}
-          >
-            Clear filter
-          </button>
-        </div>
       ) : view === "grid" ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
           {displayed.map((item) => (
