@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
+import { Toast } from "@/components/ui/toast";
+import { CigarPlaceholder } from "@/components/ui/cigar-placeholder";
+import { SkeletonCard } from "@/components/ui/skeleton-card";
 
 /* ------------------------------------------------------------------
    Types
@@ -17,40 +20,6 @@ const PAGE_SIZE = 20;
 /* ------------------------------------------------------------------
    Cigar placeholder SVG
    ------------------------------------------------------------------ */
-
-function CigarPlaceholder() {
-  return (
-    <div className="flex items-center justify-center w-full h-full">
-      <svg
-        width="96" height="28" viewBox="0 0 96 28" fill="none"
-        aria-hidden="true" className="text-muted-foreground/30"
-      >
-        <rect x="8" y="9" width="68" height="10" rx="5" fill="currentColor" />
-        <ellipse cx="76" cy="14" rx="12" ry="6" fill="currentColor" opacity="0.65" />
-        <rect x="4" y="9" width="6" height="10" rx="2" fill="currentColor" opacity="0.45" />
-        <rect x="26" y="9" width="11" height="10" rx="1" fill="currentColor" opacity="0.22" />
-        <ellipse cx="5" cy="14" rx="3.5" ry="3.5" fill="#E8642C" opacity="0.4" />
-      </svg>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Skeleton card
-   ------------------------------------------------------------------ */
-
-function SkeletonCard() {
-  return (
-    <div className="card animate-pulse flex flex-col gap-3">
-      <div className="w-full aspect-[16/9] rounded-lg bg-muted" />
-      <div className="flex flex-col gap-2">
-        <div className="h-2.5 bg-muted rounded w-1/3" />
-        <div className="h-4 bg-muted rounded w-3/4" />
-        <div className="h-2.5 bg-muted rounded w-1/4" />
-      </div>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------
    Catalog card — tappable, opens action sheet
@@ -299,28 +268,6 @@ function CigarActionSheet({
 /* ------------------------------------------------------------------
    Toast
    ------------------------------------------------------------------ */
-
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
-
-  return (
-    <div
-      className="fixed bottom-6 right-6 z-[60] card animate-slide-up flex items-center gap-3 max-w-xs"
-      style={{ borderLeft: "4px solid var(--primary)" }}
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-        className="flex-shrink-0" style={{ color: "var(--primary)" }} aria-hidden="true">
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.5"
-          strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <p className="text-sm text-foreground">{message}</p>
-    </div>
-  );
-}
 
 /* ------------------------------------------------------------------
    Page

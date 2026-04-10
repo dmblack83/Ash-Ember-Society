@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { GoogleMap, useJsApiLoader, MarkerF }                 from "@react-google-maps/api";
 import Link                                                    from "next/link";
-import type { Shop }                                           from "@/app/(app)/shops/page";
+import type { Shop }                                           from "@/app/(app)/discover/shops/page";
 import type { MembershipTier }                                 from "@/lib/stripe";
 import { distanceMiles, formatDistance }                       from "@/lib/geo";
 import type { LatLng }                                         from "@/lib/geo";
@@ -174,7 +174,7 @@ function ShopCard({ shop, userLoc, index, onSelect, selected }: ShopCardProps) {
 
       <div className="px-4 pb-3">
         <Link
-          href={`/shops/${shop.slug}`}
+          href={`/discover/shops/${shop.slug}`}
           className="btn btn-secondary w-full text-xs py-2 text-center"
           style={{ minHeight: 44 }}
         >
@@ -242,7 +242,7 @@ function PinSheet({ shop, userLoc, onClose }: PinSheetProps) {
               </button>
             </div>
             <Link
-              href={`/shops/${shop.slug}`}
+              href={`/discover/shops/${shop.slug}`}
               className="btn btn-primary w-full text-center"
               style={{ minHeight: 44 }}
             >

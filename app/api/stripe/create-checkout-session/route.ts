@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
         metadata: { supabase_user_id: user.id },
       },
 
-      success_url: `${origin}/membership/success?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${origin}/account/membership/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${origin}/membership`,
 
       // Allow switching between monthly and annual before confirming

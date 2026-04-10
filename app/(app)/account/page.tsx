@@ -6,10 +6,10 @@ import { MembershipClient } from "@/components/membership/MembershipClient";
 import type { MembershipTier } from "@/lib/stripe";
 
 export const metadata = {
-  title: "Membership — Ash & Ember Society",
+  title: "Account — Ash & Ember Society",
 };
 
-export default async function MembershipPage() {
+export default async function AccountPage() {
   const supabase = await createClient();
 
   const {
@@ -23,7 +23,7 @@ export default async function MembershipPage() {
     .eq("id", user.id)
     .single();
 
-  const currentTier   = getMembershipTier(profile) as MembershipTier;
+  const currentTier       = getMembershipTier(profile) as MembershipTier;
   const hasStripeCustomer = !!(profile?.stripe_customer_id);
 
   /* ── For paid users: fetch next billing date from Stripe ──────── */

@@ -135,7 +135,7 @@ export async function PaywallGate({ requiredTier, children, fallback }: PaywallG
           to unlock this.
         </p>
 
-        <Link href="/membership" className="btn btn-primary text-sm">
+        <Link href="/account" className="btn btn-primary text-sm">
           See Plans
         </Link>
       </div>

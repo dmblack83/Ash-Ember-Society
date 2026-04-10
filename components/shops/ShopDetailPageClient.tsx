@@ -5,7 +5,8 @@ import Link                     from "next/link";
 import { createClient }         from "@/utils/supabase/client";
 import { MembershipCard }       from "@/components/membership/MembershipCard";
 import { Divider }              from "@/components/ui/divider";
-import type { Shop }            from "@/app/(app)/shops/page";
+import { Toast }                from "@/components/ui/toast";
+import type { Shop }            from "@/app/(app)/discover/shops/page";
 import type { MembershipTier }  from "@/lib/stripe";
 
 /* ------------------------------------------------------------------
@@ -30,26 +31,6 @@ interface ShopDetailPageClientProps {
 /* ------------------------------------------------------------------
    Sub-components
    ------------------------------------------------------------------ */
-
-function Toast({ message, onDone }: { message: string; onDone: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDone, 3000);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 animate-slide-up">
-      <div
-        className="px-4 py-3 rounded-xl text-sm font-medium shadow-lg whitespace-nowrap"
-        style={{
-          backgroundColor: "var(--primary)",
-          color: "var(--primary-foreground)",
-        }}
-      >
-        {message}
-      </div>
-    </div>
-  );
-}
 
 function PartnerBadge({ shop }: { shop: Shop }) {
   if (!shop.is_partner && !shop.is_founding_partner) return null;
@@ -143,7 +124,7 @@ export function ShopDetailPageClient({
         }}
       >
         <Link
-          href="/shops"
+          href="/discover/shops"
           className="flex items-center justify-center rounded-full flex-shrink-0"
           style={{ width: 44, height: 44, backgroundColor: "var(--muted)" }}
           aria-label="Back to shops"
@@ -369,7 +350,7 @@ export function ShopDetailPageClient({
                         )}
                       </div>
                     </div>
-                    <Link href="/membership" className="btn btn-primary w-full text-center block" style={{ minHeight: 52 }}>
+                    <Link href="/account" className="btn btn-primary w-full text-center block" style={{ minHeight: 52 }}>
                       See Membership Plans
                     </Link>
                   </>
@@ -452,7 +433,7 @@ export function ShopDetailPageClient({
       )}
 
       {/* Toast */}
-      {toast && <Toast message={toast} onDone={() => setToast(null)} />}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
 }

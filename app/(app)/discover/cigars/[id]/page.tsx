@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
+import { CigarPlaceholderLarge } from "@/components/ui/cigar-placeholder";
 
 /* ------------------------------------------------------------------
    Types
@@ -27,27 +28,6 @@ interface CigarDetail {
 /* ------------------------------------------------------------------
    Sub-components
    ------------------------------------------------------------------ */
-
-function CigarPlaceholderLarge() {
-  return (
-    <div className="flex items-center justify-center w-full h-full">
-      <svg
-        width="160"
-        height="44"
-        viewBox="0 0 160 44"
-        fill="none"
-        aria-hidden="true"
-        className="text-muted-foreground/25"
-      >
-        <rect x="12" y="14" width="116" height="16" rx="8" fill="currentColor" />
-        <ellipse cx="128" cy="22" rx="20" ry="10" fill="currentColor" opacity="0.65" />
-        <rect x="6" y="14" width="10" height="16" rx="4" fill="currentColor" opacity="0.45" />
-        <rect x="42" y="14" width="18" height="16" rx="2" fill="currentColor" opacity="0.22" />
-        <ellipse cx="8" cy="22" rx="5" ry="5" fill="#E8642C" opacity="0.4" />
-      </svg>
-    </div>
-  );
-}
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
