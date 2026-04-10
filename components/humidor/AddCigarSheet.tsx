@@ -1,24 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { CigarSearch, CatalogResult } from "@/components/cigar-search";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
-
-interface CatalogResult {
-  id:              string;
-  brand:           string | null;
-  series:          string | null;
-  name:            string;
-  format:          string | null;
-  ring_gauge:      number | null;
-  length_inches:   number | null;
-  wrapper:         string | null;
-  wrapper_country: string | null;
-  usage_count:     number;
-}
 
 interface ManualFields {
   brand:          string;
@@ -28,27 +16,6 @@ interface ManualFields {
   lengthInches:   string;
   wrapper:        string;
   wrapperCountry: string;
-}
-
-/* ------------------------------------------------------------------
-   Highlight matched text in gold
-   ------------------------------------------------------------------ */
-
-function Highlight({ text, query }: { text: string; query: string }) {
-  if (!text || !query.trim()) return <>{text}</>;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts   = text.split(new RegExp(`(${escaped})`, "gi"));
-  return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <span key={i} style={{ color: "var(--gold)", fontWeight: 600 }}>{part}</span>
-        ) : (
-          part
-        )
-      )}
-    </>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -62,120 +29,42 @@ export interface AddCigarSheetProps {
 }
 
 export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
-  /* Search */
-  const [query,        setQuery]        = useState("");
-  const [results,      setResults]      = useState<CatalogResult[]>([]);
-  const [searching,    setSearching]    = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-
   /* Selection */
-  const [selected,         setSelected]         = useState<CatalogResult | null>(null);
-  const [isManual,         setIsManual]          = useState(false);
-  const [manual,           setManual]            = useState<ManualFields>({
+  const [selected,        setSelected]        = useState<CatalogResult | null>(null);
+  const [isManual,        setIsManual]        = useState(false);
+  const [manual,          setManual]          = useState<ManualFields>({
     brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "",
   });
-  const [submitToCatalog,  setSubmitToCatalog]   = useState(true);
+  const [submitToCatalog, setSubmitToCatalog] = useState(true);
 
   /* Humidor form */
-  const [quantity,      setQuantity]      = useState(1);
-  const [purchaseDate,  setPurchaseDate]  = useState("");
-  const [priceStr,      setPriceStr]      = useState("");
-  const [source,        setSource]        = useState("");
-  const [agingStart,    setAgingStart]    = useState("");
-  const [notes,         setNotes]         = useState("");
+  const [quantity,     setQuantity]     = useState(1);
+  const [purchaseDate, setPurchaseDate] = useState("");
+  const [priceStr,     setPriceStr]     = useState("");
+  const [source,       setSource]       = useState("");
+  const [agingStart,   setAgingStart]   = useState("");
+  const [notes,        setNotes]        = useState("");
 
   /* Submit */
-  const [submitting,   setSubmitting]   = useState(false);
-  const [submitError,  setSubmitError]  = useState<string | null>(null);
+  const [submitting,  setSubmitting]  = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const searchRef    = useRef<HTMLInputElement>(null);
-  const dropdownRef  = useRef<HTMLDivElement>(null);
-  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const supabase     = createClient();
-
-  /* ── Reset when sheet opens + load popular cigars ─────────── */
+  /* Reset when sheet opens */
   useEffect(() => {
     if (!open) return;
-    setQuery(""); setResults([]); setShowDropdown(false);
     setSelected(null); setIsManual(false);
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
     setSubmitToCatalog(true);
     setQuantity(1); setPurchaseDate(""); setPriceStr("");
     setSource(""); setAgingStart(""); setNotes("");
     setSubmitError(null);
-    // Load popular cigars immediately
-    supabase
-      .from("cigar_catalog")
-      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
-      .order("usage_count", { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        setResults(data ?? []);
-        setShowDropdown(true);
-      });
-    setTimeout(() => searchRef.current?.focus(), 120);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* ── Debounced catalog search ──────────────────────────────── */
-  const doSearch = useCallback(async (q: string) => {
-    setSearching(true);
-    const { data } = await supabase
-      .from("cigar_catalog")
-      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
-      .or(`name.ilike.%${q}%,brand.ilike.%${q}%,series.ilike.%${q}%`)
-      .limit(8);
-    setResults(data ?? []);
-    setShowDropdown(true);
-    setSearching(false);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!query.trim()) {
-      // Restore popular list when query is cleared
-      supabase
-        .from("cigar_catalog")
-        .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
-        .order("usage_count", { ascending: false })
-        .limit(20)
-        .then(({ data }) => { setResults(data ?? []); setShowDropdown(true); });
-      return;
-    }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, doSearch]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* ── Dismiss dropdown on outside tap ─────────────────────── */
-  useEffect(() => {
-    function onPointerDown(e: PointerEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setShowDropdown(false);
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    return () => document.removeEventListener("pointerdown", onPointerDown);
-  }, []);
+  }, [open]);
 
   /* ── Handlers ────────────────────────────────────────────── */
-  function handleSelect(r: CatalogResult) {
-    setSelected(r);
-    setIsManual(false);
-    setShowDropdown(false);
-    setQuery(r.name);
-  }
-
-  function handleManualMode() {
-    setSelected(null);
-    setIsManual(true);
-    setShowDropdown(false);
-  }
 
   function handleClear() {
     setSelected(null);
     setIsManual(false);
-    setQuery("");
-    setResults([]);
-    setTimeout(() => searchRef.current?.focus(), 50);
   }
 
   async function handleSubmit() {
@@ -184,29 +73,37 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     const format         = isManual ? manual.format.trim()         : (selected?.format          ?? "");
     const wrapper        = isManual ? manual.wrapper.trim()        : (selected?.wrapper         ?? null);
     const wrapperCountry = isManual ? manual.wrapperCountry.trim() : (selected?.wrapper_country ?? null);
-    const ringGauge      = isManual ? (parseFloat(manual.ringGauge)      || null) : (selected?.ring_gauge    ?? null);
-    const lengthInches   = isManual ? (parseFloat(manual.lengthInches)   || null) : (selected?.length_inches ?? null);
+    const ringGauge      = isManual ? (parseFloat(manual.ringGauge)    || null) : (selected?.ring_gauge    ?? null);
+    const lengthInches   = isManual ? (parseFloat(manual.lengthInches) || null) : (selected?.length_inches ?? null);
 
     if (!brand) { setSubmitError("Brand is required."); return; }
 
     setSubmitting(true);
     setSubmitError(null);
 
-    try {
-      /* 1 — Find or create the cigar row */
-      const { data: cigarId, error: rpcErr } = await supabase.rpc("find_or_create_cigar", {
-        p_brand:           brand,
-        p_line:            series          || null,
-        p_vitola:          format          || null,
-        p_wrapper:         wrapper         || null,
-        p_wrapper_country: wrapperCountry  || null,
-        p_ring_gauge:      ringGauge,
-        p_length_inches:   lengthInches,
-      });
+    const supabase = createClient();
 
-      if (rpcErr || !cigarId) {
-        setSubmitError(rpcErr?.message ?? "Failed to find or create cigar.");
-        return;
+    try {
+      /* 1 — Resolve cigar_catalog id */
+      let cigarId: string;
+
+      if (selected) {
+        cigarId = selected.id;
+      } else {
+        const { data, error: rpcErr } = await supabase.rpc("insert_cigar_to_catalog", {
+          p_brand:           brand,
+          p_series:          series          || null,
+          p_format:          format          || null,
+          p_ring_gauge:      ringGauge,
+          p_length_inches:   lengthInches,
+          p_wrapper:         wrapper         || null,
+          p_wrapper_country: wrapperCountry  || null,
+        });
+        if (rpcErr || !data) {
+          setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
+          return;
+        }
+        cigarId = data as string;
       }
 
       /* 2 — Current user */
@@ -229,7 +126,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
       if (insertErr) { setSubmitError(insertErr.message); return; }
 
-      /* 4 — Increment usage_count on the catalog row that was selected */
+      /* 4 — Increment usage_count on the selected catalog row */
       if (selected) {
         await supabase
           .from("cigar_catalog")
@@ -237,7 +134,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           .eq("id", selected.id);
       }
 
-      /* 5 — Optionally submit catalog suggestion */
+      /* 5 — Optionally submit catalog suggestion for manual entries */
       if (isManual && submitToCatalog && brand) {
         await supabase.from("cigar_catalog_suggestions").insert({
           suggested_by:    user.id,
@@ -271,9 +168,9 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
       <div
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
-          backgroundColor:  "rgba(0,0,0,0.65)",
-          opacity:          open ? 1 : 0,
-          pointerEvents:    open ? "auto" : "none",
+          backgroundColor: "rgba(0,0,0,0.65)",
+          opacity:         open ? 1 : 0,
+          pointerEvents:   open ? "auto" : "none",
         }}
         onClick={onClose}
         aria-hidden="true"
@@ -286,13 +183,13 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
         aria-label="Add cigar to humidor"
         className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
         style={{
-          height:                  "calc(100dvh - 48px)",
-          backgroundColor:         "var(--background)",
-          borderTopLeftRadius:     20,
-          borderTopRightRadius:    20,
-          borderTop:               "1px solid var(--border)",
-          transform:               open ? "translateY(0)" : "translateY(100%)",
-          transition:              "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+          height:               "calc(100dvh - 48px)",
+          backgroundColor:      "var(--background)",
+          borderTopLeftRadius:  20,
+          borderTopRightRadius: 20,
+          borderTop:            "1px solid var(--border)",
+          transform:            open ? "translateY(0)" : "translateY(100%)",
+          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
         }}
       >
         {/* Drag handle */}
@@ -318,7 +215,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
             aria-label="Close"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
         </div>
@@ -326,118 +223,13 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-8 space-y-5">
 
-          {/* ── Search field + dropdown ─────────────────────────── */}
+          {/* ── Search ─────────────────────────────────────────── */}
           {!hasSelection && (
-            <div className="relative" ref={dropdownRef}>
-              <div className="relative">
-                <svg
-                  className="absolute left-4 top-1/2 -translate-y-1/2 flex-shrink-0"
-                  style={{ color: "var(--muted-foreground)" }}
-                  width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"
-                >
-                  <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.4"/>
-                  <path d="M12 12l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-                <input
-                  ref={searchRef}
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search cigars..."
-                  className="input w-full pl-11 pr-4 text-base"
-                  style={{ minHeight: 52 }}
-                  autoComplete="off"
-                />
-                {searching && (
-                  <span className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center">
-                    <span
-                      className="rounded-full border animate-spin"
-                      style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
-                    />
-                  </span>
-                )}
-              </div>
-
-              {/* Dropdown results */}
-              {showDropdown && (
-                <div
-                  className="absolute left-0 right-0 z-10 mt-2 rounded-2xl overflow-hidden glass animate-fade-in"
-                  style={{ border: "1px solid var(--border)" }}
-                >
-                  {results.length === 0 ? (
-                    <div className="px-4 py-5 space-y-3 text-center">
-                      <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                        No results for &ldquo;{query}&rdquo;
-                      </p>
-                      <button
-                        onClick={handleManualMode}
-                        className="w-full text-sm font-semibold rounded-xl transition-colors"
-                        style={{
-                          minHeight: 44,
-                          color: "var(--primary)",
-                          backgroundColor: "rgba(193,120,23,0.10)",
-                        }}
-                      >
-                        Can&apos;t find it? Add manually
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      {!query.trim() && (
-                        <div
-                          className="px-4 py-2"
-                          style={{ borderBottom: "1px solid var(--border)" }}
-                        >
-                          <span
-                            className="text-[10px] font-bold tracking-widest uppercase"
-                            style={{ color: "var(--muted-foreground)" }}
-                          >
-                            Popular Cigars
-                          </span>
-                        </div>
-                      )}
-                      {results.map((r, i) => (
-                        <button
-                          key={r.id}
-                          onClick={() => handleSelect(r)}
-                          className="w-full text-left px-4 flex flex-col justify-center transition-colors active:opacity-70"
-                          style={{
-                            minHeight: 56,
-                            borderBottom: i < results.length - 1 ? "1px solid var(--border)" : "none",
-                          }}
-                        >
-                          <span className="text-sm font-semibold text-foreground leading-snug">
-                            <Highlight text={r.brand ?? ""} query={query} />
-                            {r.series && (
-                              <span className="font-normal text-muted-foreground">
-                                {" · "}<Highlight text={r.series} query={query} />
-                              </span>
-                            )}
-                          </span>
-                          {(r.format || r.wrapper || r.ring_gauge) && (
-                            <span className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                              {[
-                                r.format,
-                                r.wrapper,
-                                r.ring_gauge ? `${r.ring_gauge} ring` : null,
-                                r.length_inches ? `${r.length_inches}"` : null,
-                              ].filter(Boolean).join(" · ")}
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                      <button
-                        onClick={handleManualMode}
-                        className="w-full text-sm text-center transition-colors active:opacity-70"
-                        style={{ minHeight: 48, color: "var(--muted-foreground)", borderTop: "1px solid var(--border)" }}
-                      >
-                        Can&apos;t find it? Add manually
-                      </button>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <CigarSearch
+              onSelect={setSelected}
+              onManual={() => setIsManual(true)}
+              autoFocus={open}
+            />
           )}
 
           {/* ── Selected cigar card ─────────────────────────────── */}
@@ -467,8 +259,8 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                       {[
                         selected.format,
                         selected.wrapper,
-                        selected.ring_gauge   ? `${selected.ring_gauge} ring`    : null,
-                        selected.length_inches ? `${selected.length_inches}"`    : null,
+                        selected.ring_gauge    ? `${selected.ring_gauge} ring`  : null,
+                        selected.length_inches ? `${selected.length_inches}"`   : null,
                       ].filter(Boolean).join(" · ")}
                     </p>
                   )}
@@ -600,13 +392,13 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   style={{
                     width: 20, height: 20,
                     backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
-                    border:          `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
+                    border: `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
                   }}
                   onClick={() => setSubmitToCatalog((v) => !v)}
                 >
                   {submitToCatalog && (
                     <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-                      <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                      <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   )}
                 </div>

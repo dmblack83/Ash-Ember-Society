@@ -1,55 +1,30 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { CigarSearch, CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
-interface Cigar {
-  id: string;
-  brand: string;
-  line: string;
-  name: string;
-  vitola: string;
-  strength: string;
-  wrapper: string;
-  country: string;
-  image_url: string | null;
-  avg_rating: number | null;
-}
-
 interface WishlistItem {
-  id: string;
-  cigar_id: string;
+  id:         string;
+  cigar_id:   string;
   created_at: string;
-  cigar: Cigar;
+  cigar:      CatalogResult;
 }
 
-/* ------------------------------------------------------------------
-   Strength helpers (mirrors discover/detail pages)
-   ------------------------------------------------------------------ */
-
-const STRENGTH_LABEL: Record<string, string> = {
-  mild: "Mild",
-  mild_medium: "Mild-Medium",
-  medium: "Medium",
-  medium_full: "Medium-Full",
-  full: "Full",
-};
-
-function strengthStyle(s: string): { backgroundColor: string; color: string } {
-  const map: Record<string, { backgroundColor: string; color: string }> = {
-    mild:        { backgroundColor: "#1E3A2A", color: "#5A9A72" },
-    mild_medium: { backgroundColor: "#2A2A1A", color: "#8A8A42" },
-    medium:      { backgroundColor: "var(--secondary)", color: "#C17817" },
-    medium_full: { backgroundColor: "#2A1A0A", color: "#C17817" },
-    full:        { backgroundColor: "#2A1010", color: "#C44536" },
-  };
-  return map[s] ?? { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" };
+interface ManualFields {
+  brand:          string;
+  series:         string;
+  format:         string;
+  ringGauge:      string;
+  lengthInches:   string;
+  wrapper:        string;
+  wrapperCountry: string;
 }
 
 /* ------------------------------------------------------------------
@@ -109,12 +84,437 @@ function SkeletonCard() {
         <div className="h-2.5 bg-muted rounded w-1/3" />
         <div className="h-4 bg-muted rounded w-3/4" />
         <div className="h-2.5 bg-muted rounded w-1/4" />
-        <div className="flex gap-2 mt-1">
-          <div className="h-4 bg-muted rounded-full w-20" />
-          <div className="h-3 bg-muted rounded w-24 ml-auto self-center" />
-        </div>
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Add Wishlist Sheet
+   ------------------------------------------------------------------ */
+
+function AddWishlistSheet({
+  open,
+  onClose,
+  onAdded,
+}: {
+  open:    boolean;
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [selected,        setSelected]        = useState<CatalogResult | null>(null);
+  const [isManual,        setIsManual]        = useState(false);
+  const [manual,          setManual]          = useState<ManualFields>({
+    brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "",
+  });
+  const [submitToCatalog, setSubmitToCatalog] = useState(true);
+  const [notes,           setNotes]           = useState("");
+  const [submitting,      setSubmitting]      = useState(false);
+  const [submitError,     setSubmitError]     = useState<string | null>(null);
+
+  /* Reset when sheet opens */
+  useEffect(() => {
+    if (!open) return;
+    setSelected(null);
+    setIsManual(false);
+    setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
+    setSubmitToCatalog(true);
+    setNotes("");
+    setSubmitError(null);
+  }, [open]);
+
+  function handleClear() {
+    setSelected(null);
+    setIsManual(false);
+  }
+
+  async function handleSubmit() {
+    const brand          = isManual ? manual.brand.trim()          : (selected?.brand           ?? "Unknown");
+    const series         = isManual ? manual.series.trim()         : (selected?.series          ?? "");
+    const format         = isManual ? manual.format.trim()         : (selected?.format          ?? "");
+    const wrapper        = isManual ? manual.wrapper.trim()        : (selected?.wrapper         ?? null);
+    const wrapperCountry = isManual ? manual.wrapperCountry.trim() : (selected?.wrapper_country ?? null);
+    const ringGauge      = isManual ? (parseFloat(manual.ringGauge)    || null) : (selected?.ring_gauge    ?? null);
+    const lengthInches   = isManual ? (parseFloat(manual.lengthInches) || null) : (selected?.length_inches ?? null);
+
+    if (!brand) { setSubmitError("Brand is required."); return; }
+
+    setSubmitting(true);
+    setSubmitError(null);
+    const supabase = createClient();
+
+    try {
+      /* 1 — Resolve cigar_catalog id */
+      let cigarId: string;
+
+      if (selected) {
+        cigarId = selected.id;
+      } else {
+        const { data, error: rpcErr } = await supabase.rpc("insert_cigar_to_catalog", {
+          p_brand:           brand,
+          p_series:          series          || null,
+          p_format:          format          || null,
+          p_ring_gauge:      ringGauge,
+          p_length_inches:   lengthInches,
+          p_wrapper:         wrapper         || null,
+          p_wrapper_country: wrapperCountry  || null,
+        });
+        if (rpcErr || !data) {
+          setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
+          return;
+        }
+        cigarId = data as string;
+      }
+
+      /* 2 — Current user */
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setSubmitError("Not authenticated."); return; }
+
+      /* 3 — Insert wishlist item */
+      const { error: insertErr } = await supabase.from("humidor_items").insert({
+        user_id:     user.id,
+        cigar_id:    cigarId,
+        quantity:    1,
+        notes:       notes.trim() || null,
+        is_wishlist: true,
+      });
+
+      if (insertErr) { setSubmitError(insertErr.message); return; }
+
+      /* 4 — Increment usage_count if catalog selection */
+      if (selected) {
+        await supabase
+          .from("cigar_catalog")
+          .update({ usage_count: selected.usage_count + 1 })
+          .eq("id", selected.id);
+      }
+
+      /* 5 — Optionally submit catalog suggestion for manual entries */
+      if (isManual && submitToCatalog && brand) {
+        await supabase.from("cigar_catalog_suggestions").insert({
+          suggested_by:    user.id,
+          brand,
+          series:          series          || null,
+          name:            [brand, series, format].filter(Boolean).join(" — "),
+          format:          format          || null,
+          ring_gauge:      ringGauge,
+          length_inches:   lengthInches,
+          wrapper:         wrapper         || null,
+          wrapper_country: wrapperCountry  || null,
+        });
+      }
+
+      onAdded();
+      onClose();
+    } catch (err) {
+      console.error("AddWishlistSheet submit error:", err);
+      setSubmitError("Something went wrong. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const hasSelection = selected !== null || isManual;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.65)",
+          opacity:         open ? 1 : 0,
+          pointerEvents:   open ? "auto" : "none",
+        }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Sheet panel */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add to wishlist"
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        style={{
+          height:               "calc(100dvh - 48px)",
+          backgroundColor:      "var(--background)",
+          borderTopLeftRadius:  20,
+          borderTopRightRadius: 20,
+          borderTop:            "1px solid var(--border)",
+          transform:            open ? "translateY(0)" : "translateY(100%)",
+          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+        }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+        </div>
+
+        {/* Header */}
+        <div
+          className="flex items-center justify-between px-5 pb-4 flex-shrink-0"
+          style={{ borderBottom: "1px solid var(--border)" }}
+        >
+          <h2
+            className="text-xl font-bold text-foreground"
+            style={{ fontFamily: "var(--font-serif)" }}
+          >
+            Add to Wishlist
+          </h2>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center rounded-xl text-muted-foreground transition-colors"
+            style={{ width: 40, height: 40 }}
+            aria-label="Close"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Scrollable body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-8 space-y-5">
+
+          {/* Search */}
+          {!hasSelection && (
+            <CigarSearch
+              onSelect={setSelected}
+              onManual={() => setIsManual(true)}
+              autoFocus={open}
+            />
+          )}
+
+          {/* Selected cigar card */}
+          {selected && (
+            <div
+              className="rounded-2xl p-4 animate-fade-in"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  {selected.brand && (
+                    <p
+                      className="text-[11px] font-bold tracking-widest uppercase mb-1"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      {selected.brand}
+                    </p>
+                  )}
+                  <p
+                    className="text-base font-semibold text-foreground leading-snug"
+                    style={{ fontFamily: "var(--font-serif)" }}
+                  >
+                    {selected.series ?? selected.name}
+                  </p>
+                  {(selected.format || selected.wrapper || selected.ring_gauge) && (
+                    <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                      {[
+                        selected.format,
+                        selected.wrapper,
+                        selected.ring_gauge    ? `${selected.ring_gauge} ring`  : null,
+                        selected.length_inches ? `${selected.length_inches}"`   : null,
+                      ].filter(Boolean).join(" · ")}
+                    </p>
+                  )}
+                </div>
+                <button
+                  onClick={handleClear}
+                  className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
+                  style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
+                >
+                  Change
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Manual entry */}
+          {isManual && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
+                <button
+                  onClick={handleClear}
+                  className="text-xs"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  ← Back to search
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Brand <span style={{ color: "var(--destructive)" }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={manual.brand}
+                    onChange={(e) => setManual((m) => ({ ...m, brand: e.target.value }))}
+                    placeholder="e.g. Arturo Fuente"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Series / Name
+                  </label>
+                  <input
+                    type="text"
+                    value={manual.series}
+                    onChange={(e) => setManual((m) => ({ ...m, series: e.target.value }))}
+                    placeholder="e.g. Opus X"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Format / Vitola
+                  </label>
+                  <input
+                    type="text"
+                    value={manual.format}
+                    onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
+                    placeholder="e.g. Robusto"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Ring Gauge
+                  </label>
+                  <input
+                    type="number"
+                    value={manual.ringGauge}
+                    onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
+                    placeholder="50"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Length (inches)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    value={manual.lengthInches}
+                    onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
+                    placeholder="5.0"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Wrapper
+                  </label>
+                  <input
+                    type="text"
+                    value={manual.wrapper}
+                    onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
+                    placeholder="e.g. Colorado"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                    Wrapper Country
+                  </label>
+                  <input
+                    type="text"
+                    value={manual.wrapperCountry}
+                    onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
+                    placeholder="e.g. Dominican Republic"
+                    className="input w-full text-sm"
+                    style={{ minHeight: 48 }}
+                  />
+                </div>
+              </div>
+
+              {/* Submit to catalog checkbox */}
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <div
+                  className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
+                  style={{
+                    width: 20, height: 20,
+                    backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
+                    border: `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
+                  }}
+                  onClick={() => setSubmitToCatalog((v) => !v)}
+                >
+                  {submitToCatalog && (
+                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                      <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+                </div>
+                <div onClick={() => setSubmitToCatalog((v) => !v)}>
+                  <p className="text-sm font-medium text-foreground">Submit to catalog</p>
+                  <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                    Help the community — we&apos;ll review and add it.
+                  </p>
+                </div>
+              </label>
+            </div>
+          )}
+
+          {/* Notes + submit (shown once cigar is selected or manual) */}
+          {hasSelection && (
+            <div
+              className="space-y-4 pt-5 animate-slide-up"
+              style={{ borderTop: "1px solid var(--border)" }}
+            >
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                  Notes
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Why you want to try this one…"
+                  rows={3}
+                  className="input w-full resize-none text-sm py-3"
+                />
+              </div>
+
+              {submitError && (
+                <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>
+                  {submitError}
+                </p>
+              )}
+
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="btn btn-primary w-full disabled:opacity-40"
+                style={{ minHeight: 52 }}
+              >
+                {submitting ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span
+                      className="rounded-full border animate-spin"
+                      style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
+                    />
+                    Adding…
+                  </span>
+                ) : (
+                  "Add to Wishlist"
+                )}
+              </button>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -129,23 +529,17 @@ function WishlistCard({
   menuOpenId,
   setMenuOpenId,
 }: {
-  item: WishlistItem;
-  onRemove: (id: string) => void;
-  onMoveToHumidor: (cigarId: string) => void;
-  menuOpenId: string | null;
+  item:         WishlistItem;
+  onRemove:     (id: string) => void;
+  onMoveToHumidor: (item: WishlistItem) => void;
+  menuOpenId:   string | null;
   setMenuOpenId: (id: string | null) => void;
 }) {
-  const c = item.cigar;
-  const badge = strengthStyle(c.strength);
+  const c        = item.cigar;
   const menuOpen = menuOpenId === item.id;
 
-  const subtitle =
-    c.name && c.name !== c.line && c.name !== c.vitola
-      ? `${c.line} — ${c.name}`
-      : c.line;
-
   return (
-    <div className="card card-interactive flex flex-col gap-3 relative">
+    <div className="card flex flex-col gap-3 relative">
       {/* Three-dot menu */}
       <div className="absolute top-3 right-3 z-10" data-menu>
         <button
@@ -174,10 +568,7 @@ function WishlistCard({
             <button
               type="button"
               data-menu
-              onClick={() => {
-                setMenuOpenId(null);
-                onMoveToHumidor(c.id);
-              }}
+              onClick={() => { setMenuOpenId(null); onMoveToHumidor(item); }}
               className="w-full text-left px-4 py-2.5 text-sm text-foreground hover:bg-muted transition-colors duration-100 flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -189,14 +580,12 @@ function WishlistCard({
             <button
               type="button"
               data-menu
-              onClick={() => {
-                setMenuOpenId(null);
-                onRemove(item.id);
-              }}
+              onClick={() => { setMenuOpenId(null); onRemove(item.id); }}
               className="w-full text-left px-4 py-2.5 text-sm text-destructive hover:bg-muted transition-colors duration-100 flex items-center gap-2"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5v1M5 3.5l.5 8M9 3.5l-.5 8" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                <path d="M2 3.5h10M5.5 3.5V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5v1M5 3.5l.5 8M9 3.5l-.5 8"
+                  stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
               </svg>
               Remove from Wishlist
             </button>
@@ -204,47 +593,37 @@ function WishlistCard({
         )}
       </div>
 
-      {/* Card link — navigates to detail */}
-      <Link href={`/discover/cigars/${c.id}`} className="flex flex-col gap-3 flex-1">
-        {/* Image */}
+      {/* Card content */}
+      <div className="flex flex-col gap-3 flex-1">
+        {/* Placeholder image */}
         <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          {c.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.image_url} alt={`${c.brand} ${c.line}`}
-              className="w-full h-full object-cover" />
-          ) : (
-            <CigarPlaceholder />
-          )}
+          <CigarPlaceholder />
         </div>
 
         {/* Info */}
-        <div className="flex flex-col gap-1 min-w-0">
+        <div className="flex flex-col gap-1 min-w-0 pr-8">
           <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">
             {c.brand}
           </p>
           <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-            {subtitle}
+            {c.series ?? c.name}
           </h3>
-          <p className="text-xs text-muted-foreground">{c.vitola}</p>
-
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span
-              className="badge text-[10px] px-2.5 py-0.5 rounded-full font-medium"
-              style={badge}
-            >
-              {STRENGTH_LABEL[c.strength] ?? c.strength}
-            </span>
-            {c.avg_rating != null && (
-              <span className="text-xs font-medium" style={{ color: "var(--gold)" }}>
-                ★ {c.avg_rating.toFixed(1)}
-              </span>
-            )}
-            <span className="text-[11px] text-muted-foreground ml-auto truncate max-w-[120px]">
-              {c.wrapper}
-            </span>
-          </div>
+          {c.format && (
+            <p className="text-xs text-muted-foreground">{c.format}</p>
+          )}
+          {(c.wrapper || c.ring_gauge) && (
+            <p className="text-xs text-muted-foreground mt-1 truncate">
+              {[
+                c.wrapper,
+                c.ring_gauge    ? `${c.ring_gauge} ring`  : null,
+                c.length_inches ? `${c.length_inches}"`   : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
-      </Link>
+      </div>
     </div>
   );
 }
@@ -254,14 +633,17 @@ function WishlistCard({
    ------------------------------------------------------------------ */
 
 export default function WishlistPage() {
-  const [items, setItems] = useState<WishlistItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-  const [sheetCigarId, setSheetCigarId] = useState<string | null>(null);
+  const [items,       setItems]       = useState<WishlistItem[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [toast,       setToast]       = useState<string | null>(null);
+  const [menuOpenId,  setMenuOpenId]  = useState<string | null>(null);
+  const [showAdd,     setShowAdd]     = useState(false);
 
-  /* Close menu when clicking outside */
+  /* "Move to Humidor" */
+  const [moveItem, setMoveItem] = useState<WishlistItem | null>(null);
+
+  /* Close menu on outside click */
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (!(e.target as HTMLElement).closest("[data-menu]")) {
@@ -280,7 +662,6 @@ export default function WishlistPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    /* Fetch wishlist items */
     const { data: wishlistRows, error: wishlistError } = await supabase
       .from("humidor_items")
       .select("id, cigar_id, created_at")
@@ -300,11 +681,10 @@ export default function WishlistPage() {
       return;
     }
 
-    /* Fetch cigar details for each wishlist item */
     const cigarIds = wishlistRows.map((r) => r.cigar_id);
     const { data: cigars, error: cigarsError } = await supabase
-      .from("cigars")
-      .select("id, brand, line, name, vitola, strength, wrapper, country, image_url, avg_rating")
+      .from("cigar_catalog")
+      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
       .in("id", cigarIds);
 
     if (cigarsError) {
@@ -313,7 +693,7 @@ export default function WishlistPage() {
       return;
     }
 
-    const cigarMap = new Map((cigars ?? []).map((c) => [c.id, c]));
+    const cigarMap = new Map((cigars ?? []).map((c) => [c.id, c as CatalogResult]));
     const merged: WishlistItem[] = wishlistRows
       .map((row) => {
         const cigar = cigarMap.get(row.cigar_id);
@@ -333,41 +713,26 @@ export default function WishlistPage() {
   /* Optimistic remove */
   async function handleRemove(itemId: string) {
     const prev = items;
-    setItems((cur) => cur.filter((i) => i.id !== itemId)); /* optimistic */
-
+    setItems((cur) => cur.filter((i) => i.id !== itemId));
     const supabase = createClient();
     const { error: deleteError } = await supabase
       .from("humidor_items")
       .delete()
       .eq("id", itemId);
-
     if (deleteError) {
-      setItems(prev); /* rollback */
+      setItems(prev);
       setToast("Failed to remove. Please try again.");
     }
   }
 
-  /* Open the AddToHumidorSheet for "Move to Humidor" */
-  function handleMoveToHumidor(cigarId: string) {
-    setSheetCigarId(cigarId);
-  }
-
-  /* After successfully adding to humidor via "Move to Humidor", remove from wishlist */
+  /* Move to humidor — after AddToHumidorSheet success */
   async function handleMoveSuccess() {
-    if (!sheetCigarId) return;
+    if (!moveItem) return;
     setToast("Moved to your humidor!");
-
-    /* Find and remove the wishlist item for this cigar */
-    const wishlistItem = items.find((i) => i.cigar_id === sheetCigarId);
-    if (wishlistItem) {
-      setItems((cur) => cur.filter((i) => i.id !== wishlistItem.id)); /* optimistic */
-
-      const supabase = createClient();
-      await supabase
-        .from("humidor_items")
-        .delete()
-        .eq("id", wishlistItem.id);
-    }
+    setItems((cur) => cur.filter((i) => i.id !== moveItem.id));
+    const supabase = createClient();
+    await supabase.from("humidor_items").delete().eq("id", moveItem.id);
+    setMoveItem(null);
   }
 
   return (
@@ -406,11 +771,17 @@ export default function WishlistPage() {
               Cigars you want to try next
             </p>
           </div>
-          {items.length > 0 && (
-            <span className="badge text-xs px-3 py-1">
-              {items.length} {items.length === 1 ? "cigar" : "cigars"}
-            </span>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowAdd(true)}
+            className="btn btn-primary flex items-center gap-2"
+            style={{ minHeight: 44 }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M7 1v12M1 7h12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+            Add Cigar
+          </button>
         </div>
 
         {/* Content */}
@@ -426,7 +797,6 @@ export default function WishlistPage() {
             </button>
           </div>
         ) : items.length === 0 ? (
-          /* Empty state */
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div className="text-muted-foreground/35">
               <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
@@ -437,16 +807,18 @@ export default function WishlistPage() {
               </svg>
             </div>
             <div>
-              <p className="text-base font-medium text-foreground">
-                Your wishlist is empty
-              </p>
+              <p className="text-base font-medium text-foreground">Your wishlist is empty</p>
               <p className="text-sm text-muted-foreground mt-1">
-                Browse cigars to find your next smoke
+                Add cigars you want to try next
               </p>
             </div>
-            <Link href="/discover/cigars" className="btn btn-primary mt-2">
-              Browse Cigars
-            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAdd(true)}
+              className="btn btn-primary mt-2"
+            >
+              Add Cigar
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -455,7 +827,7 @@ export default function WishlistPage() {
                 key={item.id}
                 item={item}
                 onRemove={handleRemove}
-                onMoveToHumidor={handleMoveToHumidor}
+                onMoveToHumidor={setMoveItem}
                 menuOpenId={menuOpenId}
                 setMenuOpenId={setMenuOpenId}
               />
@@ -464,11 +836,18 @@ export default function WishlistPage() {
         )}
       </div>
 
-      {/* AddToHumidorSheet for "Move to Humidor" */}
+      {/* Add wishlist sheet */}
+      <AddWishlistSheet
+        open={showAdd}
+        onClose={() => setShowAdd(false)}
+        onAdded={() => { fetchWishlist(); setToast("Added to your wishlist!"); }}
+      />
+
+      {/* Move to humidor sheet */}
       <AddToHumidorSheet
-        cigarId={sheetCigarId ?? ""}
-        isOpen={!!sheetCigarId}
-        onClose={() => setSheetCigarId(null)}
+        cigarId={moveItem?.cigar_id ?? ""}
+        isOpen={!!moveItem}
+        onClose={() => setMoveItem(null)}
         onSuccess={handleMoveSuccess}
       />
     </>

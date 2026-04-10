@@ -1,101 +1,43 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { CatalogResult } from "@/components/cigar-search";
+import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
-interface Cigar {
-  id: string;
-  brand: string;
-  line: string;
-  name: string;
-  vitola: string;
-  strength: string;
-  wrapper: string;
-  country: string;
-  image_url: string | null;
-  avg_rating: number | null;
-  total_ratings: number | null;
-}
-
-/* ------------------------------------------------------------------
-   Constants
-   ------------------------------------------------------------------ */
-
-/* Strength options: value = DB enum, label = display text */
-const STRENGTH_OPTIONS = [
-  { value: "mild",        label: "Mild" },
-  { value: "mild_medium", label: "Mild-Medium" },
-  { value: "medium",      label: "Medium" },
-  { value: "medium_full", label: "Medium-Full" },
-  { value: "full",        label: "Full" },
-] as const;
-
-type StrengthValue = typeof STRENGTH_OPTIONS[number]["value"];
+const CATALOG_SELECT =
+  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count";
 
 const PAGE_SIZE = 20;
 
 /* ------------------------------------------------------------------
-   Strength badge — muted, sophisticated, not neon
-   ------------------------------------------------------------------ */
-
-const STRENGTH_LABEL: Record<string, string> = {
-  mild:         "Mild",
-  mild_medium:  "Mild-Medium",
-  medium:       "Medium",
-  medium_full:  "Medium-Full",
-  full:         "Full",
-};
-
-function strengthStyle(s: string): { backgroundColor: string; color: string } {
-  const map: Record<string, { backgroundColor: string; color: string }> = {
-    mild:         { backgroundColor: "#1E3A2A", color: "#5A9A72" },
-    mild_medium:  { backgroundColor: "#2A2A1A", color: "#8A8A42" },
-    medium:       { backgroundColor: "var(--secondary)", color: "#C17817" },
-    medium_full:  { backgroundColor: "#2A1A0A", color: "#C17817" },
-    full:         { backgroundColor: "#2A1010", color: "#C44536" },
-  };
-  return (
-    map[s] ?? {
-      backgroundColor: "var(--muted)",
-      color: "var(--muted-foreground)",
-    }
-  );
-}
-
-/* ------------------------------------------------------------------
-   Sub-components
+   Cigar placeholder SVG
    ------------------------------------------------------------------ */
 
 function CigarPlaceholder() {
   return (
     <div className="flex items-center justify-center w-full h-full">
       <svg
-        width="96"
-        height="28"
-        viewBox="0 0 96 28"
-        fill="none"
-        aria-hidden="true"
-        className="text-muted-foreground/30"
+        width="96" height="28" viewBox="0 0 96 28" fill="none"
+        aria-hidden="true" className="text-muted-foreground/30"
       >
-        {/* Body */}
         <rect x="8" y="9" width="68" height="10" rx="5" fill="currentColor" />
-        {/* Rounded cap */}
         <ellipse cx="76" cy="14" rx="12" ry="6" fill="currentColor" opacity="0.65" />
-        {/* Cut foot */}
         <rect x="4" y="9" width="6" height="10" rx="2" fill="currentColor" opacity="0.45" />
-        {/* Band */}
         <rect x="26" y="9" width="11" height="10" rx="1" fill="currentColor" opacity="0.22" />
-        {/* Ember */}
         <ellipse cx="5" cy="14" rx="3.5" ry="3.5" fill="#E8642C" opacity="0.4" />
       </svg>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------
+   Skeleton card
+   ------------------------------------------------------------------ */
 
 function SkeletonCard() {
   return (
@@ -105,113 +47,277 @@ function SkeletonCard() {
         <div className="h-2.5 bg-muted rounded w-1/3" />
         <div className="h-4 bg-muted rounded w-3/4" />
         <div className="h-2.5 bg-muted rounded w-1/4" />
-        <div className="flex gap-2 mt-1">
-          <div className="h-4 bg-muted rounded-full w-20" />
-          <div className="h-3 bg-muted rounded w-24 ml-auto self-center" />
-        </div>
       </div>
     </div>
   );
 }
 
-function CigarCard({ cigar }: { cigar: Cigar }) {
-  const badge = strengthStyle(cigar.strength);
-  const subtitle =
-    cigar.name && cigar.name !== cigar.line && cigar.name !== cigar.vitola
-      ? `${cigar.line} — ${cigar.name}`
-      : cigar.line;
+/* ------------------------------------------------------------------
+   Catalog card — tappable, opens action sheet
+   ------------------------------------------------------------------ */
 
+function CatalogCard({
+  cigar,
+  onTap,
+}: {
+  cigar: CatalogResult;
+  onTap: (cigar: CatalogResult) => void;
+}) {
   return (
-    <Link href={`/discover/cigars/${cigar.id}`} className="group block h-full">
-      <div className="card card-interactive h-full flex flex-col gap-3">
-        {/* Image / placeholder */}
-        <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          {cigar.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={cigar.image_url}
-              alt={`${cigar.brand} ${cigar.line}`}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <CigarPlaceholder />
-          )}
-        </div>
-
-        {/* Info */}
-        <div className="flex flex-col gap-1 flex-1 min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">
-            {cigar.brand}
-          </p>
-          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-            {subtitle}
-          </h3>
-          <p className="text-xs text-muted-foreground">{cigar.vitola}</p>
-
-          {/* Footer */}
-          <div className="flex items-center gap-2 mt-auto pt-2 flex-wrap">
-            <span
-              className="badge text-[10px] px-2.5 py-0.5 rounded-full font-medium"
-              style={badge}
-            >
-              {STRENGTH_LABEL[cigar.strength] ?? cigar.strength}
-            </span>
-            {cigar.avg_rating != null && (
-              <span
-                className="text-xs font-medium"
-                style={{ color: "var(--gold)" }}
-              >
-                ★ {cigar.avg_rating.toFixed(1)}
-              </span>
-            )}
-            <span className="text-[11px] text-muted-foreground ml-auto truncate max-w-[130px]">
-              {cigar.wrapper}
-            </span>
-          </div>
-        </div>
+    <button
+      type="button"
+      onClick={() => onTap(cigar)}
+      className="card card-interactive h-full flex flex-col gap-3 text-left w-full"
+    >
+      {/* Placeholder image area */}
+      <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
+        <CigarPlaceholder />
       </div>
-    </Link>
+
+      {/* Info */}
+      <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">
+          {cigar.brand}
+        </p>
+        <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
+          {cigar.series ?? cigar.name}
+        </h3>
+        {cigar.format && (
+          <p className="text-xs text-muted-foreground">{cigar.format}</p>
+        )}
+        {(cigar.wrapper || cigar.ring_gauge) && (
+          <p className="text-xs text-muted-foreground mt-auto pt-1 truncate">
+            {[
+              cigar.wrapper,
+              cigar.ring_gauge    ? `${cigar.ring_gauge} ring`  : null,
+              cigar.length_inches ? `${cigar.length_inches}"`   : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        )}
+      </div>
+    </button>
   );
 }
 
-function EmptyState() {
+/* ------------------------------------------------------------------
+   Cigar action sheet — "Add to Humidor" / "Add to Wishlist"
+   ------------------------------------------------------------------ */
+
+function CigarActionSheet({
+  cigar,
+  onClose,
+  onAddedToHumidor,
+  onAddedToWishlist,
+}: {
+  cigar: CatalogResult | null;
+  onClose: () => void;
+  onAddedToHumidor: () => void;
+  onAddedToWishlist: () => void;
+}) {
+  const [addingWishlist, setAddingWishlist] = useState(false);
+  const [wishlistError, setWishlistError] = useState<string | null>(null);
+  const [showHumidorSheet, setShowHumidorSheet] = useState(false);
+  const open = cigar !== null;
+
+  /* Reset when cigar changes */
+  useEffect(() => {
+    setAddingWishlist(false);
+    setWishlistError(null);
+    setShowHumidorSheet(false);
+  }, [cigar]);
+
+  async function handleAddWishlist() {
+    if (!cigar) return;
+    setAddingWishlist(true);
+    setWishlistError(null);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setWishlistError("Not authenticated."); setAddingWishlist(false); return; }
+
+    const { error } = await supabase.from("humidor_items").insert({
+      user_id:     user.id,
+      cigar_id:    cigar.id,
+      quantity:    1,
+      is_wishlist: true,
+    });
+
+    if (error) {
+      setWishlistError(error.message);
+      setAddingWishlist(false);
+      return;
+    }
+
+    /* Increment usage_count */
+    await supabase
+      .from("cigar_catalog")
+      .update({ usage_count: cigar.usage_count + 1 })
+      .eq("id", cigar.id);
+
+    setAddingWishlist(false);
+    onAddedToWishlist();
+    onClose();
+  }
+
+  function handleAddHumidor() {
+    setShowHumidorSheet(true);
+  }
+
+  function handleHumidorSuccess() {
+    /* Increment usage_count */
+    if (cigar) {
+      const supabase = createClient();
+      supabase
+        .from("cigar_catalog")
+        .update({ usage_count: cigar.usage_count + 1 })
+        .eq("id", cigar.id);
+    }
+    onAddedToHumidor();
+    onClose();
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
-      <div className="text-muted-foreground/35">
-        <svg
-          width="56"
-          height="56"
-          viewBox="0 0 56 56"
-          fill="none"
-          aria-hidden="true"
-        >
-          <circle cx="24" cy="24" r="16" stroke="currentColor" strokeWidth="2.5" />
-          <line
-            x1="36"
-            y1="36"
-            x2="51"
-            y2="51"
-            stroke="currentColor"
-            strokeWidth="2.5"
-            strokeLinecap="round"
-          />
-          <rect
-            x="16"
-            y="21"
-            width="16"
-            height="6"
-            rx="3"
-            fill="currentColor"
-            opacity="0.5"
-          />
-        </svg>
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 z-40 transition-opacity duration-300"
+        style={{
+          backgroundColor: "rgba(0,0,0,0.65)",
+          opacity:         open && !showHumidorSheet ? 1 : 0,
+          pointerEvents:   open && !showHumidorSheet ? "auto" : "none",
+        }}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Action sheet */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Cigar actions"
+        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
+        style={{
+          backgroundColor:      "var(--background)",
+          borderTopLeftRadius:  20,
+          borderTopRightRadius: 20,
+          borderTop:            "1px solid var(--border)",
+          transform:            open && !showHumidorSheet ? "translateY(0)" : "translateY(100%)",
+          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+          paddingBottom:        "env(safe-area-inset-bottom, 24px)",
+        }}
+      >
+        {/* Drag handle */}
+        <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+        </div>
+
+        {cigar && (
+          <div className="px-5 pb-6 space-y-4">
+            {/* Cigar info */}
+            <div
+              className="rounded-2xl p-4"
+              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+            >
+              {cigar.brand && (
+                <p
+                  className="text-[11px] font-bold tracking-widest uppercase mb-1"
+                  style={{ color: "var(--primary)" }}
+                >
+                  {cigar.brand}
+                </p>
+              )}
+              <p
+                className="text-base font-semibold text-foreground leading-snug"
+                style={{ fontFamily: "var(--font-serif)" }}
+              >
+                {cigar.series ?? cigar.name}
+              </p>
+              {(cigar.format || cigar.wrapper || cigar.ring_gauge) && (
+                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                  {[
+                    cigar.format,
+                    cigar.wrapper,
+                    cigar.ring_gauge    ? `${cigar.ring_gauge} ring`  : null,
+                    cigar.length_inches ? `${cigar.length_inches}"`   : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              )}
+            </div>
+
+            {/* Actions */}
+            <button
+              type="button"
+              onClick={handleAddHumidor}
+              className="btn btn-primary w-full"
+              style={{ minHeight: 52 }}
+            >
+              Add to Humidor
+            </button>
+            <button
+              type="button"
+              onClick={handleAddWishlist}
+              disabled={addingWishlist}
+              className="btn btn-secondary w-full disabled:opacity-40"
+              style={{ minHeight: 52 }}
+            >
+              {addingWishlist ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span
+                    className="rounded-full border animate-spin"
+                    style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
+                  />
+                  Adding…
+                </span>
+              ) : (
+                "Add to Wishlist"
+              )}
+            </button>
+            {wishlistError && (
+              <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>
+                {wishlistError}
+              </p>
+            )}
+          </div>
+        )}
       </div>
-      <div>
-        <p className="text-base font-medium text-foreground">No cigars found</p>
-        <p className="text-sm text-muted-foreground mt-1">
-          Try adjusting your search or clearing some filters
-        </p>
-      </div>
+
+      {/* AddToHumidorSheet (stacks on top) */}
+      <AddToHumidorSheet
+        cigarId={cigar?.id ?? ""}
+        isOpen={showHumidorSheet}
+        onClose={() => setShowHumidorSheet(false)}
+        onSuccess={handleHumidorSuccess}
+      />
+    </>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Toast
+   ------------------------------------------------------------------ */
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(t);
+  }, [onDismiss]);
+
+  return (
+    <div
+      className="fixed bottom-6 right-6 z-[60] card animate-slide-up flex items-center gap-3 max-w-xs"
+      style={{ borderLeft: "4px solid var(--primary)" }}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+        className="flex-shrink-0" style={{ color: "var(--primary)" }} aria-hidden="true">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
+        <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.5"
+          strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <p className="text-sm text-foreground">{message}</p>
     </div>
   );
 }
@@ -220,48 +326,31 @@ function EmptyState() {
    Page
    ------------------------------------------------------------------ */
 
-export default function CigarsPage() {
-  const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedStrengths, setSelectedStrengths] = useState<StrengthValue[]>([]);
-  const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
-  const [countries, setCountries] = useState<string[]>([]);
-  const [cigars, setCigars] = useState<Cigar[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function DiscoverCigarsPage() {
+  const [query,       setQuery]       = useState("");
+  const [debouncedQ,  setDebouncedQ]  = useState("");
+  const [cigars,      setCigars]      = useState<CatalogResult[]>([]);
+  const [loading,     setLoading]     = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [hasMore,     setHasMore]     = useState(false);
+  const [error,       setError]       = useState<string | null>(null);
+  const [isPopular,   setIsPopular]   = useState(true);
+
+  const [activeCigar, setActiveCigar] = useState<CatalogResult | null>(null);
+  const [toast,       setToast]       = useState<string | null>(null);
+
   const offsetRef = useRef(0);
 
-  /* 300 ms debounce */
+  /* 300 ms debounce on query */
   useEffect(() => {
-    const t = setTimeout(() => setDebouncedQuery(query.trim()), 300);
+    const t = setTimeout(() => setDebouncedQ(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
 
-  /* Fetch distinct countries on mount for filter chips */
-  useEffect(() => {
-    const supabase = createClient();
-    supabase
-      .from("cigars")
-      .select("country")
-      .then(({ data }) => {
-        if (data) {
-          const unique = [
-            ...new Set(
-              data.map((r) => r.country as string).filter(Boolean)
-            ),
-          ].sort();
-          setCountries(unique);
-        }
-      });
-  }, []);
-
-  /* Core fetch — reset=true clears results and resets pagination */
   const fetchCigars = useCallback(
     async (reset: boolean) => {
       const supabase = createClient();
-      const offset = reset ? 0 : offsetRef.current;
+      const offset   = reset ? 0 : offsetRef.current;
 
       if (reset) {
         setLoading(true);
@@ -273,29 +362,24 @@ export default function CigarsPage() {
       setError(null);
 
       try {
+        const isSearch = !!debouncedQ;
+        setIsPopular(!isSearch);
+
         let q = supabase
-          .from("cigars")
-          .select(
-            "id, brand, line, name, vitola, strength, wrapper, country, image_url, avg_rating, total_ratings"
-          )
-          .range(offset, offset + PAGE_SIZE - 1)
-          .order("brand")
-          .order("line");
+          .from("cigar_catalog")
+          .select(CATALOG_SELECT)
+          .range(offset, offset + PAGE_SIZE - 1);
 
-        if (debouncedQuery) {
-          q = q.textSearch("search_vector", debouncedQuery, {
-            type: "websearch",
-          });
-        }
-        if (selectedStrengths.length > 0) {
-          q = q.in("strength", selectedStrengths);
-        }
-        if (selectedCountries.length > 0) {
-          q = q.in("country", selectedCountries);
+        if (isSearch) {
+          q = q.or(
+            `name.ilike.%${debouncedQ}%,brand.ilike.%${debouncedQ}%,series.ilike.%${debouncedQ}%`
+          );
+        } else {
+          q = q.order("usage_count", { ascending: false });
         }
 
-        const { data, error: fetchError } = await q;
-        if (fetchError) throw fetchError;
+        const { data, error: fetchErr } = await q;
+        if (fetchErr) throw fetchErr;
 
         const results = data ?? [];
         setCigars((prev) => (reset ? results : [...prev, ...results]));
@@ -309,190 +393,113 @@ export default function CigarsPage() {
         setLoadingMore(false);
       }
     },
-    [debouncedQuery, selectedStrengths, selectedCountries]
+    [debouncedQ]
   );
 
-  /* Re-fetch whenever filters or debounced query change */
   useEffect(() => {
     fetchCigars(true);
   }, [fetchCigars]);
 
-  function toggleStrength(s: StrengthValue) {
-    setSelectedStrengths((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]
-    );
-  }
-
-  function toggleCountry(c: string) {
-    setSelectedCountries((prev) =>
-      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]
-    );
-  }
-
-  const activeCount = selectedStrengths.length + selectedCountries.length;
-
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <>
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 style={{ fontFamily: "var(--font-serif)" }}>Discover Cigars</h1>
-        <p className="text-sm text-muted-foreground">
-          Browse our curated database of premium cigars
-        </p>
-      </div>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
-      {/* Search bar */}
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
-          width="15"
-          height="15"
-          viewBox="0 0 15 15"
-          fill="none"
-          aria-hidden="true"
-        >
-          <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" />
-          <line
-            x1="10.5"
-            y1="10.5"
-            x2="14"
-            y2="14"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-          />
-        </svg>
-        <input
-          type="search"
-          className="input pl-9"
-          placeholder="Search brand, line, wrapper, country…"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-      </div>
-
-      {/* Filter chips */}
-      <div className="space-y-3">
-        {/* Strength filters */}
-        <div>
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium mb-2">
-            Strength
+        {/* Header */}
+        <div className="space-y-1">
+          <h1 style={{ fontFamily: "var(--font-serif)" }}>Discover Cigars</h1>
+          <p className="text-sm text-muted-foreground">
+            Browse our curated catalog of premium cigars
           </p>
-          <div className="flex flex-wrap gap-2">
-            {STRENGTH_OPTIONS.map(({ value, label }) => {
-              const active = selectedStrengths.includes(value);
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => toggleStrength(value)}
-                  className="badge cursor-pointer transition-all duration-150 text-xs px-3 py-1 hover:opacity-80"
-                  style={
-                    active
-                      ? {
-                          backgroundColor: "var(--primary)",
-                          color: "var(--primary-foreground)",
-                        }
-                      : undefined
-                  }
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
-        {/* Country filters — only rendered when countries are loaded */}
-        {countries.length > 0 && (
-          <div>
-            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium mb-2">
-              Country
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {countries.map((c) => {
-                const active = selectedCountries.includes(c);
-                return (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => toggleCountry(c)}
-                    className="badge cursor-pointer transition-all duration-150 text-xs px-3 py-1 hover:opacity-80"
-                    style={
-                      active
-                        ? {
-                            backgroundColor: "var(--primary)",
-                            color: "var(--primary-foreground)",
-                          }
-                        : undefined
-                    }
-                  >
-                    {c}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+        {/* Search bar */}
+        <div className="relative">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+            width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"
+          >
+            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5" />
+            <line x1="10.5" y1="10.5" x2="14" y2="14"
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            type="search"
+            className="input pl-9"
+            placeholder="Search brand, series, wrapper…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        {/* Section label */}
+        {!loading && cigars.length > 0 && (
+          <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
+            {isPopular ? "Popular Cigars" : `${cigars.length} result${cigars.length !== 1 ? "s" : ""}`}
+          </p>
         )}
 
-        {/* Clear filters */}
-        {activeCount > 0 && (
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedStrengths([]);
-              setSelectedCountries([]);
-            }}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors duration-150 underline underline-offset-2"
-          >
-            Clear {activeCount} filter{activeCount !== 1 ? "s" : ""}
-          </button>
+        {/* Results */}
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <p className="text-sm text-destructive">{error}</p>
+            <button type="button" className="btn btn-secondary" onClick={() => fetchCigars(true)}>
+              Try again
+            </button>
+          </div>
+        ) : cigars.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
+            <div className="text-muted-foreground/35">
+              <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
+                <circle cx="24" cy="24" r="16" stroke="currentColor" strokeWidth="2.5" />
+                <line x1="36" y1="36" x2="51" y2="51"
+                  stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                <rect x="16" y="21" width="16" height="6" rx="3" fill="currentColor" opacity="0.5" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-base font-medium text-foreground">No cigars found</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Try a different search
+              </p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {cigars.map((c) => (
+                <CatalogCard key={c.id} cigar={c} onTap={setActiveCigar} />
+              ))}
+            </div>
+
+            {hasMore && (
+              <div className="flex justify-center pt-4 pb-8">
+                <button
+                  type="button"
+                  className="btn btn-secondary min-w-[120px]"
+                  onClick={() => fetchCigars(false)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* Results */}
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <p className="text-sm text-destructive">{error}</p>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => fetchCigars(true)}
-          >
-            Try again
-          </button>
-        </div>
-      ) : cigars.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {cigars.map((c) => (
-              <CigarCard key={c.id} cigar={c} />
-            ))}
-          </div>
-
-          {hasMore && (
-            <div className="flex justify-center pt-4 pb-8">
-              <button
-                type="button"
-                className="btn btn-secondary min-w-[120px]"
-                onClick={() => fetchCigars(false)}
-                disabled={loadingMore}
-              >
-                {loadingMore ? "Loading…" : "Load more"}
-              </button>
-            </div>
-          )}
-        </>
-      )}
-    </div>
+      {/* Action sheet */}
+      <CigarActionSheet
+        cigar={activeCigar}
+        onClose={() => setActiveCigar(null)}
+        onAddedToHumidor={() => setToast("Added to your humidor!")}
+        onAddedToWishlist={() => setToast("Added to your wishlist!")}
+      />
+    </>
   );
 }
