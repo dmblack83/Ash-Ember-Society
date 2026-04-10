@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
+import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
 
 /* ------------------------------------------------------------------
    Types
@@ -408,7 +409,7 @@ function ListRow({ item }: { item: HumidorItem }) {
    Empty state
    ------------------------------------------------------------------ */
 
-function EmptyState({ hasWishlist }: { hasWishlist: boolean }) {
+function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
       <div className="text-muted-foreground/30">
@@ -470,9 +471,9 @@ function EmptyState({ hasWishlist }: { hasWishlist: boolean }) {
         </p>
       </div>
       <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
-        <Link href="/discover/cigars" className="btn btn-primary">
+        <button onClick={onAdd} className="btn btn-primary">
           Add your first cigar
-        </Link>
+        </button>
         {hasWishlist && (
           <Link href="/humidor/wishlist" className="btn btn-ghost text-sm">
             Or add from wishlist
@@ -526,6 +527,7 @@ export default function HumidorPage() {
   const [view, setView] = useState<ViewMode>("grid");
   const [sort, setSort] = useState<SortOption>("date_newest");
   const [strengthFilter, setStrengthFilter] = useState<StrengthFilter>("all");
+  const [showAddSheet, setShowAddSheet] = useState(false);
   const hasMounted = useRef(false);
 
   /* Persist view preference */
@@ -637,9 +639,12 @@ export default function HumidorPage() {
             </p>
           )}
         </div>
-        <Link href="/discover/cigars" className="btn btn-primary flex-shrink-0">
+        <button
+          onClick={() => setShowAddSheet(true)}
+          className="btn btn-primary flex-shrink-0"
+        >
           Add Cigar
-        </Link>
+        </button>
       </div>
 
       {/* ── Controls row ────────────────────────────────────────── */}
@@ -766,7 +771,7 @@ export default function HumidorPage() {
           </button>
         </div>
       ) : items.length === 0 ? (
-        <EmptyState hasWishlist={hasWishlist} />
+        <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowAddSheet(true)} />
       ) : displayed.length === 0 ? (
         /* No results after filtering */
         <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
@@ -794,6 +799,12 @@ export default function HumidorPage() {
           ))}
         </div>
       )}
+
+      <AddCigarSheet
+        open={showAddSheet}
+        onClose={() => setShowAddSheet(false)}
+        onAdded={fetchItems}
+      />
     </div>
   );
 }
