@@ -17,6 +17,7 @@ interface CatalogResult {
   length_inches:   number | null;
   wrapper:         string | null;
   wrapper_country: string | null;
+  usage_count:     number;
 }
 
 interface ManualFields {
@@ -92,7 +93,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const supabase     = createClient();
 
-  /* ── Reset when sheet opens ────────────────────────────────── */
+  /* ── Reset when sheet opens + load popular cigars ─────────── */
   useEffect(() => {
     if (!open) return;
     setQuery(""); setResults([]); setShowDropdown(false);
@@ -102,15 +103,25 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     setQuantity(1); setPurchaseDate(""); setPriceStr("");
     setSource(""); setAgingStart(""); setNotes("");
     setSubmitError(null);
+    // Load popular cigars immediately
+    supabase
+      .from("cigar_catalog")
+      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
+      .order("usage_count", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        setResults(data ?? []);
+        setShowDropdown(true);
+      });
     setTimeout(() => searchRef.current?.focus(), 120);
-  }, [open]);
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Debounced catalog search ──────────────────────────────── */
   const doSearch = useCallback(async (q: string) => {
     setSearching(true);
     const { data } = await supabase
       .from("cigar_catalog")
-      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country")
+      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
       .or(`name.ilike.%${q}%,brand.ilike.%${q}%,series.ilike.%${q}%`)
       .limit(8);
     setResults(data ?? []);
@@ -119,11 +130,20 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (!query.trim()) { setResults([]); setShowDropdown(false); return; }
+    if (!query.trim()) {
+      // Restore popular list when query is cleared
+      supabase
+        .from("cigar_catalog")
+        .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
+        .order("usage_count", { ascending: false })
+        .limit(20)
+        .then(({ data }) => { setResults(data ?? []); setShowDropdown(true); });
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, doSearch]);
+  }, [query, doSearch]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Dismiss dropdown on outside tap ─────────────────────── */
   useEffect(() => {
@@ -209,7 +229,15 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
       if (insertErr) { setSubmitError(insertErr.message); return; }
 
-      /* 4 — Optionally submit catalog suggestion */
+      /* 4 — Increment usage_count on the catalog row that was selected */
+      if (selected) {
+        await supabase
+          .from("cigar_catalog")
+          .update({ usage_count: selected.usage_count + 1 })
+          .eq("id", selected.id);
+      }
+
+      /* 5 — Optionally submit catalog suggestion */
       if (isManual && submitToCatalog && brand) {
         await supabase.from("cigar_catalog_suggestions").insert({
           suggested_by:    user.id,
@@ -355,6 +383,19 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                     </div>
                   ) : (
                     <>
+                      {!query.trim() && (
+                        <div
+                          className="px-4 py-2"
+                          style={{ borderBottom: "1px solid var(--border)" }}
+                        >
+                          <span
+                            className="text-[10px] font-bold tracking-widest uppercase"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            Popular Cigars
+                          </span>
+                        </div>
+                      )}
                       {results.map((r, i) => (
                         <button
                           key={r.id}
