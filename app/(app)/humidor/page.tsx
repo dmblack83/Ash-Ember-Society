@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
+import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 
 /* ------------------------------------------------------------------
    Types
@@ -96,31 +98,6 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
 }
 
 /* ------------------------------------------------------------------
-   Brand-initial placeholder (deterministic muted color per brand)
-   ------------------------------------------------------------------ */
-
-function BrandPlaceholder({ brand }: { brand: string }) {
-  let hash = 0;
-  for (let i = 0; i < brand.length; i++) {
-    hash = (hash << 5) - hash + brand.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash) % 360;
-  return (
-    <div
-      className="flex items-center justify-center w-full h-full text-2xl font-semibold select-none"
-      style={{
-        backgroundColor: `hsl(${hue}, 18%, 16%)`,
-        color: `hsl(${hue}, 35%, 60%)`,
-        fontFamily: "var(--font-serif)",
-      }}
-    >
-      {brand.charAt(0).toUpperCase()}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
    Aging indicator
    ------------------------------------------------------------------ */
 
@@ -184,38 +161,6 @@ function RatingStars({ rating }: { rating: number }) {
           <polygon points="5,1 6.2,3.8 9.5,3.8 7,5.8 7.9,9 5,7.2 2.1,9 3,5.8 0.5,3.8 3.8,3.8" />
         </svg>
       ))}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Skeletons
-   ------------------------------------------------------------------ */
-
-function SkeletonGridCard() {
-  return (
-    <div className="card animate-pulse flex flex-col gap-3">
-      <div className="w-full aspect-[4/3] rounded-lg bg-muted" />
-      <div className="flex flex-col gap-2">
-        <div className="h-2.5 bg-muted rounded w-1/3" />
-        <div className="h-4 bg-muted rounded w-3/4" />
-        <div className="h-2.5 bg-muted rounded w-1/4" />
-        <div className="h-3 bg-muted rounded w-1/2 mt-1" />
-      </div>
-    </div>
-  );
-}
-
-function SkeletonListRow() {
-  return (
-    <div className="card animate-pulse flex items-center gap-4 py-3">
-      <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div className="h-2.5 bg-muted rounded w-1/4" />
-        <div className="h-4 bg-muted rounded w-1/2" />
-      </div>
-      <div className="h-3 bg-muted rounded w-12 hidden sm:block" />
-      <div className="h-3 bg-muted rounded w-16 hidden sm:block" />
     </div>
   );
 }

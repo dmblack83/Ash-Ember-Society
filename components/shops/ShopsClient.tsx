@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { GoogleMap, useJsApiLoader, MarkerF } from "@react-google-maps/api";
 import Link from "next/link";
-import type { Shop } from "@/app/(app)/shops/page";
+import type { Shop } from "@/app/(app)/discover/shops/page";
 import type { MembershipTier } from "@/lib/stripe";
 import { distanceMiles, formatDistance } from "@/lib/geo";
 import type { LatLng } from "@/lib/geo";

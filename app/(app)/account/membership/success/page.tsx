@@ -178,7 +178,7 @@ export default async function MembershipSuccessPage() {
 
         {/* CTAs */}
         <div className="space-y-3 pt-2">
-          <Link href="/membership" className="btn btn-primary w-full block text-center">
+          <Link href="/account" className="btn btn-primary w-full block text-center">
             Explore Your Benefits
           </Link>
           <Link

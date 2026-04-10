@@ -3,7 +3,7 @@ import { redirect, notFound }    from "next/navigation";
 import { getMembershipTier }     from "@/lib/membership";
 import { ShopDetailPageClient }  from "@/components/shops/ShopDetailPageClient";
 import type { MembershipTier }   from "@/lib/stripe";
-import type { Shop }             from "@/app/(app)/shops/page";
+import type { Shop }             from "@/app/(app)/discover/shops/page";
 
 export const dynamic = "force-dynamic";
 

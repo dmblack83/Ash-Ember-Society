@@ -5,30 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
+import { Toast } from "@/components/ui/toast";
+import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { STRENGTH_LABEL, strengthStyle } from "@/components/ui/strength";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 
 /* ------------------------------------------------------------------
    Design-system helpers
    ------------------------------------------------------------------ */
-
-const STRENGTH_LABEL: Record<string, string> = {
-  mild: "Mild",
-  mild_medium: "Mild-Medium",
-  medium: "Medium",
-  medium_full: "Medium-Full",
-  full: "Full",
-};
-
-function strengthStyle(s: string): { backgroundColor: string; color: string } {
-  const map: Record<string, { backgroundColor: string; color: string }> = {
-    mild: { backgroundColor: "#1E3A2A", color: "#5A9A72" },
-    mild_medium: { backgroundColor: "#2A2A1A", color: "#8A8A42" },
-    medium: { backgroundColor: "var(--secondary)", color: "#C17817" },
-    medium_full: { backgroundColor: "#2A1A0A", color: "#C17817" },
-    full: { backgroundColor: "#2A1010", color: "#C44536" },
-  };
-  return map[s] ?? { backgroundColor: "var(--muted)", color: "var(--muted-foreground)" };
-}
 
 function agingDays(startDate: string | null): number {
   if (!startDate) return 0;
@@ -47,26 +31,6 @@ function formatDate(iso: string): string {
    Sub-components
    ------------------------------------------------------------------ */
 
-function CigarPlaceholder({ brand }: { brand: string }) {
-  let hash = 0;
-  for (let i = 0; i < brand.length; i++) {
-    hash = (hash << 5) - hash + brand.charCodeAt(i);
-    hash |= 0;
-  }
-  const hue = Math.abs(hash) % 360;
-  return (
-    <div
-      className="flex items-center justify-center w-full h-full text-4xl font-semibold select-none"
-      style={{
-        backgroundColor: `hsl(${hue}, 18%, 16%)`,
-        color: `hsl(${hue}, 35%, 60%)`,
-        fontFamily: "var(--font-serif)",
-      }}
-    >
-      {brand.charAt(0).toUpperCase()}
-    </div>
-  );
-}
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -98,29 +62,6 @@ function Chip({ label, value }: { label: string; value: string }) {
         {label}
       </span>
       <span className="text-sm text-foreground font-medium">{value}</span>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Toast
-   ------------------------------------------------------------------ */
-
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
-  return (
-    <div
-      className="fixed bottom-6 right-6 z-[60] card animate-slide-up flex items-center gap-3 max-w-xs"
-      style={{ borderLeft: "4px solid var(--primary)" }}
-    >
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ color: "var(--primary)" }} aria-hidden="true">
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M5 8L7 10L11 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-      <p className="text-sm text-foreground">{message}</p>
     </div>
   );
 }
@@ -688,7 +629,7 @@ export function HumidorItemClient({
             // eslint-disable-next-line @next/next/no-img-element
             <img src={c.image_url} alt={`${c.brand} ${c.line}`} className="w-full h-full object-cover" />
           ) : (
-            <CigarPlaceholder brand={c.brand} />
+            <BrandPlaceholder brand={c.brand} />
           )}
         </div>
 
