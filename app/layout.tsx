@@ -56,6 +56,7 @@ export default function RootLayout({
       className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
+        <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="min-h-full flex flex-col">
