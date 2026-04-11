@@ -10,20 +10,38 @@ import { join } from "path";
 export const metadata = { title: "Account — Ash & Ember Society" };
 export const dynamic  = "force-dynamic";
 
+/* Local row type — the new columns aren't in Supabase's generated types
+   until `supabase gen types` is re-run after the migration. */
+interface ProfileRow {
+  membership_tier:        string | null;
+  stripe_customer_id:     string | null;
+  stripe_subscription_id: string | null;
+  display_name:           string | null;
+  first_name:             string | null;
+  last_name:              string | null;
+  phone:                  string | null;
+  city:                   string | null;
+  state:                  string | null;
+  avatar_url:             string | null;
+  created_at:             string;
+}
+
 export default async function AccountPage() {
   const supabase = await createClient();
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  /* Cast through unknown so TypeScript accepts columns not yet in the
+     generated types (added by migration 20260415_profiles_extended_fields). */
+  const { data: profile } = (await supabase
     .from("profiles")
     .select(
       "membership_tier, stripe_customer_id, stripe_subscription_id, " +
       "display_name, first_name, last_name, phone, city, state, avatar_url, created_at"
     )
     .eq("id", user.id)
-    .single();
+    .single()) as unknown as { data: ProfileRow | null };
 
   const currentTier       = getMembershipTier(profile) as MembershipTier;
   const hasStripeCustomer = !!(profile?.stripe_customer_id);
