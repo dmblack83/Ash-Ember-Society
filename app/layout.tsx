@@ -26,6 +26,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
   description: "A premium cigar enthusiast experience.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Ash & Ember",
+  },
 };
 
 export default function RootLayout({
@@ -49,6 +55,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+      </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}

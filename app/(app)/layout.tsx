@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -119,6 +118,7 @@ const NAV_ITEMS = [
 
 function BottomNav() {
   const pathname = usePathname();
+  const router   = useRouter();
 
   return (
     <nav
@@ -129,18 +129,28 @@ function BottomNav() {
         WebkitBackdropFilter: "blur(12px)",
         borderTop: "1px solid var(--border)",
         paddingBottom: "env(safe-area-inset-bottom)",
+        willChange: "transform",
       }}
       aria-label="Main navigation"
     >
       {NAV_ITEMS.map(({ href, label, match, icon, center }) => {
         const active = match(pathname);
         return (
-          <Link
+          <button
             key={href}
-            href={href}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-opacity active:opacity-70"
-            style={center ? { marginTop: -8 } : undefined}
+            type="button"
+            onClick={() => router.push(href, { scroll: false })}
+            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-opacity active:opacity-70 min-h-[44px]"
+            style={{
+              ...(center ? { marginTop: -8 } : {}),
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              background: "none",
+              border: "none",
+              cursor: "pointer",
+            }}
             aria-current={active ? "page" : undefined}
+            aria-label={label}
           >
             {center ? (
               <div
@@ -165,7 +175,7 @@ function BottomNav() {
             >
               {label}
             </span>
-          </Link>
+          </button>
         );
       })}
     </nav>
@@ -176,7 +186,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* Page content — bottom padding clears the nav bar */}
-      <main className="flex-1" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))" }}>
+      <main className="flex-1" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
       <BottomNav />
