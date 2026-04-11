@@ -972,6 +972,13 @@ export function BurnReport({
       // non-fatal — continue without photos
     }
 
+    /* Guard: cigar_id must be a valid catalog reference */
+    if (!item.cigar_id) {
+      setSubmitError("This humidor item is missing a cigar reference. Please remove and re-add it from the catalog.");
+      setSubmitting(false);
+      return;
+    }
+
     /* Build insert payload */
     const payload: Record<string, unknown> = {
       user_id: user.id,
