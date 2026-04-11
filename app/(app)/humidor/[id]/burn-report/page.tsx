@@ -51,7 +51,7 @@ export default async function BurnReportPage({
     .eq("user_id", user.id)
     .single();
 
-  if (error || !item) notFound();
+  if (error || !item || !item.cigar_id) notFound();
 
   const { data: flavorTags } = await supabase
     .from("flavor_tags")
