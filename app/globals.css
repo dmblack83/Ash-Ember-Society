@@ -119,6 +119,19 @@
 }
 
 /* -------------------------------------------------------------------
+   PWA / MOBILE GLOBAL RESETS
+   Eliminates tap delays, rubber-band reloads, and grey flash on iOS.
+   ------------------------------------------------------------------- */
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+/* -------------------------------------------------------------------
    CUSTOM UTILITIES
    Available as Tailwind classes: glass, glow-ember, glow-gold,
    text-gradient-gold

@@ -1,0 +1,17 @@
+{
+  "name": "Ash & Ember Society",
+  "short_name": "Ash & Ember",
+  "description": "A premium cigar enthusiast experience.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1A1210",
+  "theme_color": "#1A1210",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
