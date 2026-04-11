@@ -1,27 +1,10 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-
-/* ------------------------------------------------------------------
-   Inline toast — appears bottom-right, auto-dismisses after 3 s.
-   Lives here rather than a shared file because no toast library is
-   installed yet and this is the only call site.
-   ------------------------------------------------------------------ */
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
-
-  return (
-    <div className="toast fixed bottom-6 right-6 max-w-xs animate-slide-up z-50">
-      <p className="text-sm text-foreground">{message}</p>
-    </div>
-  );
-}
+import { Toast } from "@/components/ui/toast";
 
 /* ------------------------------------------------------------------
    Field wrapper — label + input stacked, consistent spacing

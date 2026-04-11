@@ -5,288 +5,253 @@ import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
-import { CigarPlaceholder } from "@/components/ui/cigar-placeholder";
-import { SkeletonCard } from "@/components/ui/skeleton-card";
+import { CigarPlaceholder, BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
+import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
 /* ------------------------------------------------------------------
-   Types
+   Constants
    ------------------------------------------------------------------ */
 
 const CATALOG_SELECT =
   "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count";
 
 const PAGE_SIZE = 20;
+const LS_KEY   = "discover-cigars-view";
 
 /* ------------------------------------------------------------------
-   Cigar placeholder SVG
+   Action button icons
    ------------------------------------------------------------------ */
+
+function HumidorIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <rect x="1.5" y="4.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M1.5 7.5h12" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M5 3V4.5M10 3V4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="7.5" cy="10" r="1" fill="currentColor" opacity="0.6" />
+    </svg>
+  );
+}
+
+function WishlistIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+      <path
+        d="M3 2.5h9a1 1 0 011 1v10l-5.5-2.5L2 13.5v-10a1 1 0 011-1z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 /* ------------------------------------------------------------------
-   Catalog card — tappable, opens action sheet
+   Grid card
    ------------------------------------------------------------------ */
 
-function CatalogCard({
+function CatalogGridCard({
   cigar,
-  onTap,
+  onAddHumidor,
+  onAddWishlist,
+  wishlistPending,
 }: {
   cigar: CatalogResult;
-  onTap: (cigar: CatalogResult) => void;
+  onAddHumidor: (c: CatalogResult) => void;
+  onAddWishlist: (c: CatalogResult) => void;
+  wishlistPending: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onTap(cigar)}
-      className="card card-interactive h-full flex flex-col gap-3 text-left w-full"
-    >
-      {/* Placeholder image area */}
-      <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-        <CigarPlaceholder />
+    <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
+      {/* Placeholder image */}
+      <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
+        <BrandPlaceholder brand={cigar.brand ?? "?"} />
       </div>
 
       {/* Info */}
-      <div className="flex flex-col gap-1 flex-1 min-w-0">
-        <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">
+      <div className="px-3 pt-1 flex flex-col gap-1 flex-1">
+        <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground truncate">
           {cigar.brand}
         </p>
-        <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
+        <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
           {cigar.series ?? cigar.name}
-        </h3>
+        </p>
         {cigar.format && (
-          <p className="text-xs text-muted-foreground">{cigar.format}</p>
+          <p className="text-xs text-muted-foreground">
+            {cigar.format}{cigar.ring_gauge ? ` · ${cigar.ring_gauge}` : ""}
+          </p>
         )}
-        {(cigar.wrapper || cigar.ring_gauge) && (
-          <p className="text-xs text-muted-foreground mt-auto pt-1 truncate">
-            {[
-              cigar.wrapper,
-              cigar.ring_gauge    ? `${cigar.ring_gauge} ring`  : null,
-              cigar.length_inches ? `${cigar.length_inches}"`   : null,
-            ]
-              .filter(Boolean)
-              .join(" · ")}
+        {cigar.wrapper && (
+          <p className="text-xs text-muted-foreground truncate mt-auto pt-1">
+            {cigar.wrapper}
           </p>
         )}
       </div>
-    </button>
+
+      {/* Action buttons */}
+      <div className="px-3 pb-3 flex items-center gap-2 mt-auto pt-1">
+        <button
+          type="button"
+          onClick={() => onAddHumidor(cigar)}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150"
+          style={{
+            backgroundColor: "var(--secondary)",
+            color: "var(--foreground)",
+            minHeight: 36,
+          }}
+          aria-label={`Add ${cigar.series ?? cigar.name} to humidor`}
+        >
+          <HumidorIcon />
+          <span>Humidor</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => onAddWishlist(cigar)}
+          disabled={wishlistPending}
+          className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
+          style={{
+            backgroundColor: "var(--secondary)",
+            color: "var(--foreground)",
+            width: 36,
+            height: 36,
+            flexShrink: 0,
+          }}
+          aria-label={`Add ${cigar.series ?? cigar.name} to wishlist`}
+        >
+          <WishlistIcon />
+        </button>
+      </div>
+    </div>
   );
 }
 
 /* ------------------------------------------------------------------
-   Cigar action sheet — "Add to Humidor" / "Add to Wishlist"
+   List row
    ------------------------------------------------------------------ */
 
-function CigarActionSheet({
+function CatalogListRow({
   cigar,
-  onClose,
-  onAddedToHumidor,
-  onAddedToWishlist,
+  onAddHumidor,
+  onAddWishlist,
+  wishlistPending,
 }: {
-  cigar: CatalogResult | null;
-  onClose: () => void;
-  onAddedToHumidor: () => void;
-  onAddedToWishlist: () => void;
+  cigar: CatalogResult;
+  onAddHumidor: (c: CatalogResult) => void;
+  onAddWishlist: (c: CatalogResult) => void;
+  wishlistPending: boolean;
 }) {
-  const [addingWishlist, setAddingWishlist] = useState(false);
-  const [wishlistError, setWishlistError] = useState<string | null>(null);
-  const [showHumidorSheet, setShowHumidorSheet] = useState(false);
-  const open = cigar !== null;
-
-  /* Reset when cigar changes */
-  useEffect(() => {
-    setAddingWishlist(false);
-    setWishlistError(null);
-    setShowHumidorSheet(false);
-  }, [cigar]);
-
-  async function handleAddWishlist() {
-    if (!cigar) return;
-    setAddingWishlist(true);
-    setWishlistError(null);
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setWishlistError("Not authenticated."); setAddingWishlist(false); return; }
-
-    const { error } = await supabase.from("humidor_items").insert({
-      user_id:     user.id,
-      cigar_id:    cigar.id,
-      quantity:    1,
-      is_wishlist: true,
-    });
-
-    if (error) {
-      setWishlistError(error.message);
-      setAddingWishlist(false);
-      return;
-    }
-
-    /* Increment usage_count */
-    await supabase
-      .from("cigar_catalog")
-      .update({ usage_count: cigar.usage_count + 1 })
-      .eq("id", cigar.id);
-
-    setAddingWishlist(false);
-    onAddedToWishlist();
-    onClose();
-  }
-
-  function handleAddHumidor() {
-    setShowHumidorSheet(true);
-  }
-
-  function handleHumidorSuccess() {
-    /* Increment usage_count */
-    if (cigar) {
-      const supabase = createClient();
-      supabase
-        .from("cigar_catalog")
-        .update({ usage_count: cigar.usage_count + 1 })
-        .eq("id", cigar.id);
-    }
-    onAddedToHumidor();
-    onClose();
-  }
+  const meta = [
+    cigar.format,
+    cigar.ring_gauge ? `${cigar.ring_gauge} ring` : null,
+    cigar.length_inches ? `${cigar.length_inches}"` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 transition-opacity duration-300"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.65)",
-          opacity:         open && !showHumidorSheet ? 1 : 0,
-          pointerEvents:   open && !showHumidorSheet ? "auto" : "none",
-        }}
-        onClick={onClose}
-        aria-hidden="true"
-      />
+    <div className="card flex items-center gap-3 p-3">
+      {/* Thumbnail */}
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+        <CigarPlaceholder />
+      </div>
 
-      {/* Action sheet */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Cigar actions"
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
-        style={{
-          backgroundColor:      "var(--background)",
-          borderTopLeftRadius:  20,
-          borderTopRightRadius: 20,
-          borderTop:            "1px solid var(--border)",
-          transform:            open && !showHumidorSheet ? "translateY(0)" : "translateY(100%)",
-          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
-          paddingBottom:        "env(safe-area-inset-bottom, 24px)",
-        }}
-      >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-2 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-        </div>
-
-        {cigar && (
-          <div className="px-5 pb-6 space-y-4">
-            {/* Cigar info */}
-            <div
-              className="rounded-2xl p-4"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-            >
-              {cigar.brand && (
-                <p
-                  className="text-[11px] font-bold tracking-widest uppercase mb-1"
-                  style={{ color: "var(--primary)" }}
-                >
-                  {cigar.brand}
-                </p>
-              )}
-              <p
-                className="text-base font-semibold text-foreground leading-snug"
-                style={{ fontFamily: "var(--font-serif)" }}
-              >
-                {cigar.series ?? cigar.name}
-              </p>
-              {(cigar.format || cigar.wrapper || cigar.ring_gauge) && (
-                <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-                  {[
-                    cigar.format,
-                    cigar.wrapper,
-                    cigar.ring_gauge    ? `${cigar.ring_gauge} ring`  : null,
-                    cigar.length_inches ? `${cigar.length_inches}"`   : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
-            </div>
-
-            {/* Actions */}
-            <button
-              type="button"
-              onClick={handleAddHumidor}
-              className="btn btn-primary w-full"
-              style={{ minHeight: 52 }}
-            >
-              Add to Humidor
-            </button>
-            <button
-              type="button"
-              onClick={handleAddWishlist}
-              disabled={addingWishlist}
-              className="btn btn-secondary w-full disabled:opacity-40"
-              style={{ minHeight: 52 }}
-            >
-              {addingWishlist ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span
-                    className="rounded-full border animate-spin"
-                    style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
-                  />
-                  Adding…
-                </span>
-              ) : (
-                "Add to Wishlist"
-              )}
-            </button>
-            {wishlistError && (
-              <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>
-                {wishlistError}
-              </p>
-            )}
-          </div>
+      {/* Brand + series */}
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+          {cigar.brand}
+        </p>
+        <p className="text-sm font-semibold text-foreground truncate">
+          {cigar.series ?? cigar.name}
+        </p>
+        {cigar.wrapper && (
+          <p className="text-xs text-muted-foreground truncate">{cigar.wrapper}</p>
         )}
       </div>
 
-      {/* AddToHumidorSheet (stacks on top) */}
-      <AddToHumidorSheet
-        cigarId={cigar?.id ?? ""}
-        isOpen={showHumidorSheet}
-        onClose={() => setShowHumidorSheet(false)}
-        onSuccess={handleHumidorSuccess}
-      />
-    </>
+      {/* Format + ring gauge — hidden on small mobile */}
+      {meta && (
+        <span className="hidden sm:block flex-shrink-0 text-xs text-muted-foreground text-right max-w-[100px] truncate">
+          {meta}
+        </span>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <button
+          type="button"
+          onClick={() => onAddHumidor(cigar)}
+          className="flex items-center justify-center rounded-lg transition-colors duration-150"
+          style={{
+            backgroundColor: "var(--secondary)",
+            color: "var(--foreground)",
+            width: 36,
+            height: 36,
+          }}
+          aria-label={`Add ${cigar.series ?? cigar.name} to humidor`}
+        >
+          <HumidorIcon />
+        </button>
+        <button
+          type="button"
+          onClick={() => onAddWishlist(cigar)}
+          disabled={wishlistPending}
+          className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
+          style={{
+            backgroundColor: "var(--secondary)",
+            color: "var(--foreground)",
+            width: 36,
+            height: 36,
+          }}
+          aria-label={`Add ${cigar.series ?? cigar.name} to wishlist`}
+        >
+          <WishlistIcon />
+        </button>
+      </div>
+    </div>
   );
 }
-
-/* ------------------------------------------------------------------
-   Toast
-   ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
    Page
    ------------------------------------------------------------------ */
 
 export default function DiscoverCigarsPage() {
-  const [query,       setQuery]       = useState("");
-  const [debouncedQ,  setDebouncedQ]  = useState("");
-  const [cigars,      setCigars]      = useState<CatalogResult[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore,     setHasMore]     = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isPopular,   setIsPopular]   = useState(true);
+  const [query,        setQuery]        = useState("");
+  const [debouncedQ,   setDebouncedQ]   = useState("");
+  const [cigars,       setCigars]       = useState<CatalogResult[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [loadingMore,  setLoadingMore]  = useState(false);
+  const [hasMore,      setHasMore]      = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [isPopular,    setIsPopular]    = useState(true);
 
-  const [activeCigar, setActiveCigar] = useState<CatalogResult | null>(null);
-  const [toast,       setToast]       = useState<string | null>(null);
+  // View mode — default grid, persisted to localStorage
+  const [view,         setView]         = useState<ViewMode>("grid");
+  const viewMounted = useRef(false);
+
+  // Humidor sheet
+  const [humidorCigar, setHumidorCigar] = useState<CatalogResult | null>(null);
+
+  // Wishlist pending set — tracks cigar IDs being inserted
+  const [wishlistPending, setWishlistPending] = useState<Set<string>>(new Set());
+
+  const [toast, setToast] = useState<string | null>(null);
 
   const offsetRef = useRef(0);
+
+  /* Restore view preference */
+  useEffect(() => {
+    const saved = localStorage.getItem(LS_KEY) as ViewMode | null;
+    if (saved === "grid" || saved === "list") setView(saved);
+    viewMounted.current = true;
+  }, []);
+
+  /* Persist view preference */
+  useEffect(() => {
+    if (!viewMounted.current) return;
+    localStorage.setItem(LS_KEY, view);
+  }, [view]);
 
   /* 300 ms debounce on query */
   useEffect(() => {
@@ -347,6 +312,60 @@ export default function DiscoverCigarsPage() {
     fetchCigars(true);
   }, [fetchCigars]);
 
+  /* ── Action handlers ──────────────────────────────────────────── */
+
+  function handleAddHumidor(cigar: CatalogResult) {
+    setHumidorCigar(cigar);
+  }
+
+  async function handleAddWishlist(cigar: CatalogResult) {
+    if (wishlistPending.has(cigar.id)) return;
+
+    setWishlistPending((prev) => new Set(prev).add(cigar.id));
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setToast("You must be signed in.");
+      setWishlistPending((prev) => { const s = new Set(prev); s.delete(cigar.id); return s; });
+      return;
+    }
+
+    const { error: insertErr } = await supabase.from("humidor_items").insert({
+      user_id:     user.id,
+      cigar_id:    cigar.id,
+      quantity:    1,
+      is_wishlist: true,
+    });
+
+    if (insertErr) {
+      setToast(insertErr.message);
+    } else {
+      // Increment usage_count (best-effort)
+      supabase
+        .from("cigar_catalog")
+        .update({ usage_count: (cigar.usage_count ?? 0) + 1 })
+        .eq("id", cigar.id);
+      setToast("Added to your wishlist!");
+    }
+
+    setWishlistPending((prev) => { const s = new Set(prev); s.delete(cigar.id); return s; });
+  }
+
+  function handleHumidorSuccess() {
+    if (humidorCigar) {
+      const supabase = createClient();
+      supabase
+        .from("cigar_catalog")
+        .update({ usage_count: (humidorCigar.usage_count ?? 0) + 1 })
+        .eq("id", humidorCigar.id);
+    }
+    setToast("Added to your humidor!");
+    setHumidorCigar(null);
+  }
+
+  /* ── Render ───────────────────────────────────────────────────── */
+
   return (
     <>
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
@@ -354,11 +373,14 @@ export default function DiscoverCigarsPage() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
         {/* Header */}
-        <div className="space-y-1">
-          <h1 style={{ fontFamily: "var(--font-serif)" }}>Discover Cigars</h1>
-          <p className="text-sm text-muted-foreground">
-            Browse our curated catalog of premium cigars
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <h1 style={{ fontFamily: "var(--font-serif)" }}>Discover Cigars</h1>
+            <p className="text-sm text-muted-foreground">
+              Browse our curated catalog of premium cigars
+            </p>
+          </div>
+          <ViewToggle view={view} onChange={setView} />
         </div>
 
         {/* Search bar */}
@@ -389,9 +411,15 @@ export default function DiscoverCigarsPage() {
 
         {/* Results */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
-          </div>
+          view === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => <SkeletonGridCard key={i} />)}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 6 }).map((_, i) => <SkeletonListRow key={i} />)}
+            </div>
+          )
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <p className="text-sm text-destructive">{error}</p>
@@ -411,18 +439,36 @@ export default function DiscoverCigarsPage() {
             </div>
             <div>
               <p className="text-base font-medium text-foreground">No cigars found</p>
-              <p className="text-sm text-muted-foreground mt-1">
-                Try a different search
-              </p>
+              <p className="text-sm text-muted-foreground mt-1">Try a different search</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {cigars.map((c) => (
-                <CatalogCard key={c.id} cigar={c} onTap={setActiveCigar} />
-              ))}
-            </div>
+            {view === "grid" ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {cigars.map((c) => (
+                  <CatalogGridCard
+                    key={c.id}
+                    cigar={c}
+                    onAddHumidor={handleAddHumidor}
+                    onAddWishlist={handleAddWishlist}
+                    wishlistPending={wishlistPending.has(c.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {cigars.map((c) => (
+                  <CatalogListRow
+                    key={c.id}
+                    cigar={c}
+                    onAddHumidor={handleAddHumidor}
+                    onAddWishlist={handleAddWishlist}
+                    wishlistPending={wishlistPending.has(c.id)}
+                  />
+                ))}
+              </div>
+            )}
 
             {hasMore && (
               <div className="flex justify-center pt-4 pb-8">
@@ -440,12 +486,12 @@ export default function DiscoverCigarsPage() {
         )}
       </div>
 
-      {/* Action sheet */}
-      <CigarActionSheet
-        cigar={activeCigar}
-        onClose={() => setActiveCigar(null)}
-        onAddedToHumidor={() => setToast("Added to your humidor!")}
-        onAddedToWishlist={() => setToast("Added to your wishlist!")}
+      {/* Add to Humidor sheet */}
+      <AddToHumidorSheet
+        cigarId={humidorCigar?.id ?? ""}
+        isOpen={humidorCigar !== null}
+        onClose={() => setHumidorCigar(null)}
+        onSuccess={handleHumidorSuccess}
       />
     </>
   );

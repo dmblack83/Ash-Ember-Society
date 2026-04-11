@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import "./globals.css";
 
 /*
@@ -22,6 +23,17 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
+
+/* Viewport is managed separately from metadata in Next.js 16.
+   maximum-scale=1 prevents iOS from zooming when inputs are focused.
+   ViewportMeta (client component) removes the restriction on desktop
+   and injects interactive-widget=resizes-content for Android. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
@@ -63,6 +75,8 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
         </ThemeProvider>
+        {/* Patches viewport meta on desktop; resets scroll on iOS focusout */}
+        <ViewportMeta />
       </body>
     </html>
   );

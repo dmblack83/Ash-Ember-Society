@@ -132,6 +132,45 @@ body {
 }
 
 /* -------------------------------------------------------------------
+   DYNAMIC VIEWPORT HEIGHT
+   dvh automatically tracks the visible viewport when the Android
+   software keyboard opens/closes. app-container is applied to the
+   main content wrapper in app/(app)/layout.tsx.
+   ------------------------------------------------------------------- */
+
+@supports (height: 100dvh) {
+  .app-container {
+    height: 100dvh;
+  }
+}
+
+/* -------------------------------------------------------------------
+   INPUT FONT SIZE — iOS ZOOM PREVENTION
+   iOS Safari zooms in whenever an input's font-size is < 16px.
+   This rule lives OUTSIDE all @layer blocks so it wins the cascade
+   over both @layer components (.input) and Tailwind utility classes
+   like text-sm. The !important is a final safeguard against any
+   remaining inline-style overrides.
+   ------------------------------------------------------------------- */
+
+input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  font-size: max(16px, 1rem) !important;
+}
+
+/* -------------------------------------------------------------------
+   FOCUS STYLES — DESKTOP KEYBOARD NAVIGATION
+   Only shows the ring for keyboard/assistive-tech focus, never for
+   mouse clicks (:focus-visible vs :focus).
+   ------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------
    CUSTOM UTILITIES
    Available as Tailwind classes: glass, glow-ember, glow-gold,
    text-gradient-gold
@@ -393,7 +432,8 @@ body {
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
     padding: 0.5625rem 0.875rem;
-    font-size: 0.875rem;
+    /* 16px minimum — iOS zooms in when any input font-size is below 16px */
+    font-size: 1rem;
     font-family: var(--font-sans);
     color: var(--foreground);
     outline: none;

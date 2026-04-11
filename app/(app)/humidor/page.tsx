@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
+import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
 /* ------------------------------------------------------------------
    Types
@@ -35,7 +36,7 @@ interface HumidorItem {
   cigar: Cigar;
 }
 
-type ViewMode = "grid" | "list";
+// ViewMode is imported from @/components/ui/view-toggle
 type SortOption =
   | "date_newest"
   | "date_oldest"
@@ -375,36 +376,7 @@ function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () =>
   );
 }
 
-/* ------------------------------------------------------------------
-   View toggle icons
-   ------------------------------------------------------------------ */
-
-function GridIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-      style={{ color: active ? "var(--foreground)" : "var(--muted-foreground)" }}
-      aria-hidden="true"
-    >
-      <rect x="1" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" />
-      <rect x="9" y="1" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" />
-      <rect x="1" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" />
-      <rect x="9" y="9" width="6" height="6" rx="1" stroke="currentColor" strokeWidth="1.4" />
-    </svg>
-  );
-}
-
-function ListIcon({ active }: { active: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-      style={{ color: active ? "var(--foreground)" : "var(--muted-foreground)" }}
-      aria-hidden="true"
-    >
-      <line x1="1" y1="4" x2="15" y2="4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="1" y1="8" x2="15" y2="8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <line x1="1" y1="12" x2="15" y2="12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
+/* ViewToggle and its icons are imported from @/components/ui/view-toggle */
 
 /* ------------------------------------------------------------------
    Page
@@ -541,38 +513,7 @@ export default function HumidorPage() {
       {(loading || items.length > 0) && (
         <div className="flex flex-wrap items-center gap-3">
           {/* View toggle */}
-          <div
-            className="flex items-center rounded-lg overflow-hidden border border-border/50 flex-shrink-0"
-            role="group"
-            aria-label="View mode"
-          >
-            <button
-              type="button"
-              onClick={() => setView("grid")}
-              className="px-3 py-2 transition-colors duration-150"
-              style={{
-                backgroundColor:
-                  view === "grid" ? "var(--secondary)" : "transparent",
-              }}
-              aria-pressed={view === "grid"}
-              aria-label="Grid view"
-            >
-              <GridIcon active={view === "grid"} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("list")}
-              className="px-3 py-2 transition-colors duration-150"
-              style={{
-                backgroundColor:
-                  view === "list" ? "var(--secondary)" : "transparent",
-              }}
-              aria-pressed={view === "list"}
-              aria-label="List view"
-            >
-              <ListIcon active={view === "list"} />
-            </button>
-          </div>
+          <ViewToggle view={view} onChange={setView} />
 
           {/* Sort */}
           <select
