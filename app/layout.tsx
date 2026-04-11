@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
@@ -23,6 +23,17 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
 });
+
+/* Viewport is managed separately from metadata in Next.js 16.
+   maximum-scale=1 prevents iOS from zooming when inputs are focused.
+   ViewportMeta (client component) removes the restriction on desktop
+   and injects interactive-widget=resizes-content for Android. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
 
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
@@ -57,15 +68,6 @@ export default function RootLayout({
       className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
-        {/* Viewport: maximum-scale=1 prevents iOS auto-zoom on inputs.
-            interactive-widget=resizes-content keeps Android's content area
-            shrinking (not overlapping) when the software keyboard opens.
-            ViewportMeta removes maximum-scale on desktop (≥1024px) so
-            pinch-zoom still works there. */}
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content"
-        />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>

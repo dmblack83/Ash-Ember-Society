@@ -147,15 +147,16 @@ body {
 /* -------------------------------------------------------------------
    INPUT FONT SIZE — iOS ZOOM PREVENTION
    iOS Safari zooms in whenever an input's font-size is < 16px.
-   This global floor prevents that without touching individual styles.
+   This rule lives OUTSIDE all @layer blocks so it wins the cascade
+   over both @layer components (.input) and Tailwind utility classes
+   like text-sm. The !important is a final safeguard against any
+   remaining inline-style overrides.
    ------------------------------------------------------------------- */
 
-@layer base {
-  input,
-  textarea,
-  select {
-    font-size: max(16px, 1rem);
-  }
+input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  font-size: max(16px, 1rem) !important;
 }
 
 /* -------------------------------------------------------------------
@@ -431,7 +432,8 @@ body {
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
     padding: 0.5625rem 0.875rem;
-    font-size: 0.875rem;
+    /* 16px minimum — iOS zooms in when any input font-size is below 16px */
+    font-size: 1rem;
     font-family: var(--font-sans);
     color: var(--foreground);
     outline: none;
