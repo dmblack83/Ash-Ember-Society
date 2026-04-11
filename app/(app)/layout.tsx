@@ -185,8 +185,10 @@ function BottomNav() {
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* Page content — bottom padding clears the nav bar */}
-      <main className="flex-1" style={{ paddingBottom: "calc(64px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
+      {/* Page content — bottom padding clears the nav bar.
+          app-container enables dvh tracking on Android so the layout
+          shrinks correctly when the software keyboard opens. */}
+      <main className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
       <BottomNav />

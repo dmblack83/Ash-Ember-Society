@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
+import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import "./globals.css";
 
 /*
@@ -56,6 +57,15 @@ export default function RootLayout({
       className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
     >
       <head>
+        {/* Viewport: maximum-scale=1 prevents iOS auto-zoom on inputs.
+            interactive-widget=resizes-content keeps Android's content area
+            shrinking (not overlapping) when the software keyboard opens.
+            ViewportMeta removes maximum-scale on desktop (≥1024px) so
+            pinch-zoom still works there. */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content"
+        />
         <link rel="manifest" href="/manifest.json" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
@@ -63,6 +73,8 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           {children}
         </ThemeProvider>
+        {/* Patches viewport meta on desktop; resets scroll on iOS focusout */}
+        <ViewportMeta />
       </body>
     </html>
   );

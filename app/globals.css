@@ -132,6 +132,44 @@ body {
 }
 
 /* -------------------------------------------------------------------
+   DYNAMIC VIEWPORT HEIGHT
+   dvh automatically tracks the visible viewport when the Android
+   software keyboard opens/closes. app-container is applied to the
+   main content wrapper in app/(app)/layout.tsx.
+   ------------------------------------------------------------------- */
+
+@supports (height: 100dvh) {
+  .app-container {
+    height: 100dvh;
+  }
+}
+
+/* -------------------------------------------------------------------
+   INPUT FONT SIZE — iOS ZOOM PREVENTION
+   iOS Safari zooms in whenever an input's font-size is < 16px.
+   This global floor prevents that without touching individual styles.
+   ------------------------------------------------------------------- */
+
+@layer base {
+  input,
+  textarea,
+  select {
+    font-size: max(16px, 1rem);
+  }
+}
+
+/* -------------------------------------------------------------------
+   FOCUS STYLES — DESKTOP KEYBOARD NAVIGATION
+   Only shows the ring for keyboard/assistive-tech focus, never for
+   mouse clicks (:focus-visible vs :focus).
+   ------------------------------------------------------------------- */
+
+:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------
    CUSTOM UTILITIES
    Available as Tailwind classes: glass, glow-ember, glow-gold,
    text-gradient-gold

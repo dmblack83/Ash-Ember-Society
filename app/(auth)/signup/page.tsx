@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
+import { Toast } from "@/components/ui/toast";
 
 /* ------------------------------------------------------------------
    Constants
@@ -40,18 +41,6 @@ function calcAge(year: number, month: number, day: number): number {
    Reusable sub-components
    ------------------------------------------------------------------ */
 
-function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  useEffect(() => {
-    const t = setTimeout(onDismiss, 3000);
-    return () => clearTimeout(t);
-  }, [onDismiss]);
-
-  return (
-    <div className="toast fixed bottom-6 right-6 max-w-xs animate-slide-up z-50">
-      <p className="text-sm text-foreground">{message}</p>
-    </div>
-  );
-}
 
 function Field({
   id,
