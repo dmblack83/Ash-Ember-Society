@@ -7,7 +7,6 @@ import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
-import { STRENGTH_LABEL, strengthStyle } from "@/components/ui/strength";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 
 /* ------------------------------------------------------------------
@@ -623,14 +622,9 @@ export function HumidorItemClient({
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
-        {/* Image */}
+        {/* Image placeholder */}
         <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          {c.image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.image_url} alt={`${c.brand} ${c.line}`} className="w-full h-full object-cover" />
-          ) : (
-            <BrandPlaceholder brand={c.brand} />
-          )}
+          <BrandPlaceholder brand={c.brand ?? "?"} />
         </div>
 
         {/* Info */}
@@ -639,28 +633,19 @@ export function HumidorItemClient({
             {c.brand}
           </p>
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
-            {c.line}
+            {c.series ?? c.name}
           </h1>
-          {c.name && c.name !== c.line && (
-            <p className="text-base text-foreground/75 -mt-1">{c.name}</p>
+          {c.format && (
+            <p className="text-sm text-muted-foreground">{c.format}</p>
           )}
-          <p className="text-sm text-muted-foreground">{c.vitola}</p>
-
-          {/* Strength badge */}
-          <div className="mt-1">
-            <span
-              className="badge text-xs px-3 py-1 rounded-full font-medium"
-              style={strengthStyle(c.strength)}
-            >
-              {STRENGTH_LABEL[c.strength] ?? c.strength}
-            </span>
-          </div>
 
           {/* Wrapper / binder / filler chips */}
           <div className="flex flex-wrap gap-2 mt-2">
-            <Chip label="Wrapper" value={c.wrapper} />
-            {c.binder && <Chip label="Binder" value={c.binder} />}
-            {c.filler && <Chip label="Filler" value={c.filler} />}
+            {c.wrapper && <Chip label="Wrapper" value={c.wrapper} />}
+            {c.binder_country && <Chip label="Binder" value={c.binder_country} />}
+            {c.filler_countries && c.filler_countries.length > 0 && (
+              <Chip label="Filler" value={c.filler_countries.join(", ")} />
+            )}
           </div>
         </div>
       </section>
@@ -812,11 +797,9 @@ export function HumidorItemClient({
             value={avgPersonalRating ?? "—"}
             sub={avgPersonalRating ? "/ 10" : undefined}
           />
-          <StatCard
-            label="Community Avg"
-            value={c.avg_rating != null ? c.avg_rating.toFixed(1) : "—"}
-            sub={c.avg_rating != null ? "/ 10" : undefined}
-          />
+          {c.ring_gauge != null && (
+            <StatCard label="Ring Gauge" value={String(c.ring_gauge)} />
+          )}
         </div>
       </section>
 

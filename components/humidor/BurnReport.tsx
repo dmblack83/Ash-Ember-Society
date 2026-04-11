@@ -208,17 +208,12 @@ function CigarContext({ item }: { item: BurnReportItem }) {
       style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}
     >
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-card flex items-center justify-center flex-shrink-0">
-        {c.image_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={c.image_url} alt={c.brand} className="w-full h-full object-cover" />
-        ) : (
-          <span
-            className="text-xl font-bold select-none"
-            style={{ fontFamily: "var(--font-serif)", color: "var(--muted-foreground)" }}
-          >
-            {c.brand.charAt(0)}
-          </span>
-        )}
+        <span
+          className="text-xl font-bold select-none"
+          style={{ fontFamily: "var(--font-serif)", color: "var(--muted-foreground)" }}
+        >
+          {(c.brand ?? "?").charAt(0)}
+        </span>
       </div>
       <div className="min-w-0">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
@@ -228,9 +223,9 @@ function CigarContext({ item }: { item: BurnReportItem }) {
           className="text-sm font-semibold text-foreground truncate"
           style={{ fontFamily: "var(--font-serif)" }}
         >
-          {c.line}
+          {c.series ?? c.name}
         </p>
-        <p className="text-xs text-muted-foreground">{c.vitola}</p>
+        {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
       </div>
     </div>
   );
@@ -730,7 +725,7 @@ function SummaryStep({
           {c.brand}
         </p>
         <p className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-          {c.line}
+          {c.series ?? c.name}
         </p>
         <p
           className="text-6xl font-bold leading-none mt-3"

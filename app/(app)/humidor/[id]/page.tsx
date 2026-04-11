@@ -2,23 +2,24 @@ import { createClient } from "@/utils/supabase/server";
 import { notFound, redirect } from "next/navigation";
 import { HumidorItemClient } from "@/components/humidor/HumidorItemClient";
 
+export const dynamic = "force-dynamic";
+
 /* ------------------------------------------------------------------
    Types (shared with client via props)
    ------------------------------------------------------------------ */
 
 export interface CigarDetail {
   id: string;
-  brand: string;
-  line: string;
+  brand: string | null;
+  series: string | null;
   name: string;
-  vitola: string;
-  strength: string;
-  wrapper: string;
-  binder: string | null;
-  filler: string | null;
-  country: string;
-  image_url: string | null;
-  avg_rating: number | null;
+  format: string | null;
+  wrapper: string | null;
+  wrapper_country: string | null;
+  binder_country: string | null;
+  filler_countries: string[] | null;
+  ring_gauge: number | null;
+  length_inches: number | null;
 }
 
 export interface HumidorItemDetail {
@@ -60,7 +61,7 @@ export default async function HumidorItemPage({
 
   const { data: item, error } = await supabase
     .from("humidor_items")
-    .select("*, cigar:cigars(*)")
+    .select("*, cigar:cigar_catalog(*)")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();
