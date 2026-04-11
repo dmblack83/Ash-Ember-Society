@@ -13,7 +13,7 @@ export const dynamic  = "force-dynamic";
 /* Local row type — the new columns aren't in Supabase's generated types
    until `supabase gen types` is re-run after the migration. */
 interface ProfileRow {
-  membership_tier:        string | null;
+  membership_tier:        MembershipTier | null;
   stripe_customer_id:     string | null;
   stripe_subscription_id: string | null;
   display_name:           string | null;
