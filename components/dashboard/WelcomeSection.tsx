@@ -89,6 +89,7 @@ function QuickAction({ label, href }: { label: string; href: string }) {
       onPointerCancel={() => setPressed(false)}
       className="w-full flex items-center justify-center rounded-xl font-medium text-sm transition-colors duration-100"
       style={{
+        fontFamily:              "inherit",
         minHeight:               44,
         padding:                 "11px 16px",
         touchAction:             "manipulation",
@@ -136,9 +137,9 @@ function WelcomeContent({ data }: { data: WelcomeData }) {
 export function QuickActions() {
   return (
     <div className="flex gap-2">
-      <QuickAction label="Start a Burn Report" href="/humidor"          />
-      <QuickAction label="Add a Cigar"         href="/humidor?add=true" />
-      <QuickAction label="Find a Lounge"       href="/discover/shops"   />
+      <QuickAction label="+ Burn Report" href="/humidor"          />
+      <QuickAction label="+ Cigar"      href="/humidor?add=true" />
+      <QuickAction label="Local Shops"  href="/discover/shops"   />
     </div>
   );
 }
