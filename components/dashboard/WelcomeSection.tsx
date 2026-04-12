@@ -112,31 +112,33 @@ function QuickAction({ label, href }: { label: string; href: string }) {
 }
 
 /* ------------------------------------------------------------------
-   Inner content (greeting + pill + actions)
+   Header content — greeting + tier pill only (no actions)
    ------------------------------------------------------------------ */
 
 function WelcomeContent({ data }: { data: WelcomeData }) {
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-1.5">
+      <p
+        className="leading-tight text-foreground"
+        style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700 }}
+      >
+        {getGreeting()}, {data.displayName}
+      </p>
+      <TierPill tier={data.tier} memberYear={data.memberYear} />
+    </div>
+  );
+}
 
-      {/* Greeting + tier pill */}
-      <div className="flex flex-col gap-1.5">
-        <p
-          className="leading-tight text-foreground"
-          style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700 }}
-        >
-          {getGreeting()}, {data.displayName}
-        </p>
-        <TierPill tier={data.tier} memberYear={data.memberYear} />
-      </div>
+/* ------------------------------------------------------------------
+   QuickActions — single horizontal row, lives in the scrollable page
+   ------------------------------------------------------------------ */
 
-      {/* Quick actions — full-width, stacked */}
-      <div className="flex flex-col gap-2">
-        <QuickAction label="Start a Burn Report" href="/humidor"          />
-        <QuickAction label="Add a Cigar"         href="/humidor?add=true" />
-        <QuickAction label="Find a Lounge"       href="/discover/shops"   />
-      </div>
-
+export function QuickActions() {
+  return (
+    <div className="flex gap-2">
+      <QuickAction label="Start a Burn Report" href="/humidor"          />
+      <QuickAction label="Add a Cigar"         href="/humidor?add=true" />
+      <QuickAction label="Find a Lounge"       href="/discover/shops"   />
     </div>
   );
 }
@@ -245,7 +247,7 @@ export function WelcomeSection() {
           {data ? (
             <WelcomeContent data={data} />
           ) : (
-            <DashboardSkeleton height={148} />
+            <DashboardSkeleton height={56} />
           )}
         </div>
       </header>

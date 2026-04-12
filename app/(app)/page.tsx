@@ -2,7 +2,7 @@ import {
   DashboardSection,
   DashboardSkeleton,
 } from "@/components/dashboard/dashboard-section";
-import { WelcomeSection }    from "@/components/dashboard/WelcomeSection";
+import { WelcomeSection, QuickActions } from "@/components/dashboard/WelcomeSection";
 import { SmokingConditions } from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }       from "@/components/dashboard/AgingAlerts";
 import { CigarNews }         from "@/components/dashboard/CigarNews";
@@ -11,8 +11,11 @@ export default function HomePage() {
   return (
     <div className="px-4 sm:px-6 pt-4 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
-      {/* ── 0. Personalised welcome ───────────────────────────────── */}
+      {/* ── 0. Fixed header (greeting + tier pill) ───────────────── */}
       <WelcomeSection />
+
+      {/* ── 0b. Quick actions row ─────────────────────────────────── */}
+      <QuickActions />
 
       {/* ── 1. Smoking conditions (weather) ───────────────────────── */}
       <SmokingConditions />
