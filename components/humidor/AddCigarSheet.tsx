@@ -43,6 +43,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [priceStr,     setPriceStr]     = useState("");
   const [source,       setSource]       = useState("");
   const [agingStart,   setAgingStart]   = useState("");
+  const [agingTarget,  setAgingTarget]  = useState("");
   const [notes,        setNotes]        = useState("");
 
   /* Submit */
@@ -56,7 +57,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
     setSubmitToCatalog(true);
     setQuantity(1); setPurchaseDate(""); setPriceStr("");
-    setSource(""); setAgingStart(""); setNotes("");
+    setSource(""); setAgingStart(""); setAgingTarget(""); setNotes("");
     setSubmitError(null);
   }, [open]);
 
@@ -119,8 +120,9 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
         purchase_date:    purchaseDate    || null,
         price_paid_cents: isNaN(priceCents ?? NaN) ? null : priceCents,
         source:           source.trim()   || null,
-        aging_start_date: agingStart      || null,
-        notes:            notes.trim()    || null,
+        aging_start_date:  agingStart       || null,
+        aging_target_date: agingTarget      || null,
+        notes:             notes.trim()    || null,
         is_wishlist:      false,
       });
 
@@ -511,6 +513,20 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   type="date"
                   value={agingStart}
                   onChange={(e) => setAgingStart(e.target.value)}
+                  className="input w-full text-sm"
+                  style={{ minHeight: 48 }}
+                />
+              </div>
+
+              {/* Aging target date */}
+              <div>
+                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                  Ready to Smoke By
+                </label>
+                <input
+                  type="date"
+                  value={agingTarget}
+                  onChange={(e) => setAgingTarget(e.target.value)}
                   className="input w-full text-sm"
                   style={{ minHeight: 48 }}
                 />

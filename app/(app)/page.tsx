@@ -4,6 +4,7 @@ import {
 } from "@/components/dashboard/dashboard-section";
 import { WelcomeSection } from "@/components/dashboard/WelcomeSection";
 import { SmokingConditions } from "@/components/dashboard/SmokingConditions";
+import { AgingAlerts } from "@/components/dashboard/AgingAlerts";
 
 export default function HomePage() {
   return (
@@ -15,28 +16,31 @@ export default function HomePage() {
       {/* ── 1. Smoking conditions (weather) ───────────────────────── */}
       <SmokingConditions />
 
-      {/* ── 2. Quick-glance humidor snapshot ──────────────────────── */}
-      <DashboardSection title="My Humidor" sectionIndex={2}>
+      {/* ── 2. Aging alerts ───────────────────────────────────────── */}
+      <AgingAlerts />
+
+      {/* ── 3. Quick-glance humidor snapshot ──────────────────────── */}
+      <DashboardSection title="My Humidor" sectionIndex={3}>
         <DashboardSkeleton height={120} />
       </DashboardSection>
 
-      {/* ── 3. Recent smoke / burn report ─────────────────────────── */}
-      <DashboardSection title="Recent Smokes" sectionIndex={3}>
+      {/* ── 4. Recent smoke / burn report ─────────────────────────── */}
+      <DashboardSection title="Recent Smokes" sectionIndex={4}>
         <DashboardSkeleton height={96} />
       </DashboardSection>
 
-      {/* ── 4. Trending in the catalog ────────────────────────────── */}
-      <DashboardSection title="Trending Cigars" sectionIndex={4}>
+      {/* ── 5. Trending in the catalog ────────────────────────────── */}
+      <DashboardSection title="Trending Cigars" sectionIndex={5}>
         <DashboardSkeleton height={160} />
       </DashboardSection>
 
-      {/* ── 5. Community / lounge activity ───────────────────────── */}
-      <DashboardSection title="Lounge Activity" sectionIndex={5}>
+      {/* ── 6. Community / lounge activity ───────────────────────── */}
+      <DashboardSection title="Lounge Activity" sectionIndex={6}>
         <DashboardSkeleton height={120} />
       </DashboardSection>
 
-      {/* ── 6. Membership / account status ───────────────────────── */}
-      <DashboardSection title="Membership" sectionIndex={6}>
+      {/* ── 7. Membership / account status ───────────────────────── */}
+      <DashboardSection title="Membership" sectionIndex={7}>
         <DashboardSkeleton height={80} />
       </DashboardSection>
 
