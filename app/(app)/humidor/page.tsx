@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
@@ -384,7 +383,6 @@ function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () =>
    ------------------------------------------------------------------ */
 
 export default function HumidorPage() {
-  const searchParams = useSearchParams();
   const [items, setItems] = useState<HumidorItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -399,8 +397,10 @@ export default function HumidorPage() {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
-    if (searchParams.get("add") === "true") setShowAddSheet(true);
-  }, [searchParams]);
+    if (new URLSearchParams(window.location.search).get("add") === "true") {
+      setShowAddSheet(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (hasMounted.current) localStorage.setItem("humidor_view", view);
