@@ -78,33 +78,36 @@ function TierPill({
 
 function QuickAction({ label, href }: { label: string; href: string }) {
   const router = useRouter();
-  const [pressed, setPressed] = useState(false);
 
   return (
     <button
       type="button"
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => { setPressed(false); router.push(href, { scroll: false }); }}
-      onPointerLeave={() => setPressed(false)}
-      onPointerCancel={() => setPressed(false)}
-      className="w-full flex items-center justify-center rounded-xl font-medium text-sm transition-colors duration-100"
+      onClick={() => router.push(href, { scroll: false })}
+      className="flex-1"
       style={{
-        fontFamily:              "inherit",
+        display:                 "inline-flex",
+        alignItems:              "center",
+        justifyContent:          "center",
         minHeight:               44,
-        padding:                 "11px 16px",
+        padding:                 "0 12px",
+        borderRadius:            "0.75rem",       /* matches .btn calc(--radius + 4px) */
+        background:              "#C9A84C",
+        color:                   "#1A1210",
+        fontWeight:              600,
+        fontSize:                "0.75rem",       /* 12px — keeps all labels single-line */
+        lineHeight:              1,
+        whiteSpace:              "nowrap",
+        border:                  "none",
+        cursor:                  "pointer",
         touchAction:             "manipulation",
         WebkitTapHighlightColor: "transparent",
-        background:              pressed
-          ? "#C9A84C"
-          : "rgba(255,255,255,0.05)",
-        backdropFilter:          pressed ? "none" : "blur(8px)",
-        WebkitBackdropFilter:    pressed ? "none" : "blur(8px)",
-        border:                  pressed
-          ? "1px solid #C9A84C"
-          : "1px solid var(--gold)",
-        color:                   pressed ? "#1a1008" : "#F5EDD6",
-        cursor:                  "pointer",
+        transition:              "filter 150ms ease",
       } as React.CSSProperties}
+      onMouseEnter={(e) => (e.currentTarget.style.filter = "brightness(1.1)")}
+      onMouseLeave={(e) => (e.currentTarget.style.filter = "none")}
+      onPointerDown={(e)  => (e.currentTarget.style.filter = "brightness(0.92)")}
+      onPointerUp={(e)    => (e.currentTarget.style.filter = "none")}
+      onPointerLeave={(e) => (e.currentTarget.style.filter = "none")}
       aria-label={label}
     >
       {label}

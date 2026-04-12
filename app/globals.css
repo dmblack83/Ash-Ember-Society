@@ -145,6 +145,18 @@ body {
 }
 
 /* -------------------------------------------------------------------
+   BUTTON / INPUT FONT FAMILY — UA STYLESHEET OVERRIDE
+   Browser UA stylesheets (Safari/iOS especially) explicitly reset
+   button and input font-family to the system font BEFORE inheritance
+   runs. Rules inside @layer blocks lose to non-layered UA styles, so
+   this rule must live OUTSIDE all @layer blocks to win the cascade.
+   ------------------------------------------------------------------- */
+
+button, input, select, textarea {
+  font-family: var(--font-sans);
+}
+
+/* -------------------------------------------------------------------
    INPUT FONT SIZE — iOS ZOOM PREVENTION
    iOS Safari zooms in whenever an input's font-size is < 16px.
    This rule lives OUTSIDE all @layer blocks so it wins the cascade
@@ -238,6 +250,7 @@ select {
     position: relative;
     isolation: isolate;
   }
+
 
   /*
    * Noise texture overlay — gives the surface a tactile leather/wood-grain
