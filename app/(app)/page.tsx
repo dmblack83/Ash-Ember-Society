@@ -6,6 +6,7 @@ import { WelcomeSection, QuickActions } from "@/components/dashboard/WelcomeSect
 import { SmokingConditions } from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }       from "@/components/dashboard/AgingAlerts";
 import { CigarNews }         from "@/components/dashboard/CigarNews";
+import { TrendingLounge }    from "@/components/dashboard/TrendingLounge";
 
 export default function HomePage() {
   return (
@@ -31,23 +32,26 @@ export default function HomePage() {
       {/* ── 4. Cigar news & editorial feed ────────────────────────── */}
       <CigarNews />
 
-      {/* ── 5. Recent smoke / burn report ─────────────────────────── */}
-      <DashboardSection title="Recent Smokes" sectionIndex={5}>
+      {/* ── 5. Trending in The Lounge ─────────────────────────────── */}
+      <TrendingLounge />
+
+      {/* ── 6. Recent smoke / burn report ─────────────────────────── */}
+      <DashboardSection title="Recent Smokes" sectionIndex={6}>
         <DashboardSkeleton height={96} />
       </DashboardSection>
 
-      {/* ── 6. Trending in the catalog ────────────────────────────── */}
-      <DashboardSection title="Trending Cigars" sectionIndex={6}>
+      {/* ── 7. Trending in the catalog ────────────────────────────── */}
+      <DashboardSection title="Trending Cigars" sectionIndex={7}>
         <DashboardSkeleton height={160} />
       </DashboardSection>
 
-      {/* ── 7. Community / lounge activity ───────────────────────── */}
-      <DashboardSection title="Lounge Activity" sectionIndex={7}>
+      {/* ── 8. Community / lounge activity ───────────────────────── */}
+      <DashboardSection title="Lounge Activity" sectionIndex={8}>
         <DashboardSkeleton height={120} />
       </DashboardSection>
 
-      {/* ── 8. Membership / account status ───────────────────────── */}
-      <DashboardSection title="Membership" sectionIndex={8}>
+      {/* ── 9. Membership / account status ───────────────────────── */}
+      <DashboardSection title="Membership" sectionIndex={9}>
         <DashboardSkeleton height={80} />
       </DashboardSection>
 
