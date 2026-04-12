@@ -143,7 +143,8 @@ function EditSheet({
     item.price_paid_cents != null ? (item.price_paid_cents / 100).toFixed(2) : ""
   );
   const [source, setSource] = useState(item.source ?? "");
-  const [agingStartDate, setAgingStartDate] = useState(item.aging_start_date ?? "");
+  const [agingStartDate,   setAgingStartDate]   = useState(item.aging_start_date   ?? "");
+  const [agingTargetDate,  setAgingTargetDate]  = useState(item.aging_target_date  ?? "");
   const [notes, setNotes] = useState(item.notes ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -154,7 +155,8 @@ function EditSheet({
     setPurchaseDate(item.purchase_date ?? "");
     setPriceDollars(item.price_paid_cents != null ? (item.price_paid_cents / 100).toFixed(2) : "");
     setSource(item.source ?? "");
-    setAgingStartDate(item.aging_start_date ?? "");
+    setAgingStartDate(item.aging_start_date   ?? "");
+    setAgingTargetDate(item.aging_target_date ?? "");
     setNotes(item.notes ?? "");
     setError(null);
   }, [isOpen, item]);
@@ -175,11 +177,12 @@ function EditSheet({
       : null;
 
     const updates = {
-      purchase_date: purchaseDate || null,
-      price_paid_cents: isNaN(priceCents!) ? null : priceCents,
-      source: source.trim() || null,
-      aging_start_date: agingStartDate || null,
-      notes: notes.trim() || null,
+      purchase_date:     purchaseDate       || null,
+      price_paid_cents:  isNaN(priceCents!) ? null : priceCents,
+      source:            source.trim()      || null,
+      aging_start_date:  agingStartDate     || null,
+      aging_target_date: agingTargetDate    || null,
+      notes:             notes.trim()       || null,
     };
 
     const supabase = createClient();
@@ -295,6 +298,18 @@ function EditSheet({
                 value={agingStartDate}
                 max={today}
                 onChange={(e) => setAgingStartDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="edit-aging-target" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Ready to Smoke By
+              </label>
+              <input
+                id="edit-aging-target"
+                type="date"
+                className="input"
+                value={agingTargetDate}
+                onChange={(e) => setAgingTargetDate(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">

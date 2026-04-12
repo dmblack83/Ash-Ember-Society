@@ -29,7 +29,8 @@ export interface HumidorItemDetail {
   purchase_date: string | null;
   price_paid_cents: number | null;
   source: string | null;
-  aging_start_date: string | null;
+  aging_start_date:  string | null;
+  aging_target_date: string | null;
   notes: string | null;
   created_at: string;
   cigar: CigarDetail;
