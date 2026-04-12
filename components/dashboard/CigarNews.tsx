@@ -755,18 +755,28 @@ function PostSheet({
           </div>
         )}
 
-        {/* Body content */}
+        {/* Body content
+            Blog  : body → excerpt → synopsis → fallback
+            News  : synopsis → excerpt → fallback               */}
         {isNews ? (
           <p className="text-sm leading-relaxed text-muted-foreground" style={{ fontStyle: "italic" }}>
-            {post.synopsis?.trim() || post.excerpt?.trim() || "No preview available."}
+            {post.synopsis?.trim() || post.excerpt?.trim() || post.body?.trim() || "No preview available."}
           </p>
-        ) : (
-          post.body?.trim()
-            ? <SimpleMarkdown content={post.body} />
-            : post.excerpt?.trim()
-              ? <p className="text-sm leading-relaxed text-muted-foreground">{post.excerpt}</p>
-              : <p className="text-sm text-muted-foreground italic">No content available.</p>
-        )}
+        ) : (() => {
+          const content = post.body?.trim() || post.excerpt?.trim() || post.synopsis?.trim();
+          if (!content) {
+            return <p className="text-sm text-muted-foreground italic">No content available.</p>;
+          }
+          // If we fell back to excerpt/synopsis (plain text), render as paragraphs
+          if (content === post.body?.trim()) {
+            return <SimpleMarkdown content={content} />;
+          }
+          return (
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+              {content}
+            </p>
+          );
+        })()}
 
         {/* Breathing room */}
         <div className="h-4" aria-hidden="true" />
