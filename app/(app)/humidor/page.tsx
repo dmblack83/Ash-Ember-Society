@@ -392,11 +392,14 @@ export default function HumidorPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const hasMounted = useRef(false);
 
-  /* Persist view preference */
+  /* Persist view preference + auto-open add sheet from ?add=true */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
+    if (new URLSearchParams(window.location.search).get("add") === "true") {
+      setShowAddSheet(true);
+    }
   }, []);
 
   useEffect(() => {

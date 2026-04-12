@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import { DashboardSection, DashboardSkeleton } from "@/components/dashboard/dashboard-section";
+import { DashboardSkeleton } from "@/components/dashboard/dashboard-section";
 
 /* ------------------------------------------------------------------
    Types
@@ -50,6 +50,30 @@ function agingDuration(startDate: string | null): string | null {
 }
 
 /* ------------------------------------------------------------------
+   Chevron icon
+   ------------------------------------------------------------------ */
+
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      aria-hidden="true"
+      style={{
+        transition: "transform 0.25s ease",
+        transform:  open ? "rotate(180deg)" : "rotate(0deg)",
+        flexShrink: 0,
+        color:      "var(--muted-foreground)",
+      }}
+    >
+      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------
    Status label
    ------------------------------------------------------------------ */
 
@@ -66,26 +90,20 @@ function StatusLabel({ days }: { days: number }) {
   }
   if (days === 0) {
     return (
-      <span
-        className="text-xs font-semibold flex-shrink-0"
-        style={{ color: "#4ade80" }}
-      >
+      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "#4ade80" }}>
         Ready Today
       </span>
     );
   }
   return (
-    <span
-      className="text-xs font-semibold flex-shrink-0"
-      style={{ color: "var(--gold)" }}
-    >
+    <span className="text-xs font-semibold flex-shrink-0" style={{ color: "var(--gold)" }}>
       Ready in {days}d
     </span>
   );
 }
 
 /* ------------------------------------------------------------------
-   Single aging row
+   Single aging row (expanded only)
    ------------------------------------------------------------------ */
 
 function AgingRow({ item }: { item: AgingItem }) {
@@ -100,17 +118,16 @@ function AgingRow({ item }: { item: AgingItem }) {
       onClick={() => router.push(`/humidor/${item.id}`, { scroll: false })}
       className="w-full flex items-center justify-between gap-3 text-left transition-opacity active:opacity-70"
       style={{
-        minHeight: 44,
-        touchAction: "manipulation",
+        minHeight:               44,
+        touchAction:             "manipulation",
         WebkitTapHighlightColor: "transparent",
-        background: "none",
-        border: "none",
-        padding: "10px 0",
-        cursor: "pointer",
+        background:              "none",
+        border:                  "none",
+        padding:                 "10px 0",
+        cursor:                  "pointer",
       } as React.CSSProperties}
       aria-label={`${display} — ${days < 0 ? "past peak" : days === 0 ? "ready today" : `ready in ${days} days`}`}
     >
-      {/* Left: name + aging duration */}
       <div className="flex flex-col gap-0.5 min-w-0">
         {item.cigar.brand && (
           <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground truncate">
@@ -124,8 +141,6 @@ function AgingRow({ item }: { item: AgingItem }) {
           <p className="text-xs text-muted-foreground">{duration}</p>
         )}
       </div>
-
-      {/* Right: status */}
       <StatusLabel days={days} />
     </button>
   );
@@ -136,9 +151,10 @@ function AgingRow({ item }: { item: AgingItem }) {
    ------------------------------------------------------------------ */
 
 export function AgingAlerts() {
-  const [items,   setItems]   = useState<AgingItem[] | null>(null); // null = loading
-  const [loading, setLoading] = useState(true);
-  const [errored, setErrored] = useState(false);
+  const [items,    setItems]    = useState<AgingItem[] | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [errored,  setErrored]  = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -147,7 +163,6 @@ export function AgingAlerts() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { setItems([]); setLoading(false); return; }
 
-        // today + 14 days, formatted as YYYY-MM-DD
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() + 14);
         const cutoffStr = cutoff.toISOString().split("T")[0];
@@ -167,7 +182,7 @@ export function AgingAlerts() {
         if (error) throw error;
         setItems((data as unknown as AgingItem[]) ?? []);
       } catch {
-        setErrored(true); // query failed (e.g. column missing) — show nothing
+        setErrored(true);
       } finally {
         setLoading(false);
       }
@@ -176,34 +191,129 @@ export function AgingAlerts() {
     load();
   }, []);
 
-  // Still loading
+  // Loading
   if (loading) {
     return (
-      <DashboardSection title="Aging Alerts" sectionIndex={2}>
-        <DashboardSkeleton height={100} />
-      </DashboardSection>
+      <section className="flex flex-col gap-3 animate-fade-in" style={{ animationDelay: "160ms" }}>
+        <DashboardSkeleton height={44} />
+      </section>
     );
   }
 
-  // Query errored (e.g. column not yet migrated) or no matching cigars — hide
+  // Query errored or no matching cigars — hide entirely
   if (errored || !items || items.length === 0) return null;
 
-  return (
-    <DashboardSection title="Aging Alerts" sectionIndex={2}>
-      <div className="glass rounded-xl px-4 divide-y" style={{ borderColor: "var(--border)" }}>
-        {/* "Ready to Smoke" sub-label */}
-        <div className="py-2.5">
-          <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
-            Ready to Smoke
-          </p>
-        </div>
+  const count = items.length;
 
-        {items.map((item, i) => (
-          <div key={item.id} className={i < items.length - 1 ? "" : ""}>
-            <AgingRow item={item} />
+  return (
+    <section className="flex flex-col gap-3 animate-fade-in" style={{ animationDelay: "160ms" }}>
+      <div
+        className="glass rounded-xl overflow-hidden"
+        aria-label="Aging alerts"
+      >
+        {/* ── Always-visible collapsed header ────────────────────── */}
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="w-full flex items-center justify-between gap-2 px-4"
+          style={{
+            minHeight:               44,
+            paddingTop:              10,
+            paddingBottom:           10,
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            background:              "none",
+            border:                  "none",
+            cursor:                  "pointer",
+          } as React.CSSProperties}
+          aria-expanded={expanded}
+          aria-controls="aging-alerts-list"
+        >
+          {/* Left: section title */}
+          <span
+            className="font-semibold leading-none"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize:   14,
+              color:      "var(--gold)",
+            }}
+          >
+            Aging Alerts
+          </span>
+
+          {/* Right: bell + count + chevron */}
+          <div className="flex items-center gap-2">
+            {/* Bell icon */}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              aria-hidden="true"
+              style={{ color: "var(--muted-foreground)", flexShrink: 0 }}
+            >
+              <path
+                d="M7 1.5a4 4 0 00-4 4v2.5l-1 1.5h10l-1-1.5V5.5a4 4 0 00-4-4z"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M5.5 11.5a1.5 1.5 0 003 0"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+              />
+            </svg>
+
+            {/* Count badge */}
+            <span
+              className="flex items-center justify-center rounded-full text-[10px] font-bold"
+              style={{
+                minWidth:        18,
+                height:          18,
+                padding:         "0 5px",
+                background:      "var(--primary)",
+                color:           "#fff",
+              }}
+            >
+              {count}
+            </span>
+
+            <Chevron open={expanded} />
           </div>
-        ))}
+        </button>
+
+        {/* ── Expandable list ───────────────────────────────────── */}
+        <div
+          id="aging-alerts-list"
+          style={{
+            maxHeight:  expanded ? count * 80 + 32 : 0,
+            overflow:   "hidden",
+            transition: "max-height 0.3s ease",
+          }}
+        >
+          {/* Divider */}
+          <div style={{ height: 1, backgroundColor: "var(--border)", marginInline: 16 }} />
+
+          {/* Sub-label */}
+          <div className="px-4 pt-2.5 pb-0.5">
+            <p
+              className="text-[11px] font-bold tracking-widest uppercase"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              Ready to Smoke
+            </p>
+          </div>
+
+          {/* Rows */}
+          <div className="px-4 divide-y" style={{ borderColor: "var(--border)" }}>
+            {items.map((item) => (
+              <AgingRow key={item.id} item={item} />
+            ))}
+          </div>
+        </div>
       </div>
-    </DashboardSection>
+    </section>
   );
 }
