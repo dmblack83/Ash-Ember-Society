@@ -9,7 +9,7 @@ import { CigarNews }         from "@/components/dashboard/CigarNews";
 
 export default function HomePage() {
   return (
-    <div className="px-4 sm:px-6 py-6 flex flex-col gap-6 max-w-2xl mx-auto">
+    <div className="px-4 sm:px-6 pt-4 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
       {/* ── 0. Personalised welcome ───────────────────────────────── */}
       <WelcomeSection />
