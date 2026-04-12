@@ -138,6 +138,7 @@ function AgingRow({ item }: { item: AgingItem }) {
 export function AgingAlerts() {
   const [items,   setItems]   = useState<AgingItem[] | null>(null); // null = loading
   const [loading, setLoading] = useState(true);
+  const [errored, setErrored] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -166,7 +167,7 @@ export function AgingAlerts() {
         if (error) throw error;
         setItems((data as unknown as AgingItem[]) ?? []);
       } catch {
-        setItems([]); // fail silently — treat as no alerts
+        setErrored(true); // query failed (e.g. column missing) — show nothing
       } finally {
         setLoading(false);
       }
@@ -184,8 +185,8 @@ export function AgingAlerts() {
     );
   }
 
-  // No matching cigars — hide section entirely
-  if (!items || items.length === 0) return null;
+  // Query errored (e.g. column not yet migrated) or no matching cigars — hide
+  if (errored || !items || items.length === 0) return null;
 
   return (
     <DashboardSection title="Aging Alerts" sectionIndex={2}>
