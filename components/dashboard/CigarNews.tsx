@@ -221,20 +221,44 @@ function PlaceholderCover() {
 
 /* ------------------------------------------------------------------
    Category badge
+   Two variants:
+   - "overlay"  (default) — absolute positioned, for use over images
+   - "inline"             — inline-flex, for use in text rows
    ------------------------------------------------------------------ */
 
-function CategoryBadge({ type }: { type: "blog" | "news_link" }) {
+function CategoryBadge({
+  type,
+  variant = "overlay",
+}: {
+  type: "blog" | "news_link";
+  variant?: "overlay" | "inline";
+}) {
   const isNews = type === "news_link";
+  const label  = isNews ? "News" : "Blog";
+  const bg     = isNews ? "rgba(193,120,23,0.9)" : "rgba(220,80,30,0.9)";
+
+  if (variant === "inline") {
+    return (
+      <span
+        className="inline-flex items-center text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+        style={{ background: bg, color: "#fff" }}
+      >
+        {label}
+      </span>
+    );
+  }
+
+  // overlay variant — absolute, for placing on top of a cover image
   return (
     <span
       className="absolute top-2 left-2 text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
       style={{
-        background: isNews ? "rgba(193,120,23,0.85)" : "rgba(220,80,30,0.85)",
-        color: "#fff",
+        background:     bg,
+        color:          "#fff",
         backdropFilter: "blur(4px)",
       }}
     >
-      {isNews ? "News" : "Blog"}
+      {label}
     </span>
   );
 }
@@ -348,6 +372,11 @@ function NewsCard({
 
 /* ------------------------------------------------------------------
    Bottom sheet
+   ─────────────────────────────────────────────────────────────────
+   - Opens at 85dvh, drag upward snaps to 96dvh (near-fullscreen)
+   - Drag down > 100px dismisses
+   - Scroll area is independently scrollable inside the sheet
+   - For news_link: "Read Full Article" CTA is pinned above safe-area
    ------------------------------------------------------------------ */
 
 function PostSheet({
@@ -357,175 +386,231 @@ function PostSheet({
   post: BlogPost;
   onClose: () => void;
 }) {
-  const sheetRef  = useRef<HTMLDivElement>(null);
-  const startYRef = useRef(0);
-  const dragYRef  = useRef(0);
-  const isDragging = useRef(false);
+  const sheetRef   = useRef<HTMLDivElement>(null);
+  const startYRef  = useRef(0);
+  const deltaRef   = useRef(0);
+  const dragging   = useRef(false);
+  const [sheetH, setSheetH] = useState<"85dvh" | "96dvh">("85dvh");
 
   /* Keyboard close */
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
   }, [onClose]);
 
-  /* Prevent body scroll while sheet is open */
+  /* Lock body scroll */
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = prev; };
   }, []);
 
-  function handleTouchStart(e: React.TouchEvent) {
+  /* Drag handlers — only on the handle area */
+  function onDragStart(e: React.TouchEvent) {
     startYRef.current = e.touches[0].clientY;
-    dragYRef.current  = 0;
-    isDragging.current = true;
+    deltaRef.current  = 0;
+    dragging.current  = true;
   }
 
-  function handleTouchMove(e: React.TouchEvent) {
-    if (!isDragging.current) return;
+  function onDragMove(e: React.TouchEvent) {
+    if (!dragging.current || !sheetRef.current) return;
     const delta = e.touches[0].clientY - startYRef.current;
-    dragYRef.current = delta;
-    if (delta > 0 && sheetRef.current) {
-      sheetRef.current.style.transform = `translateY(${delta}px)`;
+    deltaRef.current = delta;
+    // Only translate downward during drag (upward handled on release)
+    if (delta > 0) {
       sheetRef.current.style.transition = "none";
+      sheetRef.current.style.transform  = `translateY(${delta}px)`;
     }
   }
 
-  function handleTouchEnd() {
-    isDragging.current = false;
-    if (dragYRef.current > 100) {
+  function onDragEnd() {
+    dragging.current = false;
+    const delta = deltaRef.current;
+
+    if (!sheetRef.current) return;
+
+    if (delta > 100) {
+      // Dismiss
       onClose();
-    } else if (sheetRef.current) {
-      sheetRef.current.style.transform = "translateY(0)";
+    } else if (delta < -60) {
+      // Expand to near-fullscreen
       sheetRef.current.style.transition = "transform 0.3s ease";
+      sheetRef.current.style.transform  = "translateY(0)";
+      setSheetH("96dvh");
+    } else {
+      // Snap back
+      sheetRef.current.style.transition = "transform 0.3s ease";
+      sheetRef.current.style.transform  = "translateY(0)";
     }
   }
+
+  const isNews = post.type === "news_link";
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex flex-col justify-end"
+      role="dialog"
+      aria-modal="true"
+      aria-label={post.title}
+    >
       {/* Backdrop */}
       <div
         className="absolute inset-0"
-        style={{ background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)" }}
+        style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Sheet panel */}
+      {/* Sheet panel — fixed height so content can scroll inside */}
       <div
         ref={sheetRef}
-        className="relative rounded-t-2xl flex flex-col"
+        className="relative flex flex-col rounded-t-2xl"
         style={{
-          zIndex: 51,
-          maxHeight: "85dvh",
-          background: "var(--card)",
-          border: "1px solid var(--border)",
-          borderBottom: "none",
-          transform: "translateY(0)",
-          transition: "transform 0.3s ease",
-          paddingBottom: "env(safe-area-inset-bottom, 16px)",
+          zIndex:           51,
+          height:           sheetH,          // explicit height, not maxHeight
+          background:       "var(--card)",
+          border:           "1px solid var(--border)",
+          borderBottom:     "none",
+          transform:        "translateY(0)",
+          transition:       "transform 0.3s ease, height 0.3s ease",
+          willChange:       "transform",
         }}
       >
-        {/* Drag handle row */}
+        {/* ── Drag handle + close button ────────────────────────── */}
         <div
-          className="flex items-center justify-center pt-3 pb-2 flex-shrink-0 select-none"
-          style={{ cursor: "grab", touchAction: "none" }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
+          className="relative flex items-center justify-center flex-shrink-0 select-none"
+          style={{
+            paddingTop:    12,
+            paddingBottom: 8,
+            touchAction:   "none",
+            cursor:        "grab",
+          }}
+          onTouchStart={onDragStart}
+          onTouchMove={onDragMove}
+          onTouchEnd={onDragEnd}
           aria-hidden="true"
         >
-          <div className="w-10 h-1 rounded-full" style={{ background: "var(--muted-foreground)", opacity: 0.4 }} />
+          {/* Pill */}
+          <div
+            className="w-10 h-1 rounded-full"
+            style={{ background: "var(--muted-foreground)", opacity: 0.4 }}
+          />
+          {/* Close */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute right-4 flex items-center justify-center rounded-full transition-opacity hover:opacity-70 active:opacity-50"
+            style={{
+              width:      32,
+              height:     32,
+              background: "rgba(255,255,255,0.08)",
+              top:        "50%",
+              transform:  "translateY(-50%)",
+            }}
+            aria-label="Close"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
         </div>
 
-        {/* Close button */}
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute top-2.5 right-4 flex items-center justify-center rounded-full transition-opacity hover:opacity-70"
-          style={{ width: 32, height: 32, background: "rgba(255,255,255,0.08)" }}
-          aria-label="Close"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-
-        {/* Scrollable content */}
-        <div className="overflow-y-auto flex-1 px-5 pb-6">
-          {/* Cover */}
-          {post.cover_image_url && (
-            <div className="relative w-full rounded-xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
-              <img
-                src={post.cover_image_url}
-                alt={post.title}
-                className="w-full h-full object-cover"
-              />
-              <CategoryBadge type={post.type} />
-            </div>
-          )}
-
-          {/* Meta */}
+        {/* ── Header (badge + date + title + source) ────────────── */}
+        <div className="flex-shrink-0 px-5 pb-3">
+          {/* Badge + date row */}
           <div className="flex items-center gap-2 mb-2">
-            <CategoryBadge
-              type={post.type}
-            />
-            <span style={{ fontSize: 11, color: "var(--muted-foreground)", marginLeft: 8 }}>
+            <CategoryBadge type={post.type} variant="inline" />
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>
               {relativeTime(post.published_at)}
             </span>
           </div>
 
           {/* Title */}
           <h2
-            className="font-bold leading-snug mb-3"
+            className="font-bold leading-snug"
             style={{ fontFamily: "var(--font-serif)", fontSize: 20 }}
           >
             {post.title}
           </h2>
 
-          {/* Blog: full markdown body */}
-          {post.type === "blog" && post.body && (
+          {/* News: source name below title */}
+          {isNews && post.source_name && (
+            <p className="mt-1" style={{ fontSize: 12, color: "var(--gold)" }}>
+              via <span className="font-semibold">{post.source_name}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="flex-shrink-0 mx-5" style={{ height: 1, background: "var(--border)" }} />
+
+        {/* ── Scrollable body ───────────────────────────────────── */}
+        <div className="overflow-y-auto flex-1 px-5 py-4">
+          {/* Cover image */}
+          {post.cover_image_url && (
+            <div
+              className="relative w-full rounded-xl overflow-hidden mb-4"
+              style={{ aspectRatio: "16/9" }}
+            >
+              <img
+                src={post.cover_image_url}
+                alt={post.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          {/* Blog: full markdown */}
+          {!isNews && post.body && (
             <SimpleMarkdown content={post.body} />
           )}
 
-          {/* News link: synopsis + CTA */}
-          {post.type === "news_link" && (
-            <div className="flex flex-col gap-4">
-              {post.synopsis && (
-                <p className="text-sm leading-relaxed italic text-muted-foreground">
-                  {post.synopsis}
-                </p>
-              )}
-              {post.source_name && (
-                <p style={{ fontSize: 12, color: "var(--gold)" }}>
-                  Source: <span className="font-semibold">{post.source_name}</span>
-                </p>
-              )}
-              {post.source_url && (
-                <a
-                  href={post.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:opacity-60"
-                  style={{
-                    minHeight: 48,
-                    background: "var(--primary)",
-                    color: "#fff",
-                    textDecoration: "none",
-                  }}
-                >
-                  Read Full Article
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                    <path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </a>
-              )}
-            </div>
+          {/* News: synopsis */}
+          {isNews && post.synopsis && (
+            <p className="text-sm leading-relaxed text-muted-foreground" style={{ fontStyle: "italic" }}>
+              {post.synopsis}
+            </p>
           )}
+
+          {/* Extra scroll breathing room at bottom (especially for news CTA) */}
+          <div className="h-4" aria-hidden="true" />
         </div>
+
+        {/* ── Pinned CTA for news_link ──────────────────────────── */}
+        {isNews && post.source_url && (
+          <div
+            className="flex-shrink-0 px-5 pt-3"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 20px)" }}
+          >
+            <a
+              href={post.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full rounded-xl font-semibold text-sm transition-opacity hover:opacity-80 active:opacity-60"
+              style={{
+                minHeight:      52,
+                background:     "var(--primary)",
+                color:          "#fff",
+                textDecoration: "none",
+              }}
+            >
+              Read Full Article
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M2 7h10M7 2l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </a>
+          </div>
+        )}
+
+        {/* Safe-area pad for blog posts (no CTA) */}
+        {!isNews && (
+          <div
+            className="flex-shrink-0"
+            style={{ paddingBottom: "max(env(safe-area-inset-bottom), 8px)" }}
+            aria-hidden="true"
+          />
+        )}
       </div>
     </div>
   );
