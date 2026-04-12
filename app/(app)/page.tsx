@@ -2,50 +2,37 @@ import {
   DashboardSection,
   DashboardSkeleton,
 } from "@/components/dashboard/dashboard-section";
-
-/* ------------------------------------------------------------------
-   Home — dashboard shell.
-
-   Structural scaffold only. Each DashboardSection is a reserved slot
-   for real content built in subsequent iterations. DashboardSkeleton
-   fills the slot until that content exists.
-
-   Layout contract
-   ───────────────
-   • Single scrollable column inside the app layout's <main>
-   • 16 px horizontal padding on mobile, 24 px on sm+
-   • 24 px gap between sections (gap-6)
-   • Sections fade in with 80 ms stagger per index
-   • Background is inherited from <html> — no additional colour layer
-     needed; prevents any blank-white flash on load.
-   ------------------------------------------------------------------ */
+import { WelcomeSection } from "@/components/dashboard/WelcomeSection";
 
 export default function HomePage() {
   return (
     <div className="px-4 sm:px-6 py-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
+      {/* ── 0. Personalised welcome ───────────────────────────────── */}
+      <WelcomeSection />
+
       {/* ── 1. Quick-glance humidor snapshot ──────────────────────── */}
-      <DashboardSection title="My Humidor" sectionIndex={0}>
+      <DashboardSection title="My Humidor" sectionIndex={1}>
         <DashboardSkeleton height={120} />
       </DashboardSection>
 
       {/* ── 2. Recent smoke / burn report ─────────────────────────── */}
-      <DashboardSection title="Recent Smokes" sectionIndex={1}>
+      <DashboardSection title="Recent Smokes" sectionIndex={2}>
         <DashboardSkeleton height={96} />
       </DashboardSection>
 
       {/* ── 3. Trending in the catalog ────────────────────────────── */}
-      <DashboardSection title="Trending Cigars" sectionIndex={2}>
+      <DashboardSection title="Trending Cigars" sectionIndex={3}>
         <DashboardSkeleton height={160} />
       </DashboardSection>
 
       {/* ── 4. Community / lounge activity ───────────────────────── */}
-      <DashboardSection title="Lounge Activity" sectionIndex={3}>
+      <DashboardSection title="Lounge Activity" sectionIndex={4}>
         <DashboardSkeleton height={120} />
       </DashboardSection>
 
       {/* ── 5. Membership / account status ───────────────────────── */}
-      <DashboardSection title="Membership" sectionIndex={4}>
+      <DashboardSection title="Membership" sectionIndex={5}>
         <DashboardSkeleton height={80} />
       </DashboardSection>
 
