@@ -8,6 +8,7 @@ import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
+import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -301,15 +302,12 @@ function EditSheet({
               />
             </div>
             <div className="space-y-1.5">
-              <label htmlFor="edit-aging-target" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+              <label className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
                 Ready to Smoke By
               </label>
-              <input
-                id="edit-aging-target"
-                type="date"
-                className="input"
+              <AgingTargetSelect
                 value={agingTargetDate}
-                onChange={(e) => setAgingTargetDate(e.target.value)}
+                onChange={setAgingTargetDate}
               />
             </div>
             <div className="space-y-1.5">

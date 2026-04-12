@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { CigarSearch, CatalogResult } from "@/components/cigar-search";
+import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 
 /* ------------------------------------------------------------------
    Types
@@ -523,12 +524,10 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                 <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                   Ready to Smoke By
                 </label>
-                <input
-                  type="date"
+                <AgingTargetSelect
                   value={agingTarget}
-                  onChange={(e) => setAgingTarget(e.target.value)}
-                  className="input w-full text-sm"
-                  style={{ minHeight: 48 }}
+                  onChange={setAgingTarget}
+                  defaultPreset="2_weeks"
                 />
               </div>
 
