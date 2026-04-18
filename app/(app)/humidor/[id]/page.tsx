@@ -20,6 +20,7 @@ export interface CigarDetail {
   filler_countries: string[] | null;
   ring_gauge: number | null;
   length_inches: number | null;
+  image_url: string | null;
 }
 
 export interface HumidorItemDetail {

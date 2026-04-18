@@ -635,9 +635,13 @@ export function HumidorItemClient({
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
-        {/* Image placeholder */}
+        {/* Cigar image */}
         <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <BrandPlaceholder brand={c.brand ?? "?"} />
+          {c.image_url ? (
+            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
+          ) : (
+            <BrandPlaceholder brand={c.brand ?? "?"} />
+          )}
         </div>
 
         {/* Info */}
