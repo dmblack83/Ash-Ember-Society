@@ -7,6 +7,7 @@ import { CigarNews }                    from "@/components/dashboard/CigarNews";
 import { TrendingLounge }               from "@/components/dashboard/TrendingLounge";
 import type { AgingItem }               from "@/components/dashboard/AgingAlerts";
 import type { LoungePost }              from "@/components/dashboard/TrendingLounge";
+import type { BlogPost }                from "@/components/dashboard/CigarNews";
 
 // User-specific data — opt out of static rendering
 export const dynamic = "force-dynamic";
@@ -32,44 +33,54 @@ export default async function HomePage() {
     ? new Date(profile.created_at).getFullYear().toString()
     : "—";
   const city           = profile?.city?.trim() || null;
+  const userName       = profile?.display_name ?? "Member";
 
-  /* ── Aging alerts (items due within 14 days) ──────────────────── */
+  /* ── Cutoffs ───────────────────────────────────────────────────── */
   const cutoff    = new Date();
   cutoff.setDate(cutoff.getDate() + 14);
   const cutoffStr = cutoff.toISOString().split("T")[0];
+  const since     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
-  const { data: agingRaw } = user
-    ? await supabase
-        .from("humidor_items")
-        .select(
-          "id, aging_start_date, aging_target_date, " +
-          "cigar:cigar_catalog(brand, series, name)"
-        )
-        .eq("user_id", user.id)
-        .eq("is_wishlist", false)
-        .not("aging_target_date", "is", null)
-        .lte("aging_target_date", cutoffStr)
-        .order("aging_target_date", { ascending: true })
-    : { data: [] };
+  /* ── Run all data queries in parallel ─────────────────────────── */
+  const [agingRes, postsRes, newsRes] = await Promise.all([
+    user
+      ? supabase
+          .from("humidor_items")
+          .select(
+            "id, aging_start_date, aging_target_date, " +
+            "cigar:cigar_catalog(brand, series, name)"
+          )
+          .eq("user_id", user.id)
+          .eq("is_wishlist", false)
+          .not("aging_target_date", "is", null)
+          .lte("aging_target_date", cutoffStr)
+          .order("aging_target_date", { ascending: true })
+      : Promise.resolve({ data: [] as unknown[] }),
+    supabase
+      .from("posts")
+      .select(
+        `id, content, likes_count, comments_count, created_at,
+         user:profiles!posts_user_id_fkey (display_name, avatar_url)`
+      )
+      .gte("created_at", since)
+      .order("likes_count",    { ascending: false })
+      .order("comments_count", { ascending: false })
+      .limit(5),
+    supabase
+      .from("blog_posts")
+      .select(
+        "id, type, title, cover_image_url, excerpt, body, synopsis, source_name, source_url, published_at"
+      )
+      .not("published_at", "is", null)
+      .lte("published_at", new Date().toISOString())
+      .order("published_at", { ascending: false })
+      .limit(6),
+  ]);
 
-  const agingItems = (agingRaw ?? []) as unknown as AgingItem[];
-
-  /* ── Trending lounge posts (last 7 days, top 5 by engagement) ─── */
-  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-  const { data: postsRaw } = await supabase
-    .from("posts")
-    .select(
-      `id, content, likes_count, comments_count, created_at,
-       user:profiles!posts_user_id_fkey (display_name, avatar_url)`
-    )
-    .gte("created_at", since)
-    .order("likes_count",    { ascending: false })
-    .order("comments_count", { ascending: false })
-    .limit(5);
+  const agingItems = (agingRes.data ?? []) as unknown as AgingItem[];
 
   // Normalize FK join (Supabase may return array for to-one relations)
-  const trendingPosts: LoungePost[] = (postsRaw ?? [])
+  const trendingPosts: LoungePost[] = (postsRes.data ?? [])
     .map((row) => ({
       id:             row.id,
       content:        row.content,
@@ -85,6 +96,8 @@ export default async function HomePage() {
         (b.likes_count + b.comments_count) -
         (a.likes_count + a.comments_count)
     );
+
+  const initialNews = (newsRes.data ?? []) as BlogPost[];
 
   return (
     <div className="px-4 sm:px-6 pt-4 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
@@ -106,7 +119,12 @@ export default async function HomePage() {
       <AgingAlerts initialItems={agingItems} />
 
       {/* ── 3. Cigar news & editorial feed ────────────────────────── */}
-      <CigarNews />
+      <CigarNews
+        initialPosts={initialNews}
+        membershipTier={membershipTier}
+        userId={user?.id ?? null}
+        userName={userName}
+      />
 
       {/* ── 4. Trending in The Lounge ─────────────────────────────── */}
       <TrendingLounge initialPosts={trendingPosts} />
