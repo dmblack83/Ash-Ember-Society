@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
-import { DashboardSkeleton } from "@/components/dashboard/dashboard-section";
-import { getMembershipTier } from "@/lib/membership";
 import type { MembershipTier } from "@/lib/stripe";
 
 /* ------------------------------------------------------------------
@@ -13,8 +10,8 @@ import type { MembershipTier } from "@/lib/stripe";
 
 interface WelcomeData {
   displayName: string;
-  tier: MembershipTier;
-  memberYear: string;
+  tier:        MembershipTier;
+  memberYear:  string;
 }
 
 /* ------------------------------------------------------------------
@@ -36,7 +33,7 @@ function TierPill({
   tier,
   memberYear,
 }: {
-  tier: MembershipTier;
+  tier:       MembershipTier;
   memberYear: string;
 }) {
   const text = `Member since ${memberYear}`;
@@ -141,8 +138,8 @@ export function QuickActions() {
   return (
     <div className="flex gap-2">
       <QuickAction label="+ Burn Report" href="/humidor"          />
-      <QuickAction label="+ Cigar"      href="/humidor?add=true" />
-      <QuickAction label="Local Shops"  href="/discover/shops"   />
+      <QuickAction label="+ Cigar"       href="/humidor?add=true" />
+      <QuickAction label="Local Shops"   href="/discover/shops"   />
     </div>
   );
 }
@@ -150,47 +147,27 @@ export function QuickActions() {
 /* ------------------------------------------------------------------
    WelcomeSection
    ─────────────────────────────────────────────────────────────────
-   Renders two siblings:
-   1. A position:fixed header that covers the viewport top.
-   2. A spacer <div> whose height tracks the header via ResizeObserver.
-      This sits in the normal document flow and pushes dashboard
-      content below the header without any page-level changes.
+   Receives profile data as props (server-fetched in home/page.tsx).
+   Keeps "use client" for:
+   - ResizeObserver to measure header height and drive the flow spacer
+   - scroll listener for backdrop blur transition
    ------------------------------------------------------------------ */
 
-export function WelcomeSection() {
-  const [data,         setData]         = useState<WelcomeData | null>(null);
+interface WelcomeSectionProps {
+  displayName:    string;
+  membershipTier: MembershipTier;
+  memberSince:    string;
+}
+
+export function WelcomeSection({
+  displayName,
+  membershipTier,
+  memberSince,
+}: WelcomeSectionProps) {
   const [headerHeight, setHeaderHeight] = useState(0);
   const [scrolled,     setScrolled]     = useState(false);
 
   const headerRef = useRef<HTMLElement>(null);
-
-  /* ── Data fetch ──────────────────────────────────────────────── */
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("display_name, membership_tier, created_at")
-        .eq("id", user.id)
-        .single();
-
-      const tier = getMembershipTier(
-        profile as { membership_tier: import("@/lib/stripe").MembershipTier | null } | null
-      );
-
-      setData({
-        displayName: profile?.display_name ?? "there",
-        tier,
-        memberYear:  profile?.created_at
-          ? new Date(profile.created_at).getFullYear().toString()
-          : "—",
-      });
-    }
-    load();
-  }, []);
 
   /* ── Track header height with ResizeObserver ─────────────────── */
   useEffect(() => {
@@ -215,6 +192,12 @@ export function WelcomeSection() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  const data: WelcomeData = {
+    displayName,
+    tier:       membershipTier,
+    memberYear: memberSince,
+  };
 
   return (
     <>
@@ -248,11 +231,7 @@ export function WelcomeSection() {
           className="mx-auto px-4 sm:px-6 py-3"
           style={{ maxWidth: "42rem" }}   /* ~max-w-2xl = 672px */
         >
-          {data ? (
-            <WelcomeContent data={data} />
-          ) : (
-            <DashboardSkeleton height={56} />
-          )}
+          <WelcomeContent data={data} />
         </div>
       </header>
 
@@ -262,7 +241,6 @@ export function WelcomeSection() {
         style={{
           height:     headerHeight,
           flexShrink: 0,
-          // Instant update on resize — no transition so there's no lag
         }}
       />
     </>

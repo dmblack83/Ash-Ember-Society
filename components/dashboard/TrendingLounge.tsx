@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
-import { DashboardSkeleton } from "@/components/dashboard/dashboard-section";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
-interface LoungePost {
+export interface LoungePost {
   id:             string;
   content:        string;
   likes_count:    number;
@@ -192,81 +189,17 @@ function PostRow({
 }
 
 /* ------------------------------------------------------------------
-   TrendingLounge
+   TrendingLounge — main export
+
+   Receives initial posts as a prop (server-fetched in home/page.tsx).
+   Keeps "use client" for useRouter navigation.
    ------------------------------------------------------------------ */
 
-export function TrendingLounge() {
-  const [posts,   setPosts]   = useState<LoungePost[] | null>(null);
-  const router                = useRouter();
-
-  useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-
-      const { data, error } = await supabase
-        .from("posts")
-        .select(`
-          id,
-          content,
-          likes_count,
-          comments_count,
-          created_at,
-          user:profiles!posts_user_id_fkey (
-            display_name,
-            avatar_url
-          )
-        `)
-        .gte("created_at", since)
-        .order("likes_count",    { ascending: false })
-        .order("comments_count", { ascending: false })
-        .limit(5);
-
-      if (error || !data || data.length === 0) {
-        setPosts([]);
-        return;
-      }
-
-      // Normalize: Supabase returns the FK join as an array; pick first element
-      const normalized: LoungePost[] = data.map((row) => ({
-        id:             row.id,
-        content:        row.content,
-        likes_count:    row.likes_count,
-        comments_count: row.comments_count,
-        created_at:     row.created_at,
-        user: Array.isArray(row.user)
-          ? (row.user[0] ?? null)
-          : (row.user ?? null),
-      }));
-
-      // Sort client-side by combined engagement score
-      const sorted = [...normalized].sort(
-        (a, b) =>
-          (b.likes_count + b.comments_count) - (a.likes_count + a.comments_count)
-      );
-
-      setPosts(sorted);
-    }
-
-    load();
-  }, []);
-
-  // Still loading
-  if (posts === null) {
-    return (
-      <section
-        className="animate-fade-in"
-        style={{ animationDelay: "200ms" }}
-        aria-label="Trending in The Lounge"
-      >
-        <DashboardSkeleton height={200} />
-      </section>
-    );
-  }
+export function TrendingLounge({ initialPosts }: { initialPosts: LoungePost[] }) {
+  const router = useRouter();
 
   // No posts in the last 7 days — hide the section entirely
-  if (posts.length === 0) return null;
+  if (initialPosts.length === 0) return null;
 
   return (
     <section
@@ -293,10 +226,10 @@ export function TrendingLounge() {
         >
           <h2
             style={{
-              margin:     0,
-              fontSize:   13,
-              fontWeight: 700,
-              color:      "var(--foreground)",
+              margin:        0,
+              fontSize:      13,
+              fontWeight:    700,
+              color:         "var(--foreground)",
               letterSpacing: "0.01em",
             }}
           >
@@ -318,11 +251,11 @@ export function TrendingLounge() {
 
         {/* Post list */}
         <div>
-          {posts.map((post, i) => (
+          {initialPosts.map((post, i) => (
             <PostRow
               key={post.id}
               post={post}
-              isLast={i === posts.length - 1}
+              isLast={i === initialPosts.length - 1}
               onClick={() => router.push("/lounge")}
             />
           ))}

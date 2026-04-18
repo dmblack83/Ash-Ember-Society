@@ -1,15 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/utils/supabase/client";
-import { DashboardSkeleton } from "@/components/dashboard/dashboard-section";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
-interface AgingItem {
+export interface AgingItem {
   id:                string;
   aging_start_date:  string | null;
   aging_target_date: string;          // guaranteed non-null by query
@@ -148,62 +146,18 @@ function AgingRow({ item }: { item: AgingItem }) {
 
 /* ------------------------------------------------------------------
    AgingAlerts — main export
+
+   Receives initial items as a prop (server-fetched in home/page.tsx).
+   Keeps "use client" for accordion expand/collapse and useRouter.
    ------------------------------------------------------------------ */
 
-export function AgingAlerts() {
-  const [items,    setItems]    = useState<AgingItem[] | null>(null);
-  const [loading,  setLoading]  = useState(true);
-  const [errored,  setErrored]  = useState(false);
+export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
   const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) { setItems([]); setLoading(false); return; }
+  // No matching cigars — hide the section entirely
+  if (initialItems.length === 0) return null;
 
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() + 14);
-        const cutoffStr = cutoff.toISOString().split("T")[0];
-
-        const { data, error } = await supabase
-          .from("humidor_items")
-          .select(
-            "id, aging_start_date, aging_target_date, " +
-            "cigar:cigar_catalog(brand, series, name)"
-          )
-          .eq("user_id", user.id)
-          .eq("is_wishlist", false)
-          .not("aging_target_date", "is", null)
-          .lte("aging_target_date", cutoffStr)
-          .order("aging_target_date", { ascending: true });
-
-        if (error) throw error;
-        setItems((data as unknown as AgingItem[]) ?? []);
-      } catch {
-        setErrored(true);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    load();
-  }, []);
-
-  // Loading
-  if (loading) {
-    return (
-      <section className="flex flex-col gap-3 animate-fade-in" style={{ animationDelay: "160ms" }}>
-        <DashboardSkeleton height={44} />
-      </section>
-    );
-  }
-
-  // Query errored or no matching cigars — hide entirely
-  if (errored || !items || items.length === 0) return null;
-
-  const count = items.length;
+  const count = initialItems.length;
 
   return (
     <section className="flex flex-col gap-3 animate-fade-in" style={{ animationDelay: "160ms" }}>
@@ -308,7 +262,7 @@ export function AgingAlerts() {
 
           {/* Rows */}
           <div className="px-4 divide-y" style={{ borderColor: "var(--border)" }}>
-            {items.map((item) => (
+            {initialItems.map((item) => (
               <AgingRow key={item.id} item={item} />
             ))}
           </div>
