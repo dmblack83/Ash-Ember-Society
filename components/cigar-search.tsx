@@ -18,10 +18,11 @@ export interface CatalogResult {
   wrapper:         string | null;
   wrapper_country: string | null;
   usage_count:     number;
+  image_url:       string | null;
 }
 
 const CATALOG_SELECT =
-  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count";
+  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
 
 /* ------------------------------------------------------------------
    Gold-highlight matched text
