@@ -64,10 +64,10 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href:  "/",
+    href:  "/home",
     label: "Home",
     center: true,
-    match: (p: string) => p === "/",
+    match: (p: string) => p === "/home",
     icon: (active: boolean) => (
       <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
         <path

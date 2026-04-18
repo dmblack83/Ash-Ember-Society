@@ -51,7 +51,7 @@ function LoginForm() {
   const [toast, setToast] = useState<string | null>(null);
 
   // Preserve intended destination across login
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? "/home";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

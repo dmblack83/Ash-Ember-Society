@@ -18,14 +18,14 @@ import { NextResponse } from "next/server";
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  const next = searchParams.get("next") ?? "/home";
 
   if (code) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
     if (!error) {
-      // Redirect to the intended destination (or /dashboard by default).
+      // Redirect to the intended destination (or /home by default).
       // Using `origin` keeps the redirect on the same domain.
       return NextResponse.redirect(`${origin}${next}`);
     }
