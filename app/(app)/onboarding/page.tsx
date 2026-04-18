@@ -682,7 +682,7 @@ export default function OnboardingPage() {
     const supabase = createClient();
     await supabase.auth.updateUser({ data: { onboarding_completed: true } });
     router.refresh();
-    router.push("/dashboard");
+    router.push("/home");
   }, [router]);
 
   const handleComplete = useCallback(async () => {
@@ -727,7 +727,7 @@ export default function OnboardingPage() {
       });
 
       router.refresh();
-      router.push("/dashboard");
+      router.push("/home");
     } catch (err) {
       console.error("Failed to save profile:", err);
       setLoading(false);
