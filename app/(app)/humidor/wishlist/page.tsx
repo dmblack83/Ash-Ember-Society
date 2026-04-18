@@ -545,9 +545,13 @@ function WishlistCard({
 
       {/* Card content */}
       <div className="flex flex-col gap-3 flex-1">
-        {/* Placeholder image */}
+        {/* Cigar image */}
         <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <CigarPlaceholder />
+          {c.image_url ? (
+            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
+          ) : (
+            <CigarPlaceholder />
+          )}
         </div>
 
         {/* Info */}
@@ -634,7 +638,7 @@ export default function WishlistPage() {
     const cigarIds = wishlistRows.map((r) => r.cigar_id);
     const { data: cigars, error: cigarsError } = await supabase
       .from("cigar_catalog")
-      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count")
+      .select("id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url")
       .in("id", cigarIds);
 
     if (cigarsError) {

@@ -22,6 +22,7 @@ interface Cigar {
   wrapper_country: string | null;
   ring_gauge: number | null;
   length_inches: number | null;
+  image_url: string | null;
 }
 
 interface HumidorItem {
@@ -191,9 +192,13 @@ function GridCard({ item }: { item: HumidorItem }) {
           </div>
         )}
 
-        {/* Brand placeholder */}
+        {/* Cigar image */}
         <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0">
-          <BrandPlaceholder brand={c.brand ?? "?"} />
+          {c.image_url ? (
+            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
+          ) : (
+            <BrandPlaceholder brand={c.brand ?? "?"} />
+          )}
         </div>
 
         {/* Info */}
@@ -236,7 +241,11 @@ function ListRow({ item }: { item: HumidorItem }) {
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-          <BrandPlaceholder brand={c.brand ?? "?"} />
+          {c.image_url ? (
+            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
+          ) : (
+            <BrandPlaceholder brand={c.brand ?? "?"} />
+          )}
         </div>
 
         {/* Brand + name */}
