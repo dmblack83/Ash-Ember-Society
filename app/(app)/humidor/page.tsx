@@ -51,10 +51,10 @@ type SortOption =
    ------------------------------------------------------------------ */
 
 const SORT_LABELS: Record<SortOption, string> = {
-  date_newest:  "Date Added (newest)",
-  date_oldest:  "Date Added (oldest)",
-  brand_asc:    "Brand A–Z",
-  brand_desc:   "Brand Z–A",
+  date_newest:   "Date Added (newest)",
+  date_oldest:   "Date Added (oldest)",
+  brand_asc:     "Brand A–Z",
+  brand_desc:    "Brand Z–A",
   aging_longest: "Aging (longest)",
   price_highest: "Price (highest)",
 };
@@ -401,6 +401,20 @@ export default function HumidorPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const hasMounted = useRef(false);
 
+  /* Fixed header height tracking */
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setHeaderHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   /* Persist view preference + auto-open add sheet from ?add=true */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
@@ -468,156 +482,149 @@ export default function HumidorPage() {
   const hasValue = totalValueCents > 0;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <>
+      {/* ── Fixed header ─────────────────────────────────────────── */}
+      <div
+        ref={headerRef}
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 30,
+          backgroundColor: "var(--background)",
+          borderBottom: "1px solid var(--border)",
+          paddingTop: "env(safe-area-inset-top)",
+        }}
+      >
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
 
-      {/* ── Tab navigation ──────────────────────────────────────── */}
-      <div className="flex border-b border-border/50 -mx-4 sm:-mx-6 px-4 sm:px-6">
-        <span
-          className="px-1 pb-3 text-sm font-medium border-b-2 mr-6"
-          style={{ borderColor: "var(--primary)", color: "var(--foreground)" }}
-        >
-          Humidor
-        </span>
-        <Link
-          href="/humidor/wishlist"
-          className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150 mr-6"
-        >
-          Wishlist
-        </Link>
-        <Link
-          href="/humidor/stats"
-          className="px-1 pb-3 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150"
-        >
-          Stats
-        </Link>
-      </div>
-
-      {/* ── Header ──────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div className="space-y-1">
-          <h1 style={{ fontFamily: "var(--font-serif)" }}>My Humidor</h1>
-          {!loading && items.length > 0 && (
-            <p className="text-sm text-muted-foreground">
-              {totalCount} {totalCount === 1 ? "cigar" : "cigars"}
-              {hasValue && (
-                <>
-                  {" · "}Est.{" "}
-                  <span style={{ color: "var(--gold)" }}>
-                    ${(totalValueCents / 100).toLocaleString("en-US", {
-                      minimumFractionDigits: 0,
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>
-                </>
-              )}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => setShowAddSheet(true)}
-          className="btn btn-primary flex-shrink-0"
-        >
-          Add Cigar
-        </button>
-      </div>
-
-      {/* ── Controls row ────────────────────────────────────────── */}
-      {(loading || items.length > 0) && (
-        <div className="flex flex-wrap items-center gap-3">
-          {/* View toggle */}
-          <ViewToggle view={view} onChange={setView} />
-
-          {/* Sort */}
-          <select
-            className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
-            value={sort}
-            onChange={(e) => setSort(e.target.value as SortOption)}
-            aria-label="Sort by"
-          >
-            {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-              <option key={key} value={key}>
-                {SORT_LABELS[key]}
-              </option>
-            ))}
-          </select>
-
-          {/* Refresh */}
-          <button
-            type="button"
-            onClick={fetchItems}
-            disabled={loading}
-            className="btn btn-ghost p-2 flex-shrink-0 ml-auto"
-            aria-label="Refresh"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              className={loading ? "animate-spin" : ""}
+          {/* Row 1: Tab navigation */}
+          <div className="flex border-b border-border/50">
+            <span
+              className="px-1 pb-3 pt-4 text-sm font-medium border-b-2 mr-6"
+              style={{ borderColor: "var(--ember, #E8642C)", color: "var(--foreground)" }}
             >
-              <path
-                d="M14 8A6 6 0 112 8"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-              />
-              <path
-                d="M14 4v4h-4"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
+              Humidor
+            </span>
+            <Link
+              href="/humidor/wishlist"
+              className="px-1 pb-3 pt-4 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150 mr-6"
+            >
+              Wishlist
+            </Link>
+            <Link
+              href="/humidor/stats"
+              className="px-1 pb-3 pt-4 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150"
+            >
+              Stats
+            </Link>
+          </div>
+
+          {/* Row 2: Title + Add Cigar */}
+          <div className="flex items-start justify-between gap-4 pt-4 pb-3">
+            <div className="space-y-0.5">
+              <h1 style={{ fontFamily: "var(--font-serif)" }}>My Humidor</h1>
+              {!loading && items.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {totalCount} {totalCount === 1 ? "cigar" : "cigars"}
+                  {hasValue && (
+                    <>
+                      {" · "}Est.{" "}
+                      <span style={{ color: "var(--gold)" }}>
+                        ${(totalValueCents / 100).toLocaleString("en-US", {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0,
+                        })}
+                      </span>
+                    </>
+                  )}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setShowAddSheet(true)}
+              className="btn btn-primary flex-shrink-0"
+            >
+              Add Cigar
+            </button>
+          </div>
+
+          {/* Row 3: Sort + View toggle (only when there is/may be content) */}
+          {(loading || items.length > 0) && (
+            <div className="flex items-center gap-3 pb-3">
+              {/* Sort */}
+              <select
+                className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                aria-label="Sort by"
+              >
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                  <option key={key} value={key}>
+                    {SORT_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+
+              {/* View toggle pushed to the right */}
+              <div className="ml-auto">
+                <ViewToggle view={view} onChange={setView} />
+              </div>
+            </div>
+          )}
+
         </div>
-      )}
+      </div>
+
+      {/* ── Spacer so content starts below fixed header ──────────── */}
+      <div style={{ height: headerHeight }} aria-hidden="true" />
 
       {/* ── Content ─────────────────────────────────────────────── */}
-      {loading ? (
-        view === "grid" ? (
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+        {loading ? (
+          view === "grid" ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonGridCard key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonListRow key={i} />
+              ))}
+            </div>
+          )
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+            <p className="text-sm text-destructive">{error}</p>
+            <button type="button" className="btn btn-secondary" onClick={fetchItems}>
+              Try again
+            </button>
+          </div>
+        ) : items.length === 0 ? (
+          <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowAddSheet(true)} />
+        ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <SkeletonGridCard key={i} />
+            {displayed.map((item) => (
+              <GridCard key={item.id} item={item} />
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <SkeletonListRow key={i} />
+            {displayed.map((item) => (
+              <ListRow key={item.id} item={item} />
             ))}
           </div>
-        )
-      ) : error ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-          <p className="text-sm text-destructive">{error}</p>
-          <button type="button" className="btn btn-secondary" onClick={fetchItems}>
-            Try again
-          </button>
-        </div>
-      ) : items.length === 0 ? (
-        <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowAddSheet(true)} />
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {displayed.map((item) => (
-            <GridCard key={item.id} item={item} />
-          ))}
-        </div>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {displayed.map((item) => (
-            <ListRow key={item.id} item={item} />
-          ))}
-        </div>
-      )}
+        )}
+      </div>
 
       <AddCigarSheet
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
         onAdded={fetchItems}
       />
-    </div>
+    </>
   );
 }
