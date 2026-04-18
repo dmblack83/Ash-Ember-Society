@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
-import { CigarPlaceholderLarge } from "@/components/ui/cigar-placeholder";
+import { getCigarImage } from "@/lib/cigar-default-image";
 
 /* ------------------------------------------------------------------
    Types
@@ -123,11 +123,7 @@ export default async function CigarDetailPage({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          {c.image_url ? (
-            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
-          ) : (
-            <CigarPlaceholderLarge />
-          )}
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}

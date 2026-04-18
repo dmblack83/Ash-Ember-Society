@@ -6,6 +6,7 @@ import { CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
 import { CigarPlaceholder, BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { getCigarImage } from "@/lib/cigar-default-image";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -66,15 +67,11 @@ function CatalogGridCard({
     <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
       {/* Cigar image */}
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
-        {cigar.image_url ? (
-          <img
-            src={cigar.image_url}
-            alt={cigar.series ?? cigar.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <BrandPlaceholder brand={cigar.brand ?? "?"} />
-        )}
+        <img
+          src={getCigarImage(cigar.image_url, cigar.wrapper)}
+          alt={cigar.series ?? cigar.name}
+          className="w-full h-full object-contain"
+        />
       </div>
 
       {/* Info */}
@@ -161,15 +158,11 @@ function CatalogListRow({
     <div className="card flex items-center gap-3 p-3">
       {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-        {cigar.image_url ? (
-          <img
-            src={cigar.image_url}
-            alt={cigar.series ?? cigar.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <CigarPlaceholder />
-        )}
+        <img
+          src={getCigarImage(cigar.image_url, cigar.wrapper)}
+          alt={cigar.series ?? cigar.name}
+          className="w-full h-full object-contain"
+        />
       </div>
 
       {/* Brand + series */}

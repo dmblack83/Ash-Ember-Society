@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { getCigarImage } from "@/lib/cigar-default-image";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 
@@ -637,11 +638,7 @@ export function HumidorItemClient({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          {c.image_url ? (
-            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
-          ) : (
-            <BrandPlaceholder brand={c.brand ?? "?"} />
-          )}
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}

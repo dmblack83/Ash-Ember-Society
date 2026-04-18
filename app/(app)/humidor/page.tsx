@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
+import { getCigarImage } from "@/lib/cigar-default-image";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -193,12 +194,8 @@ function GridCard({ item }: { item: HumidorItem }) {
         )}
 
         {/* Cigar image */}
-        <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0">
-          {c.image_url ? (
-            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
-          ) : (
-            <BrandPlaceholder brand={c.brand ?? "?"} />
-          )}
+        <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}
@@ -240,12 +237,8 @@ function ListRow({ item }: { item: HumidorItem }) {
     <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-          {c.image_url ? (
-            <img src={c.image_url} alt={c.series ?? c.name} className="w-full h-full object-cover" />
-          ) : (
-            <BrandPlaceholder brand={c.brand ?? "?"} />
-          )}
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
         </div>
 
         {/* Brand + name */}
