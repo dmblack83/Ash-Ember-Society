@@ -14,7 +14,7 @@ import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
    ------------------------------------------------------------------ */
 
 const CATALOG_SELECT =
-  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count";
+  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
 
 const PAGE_SIZE = 20;
 const LS_KEY   = "discover-cigars-view";
@@ -64,9 +64,17 @@ function CatalogGridCard({
 }) {
   return (
     <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
-      {/* Placeholder image */}
+      {/* Cigar image */}
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
-        <BrandPlaceholder brand={cigar.brand ?? "?"} />
+        {cigar.image_url ? (
+          <img
+            src={cigar.image_url}
+            alt={cigar.series ?? cigar.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <BrandPlaceholder brand={cigar.brand ?? "?"} />
+        )}
       </div>
 
       {/* Info */}
@@ -153,7 +161,15 @@ function CatalogListRow({
     <div className="card flex items-center gap-3 p-3">
       {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-        <CigarPlaceholder />
+        {cigar.image_url ? (
+          <img
+            src={cigar.image_url}
+            alt={cigar.series ?? cigar.name}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <CigarPlaceholder />
+        )}
       </div>
 
       {/* Brand + series */}
