@@ -7,12 +7,29 @@
  */
 
 export function getCigarDefaultImage(wrapper: string | null | undefined): string {
-  const w = (wrapper ?? "").toLowerCase();
-  if (w.includes("oscuro"))                                          return "/Cigar Default Images/Oscuro.png";
-  if (w.includes("maduro"))                                          return "/Cigar Default Images/Maduro.png";
-  if (w.includes("colorado claro") || w.includes("colorado clairo")) return "/Cigar Default Images/Colorado Claro.png";
-  if (w.includes("colorado"))                                        return "/Cigar Default Images/Colorado.png";
-  if (w.includes("connecticut"))                                     return "/Cigar Default Images/Connecticut.png";
+  const w = (wrapper ?? "").toLowerCase().trim();
+
+  // Oscuro (darkest)
+  if (w.includes("oscuro")) return "/Cigar Default Images/Oscuro.png";
+
+  // Maduro (dark)
+  if (w.includes("maduro")) return "/Cigar Default Images/Maduro.png";
+
+  // Connecticut / light wrappers
+  if (
+    w.includes("connecticut") ||
+    w === "shade" ||
+    w.includes("shade") ||
+    w === "claro" ||
+    w.includes("candela") ||
+    w.includes("havana seed")
+  ) return "/Cigar Default Images/Connecticut.png";
+
+  // Colorado and medium wrappers
+  if (w.includes("colorado")) return "/Cigar Default Images/Colorado.png";
+
+  // Everything else (Habano, Corojo, Criollo, San Andres, Sumatra, Cameroon,
+  // Broadleaf, Rosado, Arapiraca, Besuki, H-2000, Sungrown, etc.) → Colorado
   return "/Cigar Default Images/Colorado.png";
 }
 
