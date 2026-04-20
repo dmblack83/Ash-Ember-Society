@@ -274,8 +274,50 @@ function BurnReportCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [photoUrl,      setPhotoUrl]      = useState<string | null>(null);
   const [mounted,       setMounted]       = useState(false);
+  const [sharing,       setSharing]       = useState(false);
+  const [shared,        setShared]        = useState(false);
+  const [shareErr,      setShareErr]      = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  async function handleShareToLounge() {
+    if (sharing || shared) return;
+    setSharing(true);
+    setShareErr(null);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSharing(false); return; }
+
+    const { data: category } = await supabase
+      .from("forum_categories")
+      .select("id")
+      .eq("slug", "burn-reports")
+      .single();
+
+    if (!category) {
+      setShareErr("Could not find Burn Reports category.");
+      setSharing(false);
+      return;
+    }
+
+    const c = report.cigar;
+    const cigarLabel = [c?.brand, c?.series ?? c?.name].filter(Boolean).join(" ");
+    const title      = `${cigarLabel} — ${report.overall_rating ?? "N/A"}/100`;
+    const content    = report.review_text?.trim() || `Rating: ${report.overall_rating ?? "N/A"}/100`;
+
+    const { error } = await supabase.from("forum_posts").insert({
+      user_id:      user.id,
+      category_id:  category.id,
+      title,
+      content,
+      smoke_log_id: report.id,
+    });
+
+    setSharing(false);
+    if (error) { setShareErr(error.message); return; }
+    setShared(true);
+  }
 
   const c      = report.cigar;
   const rating = report.overall_rating ?? 0;
@@ -485,8 +527,35 @@ function BurnReportCard({
               </div>
             )}
 
-            {/* Delete */}
-            <div className="mt-4 pb-3" style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+            {/* Actions: Share + Delete */}
+            <div
+              className="mt-4 pb-3 flex items-center justify-between"
+              style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}
+            >
+              {/* Share to Lounge */}
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={handleShareToLounge}
+                  disabled={sharing || shared}
+                  className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full transition-opacity active:opacity-70"
+                  style={{
+                    border:      `1.5px solid ${shared ? "var(--border)" : "var(--gold, #D4A04A)"}`,
+                    color:       shared ? "var(--muted-foreground)" : "var(--gold, #D4A04A)",
+                    background:  "transparent",
+                    cursor:      sharing || shared ? "default" : "pointer",
+                    touchAction: "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  } as React.CSSProperties}
+                >
+                  {shared ? "Shared to Lounge" : sharing ? "Sharing..." : "Share to Lounge"}
+                </button>
+                {shareErr && (
+                  <p className="text-xs" style={{ color: "#E8642C" }}>{shareErr}</p>
+                )}
+              </div>
+
+              {/* Delete */}
               <button
                 type="button"
                 onClick={handleDeleteClick}
@@ -502,12 +571,11 @@ function BurnReportCard({
                 } as React.CSSProperties}
                 aria-label="Delete report"
               >
-                {/* Trash can icon */}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                   <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                   <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
-                Delete Report
+                Delete
               </button>
             </div>
 
