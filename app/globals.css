@@ -157,6 +157,21 @@ button, input, select, textarea {
 }
 
 /* -------------------------------------------------------------------
+   TOUCH RESPONSIVENESS — eliminates the 300ms tap delay on iOS/Android.
+   touch-action: manipulation disables double-tap-to-zoom on interactive
+   elements so the browser fires events immediately.
+   -webkit-tap-highlight-color: transparent removes the gray flash.
+   Both rules live outside @layer so they beat all Tailwind utilities.
+   ------------------------------------------------------------------- */
+
+button,
+[role="button"],
+a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* -------------------------------------------------------------------
    INPUT FONT SIZE — iOS ZOOM PREVENTION
    iOS Safari zooms in whenever an input's font-size is < 16px.
    This rule lives OUTSIDE all @layer blocks so it wins the cascade
