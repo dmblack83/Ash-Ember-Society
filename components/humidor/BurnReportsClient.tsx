@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { createClient } from "@/utils/supabase/client";
 import { getCigarImage } from "@/lib/cigar-default-image";
 
 /* ------------------------------------------------------------------
@@ -18,6 +19,10 @@ export interface BurnReportRow {
   flavor_rating:           number | null;
   smoke_duration_minutes:  number | null;
   pairing_drink:           string | null;
+  location:                string | null;
+  occasion:                string | null;
+  flavor_tag_ids:          string[] | null;
+  photo_urls:              string[] | null;
   review_text:             string | null;
   cigar: {
     id:        string;
@@ -28,6 +33,11 @@ export interface BurnReportRow {
     wrapper:   string | null;
     image_url: string | null;
   } | null;
+}
+
+export interface FlavorTag {
+  id:   string;
+  name: string;
 }
 
 /* ------------------------------------------------------------------
@@ -88,7 +98,7 @@ function StarsSummary({ val }: { val: number }) {
 }
 
 /* ------------------------------------------------------------------
-   Row helper for the expanded summary
+   SummaryRow
    ------------------------------------------------------------------ */
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
@@ -106,24 +116,69 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 /* ------------------------------------------------------------------
+   StarRow — reusable star rating row for expanded detail
+   ------------------------------------------------------------------ */
+
+function StarRow({ label, val }: { label: string; val: number }) {
+  if (!val || val === 0) return null;
+  return (
+    <div
+      className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{label}</span>
+      <StarsSummary val={val} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
    Burn Report Card
    ------------------------------------------------------------------ */
 
-function BurnReportCard({ report }: { report: BurnReportRow }) {
-  const [open, setOpen] = useState(false);
-  const c               = report.cigar;
-  const rating          = report.overall_rating ?? 0;
-  const color           = ratingColor(rating);
-  const label           = ratingLabel(rating);
+function BurnReportCard({
+  report,
+  flavorTags,
+  onDelete,
+}: {
+  report:     BurnReportRow;
+  flavorTags: FlavorTag[];
+  onDelete:   (id: string) => void;
+}) {
+  const [open,    setOpen]    = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const c      = report.cigar;
+  const rating = report.overall_rating ?? 0;
+  const color  = ratingColor(rating);
+  const label  = ratingLabel(rating);
+
+  const tagNames = (report.flavor_tag_ids ?? [])
+    .map((tid) => flavorTags.find((t) => t.id === tid)?.name)
+    .filter(Boolean) as string[];
+
+  const photos = (report.photo_urls ?? []).filter(Boolean);
 
   const hasDetails =
-    report.smoke_duration_minutes ||
+    report.smoke_duration_minutes != null ||
     report.pairing_drink ||
+    report.location ||
+    report.occasion ||
     (report.draw_rating ?? 0) > 0 ||
     (report.burn_rating ?? 0) > 0 ||
     (report.construction_rating ?? 0) > 0 ||
     (report.flavor_rating ?? 0) > 0 ||
+    tagNames.length > 0 ||
+    photos.length > 0 ||
     report.review_text;
+
+  async function handleDelete() {
+    if (deleting) return;
+    setDeleting(true);
+    const supabase = createClient();
+    await supabase.from("smoke_logs").delete().eq("id", report.id);
+    onDelete(report.id);
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -132,7 +187,13 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center gap-3 p-3 text-left transition-opacity active:opacity-70"
-        style={{ background: "none", border: "none", cursor: "pointer", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" } as React.CSSProperties}
+        style={{
+          background:              "none",
+          border:                  "none",
+          cursor:                  "pointer",
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+        } as React.CSSProperties}
         aria-expanded={open}
       >
         {/* Thumbnail */}
@@ -165,17 +226,19 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
         {/* Rating badge + chevron */}
         <div className="flex flex-col items-end gap-1 flex-shrink-0">
           <div
-            className="rounded-lg flex flex-col items-center justify-center"
-            style={{ width: 44, height: 44, background: `${color}22`, border: `1px solid ${color}55` }}
+            className="rounded-lg flex items-center justify-center"
+            style={{
+              width:      44,
+              height:     44,
+              background: `${color}22`,
+              border:     `1px solid ${color}55`,
+            }}
           >
             <span
-              className="font-bold leading-none"
-              style={{ fontFamily: "var(--font-serif)", fontSize: 18, color }}
+              className="font-bold"
+              style={{ fontFamily: "var(--font-serif)", fontSize: 20, color, lineHeight: 1 }}
             >
               {rating}
-            </span>
-            <span className="text-[8px] font-medium uppercase tracking-wide leading-none mt-0.5" style={{ color }}>
-              {label.split(" ")[0]}
             </span>
           </div>
           {hasDetails && (
@@ -202,11 +265,12 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
         <div
           style={{
             overflow:   "hidden",
-            maxHeight:  open ? 600 : 0,
+            maxHeight:  open ? 1200 : 0,
             transition: "max-height 0.3s ease",
           }}
         >
-          <div className="px-4 pb-4" style={{ borderTop: "1px solid var(--border)" }}>
+          <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
+
             {/* Rating hero */}
             <div className="flex items-center gap-3 py-4">
               <span
@@ -215,10 +279,7 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
               >
                 {rating}
               </span>
-              <div>
-                <p className="text-sm font-semibold" style={{ color }}>{label}</p>
-                <p className="text-xs text-muted-foreground">Overall Rating</p>
-              </div>
+              <p className="text-sm font-semibold" style={{ color }}>{label}</p>
             </div>
 
             {/* Detail rows */}
@@ -229,43 +290,41 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
               {report.pairing_drink && (
                 <SummaryRow label="Drink" value={report.pairing_drink} />
               )}
-              {(report.draw_rating ?? 0) > 0 && (
-                <div
-                  className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Draw</span>
-                  <StarsSummary val={report.draw_rating!} />
-                </div>
+              {report.location && (
+                <SummaryRow label="Location" value={report.location} />
               )}
-              {(report.burn_rating ?? 0) > 0 && (
-                <div
-                  className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Burn</span>
-                  <StarsSummary val={report.burn_rating!} />
-                </div>
+              {report.occasion && (
+                <SummaryRow label="Occasion" value={report.occasion} />
               )}
-              {(report.construction_rating ?? 0) > 0 && (
-                <div
-                  className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Construction</span>
-                  <StarsSummary val={report.construction_rating!} />
-                </div>
-              )}
-              {(report.flavor_rating ?? 0) > 0 && (
-                <div
-                  className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-                  style={{ borderColor: "var(--border)" }}
-                >
-                  <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Flavor</span>
-                  <StarsSummary val={report.flavor_rating!} />
-                </div>
-              )}
+              <StarRow label="Draw"         val={report.draw_rating ?? 0} />
+              <StarRow label="Burn"         val={report.burn_rating ?? 0} />
+              <StarRow label="Construction" val={report.construction_rating ?? 0} />
+              <StarRow label="Flavor"       val={report.flavor_rating ?? 0} />
             </div>
+
+            {/* Flavor profile chips */}
+            {tagNames.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                  Flavor Profile
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {tagNames.map((name) => (
+                    <span
+                      key={name}
+                      className="rounded-full px-2.5 py-1 text-xs font-medium"
+                      style={{
+                        background: "rgba(193,120,23,0.15)",
+                        border:     "1px solid rgba(193,120,23,0.35)",
+                        color:      "var(--gold, #D4A04A)",
+                      }}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Review text */}
             {report.review_text && (
@@ -274,6 +333,60 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
                 <p className="text-sm text-foreground leading-relaxed">{report.review_text}</p>
               </div>
             )}
+
+            {/* Photos */}
+            {photos.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Photos</p>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                  {photos.map((url, i) => (
+                    <div
+                      key={i}
+                      className="flex-shrink-0 rounded-lg overflow-hidden"
+                      style={{ width: 88, height: 88 }}
+                    >
+                      <img
+                        src={url}
+                        alt={`Photo ${i + 1}`}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Delete */}
+            <div className="mt-4 pb-3" style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+                className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
+                style={{
+                  color:       "var(--destructive, #C44536)",
+                  background:  "none",
+                  border:      "none",
+                  cursor:      deleting ? "default" : "pointer",
+                  opacity:     deleting ? 0.5 : 1,
+                  padding:     0,
+                  touchAction: "manipulation",
+                } as React.CSSProperties}
+                aria-label="Delete report"
+              >
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                  <path
+                    d="M2 4h11M6 4V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5V4M5.5 4l.5 8M9.5 4l-.5 8"
+                    stroke="currentColor"
+                    strokeWidth="1.2"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                {deleting ? "Deleting..." : "Delete Report"}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
@@ -286,12 +399,14 @@ function BurnReportCard({ report }: { report: BurnReportRow }) {
    ------------------------------------------------------------------ */
 
 interface BurnReportsClientProps {
-  reports: BurnReportRow[];
+  reports:    BurnReportRow[];
+  flavorTags: FlavorTag[];
 }
 
-export function BurnReportsClient({ reports }: BurnReportsClientProps) {
+export function BurnReportsClient({ reports: initialReports, flavorTags }: BurnReportsClientProps) {
   const headerRef                       = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
+  const [reports,      setReports]      = useState<BurnReportRow[]>(initialReports);
 
   useEffect(() => {
     const el = headerRef.current;
@@ -301,6 +416,10 @@ export function BurnReportsClient({ reports }: BurnReportsClientProps) {
     setHeaderHeight(el.offsetHeight);
     return () => obs.disconnect();
   }, []);
+
+  function handleDelete(id: string) {
+    setReports((prev) => prev.filter((r) => r.id !== id));
+  }
 
   return (
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
@@ -345,9 +464,14 @@ export function BurnReportsClient({ reports }: BurnReportsClientProps) {
             </Link>
           </div>
 
-          {/* Row 2: Title */}
-          <div className="flex items-center pt-4 pb-3">
+          {/* Row 2: Title + count */}
+          <div className="flex items-baseline gap-3 pt-4 pb-3">
             <h1 style={{ fontFamily: "var(--font-serif)" }}>My Reports</h1>
+            {reports.length > 0 && (
+              <span className="text-sm text-muted-foreground">
+                {reports.length} {reports.length === 1 ? "report" : "reports"}
+              </span>
+            )}
           </div>
 
         </div>
@@ -387,7 +511,12 @@ export function BurnReportsClient({ reports }: BurnReportsClientProps) {
         ) : (
           <div className="flex flex-col gap-2">
             {reports.map((report) => (
-              <BurnReportCard key={report.id} report={report} />
+              <BurnReportCard
+                key={report.id}
+                report={report}
+                flavorTags={flavorTags}
+                onDelete={handleDelete}
+              />
             ))}
           </div>
         )}
