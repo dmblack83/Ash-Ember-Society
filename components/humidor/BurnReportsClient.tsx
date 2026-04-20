@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getCigarImage } from "@/lib/cigar-default-image";
@@ -133,6 +134,128 @@ function StarRow({ label, val }: { label: string; val: number }) {
 }
 
 /* ------------------------------------------------------------------
+   Photo modal
+   ------------------------------------------------------------------ */
+
+function PhotoModal({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", h);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", h);
+      document.body.style.overflow = prev;
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ zIndex: 9999, background: "rgba(0,0,0,0.92)" }}
+      onClick={onClose}
+    >
+      {/* X button */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="absolute top-4 right-4 flex items-center justify-center rounded-full transition-opacity hover:opacity-80 active:opacity-50"
+        style={{
+          width:      44,
+          height:     44,
+          background: "rgba(255,255,255,0.14)",
+          border:     "1px solid rgba(255,255,255,0.18)",
+          cursor:     "pointer",
+          zIndex:     10000,
+        } as React.CSSProperties}
+        aria-label="Close photo"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M12 4L4 12M4 4l8 8" stroke="var(--foreground)" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {/* Image */}
+      <img
+        src={url}
+        alt="Burn report photo"
+        onClick={(e) => e.stopPropagation()}
+        style={{ maxWidth: "92vw", maxHeight: "88vh", borderRadius: 12, objectFit: "contain" }}
+      />
+    </div>,
+    document.body,
+  );
+}
+
+/* ------------------------------------------------------------------
+   Confirm delete modal
+   ------------------------------------------------------------------ */
+
+function ConfirmDeleteModal({
+  onConfirm,
+  onCancel,
+  busy,
+}: {
+  onConfirm: () => void;
+  onCancel:  () => void;
+  busy:      boolean;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onCancel]);
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center px-6"
+      style={{ zIndex: 9999, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" }}
+      onClick={onCancel}
+    >
+      <div
+        className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)", fontSize: 17 }}>
+            Delete this burn report?
+          </p>
+          <p className="text-sm text-muted-foreground">This cannot be undone.</p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="flex-1 rounded-xl text-sm font-medium py-3 transition-opacity active:opacity-60"
+            style={{ background: "var(--muted, rgba(255,255,255,0.06))", border: "1px solid var(--border)", color: "var(--foreground)", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={busy}
+            className="flex-1 rounded-xl text-sm font-semibold py-3 transition-opacity active:opacity-60"
+            style={{
+              background: "var(--destructive, #C44536)",
+              color:      "#fff",
+              border:     "none",
+              cursor:     busy ? "default" : "pointer",
+              opacity:    busy ? 0.6 : 1,
+            } as React.CSSProperties}
+          >
+            {busy ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/* ------------------------------------------------------------------
    Burn Report Card
    ------------------------------------------------------------------ */
 
@@ -145,8 +268,13 @@ function BurnReportCard({
   flavorTags: FlavorTag[];
   onDelete:   (id: string) => void;
 }) {
-  const [open,    setOpen]    = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [open,          setOpen]          = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [photoUrl,      setPhotoUrl]      = useState<string | null>(null);
+  const [mounted,       setMounted]       = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const c      = report.cigar;
   const rating = report.overall_rating ?? 0;
@@ -178,6 +306,10 @@ function BurnReportCard({
     const supabase = createClient();
     await supabase.from("smoke_logs").delete().eq("id", report.id);
     onDelete(report.id);
+  }
+
+  function handleDeleteClick() {
+    setConfirmDelete(true);
   }
 
   return (
@@ -338,12 +470,15 @@ function BurnReportCard({
             {photos.length > 0 && (
               <div className="mt-3 space-y-2">
                 <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Photos</p>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" }}>
+                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
                   {photos.map((url, i) => (
-                    <div
+                    <button
                       key={i}
-                      className="flex-shrink-0 rounded-lg overflow-hidden"
-                      style={{ width: 88, height: 88 }}
+                      type="button"
+                      onClick={() => setPhotoUrl(url)}
+                      className="flex-shrink-0 rounded-lg overflow-hidden transition-opacity active:opacity-70"
+                      style={{ width: 88, height: 88, padding: 0, border: "none", cursor: "pointer", touchAction: "manipulation" } as React.CSSProperties}
+                      aria-label={`View photo ${i + 1}`}
                     >
                       <img
                         src={url}
@@ -351,7 +486,7 @@ function BurnReportCard({
                         className="w-full h-full object-cover"
                         loading="lazy"
                       />
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -361,31 +496,39 @@ function BurnReportCard({
             <div className="mt-4 pb-3" style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}>
               <button
                 type="button"
-                onClick={handleDelete}
+                onClick={handleDeleteClick}
                 disabled={deleting}
                 className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
                 style={{
                   color:       "var(--destructive, #C44536)",
                   background:  "none",
                   border:      "none",
-                  cursor:      deleting ? "default" : "pointer",
-                  opacity:     deleting ? 0.5 : 1,
+                  cursor:      "pointer",
                   padding:     0,
                   touchAction: "manipulation",
                 } as React.CSSProperties}
                 aria-label="Delete report"
               >
-                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-                  <path
-                    d="M2 4h11M6 4V2.5a.5.5 0 01.5-.5h2a.5.5 0 01.5.5V4M5.5 4l.5 8M9.5 4l-.5 8"
-                    stroke="currentColor"
-                    strokeWidth="1.2"
-                    strokeLinecap="round"
-                  />
+                {/* Trash can icon */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                 </svg>
-                {deleting ? "Deleting..." : "Delete Report"}
+                Delete Report
               </button>
             </div>
+
+            {/* Portals */}
+            {mounted && photoUrl && (
+              <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
+            )}
+            {mounted && confirmDelete && (
+              <ConfirmDeleteModal
+                busy={deleting}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDelete(false)}
+              />
+            )}
 
           </div>
         </div>
