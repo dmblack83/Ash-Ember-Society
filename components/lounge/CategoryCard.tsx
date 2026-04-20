@@ -22,6 +22,7 @@ interface PostRow {
   created_at:    string;
   user_id:       string | null;
   display_name:  string | null;
+  avatar_url:    string | null;
   like_count:    number;
   comment_count: number;
 }
@@ -49,6 +50,42 @@ function relativeTime(iso: string): string {
   } catch {
     return "";
   }
+}
+
+function Avatar({
+  name,
+  avatarUrl,
+  size = 36,
+}: {
+  name:      string | null | undefined;
+  avatarUrl: string | null | undefined;
+  size?:     number;
+}) {
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name ?? "Member"}
+        style={{
+          width:        size,
+          height:       size,
+          borderRadius: "50%",
+          objectFit:    "cover",
+          border:       "1px solid var(--border)",
+          flexShrink:   0,
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
+      style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
+    >
+      {initials(name)}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -89,14 +126,14 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
         ...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean)),
       ] as string[];
 
-      let nameMap: Record<string, string | null> = {};
+      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profileRows } = await supabase
           .from("profiles")
-          .select("id, display_name")
+          .select("id, display_name, avatar_url")
           .in("id", userIds);
         for (const p of profileRows ?? []) {
-          nameMap[p.id] = p.display_name;
+          nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
         }
       }
 
@@ -105,7 +142,8 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
         title:         row.title,
         created_at:    row.created_at,
         user_id:       row.user_id ?? null,
-        display_name:  row.user_id ? (nameMap[row.user_id] ?? null) : null,
+        display_name:  row.user_id ? (nameMap[row.user_id]?.display_name ?? null) : null,
+        avatar_url:    row.user_id ? (nameMap[row.user_id]?.avatar_url  ?? null) : null,
         like_count:    (row.forum_post_likes as { count: number }[])[0]?.count ?? 0,
         comment_count: (row.forum_comments  as { count: number }[])[0]?.count ?? 0,
       }));
@@ -327,12 +365,7 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
                   }}
                 >
                   {/* Avatar */}
-                  <div
-                    className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-                    style={{ width: 36, height: 36, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-                  >
-                    {initials(post.display_name)}
-                  </div>
+                  <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={36} />
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
