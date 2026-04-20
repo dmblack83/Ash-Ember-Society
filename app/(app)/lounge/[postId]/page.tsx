@@ -1,6 +1,7 @@
 import { createClient }      from "@/utils/supabase/server";
 import { redirect }          from "next/navigation";
 import { PostDetailClient }  from "@/components/lounge/PostDetailClient";
+import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,7 @@ export default async function PostDetailPage({ params }: Props) {
       .select(`
         id, title, content, created_at, updated_at,
         is_system, is_locked, user_id, category_id,
+        image_url, smoke_log_id,
         forum_post_likes(count),
         forum_categories(name, slug)
       `)
@@ -67,6 +69,23 @@ export default async function PostDetailPage({ params }: Props) {
     }
   }
 
+  // Fetch full smoke log if linked
+  let smokeLog: SmokeLogData | null = null;
+  if (raw.smoke_log_id) {
+    const { data: logData } = await supabase
+      .from("smoke_logs")
+      .select(`
+        id, smoked_at, overall_rating,
+        draw_rating, burn_rating, construction_rating, flavor_rating,
+        pairing_drink, pairing_food, location, occasion,
+        smoke_duration_minutes, review_text, photo_urls,
+        cigar:cigar_catalog(brand, series, name, format)
+      `)
+      .eq("id", raw.smoke_log_id as string)
+      .single();
+    smokeLog = (logData as SmokeLogData | null) ?? null;
+  }
+
   const post = {
     id:          raw.id          as string,
     title:       raw.title       as string,
@@ -82,6 +101,7 @@ export default async function PostDetailPage({ params }: Props) {
       ? { display_name: nameMap[postAuthorId] ?? null }
       : null,
     like_count:  likeCount,
+    image_url:   (raw.image_url as string | null) ?? null,
   };
 
   const comments = commentRows.map((c) => ({
@@ -97,6 +117,7 @@ export default async function PostDetailPage({ params }: Props) {
       comments={comments}
       hasLiked={hasLiked}
       userId={user.id}
+      smokeLog={smokeLog}
     />
   );
 }

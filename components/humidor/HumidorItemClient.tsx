@@ -514,6 +514,8 @@ export function HumidorItemClient({
   /* Smoke logs */
   const [smokeLogs, setSmokeLogs] = useState<SmokeLog[]>(initialSmokeLogs);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [sharingLogId,  setSharingLogId]  = useState<string | null>(null);
+  const [sharedLogIds,  setSharedLogIds]  = useState<Set<string>>(new Set());
 
   /* UI state */
   const [qtyLoading, setQtyLoading] = useState(false);
@@ -605,6 +607,42 @@ export function HumidorItemClient({
     }
 
     router.push("/humidor");
+  }
+
+  /* ── Share smoke log to Lounge ───────────────────────────────── */
+
+  async function handleShareToLounge(log: SmokeLog) {
+    if (sharingLogId || sharedLogIds.has(log.id)) return;
+    setSharingLogId(log.id);
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSharingLogId(null); return; }
+
+    const { data: category } = await supabase
+      .from("forum_categories")
+      .select("id")
+      .eq("slug", "burn-reports")
+      .single();
+
+    if (!category) { setSharingLogId(null); setToast("Could not find Burn Reports category."); return; }
+
+    const cigarLabel = [c.brand, c.series ?? c.name].filter(Boolean).join(" ");
+    const title      = `${cigarLabel} — ${log.overall_rating ?? "N/A"}`;
+    const content    = log.review_text?.trim() || `Rating: ${log.overall_rating ?? "N/A"}`;
+
+    const { error } = await supabase.from("forum_posts").insert({
+      user_id:      user.id,
+      category_id:  category.id,
+      title,
+      content,
+      smoke_log_id: log.id,
+    });
+
+    setSharingLogId(null);
+    if (error) { setToast("Failed to share."); return; }
+    setSharedLogIds((prev) => new Set([...prev, log.id]));
+    setToast("Shared to Lounge!");
   }
 
   /* ── Derived stats ────────────────────────────────────────── */
@@ -838,12 +876,14 @@ export function HumidorItemClient({
           <div className="space-y-3">
             {smokeLogs.map((log) => {
               const expanded = expandedLogId === log.id;
+              const isSharing = sharingLogId === log.id;
+              const isShared  = sharedLogIds.has(log.id);
               return (
-                <button
+                <div
                   key={log.id}
-                  type="button"
                   className="card card-interactive w-full text-left"
                   onClick={() => setExpandedLogId(expanded ? null : log.id)}
+                  style={{ cursor: "pointer" }}
                 >
                   <div className="flex items-start gap-4">
                     {/* Rating */}
@@ -895,7 +935,33 @@ export function HumidorItemClient({
                       />
                     </svg>
                   </div>
-                </button>
+
+                  {/* Share to Lounge — only shown when expanded */}
+                  {expanded && (
+                    <div
+                      className="mt-3 pt-3 flex justify-end"
+                      style={{ borderTop: "1px solid var(--border)" }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => handleShareToLounge(log)}
+                        disabled={isSharing || isShared}
+                        className="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5"
+                        style={{
+                          border:      `1.5px solid ${isShared ? "var(--border)" : "var(--gold, #D4A04A)"}`,
+                          color:       isShared ? "var(--muted-foreground)" : "var(--gold, #D4A04A)",
+                          background:  "transparent",
+                          cursor:      isSharing || isShared ? "default" : "pointer",
+                          touchAction: "manipulation",
+                          WebkitTapHighlightColor: "transparent",
+                        }}
+                      >
+                        {isShared ? "Shared to Lounge" : isSharing ? "Sharing..." : "Share to Lounge"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

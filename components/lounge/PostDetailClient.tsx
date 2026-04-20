@@ -7,6 +7,33 @@ import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
 
 /* ------------------------------------------------------------------ */
+/* Exported type — consumed by the server page                          */
+/* ------------------------------------------------------------------ */
+
+export interface SmokeLogData {
+  id:                     string;
+  smoked_at:              string;
+  overall_rating:         number | null;
+  draw_rating:            number | null;
+  burn_rating:            number | null;
+  construction_rating:    number | null;
+  flavor_rating:          number | null;
+  pairing_drink:          string | null;
+  pairing_food:           string | null;
+  location:               string | null;
+  occasion:               string | null;
+  smoke_duration_minutes: number | null;
+  review_text:            string | null;
+  photo_urls:             string[] | null;
+  cigar: {
+    brand:  string | null;
+    series: string | null;
+    name:   string;
+    format: string | null;
+  } | null;
+}
+
+/* ------------------------------------------------------------------ */
 
 interface Post {
   id:          string;
@@ -21,6 +48,7 @@ interface Post {
   category:    { name: string; slug: string };
   author:      { display_name: string | null } | null;
   like_count:  number;
+  image_url:   string | null;
 }
 
 interface Comment {
@@ -38,8 +66,11 @@ interface Props {
   comments:  Comment[];
   hasLiked:  boolean;
   userId:    string;
+  smokeLog?: SmokeLogData | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Helpers                                                              */
 /* ------------------------------------------------------------------ */
 
 function initials(name: string | null | undefined): string {
@@ -53,6 +84,21 @@ function relativeTime(iso: string): string {
   } catch {
     return "";
   }
+}
+
+function ratingColor(v: number): string {
+  if (v <= 40) return "#C44536";
+  if (v <= 60) return "#8B6020";
+  if (v <= 80) return "#3A6B45";
+  return "#D4A04A";
+}
+
+function ratingLabel(v: number): string {
+  if (v <= 20) return "Poor";
+  if (v <= 40) return "Below Average";
+  if (v <= 60) return "Average";
+  if (v <= 80) return "Good";
+  return "Outstanding";
 }
 
 function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: boolean }) {
@@ -72,6 +118,183 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
     </svg>
   );
 }
+
+function StarDisplay({ value }: { value: number | null }) {
+  if (!value) return <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>N/A</span>;
+  return (
+    <span className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill={s <= value ? "var(--primary)" : "none"}
+            stroke={s <= value ? "var(--primary)" : "var(--border)"}
+            strokeWidth="1.5"
+          />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* BurnReportCard — module-level so it never remounts                   */
+/* ------------------------------------------------------------------ */
+
+const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [mounted,     setMounted]     = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const color  = log.overall_rating != null ? ratingColor(log.overall_rating) : "var(--muted-foreground)";
+  const cigar  = log.cigar;
+
+  const detailRows = [
+    ["Date", log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null],
+    ["Location", log.location],
+    ["Occasion", log.occasion],
+    ["Drink",    log.pairing_drink],
+    ["Food",     log.pairing_food],
+    ["Duration", log.smoke_duration_minutes ? `${log.smoke_duration_minutes} min` : null],
+  ].filter(([, v]) => v != null) as [string, string][];
+
+  const starRows = [
+    ["Draw",         log.draw_rating],
+    ["Burn",         log.burn_rating],
+    ["Construction", log.construction_rating],
+    ["Flavor",       log.flavor_rating],
+  ].filter(([, v]) => v != null) as [string, number][];
+
+  const lightbox = mounted && lightboxSrc
+    ? createPortal(
+        <>
+          <div
+            onClick={() => setLightboxSrc(null)}
+            style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }}
+          />
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightboxSrc} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+            <button
+              type="button"
+              onClick={() => setLightboxSrc(null)}
+              aria-label="Close"
+              style={{
+                position: "absolute", top: 16, right: 16,
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(255,255,255,0.12)", border: "none",
+                color: "#fff", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {/* Score hero */}
+      <div className="rounded-2xl p-4 text-center mb-4" style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}>
+        {cigar && (
+          <>
+            <p className="text-xs uppercase tracking-widest font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>
+              {cigar.brand}
+            </p>
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
+              {cigar.series ?? cigar.name}
+            </p>
+            {cigar.format && (
+              <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>
+            )}
+          </>
+        )}
+        {log.overall_rating != null && (
+          <>
+            <p className="text-6xl font-bold leading-none mt-2" style={{ fontFamily: "var(--font-serif)", color }}>
+              {log.overall_rating}
+            </p>
+            <p className="text-sm font-medium mt-1" style={{ color }}>{ratingLabel(log.overall_rating)}</p>
+          </>
+        )}
+      </div>
+
+      {/* Detail rows */}
+      {(detailRows.length > 0 || starRows.length > 0) && (
+        <div className="rounded-xl px-4 mb-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+          {detailRows.map(([label, value], i) => (
+            <div
+              key={label}
+              className="flex items-center justify-between gap-4 py-2.5"
+              style={{ borderBottom: (i < detailRows.length - 1 || starRows.length > 0) ? "1px solid var(--border)" : "none" }}
+            >
+              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>
+                {label}
+              </span>
+              <span className="text-sm text-right" style={{ color: "var(--foreground)" }}>{value}</span>
+            </div>
+          ))}
+          {starRows.map(([label, value], i) => (
+            <div
+              key={label}
+              className="flex items-center justify-between gap-4 py-2.5"
+              style={{ borderBottom: i < starRows.length - 1 ? "1px solid var(--border)" : "none" }}
+            >
+              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>
+                {label}
+              </span>
+              <StarDisplay value={value} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Review */}
+      {log.review_text && (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Review</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
+            {log.review_text}
+          </p>
+        </div>
+      )}
+
+      {/* Photos */}
+      {log.photo_urls && log.photo_urls.length > 0 && (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Photos</p>
+          <div className="flex gap-2 flex-wrap">
+            {log.photo_urls.map((url, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightboxSrc(url)}
+                className="rounded-xl overflow-hidden"
+                style={{
+                  width: 80, height: 80, flexShrink: 0,
+                  border: "none", padding: 0, cursor: "pointer",
+                  touchAction: "manipulation",
+                }}
+                aria-label={`View photo ${i + 1}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lightbox}
+    </div>
+  );
+});
 
 /* ------------------------------------------------------------------ */
 /* CommentNode — module-level component so it never remounts on parent
@@ -366,7 +589,7 @@ const CommentNode = memo(function CommentNode({
 /* PostDetailClient                                                     */
 /* ------------------------------------------------------------------ */
 
-export function PostDetailClient({ post, comments: initialComments, hasLiked, userId }: Props) {
+export function PostDetailClient({ post, comments: initialComments, hasLiked, userId, smokeLog }: Props) {
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -379,6 +602,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [commentError,    setCommentError]    = useState<string | null>(null);
   const [showDeletePost,  setShowDeletePost]  = useState(false);
   const [deletingPost,    setDeletingPost]    = useState(false);
+  const [lightboxOpen,    setLightboxOpen]    = useState(false);
   const [mounted,         setMounted]         = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
@@ -428,7 +652,6 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   /* ---- Handlers passed to CommentNode ----------------------------- */
 
   function handleDeleteComment(id: string) {
-    // Remove the comment and any of its replies
     setLocalComments((prev) => prev.filter((c) => c.id !== id && c.parent_comment_id !== id));
   }
 
@@ -453,7 +676,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const topLevel = localComments.filter((c) => c.parent_comment_id === null);
   const repliesOf = (parentId: string) => localComments.filter((c) => c.parent_comment_id === parentId);
 
-  /* ---- Delete post modal ------------------------------------------ */
+  /* ---- Portals ---------------------------------------------------- */
 
   const deletePostModal = mounted && showDeletePost
     ? createPortal(
@@ -480,6 +703,35 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
                 {deletingPost ? "Deleting..." : "Delete"}
               </button>
             </div>
+          </div>
+        </>,
+        document.body
+      )
+    : null;
+
+  const imageLightbox = mounted && lightboxOpen && post.image_url
+    ? createPortal(
+        <>
+          <div onClick={() => setLightboxOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={post.image_url!} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+            <button
+              type="button"
+              onClick={() => setLightboxOpen(false)}
+              aria-label="Close"
+              style={{
+                position: "absolute", top: 16, right: 16,
+                width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(255,255,255,0.12)", border: "none",
+                color: "#fff", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
           </div>
         </>,
         document.body
@@ -561,9 +813,37 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
             </div>
           </div>
 
-          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
-            {post.content}
-          </p>
+          {/* Body: burn report card OR text content + optional image */}
+          {smokeLog ? (
+            <BurnReportCard log={smokeLog} />
+          ) : (
+            <>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
+                {post.content}
+              </p>
+
+              {post.image_url && (
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="mt-4 rounded-xl overflow-hidden block"
+                  style={{
+                    width: "100%", maxHeight: 260,
+                    border: "none", padding: 0, cursor: "pointer",
+                    touchAction: "manipulation",
+                  }}
+                  aria-label="View image"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={post.image_url}
+                    alt=""
+                    style={{ width: "100%", height: "100%", maxHeight: 260, objectFit: "cover", display: "block" }}
+                  />
+                </button>
+              )}
+            </>
+          )}
 
           {/* Like button */}
           <button
@@ -660,6 +940,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       </div>
 
       {deletePostModal}
+      {imageLightbox}
     </div>
   );
 }
