@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter }                         from "next/navigation";
-import { createClient }                      from "@/utils/supabase/client";
-import { formatDistanceToNow }               from "date-fns";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useRouter }                                   from "next/navigation";
+import { createClient }                               from "@/utils/supabase/client";
+import { formatDistanceToNow }                        from "date-fns";
 
 /* ------------------------------------------------------------------ */
 
@@ -21,14 +21,16 @@ interface PostRow {
   title:         string;
   created_at:    string;
   user_id:       string | null;
-  profiles:      { display_name: string | null } | null;
+  display_name:  string | null;
   like_count:    number;
   comment_count: number;
 }
 
 interface Props {
-  category: Category;
-  userId:   string;
+  category:    Category;
+  userId:      string;
+  canPost:     boolean;
+  onNewPost:   (categoryId: string) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -50,9 +52,9 @@ function relativeTime(iso: string): string {
 
 /* ------------------------------------------------------------------ */
 
-export function CategoryCard({ category, userId }: Props) {
+export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
   const router   = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [expanded,    setExpanded]    = useState(false);
   const [posts,       setPosts]       = useState<PostRow[]>([]);
@@ -62,6 +64,8 @@ export function CategoryCard({ category, userId }: Props) {
   const [hasMore,     setHasMore]     = useState(false);
   const [fetchedOnce, setFetchedOnce] = useState(false);
 
+  const isBurnReports = category.slug === "burn-reports";
+
   const fetchPosts = useCallback(
     async (currentPage: number, currentSort: "latest" | "top", append = false) => {
       setLoading(true);
@@ -70,22 +74,38 @@ export function CategoryCard({ category, userId }: Props) {
 
       const { data, error } = await supabase
         .from("forum_posts")
-        .select(
-          "id, title, created_at, user_id, profiles(display_name), forum_post_likes(count), forum_comments(count)"
-        )
+        .select("id, title, created_at, user_id, forum_post_likes(count), forum_comments(count)")
         .eq("category_id", category.id)
         .order("created_at", { ascending: false })
         .range(from, to);
 
-      setLoading(false);
-      if (error || !data) return;
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
 
-      const mapped: PostRow[] = data.map((row: any) => ({
+      // Separate profiles fetch — avoids FK mismatch with auth.users
+      const userIds = [
+        ...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean)),
+      ] as string[];
+
+      let nameMap: Record<string, string | null> = {};
+      if (userIds.length > 0) {
+        const { data: profileRows } = await supabase
+          .from("profiles")
+          .select("id, display_name")
+          .in("id", userIds);
+        for (const p of profileRows ?? []) {
+          nameMap[p.id] = p.display_name;
+        }
+      }
+
+      const mapped: PostRow[] = (data as any[]).map((row: any) => ({
         id:            row.id,
         title:         row.title,
         created_at:    row.created_at,
-        user_id:       row.user_id,
-        profiles:      row.profiles,
+        user_id:       row.user_id ?? null,
+        display_name:  row.user_id ? (nameMap[row.user_id] ?? null) : null,
         like_count:    (row.forum_post_likes as { count: number }[])[0]?.count ?? 0,
         comment_count: (row.forum_comments  as { count: number }[])[0]?.count ?? 0,
       }));
@@ -95,13 +115,14 @@ export function CategoryCard({ category, userId }: Props) {
           ? [...mapped].sort((a, b) => b.comment_count - a.comment_count)
           : mapped;
 
+      setLoading(false);
       setHasMore(data.length === PAGE_SIZE);
+      setFetchedOnce(true);
       if (append) {
         setPosts((prev) => [...prev, ...sorted]);
       } else {
         setPosts(sorted);
       }
-      setFetchedOnce(true);
     },
     [category.id, supabase]
   );
@@ -127,6 +148,14 @@ export function CategoryCard({ category, userId }: Props) {
     fetchPosts(nextPage, sort, true);
   }
 
+  function handleNewPost() {
+    if (isBurnReports) {
+      router.push("/humidor");
+    } else {
+      onNewPost(category.id);
+    }
+  }
+
   /* ---- Render ------------------------------------------------------ */
 
   return (
@@ -134,11 +163,11 @@ export function CategoryCard({ category, userId }: Props) {
       className="rounded-xl overflow-hidden"
       style={{ border: "1px solid var(--border)", backgroundColor: "var(--card)" }}
     >
-      {/* Header row — always visible */}
+      {/* Header row */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-4 text-left"
+        className="w-full px-4 py-4 text-left"
         style={{
           background:              "none",
           border:                  "none",
@@ -149,53 +178,60 @@ export function CategoryCard({ category, userId }: Props) {
         }}
         aria-expanded={expanded}
       >
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
-            {category.name}
-          </p>
-          <p
-            className="text-xs mt-0.5 line-clamp-2"
-            style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}
-          >
-            {category.description}
-          </p>
-        </div>
+        <div className="flex items-start gap-2">
+          {/* Title + count + description */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
+                {category.name}
+              </p>
+              <span
+                className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
+                style={{
+                  border: "1px solid var(--gold, #D4A04A)",
+                  color:  "var(--gold, #D4A04A)",
+                }}
+              >
+                {category.post_count} post{category.post_count !== 1 ? "s" : ""}
+              </span>
+            </div>
+            <p
+              className="text-xs mt-1"
+              style={{
+                color:      "var(--muted-foreground)",
+                lineHeight: 1.5,
+              }}
+            >
+              {category.description}
+            </p>
+          </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-2 shrink-0">
-          <span
-            className="text-xs font-medium px-2 py-0.5 rounded-full"
-            style={{
-              border: "1px solid var(--gold, #D4A04A)",
-              color:  "var(--gold, #D4A04A)",
-            }}
-          >
-            {category.post_count} post{category.post_count !== 1 ? "s" : ""}
-          </span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            aria-hidden="true"
-            style={{
-              color:     "var(--muted-foreground)",
-              transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-              transition: "transform 0.2s ease",
-            }}
-          >
-            <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          {/* Chevron */}
+          <div className="shrink-0 mt-0.5">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              aria-hidden="true"
+              style={{
+                color:      "var(--muted-foreground)",
+                transform:  expanded ? "rotate(180deg)" : "rotate(0deg)",
+                transition: "transform 0.2s ease",
+              }}
+            >
+              <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
         </div>
       </button>
 
       {/* Expanded content */}
       {expanded && (
         <div style={{ borderTop: "1px solid var(--border)" }}>
-          {/* Sort toggle */}
-          {category.post_count > 0 && (
-            <div className="flex gap-2 px-4 py-3">
+          {/* Sort + New Post row */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <div className="flex gap-2">
               {(["latest", "top"] as const).map((s) => (
                 <button
                   key={s}
@@ -215,7 +251,29 @@ export function CategoryCard({ category, userId }: Props) {
                 </button>
               ))}
             </div>
-          )}
+
+            {/* New Post button — hidden for locked categories */}
+            {!category.is_locked && (
+              <button
+                type="button"
+                onClick={handleNewPost}
+                className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full"
+                style={{
+                  border:                  "1.5px solid var(--gold, #D4A04A)",
+                  color:                   "var(--gold, #D4A04A)",
+                  background:              "transparent",
+                  cursor:                  "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
+                  <path d="M5 1a.75.75 0 01.75.75V4.25h2.5a.75.75 0 010 1.5h-2.5v2.5a.75.75 0 01-1.5 0v-2.5H1.75a.75.75 0 010-1.5h2.5V1.75A.75.75 0 015 1z" />
+                </svg>
+                {isBurnReports ? "Burn Report" : "New Post"}
+              </button>
+            )}
+          </div>
 
           {/* Loading skeletons */}
           {loading && posts.length === 0 && (
@@ -231,7 +289,7 @@ export function CategoryCard({ category, userId }: Props) {
           )}
 
           {/* Post list */}
-          {!loading || posts.length > 0 ? (
+          {(!loading || posts.length > 0) && (
             <div className="px-4 pb-2">
               {posts.length === 0 && !loading && (
                 <p
@@ -249,11 +307,11 @@ export function CategoryCard({ category, userId }: Props) {
                   className="w-full flex items-center gap-3 text-left"
                   style={{
                     minHeight:               56,
-                    borderBottom:            i < posts.length - 1 ? "1px solid var(--border)" : "none",
                     paddingTop:              10,
                     paddingBottom:           10,
+                    borderBottom:            i < posts.length - 1 ? "1px solid var(--border)" : "none",
                     background:              "none",
-                    border:                  i < posts.length - 1 ? `0 0 1px 0 solid var(--border)` : "none",
+                    border:                  "none",
                     borderBottomStyle:       i < posts.length - 1 ? "solid" : "none",
                     borderBottomWidth:       i < posts.length - 1 ? 1 : 0,
                     borderBottomColor:       "var(--border)",
@@ -272,7 +330,7 @@ export function CategoryCard({ category, userId }: Props) {
                       color:      "var(--muted-foreground)",
                     }}
                   >
-                    {initials(post.profiles?.display_name)}
+                    {initials(post.display_name)}
                   </div>
 
                   {/* Text */}
@@ -284,7 +342,7 @@ export function CategoryCard({ category, userId }: Props) {
                       {post.title}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                      {post.profiles?.display_name ?? "Member"} &middot; {relativeTime(post.created_at)}
+                      {post.display_name ?? "Member"} &middot; {relativeTime(post.created_at)}
                     </p>
                   </div>
 
@@ -309,7 +367,7 @@ export function CategoryCard({ category, userId }: Props) {
                 </button>
               ))}
             </div>
-          ) : null}
+          )}
 
           {/* Load more */}
           {hasMore && !loading && (
@@ -333,15 +391,15 @@ export function CategoryCard({ category, userId }: Props) {
             </div>
           )}
 
-          {/* Loading more indicator */}
+          {/* Loading more */}
           {loading && posts.length > 0 && (
             <div className="py-3 flex justify-center">
               <span
                 className="inline-block rounded-full border-2 animate-spin"
                 style={{
-                  width:       16,
-                  height:      16,
-                  borderColor: "var(--gold, #D4A04A)",
+                  width:          16,
+                  height:         16,
+                  borderColor:    "var(--gold, #D4A04A)",
                   borderTopColor: "transparent",
                 }}
               />
