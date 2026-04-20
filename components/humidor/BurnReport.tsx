@@ -825,14 +825,56 @@ function SuccessScreen({
   overallRating,
   quantityAfter,
   humidorItemId,
+  cigarBrand,
+  cigarName,
+  reviewText,
   onRemoveFromHumidor,
 }: {
-  overallRating: number;
-  quantityAfter: number;
-  humidorItemId: string;
+  overallRating:       number;
+  quantityAfter:       number;
+  humidorItemId:       string;
+  cigarBrand:          string | null;
+  cigarName:           string;
+  reviewText:          string;
   onRemoveFromHumidor: () => void;
 }) {
-  const color = ratingColor(overallRating);
+  const router   = useRouter();
+  const color    = ratingColor(overallRating);
+  const supabase = createClient();
+
+  const [sharing, setSharing] = useState(false);
+  const [shared,  setShared]  = useState(false);
+  const [shareErr, setShareErr] = useState<string | null>(null);
+
+  async function handleShareToFeed() {
+    if (sharing || shared) return;
+    setSharing(true);
+    setShareErr(null);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setSharing(false); return; }
+
+    const { data: category } = await supabase
+      .from("forum_categories")
+      .select("id")
+      .eq("slug", "burn-reports")
+      .single();
+
+    if (!category) { setShareErr("Could not find Burn Reports category."); setSharing(false); return; }
+
+    const cigarLabel = [cigarBrand, cigarName].filter(Boolean).join(" ");
+    const title      = `${cigarLabel} — ${overallRating}/10`;
+    const content    = reviewText.trim() || `Rating: ${overallRating}/10`;
+
+    const { error } = await supabase
+      .from("forum_posts")
+      .insert({ user_id: user.id, category_id: category.id, title, content });
+
+    setSharing(false);
+    if (error) { setShareErr(error.message); return; }
+    setShared(true);
+    setTimeout(() => router.push("/lounge"), 1200);
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-16 animate-fade-in">
@@ -876,9 +918,17 @@ function SuccessScreen({
         <Link href="/humidor" className="btn btn-primary w-full block text-center">
           Back to Humidor
         </Link>
-        <Link href="/humidor" className="btn btn-secondary w-full block text-center">
-          Share to Feed
-        </Link>
+        {shareErr && (
+          <p className="text-xs text-center" style={{ color: "#E8642C" }}>{shareErr}</p>
+        )}
+        <button
+          type="button"
+          onClick={handleShareToFeed}
+          disabled={sharing || shared}
+          className="btn btn-secondary w-full"
+        >
+          {shared ? "Shared! Opening Lounge..." : sharing ? "Sharing..." : "Share to Lounge"}
+        </button>
       </div>
     </div>
   );
@@ -1056,6 +1106,9 @@ export function BurnReport({
         overallRating={form.overall_rating}
         quantityAfter={quantityAfter}
         humidorItemId={item.id}
+        cigarBrand={item.cigar.brand}
+        cigarName={item.cigar.name}
+        reviewText={form.review_text}
         onRemoveFromHumidor={handleRemoveFromHumidor}
       />
     );

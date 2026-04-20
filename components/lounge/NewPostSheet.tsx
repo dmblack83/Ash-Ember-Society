@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect }  from "react";
-import { createPortal }         from "react-dom";
-import { createClient }         from "@/utils/supabase/client";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal }                          from "react-dom";
+import { createClient }                          from "@/utils/supabase/client";
 
 /* ------------------------------------------------------------------ */
 
@@ -23,16 +23,33 @@ interface Props {
 /* ------------------------------------------------------------------ */
 
 export function NewPostSheet({ categories, userId, initialCategoryId, onCreated, onClose }: Props) {
-  const [mounted,     setMounted]     = useState(false);
-  const [categoryId,  setCategoryId]  = useState(
+  const [mounted,      setMounted]      = useState(false);
+  const [categoryId,   setCategoryId]   = useState(
     initialCategoryId ?? categories.find((c) => !c.is_locked)?.id ?? ""
   );
-  const [title,       setTitle]       = useState("");
-  const [content,     setContent]     = useState("");
-  const [submitting,  setSubmitting]  = useState(false);
-  const [error,       setError]       = useState<string | null>(null);
+  const [title,        setTitle]        = useState("");
+  const [content,      setContent]      = useState("");
+  const [imageFile,    setImageFile]    = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploading,    setUploading]    = useState(false);
+  const [submitting,   setSubmitting]   = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
+
+  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  }
+
+  function removeImage() {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   useEffect(() => {
     setMounted(true);
@@ -53,9 +70,33 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
     setSubmitting(true);
     setError(null);
 
+    // Upload image if selected
+    let image_url: string | null = null;
+    if (imageFile) {
+      setUploading(true);
+      const ext  = imageFile.name.split(".").pop() ?? "jpg";
+      const path = `forum-posts/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("post-images")
+        .upload(path, imageFile, { contentType: imageFile.type, upsert: false });
+      if (!uploadErr) {
+        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);
+        image_url = urlData.publicUrl;
+      }
+      setUploading(false);
+    }
+
+    const payload: Record<string, unknown> = {
+      user_id:     userId,
+      category_id: categoryId,
+      title:       title.trim(),
+      content:     content.trim(),
+    };
+    if (image_url) payload.image_url = image_url;
+
     const { data, error: err } = await supabase
       .from("forum_posts")
-      .insert({ user_id: userId, category_id: categoryId, title: title.trim(), content: content.trim() })
+      .insert(payload)
       .select("id, category_id")
       .single();
 
@@ -223,6 +264,66 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
             </p>
           </div>
 
+          {/* Image upload */}
+          <div>
+            <label
+              className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              Photo (optional)
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageSelect}
+              style={{ display: "none" }}
+            />
+            {imagePreview ? (
+              <div className="relative rounded-xl overflow-hidden" style={{ height: 160 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button
+                  type="button"
+                  onClick={removeImage}
+                  className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                  style={{
+                    width:      28,
+                    height:     28,
+                    background: "rgba(0,0,0,0.6)",
+                    border:     "none",
+                    color:      "#fff",
+                    cursor:     "pointer",
+                  }}
+                  aria-label="Remove image"
+                >
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full rounded-xl flex items-center justify-center gap-2 text-sm"
+                style={{
+                  height:      52,
+                  border:      "1.5px dashed var(--border)",
+                  background:  "transparent",
+                  color:       "var(--muted-foreground)",
+                  cursor:      "pointer",
+                  touchAction: "manipulation",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                  <path d="M8 3v10M3 8h10" />
+                </svg>
+                Add Photo
+              </button>
+            )}
+          </div>
+
           {error && (
             <p className="text-xs text-center" style={{ color: "#E8642C" }}>
               {error}
@@ -252,7 +353,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
                 style={{ width: 16, height: 16 }}
               />
             ) : (
-              "Post to Lounge"
+              uploading ? "Uploading photo..." : "Post to Lounge"
             )}
           </button>
         </div>
