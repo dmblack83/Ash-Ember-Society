@@ -5,6 +5,7 @@ import { createPortal }                  from "react-dom";
 import { createClient }                  from "@/utils/supabase/client";
 import { CategoryCard }                  from "./CategoryCard";
 import { NewPostSheet }                  from "./NewPostSheet";
+import { PostModal }                     from "./PostModal";
 
 /* ------------------------------------------------------------------ */
 
@@ -238,6 +239,7 @@ export function LoungeForumClient({
   const [newPostCategory, setNewPostCategory] = useState<string>("");
   const [showRules,       setShowRules]       = useState(false);
   const [toast,           setToast]           = useState<string | null>(null);
+  const [selectedPostId,  setSelectedPostId]  = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
   const canPost  = membershipTier !== "free";
@@ -420,7 +422,7 @@ export function LoungeForumClient({
       <div style={{ paddingTop: HEADER_H }}>
         {/* Lounge Rules row */}
         {gateCategory && rulesPost && (
-          <div className="px-4 pt-4">
+          <div className="px-4 pt-4 w-full md:max-w-[50%] md:mx-auto">
             <button
               type="button"
               onClick={() => setShowRules(true)}
@@ -464,7 +466,7 @@ export function LoungeForumClient({
           </p>
         </div>
 
-        <div className="px-4 flex flex-col gap-2 pb-4">
+        <div className="px-4 flex flex-col gap-2 pb-4 w-full md:max-w-[50%] md:mx-auto">
           {nonGateCategories.map((c) => (
             <CategoryCard
               key={c.id}
@@ -472,10 +474,19 @@ export function LoungeForumClient({
               userId={userId}
               canPost={canPost}
               onNewPost={handleNewPost}
+              onPostClick={(postId) => setSelectedPostId(postId)}
             />
           ))}
         </div>
       </div>
+
+      {selectedPostId && (
+        <PostModal
+          postId={selectedPostId}
+          userId={userId}
+          onClose={() => setSelectedPostId(null)}
+        />
+      )}
 
       {showRules && rulesPost && (
         <RulesModal
