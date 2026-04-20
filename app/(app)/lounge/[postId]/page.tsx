@@ -21,7 +21,6 @@ export default async function PostDetailPage({ params }: Props) {
       .select(`
         id, title, content, created_at, updated_at,
         is_system, is_locked, user_id, category_id,
-        profiles(display_name),
         forum_post_likes(count),
         forum_categories(name, slug)
       `)
@@ -29,7 +28,7 @@ export default async function PostDetailPage({ params }: Props) {
       .single(),
     supabase
       .from("forum_comments")
-      .select("id, content, created_at, updated_at, user_id, parent_comment_id, profiles(display_name)")
+      .select("id, content, created_at, updated_at, user_id, parent_comment_id")
       .eq("post_id", postId)
       .order("created_at", { ascending: true }),
     supabase
@@ -44,6 +43,30 @@ export default async function PostDetailPage({ params }: Props) {
   const raw       = postRes.data as any;
   const likeCount = (raw.forum_post_likes as { count: number }[])[0]?.count ?? 0;
 
+  // Separate profiles fetch — forum_posts.user_id → auth.users, not profiles directly
+  const postAuthorId = raw.user_id as string | null;
+  const commentRows  = (commentsRes.data ?? []) as Array<{
+    id: string; content: string; created_at: string; updated_at: string;
+    user_id: string; parent_comment_id: string | null;
+  }>;
+
+  const allUserIds = [
+    ...new Set(
+      [postAuthorId, ...commentRows.map((c) => c.user_id)].filter(Boolean) as string[]
+    ),
+  ];
+
+  let nameMap: Record<string, string | null> = {};
+  if (allUserIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, display_name")
+      .in("id", allUserIds);
+    for (const p of profileRows ?? []) {
+      nameMap[p.id] = p.display_name;
+    }
+  }
+
   const post = {
     id:          raw.id          as string,
     title:       raw.title       as string,
@@ -52,27 +75,19 @@ export default async function PostDetailPage({ params }: Props) {
     updated_at:  raw.updated_at  as string,
     is_system:   raw.is_system   as boolean,
     is_locked:   raw.is_locked   as boolean,
-    user_id:     raw.user_id     as string | null,
+    user_id:     postAuthorId,
     category_id: raw.category_id as string,
     category:    raw.forum_categories as { name: string; slug: string },
-    author:      raw.profiles    as { display_name: string | null } | null,
+    author:      postAuthorId
+      ? { display_name: nameMap[postAuthorId] ?? null }
+      : null,
     like_count:  likeCount,
   };
 
-  const comments = ((commentsRes.data ?? []) as unknown[]).map((row: unknown) => {
-    const r = row as any;
-    return {
-      id:                r.id                as string,
-      content:           r.content           as string,
-      created_at:        r.created_at        as string,
-      updated_at:        r.updated_at        as string,
-      user_id:           r.user_id           as string,
-      parent_comment_id: r.parent_comment_id as string | null,
-      profiles:          Array.isArray(r.profiles)
-        ? (r.profiles[0] as { display_name: string | null } | undefined) ?? null
-        : (r.profiles as { display_name: string | null } | null),
-    };
-  });
+  const comments = commentRows.map((c) => ({
+    ...c,
+    profiles: { display_name: nameMap[c.user_id] ?? null },
+  }));
 
   const hasLiked = (likeRes.count ?? 0) > 0;
 
