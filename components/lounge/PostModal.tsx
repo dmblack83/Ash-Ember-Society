@@ -10,7 +10,7 @@ import type { SmokeLogData }                    from "./PostDetailClient";
 /* Constants                                                            */
 /* ------------------------------------------------------------------ */
 
-const HEADER_H      = 56;
+const HEADER_H       = 56;
 const COMMENTS_LIMIT = 20;
 
 /* ------------------------------------------------------------------ */
@@ -144,8 +144,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
             <button type="button" onClick={() => setLightboxSrc(null)} aria-label="Close"
               style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
                 background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center" }}
-            >
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
               </svg>
@@ -207,7 +206,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
             {log.photo_urls.map((url, i) => (
               <button key={i} type="button" onClick={() => setLightboxSrc(url)}
                 className="rounded-xl overflow-hidden"
-                style={{ width: 80, height: 80, flexShrink: 0, border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
+                style={{ width: 80, height: 80, flexShrink: 0, border: "1px solid var(--border)", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
                 aria-label={`View photo ${i + 1}`}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -361,22 +360,26 @@ const CommentNode = memo(function CommentNode({
 /* ------------------------------------------------------------------ */
 
 export function PostModal({ postId, userId, onClose }: Props) {
-  const [mounted,         setMounted]         = useState(false);
-  const [loading,         setLoading]         = useState(true);
-  const [post,            setPost]            = useState<PostData | null>(null);
-  const [smokeLog,        setSmokeLog]        = useState<SmokeLogData | null>(null);
-  const [localComments,   setLocalComments]   = useState<Comment[]>([]);
-  const [hasMoreComments, setHasMoreComments] = useState(false);
-  const [loadingMore,     setLoadingMore]     = useState(false);
-  const [liked,           setLiked]           = useState(false);
-  const [likeCount,       setLikeCount]       = useState(0);
-  const [liking,          setLiking]          = useState(false);
-  const [commentText,     setCommentText]     = useState("");
-  const [submitting,      setSubmitting]      = useState(false);
-  const [commentError,    setCommentError]    = useState<string | null>(null);
-  const [showDeletePost,  setShowDeletePost]  = useState(false);
-  const [deletingPost,    setDeletingPost]    = useState(false);
-  const [lightboxOpen,    setLightboxOpen]    = useState(false);
+  const [mounted,          setMounted]          = useState(false);
+  const [loading,          setLoading]          = useState(true);
+  const [post,             setPost]             = useState<PostData | null>(null);
+  const [smokeLog,         setSmokeLog]         = useState<SmokeLogData | null>(null);
+  const [smokeLogCigarId,  setSmokeLogCigarId]  = useState<string | null>(null);
+  const [localComments,    setLocalComments]    = useState<Comment[]>([]);
+  const [hasMoreComments,  setHasMoreComments]  = useState(false);
+  const [loadingMore,      setLoadingMore]      = useState(false);
+  const [liked,            setLiked]            = useState(false);
+  const [likeCount,        setLikeCount]        = useState(0);
+  const [liking,           setLiking]           = useState(false);
+  const [commentText,      setCommentText]      = useState("");
+  const [submitting,       setSubmitting]       = useState(false);
+  const [commentError,     setCommentError]     = useState<string | null>(null);
+  const [showDeletePost,   setShowDeletePost]   = useState(false);
+  const [deletingPost,     setDeletingPost]     = useState(false);
+  const [lightboxOpen,     setLightboxOpen]     = useState(false);
+  const [wishlistAdded,    setWishlistAdded]    = useState(false);
+  const [addingWishlist,   setAddingWishlist]   = useState(false);
+  const [modalToast,       setModalToast]       = useState<string | null>(null);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -440,15 +443,20 @@ export function PostModal({ postId, userId, onClose }: Props) {
         for (const p of profileRows ?? []) { nameMap[p.id] = p.display_name; }
       }
 
-      // Smoke log
+      // Smoke log — include cigar_id for wishlist
       let sl: SmokeLogData | null = null;
+      let cigarId: string | null  = null;
       if (raw.smoke_log_id) {
         const { data: logData } = await supabase
           .from("smoke_logs")
-          .select("id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, cigar:cigar_catalog(brand, series, name, format)")
+          .select("id, cigar_id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, cigar:cigar_catalog(brand, series, name, format)")
           .eq("id", raw.smoke_log_id as string)
           .single();
-        sl = (logData as SmokeLogData | null) ?? null;
+        if (logData) {
+          const { cigar_id: cid, ...rest } = logData as any;
+          sl      = rest as SmokeLogData;
+          cigarId = cid ?? null;
+        }
       }
 
       if (cancelled) return;
@@ -478,6 +486,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
       );
       setHasMoreComments(commentRows.length === COMMENTS_LIMIT);
       setSmokeLog(sl);
+      setSmokeLogCigarId(cigarId);
       setLoading(false);
     }
 
@@ -567,6 +576,25 @@ export function PostModal({ postId, userId, onClose }: Props) {
     setDeletingPost(true);
     await supabase.from("forum_posts").delete().eq("id", post.id);
     onClose();
+  }
+
+  /* ---- Add to Wishlist -------------------------------------------- */
+
+  async function handleAddToWishlist() {
+    if (!smokeLogCigarId || addingWishlist || wishlistAdded) return;
+    setAddingWishlist(true);
+    const { error } = await supabase.from("humidor_items").insert({
+      user_id:     userId,
+      cigar_id:    smokeLogCigarId,
+      quantity:    1,
+      is_wishlist: true,
+    });
+    setAddingWishlist(false);
+    if (!error || error.code === "23505") {
+      setWishlistAdded(true);
+      setModalToast("Added to wishlist");
+      setTimeout(() => setModalToast(null), 3000);
+    }
   }
 
   /* ---- Comment tree handlers -------------------------------------- */
@@ -683,173 +711,241 @@ export function PostModal({ postId, userId, onClose }: Props) {
           className="flex-1 overflow-y-auto"
           style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
         >
-          {/* Post content */}
-          <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
-            <h1 className="font-serif font-semibold text-xl leading-snug mb-3" style={{ color: "var(--foreground)" }}>
-              {post.title}
-            </h1>
+          {/* Content constrained to match category cards on tablet+ */}
+          <div className="w-full md:max-w-[50%] md:mx-auto">
 
-            <div className="flex items-center gap-2 mb-4">
-              <div
-                className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-                style={{ width: 32, height: 32, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-              >
-                {post.is_system ? "A" : initials(post.author?.display_name)}
+            {/* Post content */}
+            <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+              <h1 className="font-serif font-semibold text-xl leading-snug mb-3" style={{ color: "var(--foreground)" }}>
+                {post.title}
+              </h1>
+
+              <div className="flex items-center gap-2 mb-4">
+                <div
+                  className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
+                  style={{ width: 32, height: 32, background: "var(--secondary)", color: "var(--muted-foreground)" }}
+                >
+                  {post.is_system ? "A" : initials(post.author?.display_name)}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
+                    {post.is_system ? "Ash & Ember Society" : (post.author?.display_name ?? "Member")}
+                  </p>
+                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    {relativeTime(post.created_at)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
-                  {post.is_system ? "Ash & Ember Society" : (post.author?.display_name ?? "Member")}
-                </p>
-                <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                  {relativeTime(post.created_at)}
-                </p>
-              </div>
-            </div>
 
-            {/* Body: burn report OR text + image */}
-            {smokeLog ? (
-              <BurnReportCard log={smokeLog} />
-            ) : (
-              <>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
-                  {post.content}
-                </p>
-                {post.image_url && (
-                  <button
-                    type="button"
-                    onClick={() => setLightboxOpen(true)}
-                    className="mt-4 rounded-xl overflow-hidden block"
-                    style={{
-                      width: "100%", maxHeight: 260,
-                      border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation",
-                    }}
-                    aria-label="View image"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={post.image_url} alt=""
-                      style={{ width: "100%", height: "100%", maxHeight: 260, objectFit: "cover", display: "block" }}
-                    />
-                  </button>
-                )}
-              </>
-            )}
+              {/* Body: burn report OR text + optional image thumbnail */}
+              {smokeLog ? (
+                <>
+                  <BurnReportCard log={smokeLog} />
 
-            {/* Like button — right aligned */}
-            <div className="flex justify-end mt-5">
-              <button
-                type="button"
-                onClick={handleLike}
-                disabled={liking}
-                className="flex items-center gap-1.5"
-                style={{
-                  background:              "none",
-                  border:                  "none",
-                  cursor:                  liking ? "default" : "pointer",
-                  touchAction:             "manipulation",
-                  WebkitTapHighlightColor: "transparent",
-                  color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-                  minHeight:               44,
-                  padding:                 0,
-                }}
-              >
-                <FlameIcon size={20} filled={liked} />
-                <span className="text-sm font-medium">{likeCount}</span>
-              </button>
-            </div>
-          </div>
+                  {/* Add to Wishlist — only for other users' burn reports */}
+                  {post.user_id !== userId && smokeLogCigarId && (
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleAddToWishlist}
+                        disabled={addingWishlist || wishlistAdded}
+                        className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full"
+                        style={{
+                          border:                  `1.5px solid ${wishlistAdded ? "rgba(212,160,74,0.4)" : "var(--gold, #D4A04A)"}`,
+                          color:                   wishlistAdded ? "rgba(212,160,74,0.5)" : "var(--gold, #D4A04A)",
+                          background:              wishlistAdded ? "rgba(212,160,74,0.08)" : "transparent",
+                          cursor:                  wishlistAdded || addingWishlist ? "default" : "pointer",
+                          touchAction:             "manipulation",
+                          WebkitTapHighlightColor: "transparent",
+                        }}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24"
+                          fill={wishlistAdded ? "currentColor" : "none"}
+                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
+                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        </svg>
+                        {wishlistAdded ? "In Wishlist" : addingWishlist ? "Adding..." : "Add to Wishlist"}
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
+                    {post.content}
+                  </p>
 
-          {/* Comments */}
-          <div className="px-4 pt-4">
-            <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--muted-foreground)" }}>
-              Comments ({topLevel.length}{hasMoreComments ? "+" : ""})
-            </p>
+                  {/* Image thumbnail */}
+                  {post.image_url && (
+                    <button
+                      type="button"
+                      onClick={() => setLightboxOpen(true)}
+                      className="mt-4 rounded-xl overflow-hidden"
+                      style={{
+                        display:     "block",
+                        width:       80,
+                        height:      80,
+                        border:      "1px solid var(--border)",
+                        padding:     0,
+                        cursor:      "pointer",
+                        touchAction: "manipulation",
+                        flexShrink:  0,
+                      }}
+                      aria-label="View attached image"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={post.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    </button>
+                  )}
+                </>
+              )}
 
-            {!post.is_locked && (
-              <div className="mb-4 mt-3">
-                <textarea
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  placeholder="Add a comment..."
-                  className="w-full rounded-xl px-4 py-3 text-sm resize-none"
-                  style={{
-                    minHeight:       80,
-                    backgroundColor: "rgba(255,255,255,0.05)",
-                    border:          "1px solid var(--border)",
-                    color:           "var(--foreground)",
-                    fontSize:        14,
-                    outline:         "none",
-                  }}
-                />
-                {commentError && <p className="text-xs mt-1" style={{ color: "#E8642C" }}>{commentError}</p>}
+              {/* Like button — right aligned */}
+              <div className="flex justify-end mt-5">
                 <button
                   type="button"
-                  onClick={handleComment}
-                  disabled={commentText.trim().length < 3 || submitting}
-                  className="mt-2 px-5 rounded-xl font-semibold text-xs flex items-center gap-1.5"
+                  onClick={handleLike}
+                  disabled={liking}
+                  className="flex items-center gap-1.5"
                   style={{
-                    height:      40,
-                    background:  commentText.trim().length >= 3 ? "linear-gradient(135deg, #D4A04A, #C17817)" : "rgba(212,160,74,0.3)",
-                    color:       "#1A1210",
-                    border:      "none",
-                    cursor:      commentText.trim().length >= 3 ? "pointer" : "default",
-                    touchAction: "manipulation",
+                    background:              "none",
+                    border:                  "none",
+                    cursor:                  liking ? "default" : "pointer",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                    color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                    minHeight:               44,
+                    padding:                 0,
                   }}
                 >
-                  {submitting ? "Posting..." : "Post Comment"}
+                  <FlameIcon size={20} filled={liked} />
+                  <span className="text-sm font-medium">{likeCount}</span>
                 </button>
               </div>
-            )}
+            </div>
 
-            {topLevel.length === 0 && (
-              <p className="text-xs py-6 text-center" style={{ color: "var(--muted-foreground)" }}>No comments yet.</p>
-            )}
+            {/* Comments */}
+            <div className="px-4 pt-4">
+              <p className="text-xs font-semibold uppercase tracking-widest mb-1" style={{ color: "var(--muted-foreground)" }}>
+                Comments ({topLevel.length}{hasMoreComments ? "+" : ""})
+              </p>
 
-            {topLevel.map((comment) => (
-              <div key={comment.id}>
-                <CommentNode
-                  comment={comment}
-                  userId={userId}
-                  postId={postId}
-                  onDelete={handleDeleteComment}
-                  onEditSave={handleEditSave}
-                  onReplyCreated={handleReplyCreated}
-                />
-                {repliesOf(comment.id).map((reply) => (
+              {!post.is_locked && (
+                <div className="mb-4 mt-3">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder="Add a comment..."
+                    className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                    style={{
+                      minHeight:       80,
+                      backgroundColor: "rgba(255,255,255,0.05)",
+                      border:          "1px solid var(--border)",
+                      color:           "var(--foreground)",
+                      fontSize:        14,
+                      outline:         "none",
+                    }}
+                  />
+                  {commentError && <p className="text-xs mt-1" style={{ color: "#E8642C" }}>{commentError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleComment}
+                    disabled={commentText.trim().length < 3 || submitting}
+                    className="mt-2 px-5 rounded-xl font-semibold text-xs flex items-center gap-1.5"
+                    style={{
+                      height:      40,
+                      background:  commentText.trim().length >= 3 ? "linear-gradient(135deg, #D4A04A, #C17817)" : "rgba(212,160,74,0.3)",
+                      color:       "#1A1210",
+                      border:      "none",
+                      cursor:      commentText.trim().length >= 3 ? "pointer" : "default",
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    {submitting ? "Posting..." : "Post Comment"}
+                  </button>
+                </div>
+              )}
+
+              {topLevel.length === 0 && (
+                <p className="text-xs py-6 text-center" style={{ color: "var(--muted-foreground)" }}>No comments yet.</p>
+              )}
+
+              {topLevel.map((comment) => (
+                <div key={comment.id}>
                   <CommentNode
-                    key={reply.id}
-                    comment={reply}
-                    isReply
+                    comment={comment}
                     userId={userId}
                     postId={postId}
                     onDelete={handleDeleteComment}
                     onEditSave={handleEditSave}
                     onReplyCreated={handleReplyCreated}
                   />
-                ))}
-              </div>
-            ))}
+                  {repliesOf(comment.id).map((reply) => (
+                    <CommentNode
+                      key={reply.id}
+                      comment={reply}
+                      isReply
+                      userId={userId}
+                      postId={postId}
+                      onDelete={handleDeleteComment}
+                      onEditSave={handleEditSave}
+                      onReplyCreated={handleReplyCreated}
+                    />
+                  ))}
+                </div>
+              ))}
 
-            {/* Load more comments */}
-            {hasMoreComments && (
-              <div className="py-4 flex justify-center">
-                <button
-                  type="button"
-                  onClick={handleLoadMoreComments}
-                  disabled={loadingMore}
-                  className="text-xs font-semibold px-4 py-2 rounded-full"
-                  style={{
-                    border:      "1px solid var(--border)",
-                    color:       "var(--gold, #D4A04A)",
-                    background:  "transparent",
-                    cursor:      loadingMore ? "default" : "pointer",
-                    touchAction: "manipulation",
-                  }}
-                >
-                  {loadingMore ? "Loading..." : "Load more comments"}
-                </button>
-              </div>
-            )}
-          </div>
+              {/* Load more comments */}
+              {hasMoreComments && (
+                <div className="py-4 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={handleLoadMoreComments}
+                    disabled={loadingMore}
+                    className="text-xs font-semibold px-4 py-2 rounded-full"
+                    style={{
+                      border:      "1px solid var(--border)",
+                      color:       "var(--gold, #D4A04A)",
+                      background:  "transparent",
+                      cursor:      loadingMore ? "default" : "pointer",
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    {loadingMore ? "Loading..." : "Load more comments"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+          </div>{/* end max-width wrapper */}
+        </div>
+      )}
+
+      {/* ---- Toast -------------------------------------------------- */}
+      {modalToast && (
+        <div
+          style={{
+            position:      "fixed",
+            bottom:        "calc(24px + env(safe-area-inset-bottom))",
+            left:          "50%",
+            transform:     "translateX(-50%)",
+            zIndex:        9985,
+            width:         "calc(100% - 32px)",
+            maxWidth:      360,
+            background:    "rgba(212,160,74,0.15)",
+            border:        "1px solid var(--gold, #D4A04A)",
+            color:         "var(--foreground)",
+            borderRadius:  12,
+            padding:       "12px 16px",
+            fontSize:      14,
+            textAlign:     "center",
+            fontWeight:    500,
+            pointerEvents: "none",
+          }}
+        >
+          {modalToast}
         </div>
       )}
 
