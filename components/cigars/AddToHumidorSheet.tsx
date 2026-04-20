@@ -120,6 +120,7 @@ export function AddToHumidorSheet({
       cigar_id: cigarId,
       is_wishlist: false,
       quantity,
+      purchase_quantity: quantity,
       purchase_date: purchaseDate || null,
       price_paid_cents: isNaN(priceCents!) ? null : priceCents,
       source: source.trim() || null,

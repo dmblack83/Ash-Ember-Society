@@ -45,9 +45,10 @@ interface SmokeLog {
   cigar_id:       string;
 }
 interface HumidorRow {
-  quantity:         number;
-  price_paid_cents: number | null;
-  cigar:            { id: string; brand: string; strength: string };
+  quantity:          number;
+  purchase_quantity: number | null;
+  price_paid_cents:  number | null;
+  cigar:             { id: string; brand: string } | null;
 }
 interface FlavorTag {
   id:       string;
@@ -75,21 +76,13 @@ function buildMonthlyBars(logs: SmokeLog[]): MonthlyBar[] {
 }
 
 function buildStrengthDist(
-  logs:            SmokeLog[],
-  strengthByCigar: Record<string, string>
+  _logs: SmokeLog[],
+  _strengthByCigar: Record<string, string>
 ): StrengthSlice[] {
-  const counts: Record<string, number> = {};
-  for (const log of logs) {
-    const s = strengthByCigar[log.cigar_id] ?? "unknown";
-    counts[s] = (counts[s] ?? 0) + 1;
-  }
-  return Object.entries(counts)
-    .filter(([s]) => s !== "unknown")
-    .map(([s, value]) => ({
-      name:  STRENGTH_LABELS[s] ?? s,
-      value,
-      color: STRENGTH_COLORS[s] ?? "#A69080",
-    }));
+  // cigar_catalog does not have a strength column; reserved for future data
+  void STRENGTH_COLORS;
+  void STRENGTH_LABELS;
+  return [];
 }
 
 function buildRatingBuckets(logs: SmokeLog[]): RatingBucket[] {
@@ -126,8 +119,8 @@ function buildFlavorFreq(logs: SmokeLog[], allTags: FlavorTag[]): FlavorPoint[] 
 }
 
 function buildTopBrands(
-  logs:           SmokeLog[],
-  brandsByCigar:  Record<string, string>
+  logs:          SmokeLog[],
+  brandsByCigar: Record<string, string>
 ): BrandPoint[] {
   const brandCount: Record<string, number> = {};
   for (const log of logs) {
@@ -149,10 +142,8 @@ export default async function StatsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Middleware handles unauthenticated redirects; defensive null guard
   if (!user) return null;
 
-  // Fetch all three datasets in parallel
   const [logsRes, humidorRes, tagsRes] = await Promise.all([
     supabase
       .from("smoke_logs")
@@ -161,7 +152,7 @@ export default async function StatsPage() {
       .order("smoked_at", { ascending: true }),
     supabase
       .from("humidor_items")
-      .select("quantity, price_paid_cents, cigar:cigars(id, brand, strength)")
+      .select("quantity, purchase_quantity, price_paid_cents, cigar:cigar_catalog(id, brand)")
       .eq("user_id", user.id)
       .eq("is_wishlist", false),
     supabase.from("flavor_tags").select("id, name, category"),
@@ -171,38 +162,46 @@ export default async function StatsPage() {
   const hRows = (humidorRes.data ?? []) as unknown as HumidorRow[];
   const tags  = (tagsRes.data   ?? []) as FlavorTag[];
 
-  // Build cigar_id lookup maps from humidor
-  const brandsByCigar:  Record<string, string> = {};
-  const strengthByCigar: Record<string, string> = {};
+  const brandsByCigar: Record<string, string> = {};
   for (const row of hRows) {
     if (row.cigar) {
-      brandsByCigar[row.cigar.id]   = row.cigar.brand;
-      strengthByCigar[row.cigar.id] = row.cigar.strength;
+      brandsByCigar[row.cigar.id] = row.cigar.brand;
     }
   }
 
-  // Derived scalars
-  const totalCigars     = hRows.reduce((s, r) => s + r.quantity, 0);
-  const totalReports    = logs.length;
-  const avgRating       =
+  // Cigars currently in humidor (sum of quantities)
+  const totalCigars = hRows.reduce((s, r) => s + r.quantity, 0);
+
+  const totalReports = logs.length;
+
+  const avgRating =
     logs.length > 0
       ? (logs.reduce((s, l) => s + (l.overall_rating ?? 0), 0) / logs.length).toFixed(1)
       : null;
-  const totalSpentCents = hRows.reduce(
-    (s, r) => s + (r.price_paid_cents != null ? r.quantity * r.price_paid_cents : 0),
+
+  // Lifetime investment = every cigar ever purchased at original purchase quantity
+  const lifetimeInvestmentCents = hRows.reduce(
+    (s, r) => s + ((r.purchase_quantity ?? r.quantity) * (r.price_paid_cents ?? 0)),
     0
   );
+
+  // Collection value = current quantity remaining * price per stick
+  const collectionValueCents = hRows.reduce(
+    (s, r) => r.quantity > 0 ? s + (r.quantity * (r.price_paid_cents ?? 0)) : s,
+    0
+  );
+
   const hasEnough = logs.length >= 3;
 
-  // Pre-computed chart data
   const statsData: StatsClientData = {
     totalCigars,
     totalReports,
     avgRating,
-    totalSpentCents,
+    lifetimeInvestmentCents,
+    collectionValueCents,
     hasEnough,
     monthlyBars:   buildMonthlyBars(logs),
-    strengthDist:  buildStrengthDist(logs, strengthByCigar),
+    strengthDist:  buildStrengthDist(logs, {}),
     ratingBuckets: buildRatingBuckets(logs),
     flavorFreq:    buildFlavorFreq(logs, tags),
     topBrands:     buildTopBrands(logs, brandsByCigar),
