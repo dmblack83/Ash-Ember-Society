@@ -667,8 +667,8 @@ function PostSheet({
       <div
         className="relative flex items-center justify-center flex-shrink-0"
         style={{
-          paddingTop:    14,
-          paddingBottom: 10,
+          paddingTop:    24,
+          paddingBottom: 12,
           touchAction:   "none",
           cursor:        isDesktop ? "default" : "grab",
           flexShrink:    0,
