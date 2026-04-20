@@ -579,7 +579,7 @@ function Step5({
       {/* Review text */}
       <div className="space-y-1.5">
         <label htmlFor="br-review" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Review <span className="normal-case tracking-normal font-normal">(optional)</span>
+          Review
         </label>
         <textarea
           id="br-review"
@@ -594,7 +594,7 @@ function Step5({
       {/* Smoke duration */}
       <div className="space-y-1.5">
         <label htmlFor="br-duration" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Smoke Duration <span className="normal-case tracking-normal font-normal">(optional, minutes)</span>
+          Smoke Duration <span className="normal-case tracking-normal font-normal">(minutes)</span>
         </label>
         <input
           id="br-duration"
@@ -741,47 +741,40 @@ function SummaryStep({
         className="rounded-xl px-4"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
       >
-        {form.smoked_at && (
-          <Row
-            label="Date"
-            value={new Date(form.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-          />
-        )}
-        {form.location && <Row label="Location" value={form.location} />}
-        {form.occasion && <Row label="Occasion" value={form.occasion} />}
-        {form.pairing_drink && <Row label="Drink" value={form.pairing_drink} />}
-        {form.pairing_food && <Row label="Food" value={form.pairing_food} />}
-        {form.smoke_duration_minutes && <Row label="Duration" value={`${form.smoke_duration_minutes} min`} />}
-        {form.draw_rating > 0 && (
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Draw</span>
-            <StarsSummary val={form.draw_rating} />
-          </div>
-        )}
-        {form.burn_rating > 0 && (
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Burn</span>
-            <StarsSummary val={form.burn_rating} />
-          </div>
-        )}
-        {form.construction_rating > 0 && (
-          <div className="flex items-center justify-between gap-4 py-2.5 border-b" style={{ borderColor: "var(--border)" }}>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Construction</span>
-            <StarsSummary val={form.construction_rating} />
-          </div>
-        )}
-        {form.flavor_rating > 0 && (
-          <div className="flex items-center justify-between gap-4 py-2.5" style={{ borderColor: "var(--border)" }}>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Flavor</span>
-            <StarsSummary val={form.flavor_rating} />
-          </div>
-        )}
+        <Row
+          label="Date"
+          value={form.smoked_at
+            ? new Date(form.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+            : "N/A"}
+        />
+        <Row label="Location" value={form.location.trim() || "N/A"} />
+        <Row label="Occasion" value={form.occasion || "N/A"} />
+        <Row label="Drink"    value={form.pairing_drink.trim() || "N/A"} />
+        <Row label="Food"     value={form.pairing_food.trim() || "N/A"} />
+        <Row label="Duration" value={form.smoke_duration_minutes.trim() ? `${form.smoke_duration_minutes} min` : "N/A"} />
+
+        {(["Draw", "Burn", "Construction", "Flavor"] as const).map((lbl, i) => {
+          const val = [form.draw_rating, form.burn_rating, form.construction_rating, form.flavor_rating][i];
+          const isLast = i === 3;
+          return (
+            <div
+              key={lbl}
+              className={`flex items-center justify-between gap-4 py-2.5 ${isLast ? "" : "border-b"}`}
+              style={{ borderColor: "var(--border)" }}
+            >
+              <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{lbl}</span>
+              {val > 0
+                ? <StarsSummary val={val} />
+                : <span className="text-sm text-muted-foreground">N/A</span>}
+            </div>
+          );
+        })}
       </div>
 
       {/* Flavor tags */}
-      {selectedTagNames.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Flavor Profile</p>
+      <div className="space-y-2">
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Flavor Profile</p>
+        {selectedTagNames.length > 0 ? (
           <div className="flex flex-wrap gap-2">
             {selectedTagNames.map((name) => (
               <span
@@ -793,16 +786,16 @@ function SummaryStep({
               </span>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">N/A</p>
+        )}
+      </div>
 
       {/* Review */}
-      {form.review_text && (
-        <div className="space-y-1">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
-          <p className="text-sm text-foreground leading-relaxed">{form.review_text}</p>
-        </div>
-      )}
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
+        <p className="text-sm text-foreground leading-relaxed">{form.review_text.trim() || "N/A"}</p>
+      </div>
 
       {/* Photos */}
       {form.photo_files.length > 0 && (
@@ -909,20 +902,45 @@ export function BurnReport({
   const [form, setForm] = useState<FormData>(defaultForm);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [stepError,   setStepError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [quantityAfter, setQuantityAfter] = useState(0);
 
   const update = useCallback((partial: Partial<FormData>) => {
     setForm((prev) => ({ ...prev, ...partial }));
+    setStepError(null);
   }, []);
+
+  function validateStep(s: number): string | null {
+    if (s === 0) {
+      if (!form.location.trim()) return "Location is required.";
+    }
+    if (s === 2) {
+      if (form.draw_rating === 0)        return "Please rate the draw.";
+      if (form.burn_rating === 0)        return "Please rate the burn.";
+      if (form.construction_rating === 0) return "Please rate the construction.";
+      if (form.flavor_rating === 0)      return "Please rate the flavor.";
+    }
+    if (s === 4) {
+      if (!form.review_text.trim()) return "Review is required.";
+      const mins = parseInt(form.smoke_duration_minutes);
+      if (!form.smoke_duration_minutes.trim() || isNaN(mins) || mins <= 0)
+        return "Smoke duration is required.";
+    }
+    return null;
+  }
 
   /* Navigation */
   function goNext() {
+    const err = validateStep(step);
+    if (err) { setStepError(err); return; }
+    setStepError(null);
     setDirection("forward");
     setStep((s) => s + 1);
   }
 
   function goBack() {
+    setStepError(null);
     if (step === 0) {
       router.push(`/humidor/${item.id}`);
       return;
@@ -1114,9 +1132,9 @@ export function BurnReport({
         style={{ backgroundColor: "var(--background)", borderTop: "1px solid var(--border)" }}
       >
         <div className="max-w-lg mx-auto space-y-2">
-          {/* Error */}
-          {submitError && (
-            <p className="text-sm text-destructive text-center">{submitError}</p>
+          {/* Validation / submit error */}
+          {(stepError || submitError) && (
+            <p className="text-sm text-destructive text-center">{stepError ?? submitError}</p>
           )}
 
           {/* Summary submit */}
