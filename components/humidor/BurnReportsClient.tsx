@@ -121,14 +121,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
    ------------------------------------------------------------------ */
 
 function StarRow({ label, val }: { label: string; val: number }) {
-  if (!val || val === 0) return null;
   return (
     <div
       className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
       style={{ borderColor: "var(--border)" }}
     >
       <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{label}</span>
-      <StarsSummary val={val} />
+      {val > 0
+        ? <StarsSummary val={val} />
+        : <span className="text-sm text-muted-foreground">N/A</span>}
     </div>
   );
 }
@@ -416,18 +417,10 @@ function BurnReportCard({
 
             {/* Detail rows */}
             <div style={{ borderTop: "1px solid var(--border)" }}>
-              {report.smoke_duration_minutes != null && (
-                <SummaryRow label="Duration" value={`${report.smoke_duration_minutes} min`} />
-              )}
-              {report.pairing_drink && (
-                <SummaryRow label="Drink" value={report.pairing_drink} />
-              )}
-              {report.location && (
-                <SummaryRow label="Location" value={report.location} />
-              )}
-              {report.occasion && (
-                <SummaryRow label="Occasion" value={report.occasion} />
-              )}
+              <SummaryRow label="Duration" value={report.smoke_duration_minutes != null ? `${report.smoke_duration_minutes} min` : "N/A"} />
+              <SummaryRow label="Drink"    value={report.pairing_drink || "N/A"} />
+              <SummaryRow label="Location" value={report.location || "N/A"} />
+              <SummaryRow label="Occasion" value={report.occasion || "N/A"} />
               <StarRow label="Draw"         val={report.draw_rating ?? 0} />
               <StarRow label="Burn"         val={report.burn_rating ?? 0} />
               <StarRow label="Construction" val={report.construction_rating ?? 0} />
@@ -435,11 +428,11 @@ function BurnReportCard({
             </div>
 
             {/* Flavor profile chips */}
-            {tagNames.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                  Flavor Profile
-                </p>
+            <div className="mt-3 space-y-2">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+                Flavor Profile
+              </p>
+              {tagNames.length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                   {tagNames.map((name) => (
                     <span
@@ -455,16 +448,16 @@ function BurnReportCard({
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
+              ) : (
+                <p className="text-sm text-muted-foreground">N/A</p>
+              )}
+            </div>
 
             {/* Review text */}
-            {report.review_text && (
-              <div className="mt-3 space-y-1">
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
-                <p className="text-sm text-foreground leading-relaxed">{report.review_text}</p>
-              </div>
-            )}
+            <div className="mt-3 space-y-1">
+              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
+              <p className="text-sm text-foreground leading-relaxed">{report.review_text || "N/A"}</p>
+            </div>
 
             {/* Photos */}
             {photos.length > 0 && (
