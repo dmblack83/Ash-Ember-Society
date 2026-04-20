@@ -31,6 +31,7 @@ interface Props {
   userId:      string;
   canPost:     boolean;
   onNewPost:   (categoryId: string) => void;
+  onPostClick: (postId: string) => void;
 }
 
 const PAGE_SIZE = 10;
@@ -52,7 +53,7 @@ function relativeTime(iso: string): string {
 
 /* ------------------------------------------------------------------ */
 
-export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
+export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick }: Props) {
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -67,7 +68,7 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
   const isBurnReports = category.slug === "burn-reports";
 
   const fetchPosts = useCallback(
-    async (currentPage: number, currentSort: "latest" | "top", append = false) => {
+    async (currentPage: number, currentSort: "latest" | "top") => {
       setLoading(true);
       const from = (currentPage - 1) * PAGE_SIZE;
       const to   = from + PAGE_SIZE - 1;
@@ -84,7 +85,6 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
         return;
       }
 
-      // Separate profiles fetch — avoids FK mismatch with auth.users
       const userIds = [
         ...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean)),
       ] as string[];
@@ -118,11 +118,7 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
       setLoading(false);
       setHasMore(data.length === PAGE_SIZE);
       setFetchedOnce(true);
-      if (append) {
-        setPosts((prev) => [...prev, ...sorted]);
-      } else {
-        setPosts(sorted);
-      }
+      setPosts(sorted);
     },
     [category.id, supabase]
   );
@@ -142,10 +138,18 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
     fetchPosts(1, newSort);
   }
 
-  function handleLoadMore() {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchPosts(nextPage, sort, true);
+  function handlePrev() {
+    if (page <= 1 || loading) return;
+    const newPage = page - 1;
+    setPage(newPage);
+    fetchPosts(newPage, sort);
+  }
+
+  function handleNext() {
+    if (!hasMore || loading) return;
+    const newPage = page + 1;
+    setPage(newPage);
+    fetchPosts(newPage, sort);
   }
 
   function handleNewPost() {
@@ -179,7 +183,6 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
         aria-expanded={expanded}
       >
         <div className="flex items-start gap-2">
-          {/* Title + count + description */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
@@ -197,23 +200,15 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
             </div>
             <p
               className="text-xs mt-1"
-              style={{
-                color:      "var(--muted-foreground)",
-                lineHeight: 1.5,
-              }}
+              style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}
             >
               {category.description}
             </p>
           </div>
 
-          {/* Chevron */}
           <div className="shrink-0 mt-0.5">
             <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
+              width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"
               style={{
                 color:      "var(--muted-foreground)",
                 transform:  expanded ? "rotate(180deg)" : "rotate(0deg)",
@@ -252,7 +247,6 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
               ))}
             </div>
 
-            {/* New Post button — hidden for locked categories */}
             {!category.is_locked && (
               <button
                 type="button"
@@ -292,10 +286,7 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
           {(!loading || posts.length > 0) && (
             <div className="px-4 pb-2">
               {posts.length === 0 && !loading && (
-                <p
-                  className="text-xs py-4 text-center"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
+                <p className="text-xs py-4 text-center" style={{ color: "var(--muted-foreground)" }}>
                   No posts yet. Be the first.
                 </p>
               )}
@@ -303,18 +294,18 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
                 <button
                   key={post.id}
                   type="button"
-                  onClick={() => router.push(`/lounge/${post.id}`)}
+                  onClick={() => onPostClick(post.id)}
                   className="w-full flex items-center gap-3 text-left"
                   style={{
                     minHeight:               56,
                     paddingTop:              10,
                     paddingBottom:           10,
                     borderBottom:            i < posts.length - 1 ? "1px solid var(--border)" : "none",
-                    background:              "none",
-                    border:                  "none",
                     borderBottomStyle:       i < posts.length - 1 ? "solid" : "none",
                     borderBottomWidth:       i < posts.length - 1 ? 1 : 0,
                     borderBottomColor:       "var(--border)",
+                    background:              "none",
+                    border:                  "none",
                     cursor:                  "pointer",
                     touchAction:             "manipulation",
                     WebkitTapHighlightColor: "transparent",
@@ -323,22 +314,14 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
                   {/* Avatar */}
                   <div
                     className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-                    style={{
-                      width:      36,
-                      height:     36,
-                      background: "var(--secondary)",
-                      color:      "var(--muted-foreground)",
-                    }}
+                    style={{ width: 36, height: 36, background: "var(--secondary)", color: "var(--muted-foreground)" }}
                   >
                     {initials(post.display_name)}
                   </div>
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">
-                    <p
-                      className="text-sm font-medium line-clamp-1"
-                      style={{ color: "var(--foreground)" }}
-                    >
+                    <p className="text-sm font-medium line-clamp-1" style={{ color: "var(--foreground)" }}>
                       {post.title}
                     </p>
                     <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
@@ -347,10 +330,7 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
                   </div>
 
                   {/* Counts */}
-                  <div
-                    className="flex items-center gap-2 shrink-0 text-xs"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
+                  <div className="flex items-center gap-2 shrink-0 text-xs" style={{ color: "var(--muted-foreground)" }}>
                     <span className="flex items-center gap-0.5">
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
                         <path d="M6 1.25C3.377 1.25 1.25 3.377 1.25 6a4.75 4.75 0 007.496 3.874L11 11l-1.126-2.254A4.75 4.75 0 006 1.25z" />
@@ -369,29 +349,54 @@ export function CategoryCard({ category, userId, canPost, onNewPost }: Props) {
             </div>
           )}
 
-          {/* Load more */}
-          {hasMore && !loading && (
-            <div className="px-4 pb-4 pt-2">
+          {/* Pagination controls */}
+          {fetchedOnce && (page > 1 || hasMore) && (
+            <div className="px-4 pb-4 pt-1 flex items-center justify-between">
               <button
                 type="button"
-                onClick={handleLoadMore}
-                className="w-full text-xs py-2 font-medium"
+                onClick={handlePrev}
+                disabled={page <= 1 || loading}
+                className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full"
                 style={{
-                  color:                   "var(--gold, #D4A04A)",
-                  background:              "none",
-                  border:                  "none",
-                  cursor:                  "pointer",
-                  touchAction:             "manipulation",
-                  WebkitTapHighlightColor: "transparent",
-                  textDecoration:          "underline",
+                  border:      "1px solid var(--border)",
+                  color:       page <= 1 || loading ? "var(--border)" : "var(--muted-foreground)",
+                  background:  "transparent",
+                  cursor:      page <= 1 || loading ? "default" : "pointer",
+                  touchAction: "manipulation",
                 }}
               >
-                Load more
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M7.5 2L4.5 6l3 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Prev
+              </button>
+
+              <span className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                {loading ? "..." : `Page ${page}`}
+              </span>
+
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!hasMore || loading}
+                className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full"
+                style={{
+                  border:      "1px solid var(--border)",
+                  color:       !hasMore || loading ? "var(--border)" : "var(--muted-foreground)",
+                  background:  "transparent",
+                  cursor:      !hasMore || loading ? "default" : "pointer",
+                  touchAction: "manipulation",
+                }}
+              >
+                Next
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M4.5 2L7.5 6l-3 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
             </div>
           )}
 
-          {/* Loading more */}
+          {/* Page loading spinner */}
           {loading && posts.length > 0 && (
             <div className="py-3 flex justify-center">
               <span

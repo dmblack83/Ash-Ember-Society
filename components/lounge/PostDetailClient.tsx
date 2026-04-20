@@ -845,23 +845,25 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
             </>
           )}
 
-          {/* Like button */}
-          <button
-            type="button"
-            onClick={handleLike}
-            disabled={liking}
-            className="flex items-center gap-1.5 mt-5"
-            style={{
-              background: "none", border: "none",
-              cursor: liking ? "default" : "pointer",
-              touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
-              color: liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-              minHeight: 44, padding: 0,
-            }}
-          >
-            <FlameIcon size={20} filled={liked} />
-            <span className="text-sm font-medium">{likeCount}</span>
-          </button>
+          {/* Like button — right aligned */}
+          <div className="flex justify-end mt-5">
+            <button
+              type="button"
+              onClick={handleLike}
+              disabled={liking}
+              className="flex items-center gap-1.5"
+              style={{
+                background: "none", border: "none",
+                cursor: liking ? "default" : "pointer",
+                touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
+                color: liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                minHeight: 44, padding: 0,
+              }}
+            >
+              <FlameIcon size={20} filled={liked} />
+              <span className="text-sm font-medium">{likeCount}</span>
+            </button>
+          </div>
         </div>
 
         {/* Comments */}
