@@ -13,17 +13,20 @@ interface Category {
 }
 
 interface Props {
-  categories: Category[];
-  userId:     string;
-  onCreated:  (categoryId: string) => void;
-  onClose:    () => void;
+  categories:        Category[];
+  userId:            string;
+  initialCategoryId?: string;
+  onCreated:         (categoryId: string) => void;
+  onClose:           () => void;
 }
 
 /* ------------------------------------------------------------------ */
 
-export function NewPostSheet({ categories, userId, onCreated, onClose }: Props) {
+export function NewPostSheet({ categories, userId, initialCategoryId, onCreated, onClose }: Props) {
   const [mounted,     setMounted]     = useState(false);
-  const [categoryId,  setCategoryId]  = useState(categories.find((c) => !c.is_locked)?.id ?? "");
+  const [categoryId,  setCategoryId]  = useState(
+    initialCategoryId ?? categories.find((c) => !c.is_locked)?.id ?? ""
+  );
   const [title,       setTitle]       = useState("");
   const [content,     setContent]     = useState("");
   const [submitting,  setSubmitting]  = useState(false);
