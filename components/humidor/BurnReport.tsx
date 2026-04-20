@@ -828,6 +828,7 @@ function SuccessScreen({
   cigarBrand,
   cigarName,
   reviewText,
+  smokeLogId,
   onRemoveFromHumidor,
 }: {
   overallRating:       number;
@@ -836,6 +837,7 @@ function SuccessScreen({
   cigarBrand:          string | null;
   cigarName:           string;
   reviewText:          string;
+  smokeLogId:          string | null;
   onRemoveFromHumidor: () => void;
 }) {
   const router   = useRouter();
@@ -863,12 +865,13 @@ function SuccessScreen({
     if (!category) { setShareErr("Could not find Burn Reports category."); setSharing(false); return; }
 
     const cigarLabel = [cigarBrand, cigarName].filter(Boolean).join(" ");
-    const title      = `${cigarLabel} — ${overallRating}/10`;
-    const content    = reviewText.trim() || `Rating: ${overallRating}/10`;
+    const title      = `${cigarLabel} — ${overallRating}/100`;
+    const content    = reviewText.trim() || `Rating: ${overallRating}/100`;
 
-    const { error } = await supabase
-      .from("forum_posts")
-      .insert({ user_id: user.id, category_id: category.id, title, content });
+    const payload: Record<string, unknown> = { user_id: user.id, category_id: category.id, title, content };
+    if (smokeLogId) payload.smoke_log_id = smokeLogId;
+
+    const { error } = await supabase.from("forum_posts").insert(payload);
 
     setSharing(false);
     if (error) { setShareErr(error.message); return; }
@@ -955,6 +958,7 @@ export function BurnReport({
   const [stepError,   setStepError]   = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [quantityAfter, setQuantityAfter] = useState(0);
+  const [smokeLogId, setSmokeLogId] = useState<string | null>(null);
 
   const update = useCallback((partial: Partial<FormData>) => {
     setForm((prev) => ({ ...prev, ...partial }));
@@ -1073,12 +1077,18 @@ export function BurnReport({
     }
 
     /* Insert smoke log */
-    const { error: logError } = await supabase.from("smoke_logs").insert(payload);
+    const { data: logData, error: logError } = await supabase
+      .from("smoke_logs")
+      .insert(payload)
+      .select("id")
+      .single();
     if (logError) {
       setSubmitError(logError.message);
       setSubmitting(false);
       return;
     }
+
+    setSmokeLogId(logData?.id ?? null);
 
     /* Decrement quantity */
     const newQty = Math.max(0, item.quantity - 1);
@@ -1109,6 +1119,7 @@ export function BurnReport({
         cigarBrand={item.cigar.brand}
         cigarName={item.cigar.name}
         reviewText={form.review_text}
+        smokeLogId={smokeLogId}
         onRemoveFromHumidor={handleRemoveFromHumidor}
       />
     );
