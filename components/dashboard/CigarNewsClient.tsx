@@ -712,7 +712,7 @@ function PostSheet({
 
         {/* Title */}
         <h2
-          className="font-bold leading-snug"
+          className="font-bold leading-snug line-clamp-2"
           style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--foreground)" }}
         >
           {post.title}
@@ -732,7 +732,7 @@ function PostSheet({
       </div>
 
       {/* ── Scrollable body ─────────────────────────────────────── */}
-      <div className="overflow-y-auto flex-1" style={{ padding: "16px 20px" }}>
+      <div className="overflow-y-auto max-h-[70vh]" style={{ padding: "16px 20px" }}>
         {/* Cover image */}
         {post.cover_image_url && (
           <div className="relative w-full rounded-xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
