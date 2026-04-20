@@ -62,22 +62,24 @@ export default async function ShopDetailPage({ params }: { params: Promise<{ slu
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: shopData }, { data: profileData }, { count: recentCheckins }] =
-    await Promise.all([
-      supabase.from("shops").select("*").eq("slug", slug).single(),
-      supabase
-        .from("profiles")
-        .select("membership_tier, display_name, created_at")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("shop_checkins")
-        .select("id", { count: "exact", head: true })
-        .eq("shop_id", (await supabase.from("shops").select("id").eq("slug", slug).single()).data?.id ?? "")
-        .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()),
-    ]);
+  // Phase 1: fetch shop + profile in parallel (avoids duplicate shop query)
+  const [{ data: shopData }, { data: profileData }] = await Promise.all([
+    supabase.from("shops").select("*").eq("slug", slug).single(),
+    supabase
+      .from("profiles")
+      .select("membership_tier, display_name, created_at")
+      .eq("id", user.id)
+      .single(),
+  ]);
 
   if (!shopData) notFound();
+
+  // Phase 2: checkins uses shop id now available from phase 1
+  const { count: recentCheckins } = await supabase
+    .from("shop_checkins")
+    .select("id", { count: "exact", head: true })
+    .eq("shop_id", shopData.id)
+    .gte("created_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
   const shop        = shopData as Shop;
   const tier        = getMembershipTier(profileData) as MembershipTier;
