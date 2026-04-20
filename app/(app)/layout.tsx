@@ -1,6 +1,7 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -118,7 +119,6 @@ const NAV_ITEMS = [
 
 function BottomNav() {
   const pathname = usePathname();
-  const router   = useRouter();
 
   return (
     <nav
@@ -136,18 +136,17 @@ function BottomNav() {
       {NAV_ITEMS.map(({ href, label, match, icon, center }) => {
         const active = match(pathname);
         return (
-          <button
+          <Link
             key={href}
-            type="button"
-            onClick={() => router.push(href, { scroll: false })}
+            href={href}
+            scroll={false}
+            prefetch={true}
             className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-opacity active:opacity-70 min-h-[44px]"
             style={{
               ...(center ? { marginTop: -8 } : {}),
               touchAction: "manipulation",
               WebkitTapHighlightColor: "transparent",
-              background: "none",
-              border: "none",
-              cursor: "pointer",
+              textDecoration: "none",
             }}
             aria-current={active ? "page" : undefined}
             aria-label={label}
@@ -175,7 +174,7 @@ function BottomNav() {
             >
               {label}
             </span>
-          </button>
+          </Link>
         );
       })}
     </nav>
