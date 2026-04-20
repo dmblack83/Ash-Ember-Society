@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { createClient } from "@/utils/supabase/client";
 import type { BlogPost } from "@/components/dashboard/CigarNews";
 
@@ -557,6 +558,7 @@ function PostSheet({
   const deltaRef    = useRef(0);
   const [visible,   setVisible]   = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [mounted,   setMounted]   = useState(false);
 
   const isNews = resolveType(post.type) === "news_link";
 
@@ -577,6 +579,9 @@ function PostSheet({
     document.addEventListener("keydown", h);
     return () => document.removeEventListener("keydown", h);
   }, [onClose]);
+
+  /* Mount guard (needed for createPortal) */
+  useEffect(() => { setMounted(true); }, []);
 
   /* Lock body scroll */
   useEffect(() => {
@@ -681,12 +686,12 @@ function PostSheet({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 flex items-center justify-center rounded-full transition-opacity hover:opacity-70 active:opacity-50"
+          className="absolute right-3 flex items-center justify-center rounded-full transition-opacity hover:opacity-80 active:opacity-50"
           style={{
-            width:       32,
-            height:      32,
-            background:  "rgba(255,255,255,0.08)",
-            border:      "none",
+            width:       44,
+            height:      44,
+            background:  "rgba(255,255,255,0.14)",
+            border:      "1px solid rgba(255,255,255,0.18)",
             cursor:      "pointer",
             top:         "50%",
             transform:   "translateY(-50%)",
@@ -694,8 +699,8 @@ function PostSheet({
           } as React.CSSProperties}
           aria-label="Close"
         >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M11 3L3 11M3 3l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M12 4L4 12M4 4l8 8" stroke="var(--foreground)" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
       </div>
@@ -712,7 +717,7 @@ function PostSheet({
 
         {/* Title */}
         <h2
-          className="font-bold leading-snug line-clamp-2"
+          className="font-bold leading-snug line-clamp-3"
           style={{ fontFamily: "var(--font-serif)", fontSize: 20, color: "var(--foreground)" }}
         >
           {post.title}
@@ -797,13 +802,15 @@ function PostSheet({
     </div>
   );
 
-  return (
-    <div className="fixed inset-0 z-50">
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0" style={{ zIndex: 9999 }}>
       {/* Backdrop */}
       <div
         className="absolute inset-0"
         style={{
-          background:           "rgba(0,0,0,0.65)",
+          background:           "rgba(0,0,0,0.72)",
           backdropFilter:       "blur(4px)",
           WebkitBackdropFilter: "blur(4px)",
           opacity:              visible ? 1 : 0,
@@ -813,7 +820,8 @@ function PostSheet({
         aria-hidden="true"
       />
       {content}
-    </div>
+    </div>,
+    document.body,
   );
 }
 
