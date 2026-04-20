@@ -489,6 +489,7 @@ function WishlistCard({
             src={getCigarImage(c.image_url, c.wrapper)}
             alt={c.series ?? c.name}
             className="w-full h-full object-contain"
+            loading="lazy"
           />
         </div>
 

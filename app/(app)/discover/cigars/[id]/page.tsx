@@ -54,11 +54,15 @@ export default async function CigarDetailPage({
 
   const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("cigar_catalog")
-    .select("*")
-    .eq("id", id)
-    .single();
+  // Fetch cigar data and current user in parallel
+  const [{ data, error }, { data: { user } }] = await Promise.all([
+    supabase
+      .from("cigar_catalog")
+      .select("id, brand, series, name, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
+      .eq("id", id)
+      .single(),
+    supabase.auth.getUser(),
+  ]);
 
   if (error || !data) notFound();
 
@@ -66,9 +70,6 @@ export default async function CigarDetailPage({
 
   /* Check if the current user has this cigar on their wishlist */
   let isWishlisted = false;
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
   if (user) {
     const { data: wishlistRow } = await supabase
       .from("humidor_items")

@@ -71,6 +71,7 @@ function CatalogGridCard({
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
           alt={cigar.series ?? cigar.name}
           className="w-full h-full object-contain"
+          loading="lazy"
         />
       </div>
 
@@ -162,6 +163,7 @@ function CatalogListRow({
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
           alt={cigar.series ?? cigar.name}
           className="w-full h-full object-contain"
+          loading="lazy"
         />
       </div>
 

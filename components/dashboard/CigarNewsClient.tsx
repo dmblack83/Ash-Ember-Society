@@ -384,7 +384,7 @@ function CommentThread({
                 style={{ width: 28, height: 28, background: "rgba(193,120,23,0.25)", overflow: "hidden" }}
               >
                 {c.user?.avatar_url ? (
-                  <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" />
+                  <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
                     {(c.user?.display_name ?? "?")[0].toUpperCase()}
@@ -741,7 +741,7 @@ function PostSheet({
         {/* Cover image */}
         {post.cover_image_url && (
           <div className="relative w-full rounded-xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
-            <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" />
+            <img src={post.cover_image_url} alt={post.title} className="w-full h-full object-cover" loading="lazy" />
           </div>
         )}
 
