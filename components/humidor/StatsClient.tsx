@@ -193,6 +193,12 @@ export function StatsClient({ data }: { data: StatsClientData }) {
             >
               Wishlist
             </Link>
+            <Link
+              href="/humidor/burn-reports"
+              className="px-1 pb-3 pt-4 text-sm font-medium border-b-2 border-transparent text-muted-foreground hover:text-foreground transition-colors duration-150 mr-6"
+            >
+              Burn Reports
+            </Link>
             <span
               className="px-1 pb-3 pt-4 text-sm font-medium border-b-2"
               style={{ borderColor: "var(--ember, #E8642C)", color: "var(--foreground)" }}
