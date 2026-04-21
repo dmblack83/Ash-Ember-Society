@@ -416,13 +416,22 @@ export function PostModal({ postId, userId, onClose }: Props) {
 
   const supabase = useMemo(() => createClient(), []);
 
-  /* ---- Mount + body lock ------------------------------------------ */
+  /* ---- Mount + body lock (iOS-safe: position:fixed approach) ------- */
 
   useEffect(() => {
     setMounted(true);
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, []);
 
   /* ---- Escape key -------------------------------------------------- */
@@ -749,7 +758,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
       {!loading && post && (
         <div
           className="flex-1 overflow-y-auto"
-          style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+          style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
         >
           {/* Content constrained to match category cards on tablet+ */}
           <div className="w-full md:max-w-[50%] md:mx-auto">

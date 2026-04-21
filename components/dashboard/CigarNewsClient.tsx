@@ -583,11 +583,20 @@ function PostSheet({
   /* Mount guard (needed for createPortal) */
   useEffect(() => { setMounted(true); }, []);
 
-  /* Lock body scroll */
+  /* Lock body scroll (iOS-safe: position:fixed approach) */
   useEffect(() => {
-    const prev = document.body.style.overflow;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, []);
 
   /* Drag handlers (mobile only, handle area) */
@@ -737,7 +746,7 @@ function PostSheet({
       </div>
 
       {/* ── Scrollable body ─────────────────────────────────────── */}
-      <div className="overflow-y-auto max-h-[70vh]" style={{ padding: "16px 20px" }}>
+      <div className="overflow-y-auto max-h-[70vh]" style={{ padding: "16px 20px", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
         {/* Cover image */}
         {post.cover_image_url && (
           <div className="relative w-full rounded-xl overflow-hidden mb-4" style={{ aspectRatio: "16/9" }}>
