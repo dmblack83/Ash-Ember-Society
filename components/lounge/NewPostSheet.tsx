@@ -53,8 +53,18 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
 
   useEffect(() => {
     setMounted(true);
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, []);
 
   useEffect(() => {
@@ -134,9 +144,11 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
           backgroundColor: "var(--card)",
           borderRadius:    "16px 16px 0 0",
           paddingBottom:   "env(safe-area-inset-bottom)",
-          maxHeight:       "90dvh",
-          overflowY:       "auto",
-        }}
+          maxHeight:               "90dvh",
+          overflowY:               "auto",
+          overscrollBehavior:      "contain",
+          WebkitOverflowScrolling: "touch",
+        } as React.CSSProperties}
       >
         {/* Drag handle */}
         <div className="flex items-center justify-between px-4" style={{ paddingTop: 20, paddingBottom: 12 }}>

@@ -163,10 +163,21 @@ function EditSheet({
     setError(null);
   }, [isOpen, item]);
 
-  /* Lock body scroll while open */
+  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!isOpen) return;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, [isOpen]);
 
   async function handleSave(e: React.FormEvent) {
@@ -221,7 +232,7 @@ function EditSheet({
         aria-modal="true"
         aria-label="Edit humidor entry"
         className={[
-          "fixed z-50 bg-card shadow-2xl overflow-y-auto transition-all duration-300 ease-out",
+          "fixed z-50 bg-card shadow-2xl overflow-y-auto overflow-x-hidden transition-all duration-300 ease-out",
           "inset-x-0 bottom-0 rounded-t-2xl max-h-[92dvh]",
           "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit sm:max-h-[90dvh]",
         ].join(" ")}
@@ -364,9 +375,21 @@ function SmokeModal({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
+  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    if (!isOpen) return;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -407,7 +430,7 @@ function SmokeModal({
         aria-modal="true"
         className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
       >
-        <div className="card w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl animate-slide-up">
+        <div className="card w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl animate-slide-up overflow-x-hidden">
           <div className="flex justify-center pt-3 pb-1 sm:hidden">
             <div className="w-10 h-1 rounded-full bg-muted" />
           </div>
