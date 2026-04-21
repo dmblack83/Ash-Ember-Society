@@ -197,26 +197,31 @@ export function AddToHumidorSheet({
         onClick={onClose}
       />
 
-      {/* Sheet / Modal */}
+      {/* Sheet / Modal — outer handles positioning + animation only */}
       <div
-        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Add to Humidor"
         className={[
-          "fixed z-50 bg-card shadow-2xl overflow-y-auto transition-all duration-300 ease-out",
-          /* Mobile — full-width bottom sheet */
-          "inset-x-0 bottom-0 rounded-t-2xl max-h-[92dvh]",
-          /* Desktop — centered modal */
-          "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit sm:max-h-[90dvh]",
+          "fixed z-50 bg-card shadow-2xl transition-all duration-300 ease-out",
+          /* Mobile — full-width bottom sheet with explicit height for iOS scroll */
+          "inset-x-0 bottom-0 rounded-t-2xl h-[92dvh]",
+          /* Desktop — centered modal, height shrinks to content */
+          "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit",
         ].join(" ")}
         style={{
-          transform:          isOpen ? "translateY(0)" : "translateY(100%)",
-          opacity:            isOpen ? 1 : 0,
-          pointerEvents:      isOpen ? "auto" : "none",
-          overscrollBehavior: "contain",
+          transform:     isOpen ? "translateY(0)" : "translateY(100%)",
+          opacity:       isOpen ? 1 : 0,
+          pointerEvents: isOpen ? "auto" : "none",
         }}
       >
+        {/* Inner — scrollable, fills explicit height on mobile */}
+        <div
+          ref={sheetRef}
+          className="h-full overflow-y-auto sm:h-auto sm:max-h-[90dvh]"
+          style={{ overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+        >
+
         {/* Drag handle (mobile only) */}
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 rounded-full bg-muted" />
@@ -440,6 +445,7 @@ export function AddToHumidorSheet({
             </form>
           )}
         </div>
+        </div>{/* end inner scrollable */}
       </div>
     </>
   );
