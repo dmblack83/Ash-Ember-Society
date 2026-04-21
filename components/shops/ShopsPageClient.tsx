@@ -317,11 +317,11 @@ export function ShopsPageClient({ shops, userTier, userId: _userId }: ShopsPageC
     mapRef.current = map;
   }, []);
 
-  /* Map height on mobile based on view mode */
+  /* Map height on mobile based on view mode (relative to the flex-1 container) */
   const mobileMapHeight =
-    view === "map"  ? "calc(100vh - 112px)" :  // near-fullscreen (header + toggle)
-    view === "list" ? "0px"                  :
-    "50vh";                                     // split default
+    view === "map"  ? "100%" :
+    view === "list" ? "0px"  :
+    "50vh";                    // split default
 
   /* ── Shared map element ───────────────────────────────────────── */
   const MapElement = (
@@ -471,23 +471,26 @@ export function ShopsPageClient({ shops, userTier, userId: _userId }: ShopsPageC
           )}
         </div>
 
-        {/* Map — height transitions */}
-        <div
-          className="flex-shrink-0 overflow-hidden transition-[height] duration-300 ease-in-out"
-          style={{ height: mobileMapHeight }}
-        >
-          {MapElement}
-        </div>
-
-        {/* Toggle bar */}
+        {/* Toggle bar — always visible above the map/list area */}
         {ToggleBar}
 
-        {/* List — scrollable */}
-        <div
-          className="flex-1 overflow-y-auto overscroll-contain"
-          style={{ display: view === "map" ? "none" : "block" }}
-        >
-          {ShopList}
+        {/* Map + List area — fills remaining space */}
+        <div className="flex-1 relative overflow-hidden">
+          {/* Map */}
+          <div
+            className="absolute inset-x-0 top-0 overflow-hidden transition-[height] duration-300 ease-in-out"
+            style={{ height: mobileMapHeight }}
+          >
+            {MapElement}
+          </div>
+
+          {/* List — sits below the map */}
+          <div
+            className="absolute inset-x-0 bottom-0 overflow-y-auto overscroll-contain transition-[top] duration-300 ease-in-out"
+            style={{ top: view === "map" ? "100%" : view === "list" ? "0px" : "50vh" }}
+          >
+            {ShopList}
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 
 /* ------------------------------------------------------------------
@@ -39,6 +39,8 @@ export function AddToHumidorSheet({
   const [source, setSource] = useState("");
   const [agingStartDate, setAgingStartDate] = useState(today);
   const [notes, setNotes] = useState("");
+
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   /* UI state */
   const [submitting, setSubmitting] = useState(false);
@@ -88,9 +90,12 @@ export function AddToHumidorSheet({
     setAgingStartDate(purchaseDate);
   }, [purchaseDate]);
 
-  /* Lock body scroll while open */
+  /* Lock body scroll while open + scroll sheet to top on each open */
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
+    if (isOpen && sheetRef.current) {
+      sheetRef.current.scrollTop = 0;
+    }
     return () => { document.body.style.overflow = ""; };
   }, [isOpen]);
 
@@ -184,15 +189,17 @@ export function AddToHumidorSheet({
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
           backgroundColor: "rgba(0,0,0,0.65)",
-          backdropFilter: "blur(4px)",
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
+          backdropFilter:  "blur(4px)",
+          opacity:         isOpen ? 1 : 0,
+          pointerEvents:   isOpen ? "auto" : "none",
+          touchAction:     "none",
         }}
         onClick={onClose}
       />
 
       {/* Sheet / Modal */}
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Add to Humidor"
@@ -204,9 +211,10 @@ export function AddToHumidorSheet({
           "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit sm:max-h-[90dvh]",
         ].join(" ")}
         style={{
-          transform: isOpen ? "translateY(0)" : "translateY(100%)",
-          opacity: isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
+          transform:          isOpen ? "translateY(0)" : "translateY(100%)",
+          opacity:            isOpen ? 1 : 0,
+          pointerEvents:      isOpen ? "auto" : "none",
+          overscrollBehavior: "contain",
         }}
       >
         {/* Drag handle (mobile only) */}
