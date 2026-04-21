@@ -771,38 +771,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
 
               {/* Body: burn report OR text + optional image thumbnail */}
               {smokeLog ? (
-                <>
-                  <BurnReportCard log={smokeLog} />
-
-                  {/* Add to Wishlist — only for other users' burn reports */}
-                  {post.user_id !== userId && smokeLogCigarId && (
-                    <div className="mt-4 flex justify-end">
-                      <button
-                        type="button"
-                        onClick={handleAddToWishlist}
-                        disabled={addingWishlist || wishlistAdded}
-                        className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full"
-                        style={{
-                          border:                  `1.5px solid ${wishlistAdded ? "rgba(212,160,74,0.4)" : "var(--gold, #D4A04A)"}`,
-                          color:                   wishlistAdded ? "rgba(212,160,74,0.5)" : "var(--gold, #D4A04A)",
-                          background:              wishlistAdded ? "rgba(212,160,74,0.08)" : "transparent",
-                          cursor:                  wishlistAdded || addingWishlist ? "default" : "pointer",
-                          touchAction:             "manipulation",
-                          WebkitTapHighlightColor: "transparent",
-                        }}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24"
-                          fill={wishlistAdded ? "currentColor" : "none"}
-                          stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                          aria-hidden="true"
-                        >
-                          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-                        </svg>
-                        {wishlistAdded ? "In Wishlist" : addingWishlist ? "Adding..." : "Add to Wishlist"}
-                      </button>
-                    </div>
-                  )}
-                </>
+                <BurnReportCard log={smokeLog} />
               ) : (
                 <>
                   <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
@@ -834,8 +803,37 @@ export function PostModal({ postId, userId, onClose }: Props) {
                 </>
               )}
 
-              {/* Like button — right aligned */}
-              <div className="flex justify-end mt-5">
+              {/* Action row — centered, like + optional Add to Wishlist */}
+              <div className="flex items-center justify-center gap-6 mt-5">
+                {/* Add to Wishlist — only for other users' burn reports */}
+                {smokeLog && post.user_id !== userId && smokeLogCigarId && (
+                  <button
+                    type="button"
+                    onClick={handleAddToWishlist}
+                    disabled={addingWishlist || wishlistAdded}
+                    className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full"
+                    style={{
+                      border:                  `1.5px solid ${wishlistAdded ? "rgba(212,160,74,0.4)" : "var(--gold, #D4A04A)"}`,
+                      color:                   wishlistAdded ? "rgba(212,160,74,0.5)" : "var(--gold, #D4A04A)",
+                      background:              wishlistAdded ? "rgba(212,160,74,0.08)" : "transparent",
+                      cursor:                  wishlistAdded || addingWishlist ? "default" : "pointer",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                      minHeight:               44,
+                    }}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24"
+                      fill={wishlistAdded ? "currentColor" : "none"}
+                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                    </svg>
+                    {wishlistAdded ? "In Wishlist" : addingWishlist ? "Adding..." : "Add to Wishlist"}
+                  </button>
+                )}
+
+                {/* Like */}
                 <button
                   type="button"
                   onClick={handleLike}
