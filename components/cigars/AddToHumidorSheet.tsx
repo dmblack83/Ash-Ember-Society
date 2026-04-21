@@ -90,13 +90,23 @@ export function AddToHumidorSheet({
     setAgingStartDate(purchaseDate);
   }, [purchaseDate]);
 
-  /* Lock body scroll while open + scroll sheet to top on each open */
+  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
   useEffect(() => {
-    document.body.style.overflow = isOpen ? "hidden" : "";
-    if (isOpen && sheetRef.current) {
-      sheetRef.current.scrollTop = 0;
-    }
-    return () => { document.body.style.overflow = ""; };
+    if (!isOpen) return;
+    // iOS ignores overflow:hidden on body — position:fixed is the reliable fix
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    document.body.style.overflow = "hidden";
+    if (sheetRef.current) sheetRef.current.scrollTop = 0;
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
   }, [isOpen]);
 
   /* Insert a new humidor entry */
@@ -197,14 +207,14 @@ export function AddToHumidorSheet({
         onClick={onClose}
       />
 
-      {/* Sheet / Modal — outer handles positioning + animation only */}
+      {/* Sheet / Modal — outer: positioning + animation only, no scroll */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Add to Humidor"
         className={[
           "fixed z-50 bg-card shadow-2xl transition-all duration-300 ease-out",
-          /* Mobile — full-width bottom sheet with explicit height for iOS scroll */
+          /* Mobile — explicit height so overflow-y-auto works on iOS */
           "inset-x-0 bottom-0 rounded-t-2xl h-[92dvh]",
           /* Desktop — centered modal, height shrinks to content */
           "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit",
@@ -215,10 +225,10 @@ export function AddToHumidorSheet({
           pointerEvents: isOpen ? "auto" : "none",
         }}
       >
-        {/* Inner — scrollable, fills explicit height on mobile */}
+        {/* Inner — all scrolling happens here */}
         <div
           ref={sheetRef}
-          className="h-full overflow-y-auto sm:h-auto sm:max-h-[90dvh]"
+          className="h-full overflow-y-auto overflow-x-hidden sm:h-auto sm:max-h-[90dvh]"
           style={{ overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
         >
 

@@ -456,6 +456,10 @@ select {
 
   .input {
     width: 100%;
+    /* min-width: 0 prevents date/number inputs from overflowing on iOS
+       (form elements have an implicit min-width: min-content that ignores width: 100%) */
+    min-width: 0;
+    box-sizing: border-box;
     background-color: var(--muted);
     border: 1px solid var(--border);
     border-radius: calc(var(--radius) + 4px);
