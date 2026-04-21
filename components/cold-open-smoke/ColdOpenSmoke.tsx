@@ -103,14 +103,14 @@ export function ColdOpenSmoke() {
 
     _hasShown = true;
 
-    // 2.8 s → start fade + release will-change
+    // 4.0 s → start 1 s fade-out + release will-change
     const tFade = setTimeout(() => {
       setFading(true);
       setUseWillChg(false);
-    }, 2800);
+    }, 4000);
 
-    // 3.5 s → unmount, no DOM residue
-    const tUnmount = setTimeout(() => setVisible(false), 3500);
+    // 5.0 s → unmount, no DOM residue
+    const tUnmount = setTimeout(() => setVisible(false), 5000);
 
     return () => {
       clearTimeout(tFade);
@@ -133,7 +133,7 @@ export function ColdOpenSmoke() {
           zIndex:          99999,
           backgroundColor: "var(--background)",
           opacity:         fading ? 0 : 1,
-          transition:      "opacity 0.7s ease-out",
+          transition:      "opacity 1s ease-out",
           // Blocks interaction while fully opaque; releases as it fades
           pointerEvents:   fading ? "none" : "auto",
           overflow:        "hidden",
@@ -162,7 +162,7 @@ export function ColdOpenSmoke() {
             style={{
               position:        "absolute",
               inset:           0,
-              backgroundColor: "rgba(0, 0, 0, 0.30)",
+              backgroundColor: "rgba(0, 0, 0, 0.50)",
               borderRadius:    "50%",
             }}
           />
