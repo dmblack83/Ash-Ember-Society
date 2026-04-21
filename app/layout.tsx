@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
-import { SmokeScreen } from "@/components/ui/SmokeScreen";
+import { ColdOpenSmoke } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import "./globals.css";
 
 /*
@@ -74,7 +74,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <SmokeScreen />
+          <ColdOpenSmoke />
           {children}
         </ThemeProvider>
         {/* Patches viewport meta on desktop; resets scroll on iOS focusout */}
