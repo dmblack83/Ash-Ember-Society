@@ -39,11 +39,12 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [submitToCatalog, setSubmitToCatalog] = useState(true);
 
   /* Humidor form */
+  const today = new Date().toISOString().split("T")[0];
   const [quantity,     setQuantity]     = useState(1);
-  const [purchaseDate, setPurchaseDate] = useState("");
+  const [purchaseDate, setPurchaseDate] = useState(today);
   const [priceStr,     setPriceStr]     = useState("");
   const [source,       setSource]       = useState("");
-  const [agingStart,   setAgingStart]   = useState("");
+  const [agingStart,   setAgingStart]   = useState(today);
   const [agingTarget,  setAgingTarget]  = useState("");
   const [notes,        setNotes]        = useState("");
 
@@ -51,14 +52,31 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
+  useEffect(() => {
+    if (!open) return;
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [open]);
+
   /* Reset when sheet opens */
   useEffect(() => {
     if (!open) return;
     setSelected(null); setIsManual(false);
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
     setSubmitToCatalog(true);
-    setQuantity(1); setPurchaseDate(""); setPriceStr("");
-    setSource(""); setAgingStart(""); setAgingTarget(""); setNotes("");
+    setQuantity(1); setPurchaseDate(today); setPriceStr("");
+    setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
   }, [open]);
 
@@ -461,7 +479,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
                   className="input w-full text-sm"
-                  style={{ minHeight: 48 }}
+                  style={{ minHeight: 48, width: "100%", minWidth: 0, boxSizing: "border-box" }}
                 />
               </div>
 
@@ -515,7 +533,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   value={agingStart}
                   onChange={(e) => setAgingStart(e.target.value)}
                   className="input w-full text-sm"
-                  style={{ minHeight: 48 }}
+                  style={{ minHeight: 48, width: "100%", minWidth: 0, boxSizing: "border-box" }}
                 />
               </div>
 
