@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
@@ -960,6 +960,28 @@ export function BurnReport({
   const [quantityAfter, setQuantityAfter] = useState(0);
   const [smokeLogId, setSmokeLogId] = useState<string | null>(null);
 
+  const scrollRef = useRef<HTMLElement>(null);
+  const [shadowTop,    setShadowTop]    = useState(false);
+  const [shadowBottom, setShadowBottom] = useState(false);
+
+  /* Scroll to top + recalculate shadows on every step change */
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = 0;
+    const raf = requestAnimationFrame(() => {
+      setShadowTop(false);
+      setShadowBottom(el.scrollHeight > el.clientHeight + 8);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [step]);
+
+  function handleScroll(e: React.UIEvent<HTMLElement>) {
+    const el = e.currentTarget;
+    setShadowTop(el.scrollTop > 8);
+    setShadowBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 8);
+  }
+
   const update = useCallback((partial: Partial<FormData>) => {
     setForm((prev) => ({ ...prev, ...partial }));
     setStepError(null);
@@ -1178,17 +1200,47 @@ export function BurnReport({
         </div>
       </header>
 
-      {/* ── Scrollable content ────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
-          <div
-            key={`${step}-${direction}`}
-            className={direction === "forward" ? "animate-slide-in-right" : "animate-slide-in-left"}
-          >
-            {stepContent()}
+      {/* ── Scrollable content with scroll shadows ───────────────── */}
+      <div className="flex-1 relative overflow-hidden min-h-0">
+
+        {/* Top shadow — fades in when scrolled down */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 top-0 z-10 pointer-events-none transition-opacity duration-200"
+          style={{
+            height:     52,
+            opacity:    shadowTop ? 1 : 0,
+            background: "linear-gradient(to bottom, #1A1210 0%, transparent 100%)",
+          }}
+        />
+
+        <main
+          ref={scrollRef}
+          className="h-full overflow-y-auto overscroll-contain"
+          onScroll={handleScroll}
+        >
+          <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
+            <div
+              key={`${step}-${direction}`}
+              className={direction === "forward" ? "animate-slide-in-right" : "animate-slide-in-left"}
+            >
+              {stepContent()}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
+
+        {/* Bottom shadow — fades in when more content below */}
+        <div
+          aria-hidden="true"
+          className="absolute inset-x-0 bottom-0 z-10 pointer-events-none transition-opacity duration-200"
+          style={{
+            height:     52,
+            opacity:    shadowBottom ? 1 : 0,
+            background: "linear-gradient(to top, #1A1210 0%, transparent 100%)",
+          }}
+        />
+
+      </div>
 
       {/* ── Fixed footer ──────────────────────────────────────────── */}
       <footer
