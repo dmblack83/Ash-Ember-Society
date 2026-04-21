@@ -78,6 +78,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   /* ── Handlers ────────────────────────────────────────────── */
@@ -470,7 +471,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
               </div>
 
               {/* Purchase date */}
-              <div>
+              <div style={{ overflow: "hidden" }}>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                   Purchase Date
                 </label>
@@ -478,8 +479,8 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   type="date"
                   value={purchaseDate}
                   onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="input w-full text-sm"
-                  style={{ minHeight: 48, width: "100%", minWidth: 0, boxSizing: "border-box" }}
+                  className="input text-sm"
+                  style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
                 />
               </div>
 
@@ -524,7 +525,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
               </div>
 
               {/* Aging start date */}
-              <div>
+              <div style={{ overflow: "hidden" }}>
                 <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                   Start Aging
                 </label>
@@ -532,8 +533,8 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   type="date"
                   value={agingStart}
                   onChange={(e) => setAgingStart(e.target.value)}
-                  className="input w-full text-sm"
-                  style={{ minHeight: 48, width: "100%", minWidth: 0, boxSizing: "border-box" }}
+                  className="input text-sm"
+                  style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
                 />
               </div>
 
