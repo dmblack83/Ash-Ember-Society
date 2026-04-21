@@ -1162,7 +1162,7 @@ export function BurnReport({
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-dvh bg-background flex flex-col">
       {/* ── Fixed header ──────────────────────────────────────────── */}
       <header
         className="flex-shrink-0 sticky top-0 z-10 px-4 pt-safe"
