@@ -109,24 +109,33 @@ export function ColdOpenSmoke() {
           justifyContent: "center",
           opacity:        fading ? 0 : 1,
           transition:     "opacity 0.7s ease-out",
-          // Never blocks taps — app content behind is immediately interactive
-          pointerEvents:  "none",
+          // Blocks interaction until animation completes; releases at fade start
+          pointerEvents:  fading ? "none" : "auto",
           overflow:       "hidden",
         }}
       >
         {/* ── Logo ──────────────────────────────────────────────── */}
-        <div style={{ position: "relative", zIndex: 2 }}>
+        <div style={{ position: "relative", zIndex: 1 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/Circle%20Logo.png"
             alt=""
-            width={96}
-            height={96}
+            width={288}
+            height={288}
             style={{ objectFit: "contain", display: "block" }}
+          />
+          {/* 30% scrim to soften the logo against the dark background */}
+          <div
+            style={{
+              position:        "absolute",
+              inset:           0,
+              backgroundColor: "rgba(0, 0, 0, 0.30)",
+              borderRadius:    "50%",
+            }}
           />
         </div>
 
-        {/* ── Smoke column — anchored to bottom center ──────────── */}
+        {/* ── Smoke column — anchored to bottom center, above logo ─ */}
         <div
           style={{
             position: "absolute",
@@ -134,6 +143,7 @@ export function ColdOpenSmoke() {
             left:     "50%",
             width:    0,
             height:   0,
+            zIndex:   3,
           }}
         >
           {WISPS.map((w, i) => (
