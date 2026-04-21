@@ -58,14 +58,14 @@ export default async function PostDetailPage({ params }: Props) {
     ),
   ];
 
-  let nameMap: Record<string, string | null> = {};
+  let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
   if (allUserIds.length > 0) {
     const { data: profileRows } = await supabase
       .from("profiles")
-      .select("id, display_name")
+      .select("id, display_name, avatar_url")
       .in("id", allUserIds);
     for (const p of profileRows ?? []) {
-      nameMap[p.id] = p.display_name;
+      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
     }
   }
 
@@ -98,7 +98,7 @@ export default async function PostDetailPage({ params }: Props) {
     category_id: raw.category_id as string,
     category:    raw.forum_categories as { name: string; slug: string },
     author:      postAuthorId
-      ? { display_name: nameMap[postAuthorId] ?? null }
+      ? { display_name: nameMap[postAuthorId]?.display_name ?? null, avatar_url: nameMap[postAuthorId]?.avatar_url ?? null }
       : null,
     like_count:  likeCount,
     image_url:   (raw.image_url as string | null) ?? null,
@@ -106,7 +106,7 @@ export default async function PostDetailPage({ params }: Props) {
 
   const comments = commentRows.map((c) => ({
     ...c,
-    profiles: { display_name: nameMap[c.user_id] ?? null },
+    profiles: { display_name: nameMap[c.user_id]?.display_name ?? null, avatar_url: nameMap[c.user_id]?.avatar_url ?? null },
   }));
 
   const hasLiked = (likeRes.count ?? 0) > 0;

@@ -46,7 +46,7 @@ interface Post {
   user_id:     string | null;
   category_id: string;
   category:    { name: string; slug: string };
-  author:      { display_name: string | null } | null;
+  author:      { display_name: string | null; avatar_url: string | null } | null;
   like_count:  number;
   image_url:   string | null;
 }
@@ -58,7 +58,7 @@ interface Comment {
   updated_at:        string;
   user_id:           string;
   parent_comment_id: string | null;
-  profiles:          { display_name: string | null } | null;
+  profiles:          { display_name: string | null; avatar_url: string | null } | null;
 }
 
 interface Props {
@@ -84,6 +84,42 @@ function relativeTime(iso: string): string {
   } catch {
     return "";
   }
+}
+
+function Avatar({
+  name,
+  avatarUrl,
+  size = 32,
+}: {
+  name:      string | null | undefined;
+  avatarUrl: string | null | undefined;
+  size?:     number;
+}) {
+  if (avatarUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={avatarUrl}
+        alt={name ?? "Member"}
+        style={{
+          width:        size,
+          height:       size,
+          borderRadius: "50%",
+          objectFit:    "cover",
+          border:       "1px solid var(--border)",
+          flexShrink:   0,
+        }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
+      style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
+    >
+      {initials(name)}
+    </div>
+  );
 }
 
 function ratingColor(v: number): string {
@@ -368,7 +404,7 @@ const CommentNode = memo(function CommentNode({
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("id", userId)
       .single();
 
@@ -389,12 +425,7 @@ const CommentNode = memo(function CommentNode({
     >
       {/* Author row */}
       <div className="flex items-center gap-2 mb-2">
-        <div
-          className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-          style={{ width: 28, height: 28, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-        >
-          {initials(comment.profiles?.display_name)}
-        </div>
+        <Avatar name={comment.profiles?.display_name} avatarUrl={comment.profiles?.avatar_url} size={28} />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
             {comment.profiles?.display_name ?? "Member"}
@@ -644,7 +675,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     setSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
-    const { data: profileData } = await supabase.from("profiles").select("display_name").eq("id", userId).single();
+    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single();
     setLocalComments((prev) => [...prev, { ...data, profiles: profileData ?? null }]);
     setCommentText("");
   }
@@ -797,12 +828,11 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
           </h1>
 
           <div className="flex items-center gap-2 mb-4">
-            <div
-              className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-              style={{ width: 32, height: 32, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-            >
-              {post.is_system ? "A" : initials(post.author?.display_name)}
-            </div>
+            <Avatar
+              name={post.is_system ? "Ash & Ember Society" : post.author?.display_name}
+              avatarUrl={post.is_system ? null : post.author?.avatar_url}
+              size={32}
+            />
             <div>
               <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
                 {post.is_system ? "Ash & Ember Society" : (post.author?.display_name ?? "Member")}
