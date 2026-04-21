@@ -1,6 +1,8 @@
--- Moderation log: records every Vision API safety check result.
--- Written by the service-role client (bypasses RLS) so users
--- cannot read or modify their own moderation history.
+-- ================================================================
+-- moderation_log
+-- Stores every Vision API call result for audit purposes.
+-- The image itself is NEVER stored — only metadata and scores.
+-- ================================================================
 
 create table if not exists moderation_log (
   id            uuid        primary key default gen_random_uuid(),
@@ -12,7 +14,11 @@ create table if not exists moderation_log (
   created_at    timestamptz not null default now()
 );
 
-alter table moderation_log enable row level security;
+-- Index for per-user audit queries
+create index if not exists moderation_log_user_id_idx on moderation_log (user_id);
+create index if not exists moderation_log_created_at_idx on moderation_log (created_at desc);
 
--- No SELECT policy — users cannot read moderation records.
--- Only the service role (used by the API route) can insert rows.
+-- RLS: enable but add no user-facing policies.
+-- All writes go through the service role key (bypasses RLS).
+-- Users cannot read their own rows — this is an internal audit table.
+alter table moderation_log enable row level security;

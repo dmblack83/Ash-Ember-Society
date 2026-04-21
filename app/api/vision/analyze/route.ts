@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ImageAnnotatorClient } from "@google-cloud/vision";
-import { createClient } from "@/utils/supabase/server";
-import { createServiceClient } from "@/utils/supabase/service";
+import { createClient }         from "@/utils/supabase/server";
+import { createServiceClient }  from "@/utils/supabase/service";
+
+/* ------------------------------------------------------------------
+   Types
+   ------------------------------------------------------------------ */
+
+type AnalysisType = "cigar_band" | "profile_image" | "blog_image";
+
+interface RequestBody {
+  image: string;       // base64-encoded image data (no data-URI prefix)
+  type:  AnalysisType;
+}
+
+interface SafetyScores {
+  adult:    string;
+  violence: string;
+  racy:     string;
+  spoof:    string;
+  medical:  string;
+}
 
 /* ------------------------------------------------------------------
    Vision client — lazy singleton to avoid build-time crash.
@@ -22,10 +41,7 @@ function getVisionClient(): ImageAnnotatorClient {
 }
 
 /* ------------------------------------------------------------------
-   Likelihood enum normalization.
-   The Vision API types safety annotation fields as string | Likelihood
-   where Likelihood is a numeric proto enum (0–5). We normalize to the
-   string name so downstream logic only deals with strings.
+   Safety helpers
    ------------------------------------------------------------------ */
 
 const LIKELIHOOD_NAMES = [
@@ -37,33 +53,25 @@ const LIKELIHOOD_NAMES = [
   "VERY_LIKELY",
 ] as const;
 
-type LikelihoodName = (typeof LIKELIHOOD_NAMES)[number];
+const LIKELIHOOD_RANK: Record<string, number> = Object.fromEntries(
+  LIKELIHOOD_NAMES.map((n, i) => [n, i])
+);
 
-function likelihoodToString(
-  val: string | number | null | undefined
-): LikelihoodName {
+/**
+ * The Vision SDK can return Likelihood as either a string ("LIKELY") or a
+ * numeric enum value (4). Normalise both to a plain string.
+ */
+function likelihoodToString(val: string | number | null | undefined): string {
   if (val == null) return "UNKNOWN";
   if (typeof val === "number") return LIKELIHOOD_NAMES[val] ?? "UNKNOWN";
-  return (LIKELIHOOD_NAMES.includes(val as LikelihoodName)
-    ? val
-    : "UNKNOWN") as LikelihoodName;
+  return val;
 }
 
-/* ------------------------------------------------------------------
-   Safety score types and policies
-   ------------------------------------------------------------------ */
-
-interface SafetyScores {
-  adult:    LikelihoodName;
-  violence: LikelihoodName;
-  racy:     LikelihoodName;
+function rank(level: string): number {
+  return LIKELIHOOD_RANK[level] ?? 0;
 }
 
-function rank(name: LikelihoodName): number {
-  return LIKELIHOOD_NAMES.indexOf(name);
-}
-
-/** Strict: block LIKELY+ adult/violence, VERY_LIKELY+ racy */
+/** strict — profile images */
 function failsStrict(s: SafetyScores): boolean {
   return (
     rank(s.adult)    >= rank("LIKELY") ||
@@ -72,7 +80,7 @@ function failsStrict(s: SafetyScores): boolean {
   );
 }
 
-/** Moderate: block VERY_LIKELY adult/violence/racy */
+/** moderate — blog images and cigar band photos */
 function failsModerate(s: SafetyScores): boolean {
   return (
     rank(s.adult)    >= rank("VERY_LIKELY") ||
@@ -82,97 +90,84 @@ function failsModerate(s: SafetyScores): boolean {
 }
 
 /* ------------------------------------------------------------------
-   Supported image types
-   ------------------------------------------------------------------ */
-
-type ImageType = "cigar_band" | "profile_image" | "blog_image";
-
-const VALID_TYPES = new Set<ImageType>(["cigar_band", "profile_image", "blog_image"]);
-
-/* ------------------------------------------------------------------
    POST /api/vision/analyze
-   Body: { type: ImageType; imageBase64: string }
-   Returns: { passed: boolean; ocrText?: string; safety: SafetyScores; reason?: string }
    ------------------------------------------------------------------ */
 
 export async function POST(req: NextRequest) {
-  /* Auth — require signed-in user */
+  /* ── Auth ─────────────────────────────────────────────────────── */
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  /* Parse body */
-  let type: ImageType;
-  let imageBase64: string;
+  /* ── Parse body ───────────────────────────────────────────────── */
+  let body: RequestBody;
   try {
-    const body = await req.json();
-    type        = body.type;
-    imageBase64 = body.imageBase64;
+    body = await req.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (!VALID_TYPES.has(type)) {
-    return NextResponse.json(
-      { error: `Invalid type. Must be one of: ${[...VALID_TYPES].join(", ")}` },
-      { status: 400 }
-    );
+  const { image, type } = body;
+  if (!image || !type) {
+    return NextResponse.json({ error: "Missing image or type" }, { status: 400 });
   }
 
-  if (!imageBase64 || typeof imageBase64 !== "string") {
-    return NextResponse.json({ error: "imageBase64 is required" }, { status: 400 });
+  const validTypes: AnalysisType[] = ["cigar_band", "profile_image", "blog_image"];
+  if (!validTypes.includes(type)) {
+    return NextResponse.json({ error: "Invalid type" }, { status: 400 });
   }
 
-  /* Call Vision API */
-  const client = getVisionClient();
-  const imageContent = imageBase64; // already stripped of data-URI prefix by client
+  /* ── Call Vision API ──────────────────────────────────────────── */
+  const features =
+    type === "cigar_band"
+      ? [{ type: "TEXT_DETECTION" as const }, { type: "SAFE_SEARCH_DETECTION" as const }]
+      : [{ type: "SAFE_SEARCH_DETECTION" as const }];
 
-  let ocrText: string | undefined;
-  let safety: SafetyScores;
-
+  let visionResult;
   try {
-    const [result] = await client.annotateImage({
-      image:    { content: imageContent },
-      features: [
-        { type: "SAFE_SEARCH_DETECTION" as const },
-        ...(type === "cigar_band" ? [{ type: "TEXT_DETECTION" as const }] : []),
-      ],
+    [visionResult] = await getVisionClient().annotateImage({
+      image:    { content: image },
+      features,
     });
-
-    /* OCR — cigar_band only */
-    if (type === "cigar_band") {
-      const annotations = result.textAnnotations;
-      if (annotations && annotations.length > 0) {
-        ocrText = annotations[0].description ?? undefined;
-      }
-    }
-
-    /* Safety scores */
-    const ss = result.safeSearchAnnotation ?? {};
-    safety = {
-      adult:    likelihoodToString(ss.adult),
-      violence: likelihoodToString(ss.violence),
-      racy:     likelihoodToString(ss.racy),
-    };
   } catch (err) {
     console.error("[vision/analyze] Vision API error:", err);
-    return NextResponse.json({ error: "Vision API request failed" }, { status: 502 });
+    return NextResponse.json({ error: "Vision API call failed" }, { status: 502 });
   }
 
-  /* Apply policy */
-  const strictTypes   = new Set<ImageType>(["profile_image"]);
-  const fails = strictTypes.has(type) ? failsStrict(safety) : failsModerate(safety);
-  const passed = !fails;
-  const reason = fails
-    ? `Content blocked — adult:${safety.adult} violence:${safety.violence} racy:${safety.racy}`
-    : undefined;
+  /* ── Extract safety scores ────────────────────────────────────── */
+  const ss = visionResult.safeSearchAnnotation ?? {};
+  const safety: SafetyScores = {
+    adult:    likelihoodToString(ss.adult),
+    violence: likelihoodToString(ss.violence),
+    racy:     likelihoodToString(ss.racy),
+    spoof:    likelihoodToString(ss.spoof),
+    medical:  likelihoodToString(ss.medical),
+  };
 
-  /* Log to moderation_log via service client (bypasses RLS) */
+  /* ── OCR text (cigar_band only) ───────────────────────────────── */
+  const ocrText =
+    type === "cigar_band"
+      ? (visionResult.textAnnotations?.[0]?.description ?? "")
+      : undefined;
+
+  /* ── Apply safety policy ──────────────────────────────────────── */
+  let passed = true;
+  let reason: string | undefined;
+
+  if (type === "profile_image" && failsStrict(safety)) {
+    passed = false;
+    reason = "Image did not pass safety check (strict policy).";
+  } else if ((type === "blog_image" || type === "cigar_band") && failsModerate(safety)) {
+    passed = false;
+    reason = "Image did not pass safety check (moderate policy).";
+  }
+
+  /* ── Log to moderation_log (service role — bypasses RLS) ─────── */
   try {
-    const serviceClient = createServiceClient();
-    await serviceClient.from("moderation_log").insert({
+    const service = createServiceClient();
+    await service.from("moderation_log").insert({
       user_id:       user.id,
       type,
       passed,
@@ -180,14 +175,15 @@ export async function POST(req: NextRequest) {
       reason:        reason ?? null,
     });
   } catch (err) {
-    /* Non-fatal — log and continue */
+    // Non-fatal — don't fail the request if logging fails
     console.error("[vision/analyze] Failed to write moderation_log:", err);
   }
 
+  /* ── Response ─────────────────────────────────────────────────── */
   return NextResponse.json({
     passed,
-    ...(ocrText !== undefined ? { ocrText } : {}),
+    ...(ocrText !== undefined && { ocrText }),
     safety,
-    ...(reason ? { reason } : {}),
+    ...(reason && { reason }),
   });
 }
