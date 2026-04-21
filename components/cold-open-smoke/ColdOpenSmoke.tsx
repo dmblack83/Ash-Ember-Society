@@ -3,56 +3,72 @@
 import { useState, useEffect } from "react";
 
 /* ------------------------------------------------------------------
+   Flash prevention — module-level flag so the overlay is visible
+   from the very first render on cold open, eliminating any flash
+   of the home screen between SSR and hydration.
+   ------------------------------------------------------------------ */
+
+let _hasShown = false;
+
+/* ------------------------------------------------------------------
    Wisp configuration
-   Each wisp is a blurred circle that animates from the bottom of
-   the viewport upward, expanding and fading as it rises.
+   18 wisps across three bands: core plume, mid spread, wide edges.
+   Spawned 12vh below the viewport so they rise into view naturally.
    ------------------------------------------------------------------ */
 
 interface Wisp {
-  x:     number;                        // px offset from center (- = left)
-  size:  number;                        // starting diameter (px)
-  blur:  number;                        // filter: blur (px)
-  delay: number;                        // animation-delay (s)
-  dur:   number;                        // animation-duration (s)
+  x:     number;
+  size:  number;
+  blur:  number;
+  delay: number;
+  dur:   number;
   anim:  "co-smoke-l" | "co-smoke-r" | "co-smoke-c";
 }
 
 const WISPS: Wisp[] = [
-  // Core column — the main plume
-  { x:   0, size: 88, blur: 22, delay: 0.0, dur: 4.2, anim: "co-smoke-c" },
-  { x:   4, size: 72, blur: 18, delay: 0.7, dur: 3.9, anim: "co-smoke-l" },
-  { x:  -6, size: 96, blur: 25, delay: 1.4, dur: 4.6, anim: "co-smoke-r" },
-  { x:   2, size: 80, blur: 20, delay: 2.1, dur: 4.1, anim: "co-smoke-c" },
-  { x:  -3, size: 68, blur: 17, delay: 2.8, dur: 3.8, anim: "co-smoke-l" },
-  // Wider spread — diffuses the plume at the edges
-  { x: -22, size: 60, blur: 15, delay: 0.4, dur: 3.7, anim: "co-smoke-l" },
-  { x:  24, size: 64, blur: 16, delay: 1.1, dur: 4.3, anim: "co-smoke-r" },
-  { x: -18, size: 74, blur: 19, delay: 1.8, dur: 3.9, anim: "co-smoke-l" },
-  { x:  20, size: 82, blur: 21, delay: 2.5, dur: 4.4, anim: "co-smoke-r" },
-  { x:  -8, size: 56, blur: 14, delay: 3.2, dur: 3.6, anim: "co-smoke-c" },
+  // Core column
+  { x:   0, size: 88, blur: 22, delay: 0.0, dur: 4.4, anim: "co-smoke-c" },
+  { x:   4, size: 72, blur: 18, delay: 0.7, dur: 4.1, anim: "co-smoke-l" },
+  { x:  -6, size: 96, blur: 25, delay: 1.4, dur: 4.8, anim: "co-smoke-r" },
+  { x:   2, size: 80, blur: 20, delay: 2.1, dur: 4.3, anim: "co-smoke-c" },
+  { x:  -3, size: 68, blur: 17, delay: 2.8, dur: 4.0, anim: "co-smoke-l" },
+  { x:   5, size: 76, blur: 19, delay: 0.3, dur: 4.6, anim: "co-smoke-r" },
+  // Mid spread
+  { x: -22, size: 60, blur: 15, delay: 0.4, dur: 3.9, anim: "co-smoke-l" },
+  { x:  24, size: 64, blur: 16, delay: 1.1, dur: 4.5, anim: "co-smoke-r" },
+  { x: -18, size: 74, blur: 19, delay: 1.8, dur: 4.1, anim: "co-smoke-l" },
+  { x:  20, size: 82, blur: 21, delay: 2.5, dur: 4.6, anim: "co-smoke-r" },
+  { x:  -8, size: 56, blur: 14, delay: 3.2, dur: 3.8, anim: "co-smoke-c" },
+  { x:  12, size: 70, blur: 18, delay: 1.6, dur: 4.2, anim: "co-smoke-r" },
+  // Wide edges
+  { x: -44, size: 52, blur: 13, delay: 0.6, dur: 3.7, anim: "co-smoke-l" },
+  { x:  46, size: 58, blur: 15, delay: 1.3, dur: 4.3, anim: "co-smoke-r" },
+  { x: -36, size: 66, blur: 17, delay: 2.0, dur: 4.0, anim: "co-smoke-l" },
+  { x:  38, size: 62, blur: 16, delay: 2.7, dur: 4.4, anim: "co-smoke-r" },
+  { x: -28, size: 54, blur: 14, delay: 3.4, dur: 3.9, anim: "co-smoke-l" },
+  { x:  30, size: 60, blur: 15, delay: 0.9, dur: 4.1, anim: "co-smoke-r" },
 ];
 
 /* ------------------------------------------------------------------
-   Keyframes
-   Three drift variants: left, right, and near-straight (slight curve).
-   Scoped names avoid collisions with any other animation in the app.
+   Keyframes — wisps spawn 12vh below the viewport and rise into view.
+   Opacity peaks at 20-22% when wisps enter the visible area.
    ------------------------------------------------------------------ */
 
 const KEYFRAMES = `
   @keyframes co-smoke-l {
-    0%   { opacity: 0; transform: translateY(0) scale(0.35); }
-    14%  { opacity: 0.3; }
-    100% { opacity: 0; transform: translateY(-72vh) translateX(-48px) scale(4); }
+    0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
+    20%  { opacity: 0.21; }
+    100% { opacity: 0;    transform: translateY(-95vh) translateX(-52px) scale(4); }
   }
   @keyframes co-smoke-r {
-    0%   { opacity: 0; transform: translateY(0) scale(0.35); }
-    14%  { opacity: 0.3; }
-    100% { opacity: 0; transform: translateY(-72vh) translateX(52px) scale(4); }
+    0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
+    22%  { opacity: 0.20; }
+    100% { opacity: 0;    transform: translateY(-95vh) translateX(56px) scale(4); }
   }
   @keyframes co-smoke-c {
-    0%   { opacity: 0; transform: translateY(0) scale(0.4); }
-    12%  { opacity: 0.26; }
-    100% { opacity: 0; transform: translateY(-78vh) translateX(10px) scale(4.8); }
+    0%   { opacity: 0;    transform: translateY(0) scale(0.4); }
+    20%  { opacity: 0.22; }
+    100% { opacity: 0;    transform: translateY(-105vh) translateX(10px) scale(4.8); }
   }
 `;
 
@@ -61,28 +77,34 @@ const KEYFRAMES = `
    ------------------------------------------------------------------ */
 
 export function ColdOpenSmoke() {
-  const [visible,     setVisible]     = useState(false);
-  const [fading,      setFading]      = useState(false);
-  const [useWillChg,  setUseWillChg]  = useState(true);
+  // Initialise as true on first mount so the overlay is present from
+  // the very first render — no flash between SSR and hydration.
+  const [visible,    setVisible]    = useState(() => !_hasShown);
+  const [fading,     setFading]     = useState(false);
+  const [useWillChg, setUseWillChg] = useState(true);
 
   useEffect(() => {
-    // Respect the user's motion preference — skip entirely
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Respect the user's motion preference
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVisible(false);
+      return;
+    }
 
-    // Show once per session; each cold PWA open gets a fresh sessionStorage
-    if (sessionStorage.getItem("ae-cold-open-v1")) return;
-    sessionStorage.setItem("ae-cold-open-v1", "1");
+    // Show once per session
+    if (_hasShown) {
+      setVisible(false);
+      return;
+    }
+    _hasShown = true;
 
-    setVisible(true);
-
-    // At 2.8 s: begin fade-out + drop will-change (animation no longer needs it)
+    // Fade out at 4 s, drop will-change at the same time
     const tFade = setTimeout(() => {
       setFading(true);
       setUseWillChg(false);
-    }, 2800);
+    }, 4000);
 
-    // At 3.5 s: unmount entirely — no DOM residue
-    const tUnmount = setTimeout(() => setVisible(false), 3500);
+    // Unmount at 5 s — animation complete
+    const tUnmount = setTimeout(() => setVisible(false), 5000);
 
     return () => {
       clearTimeout(tFade);
@@ -94,28 +116,32 @@ export function ColdOpenSmoke() {
 
   return (
     <>
-      {/* Keyframes hoisted to <head> by React — de-duped automatically */}
       <style>{KEYFRAMES}</style>
 
       <div
         aria-hidden="true"
         style={{
-          position:       "fixed",
-          inset:          0,
-          zIndex:         99999,
-          backgroundColor:"var(--background)",
-          display:        "flex",
-          alignItems:     "center",
-          justifyContent: "center",
-          opacity:        fading ? 0 : 1,
-          transition:     "opacity 0.7s ease-out",
-          // Blocks interaction until animation completes; releases at fade start
-          pointerEvents:  fading ? "none" : "auto",
-          overflow:       "hidden",
+          position:        "fixed",
+          inset:           0,
+          zIndex:          99999,
+          backgroundColor: "var(--background)",
+          overflow:        "hidden",
+          // Blocks all interaction during the active phase
+          pointerEvents:   fading ? "none" : "auto",
+          opacity:         fading ? 0 : 1,
+          transition:      "opacity 1s ease-out",
         }}
       >
-        {/* ── Logo ──────────────────────────────────────────────── */}
-        <div style={{ position: "relative", zIndex: 1 }}>
+        {/* ── Logo — absolutely centered, unaffected by layout ─────── */}
+        <div
+          style={{
+            position:  "absolute",
+            top:       "50%",
+            left:      "50%",
+            transform: "translate(-50%, -50%)",
+            zIndex:    1,
+          }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/Circle%20Logo.png"
@@ -124,22 +150,22 @@ export function ColdOpenSmoke() {
             height={288}
             style={{ objectFit: "contain", display: "block" }}
           />
-          {/* 30% scrim to soften the logo against the dark background */}
+          {/* 50% scrim over the logo */}
           <div
             style={{
               position:        "absolute",
               inset:           0,
-              backgroundColor: "rgba(0, 0, 0, 0.30)",
+              backgroundColor: "rgba(0,0,0,0.50)",
               borderRadius:    "50%",
             }}
           />
         </div>
 
-        {/* ── Smoke column — anchored to bottom center, above logo ─ */}
+        {/* ── Smoke column — anchor is 12vh below the bottom edge ───── */}
         <div
           style={{
             position: "absolute",
-            bottom:   0,
+            bottom:   "-12vh",
             left:     "50%",
             width:    0,
             height:   0,
@@ -152,16 +178,13 @@ export function ColdOpenSmoke() {
               style={{
                 position:        "absolute",
                 bottom:          0,
-                // Center each circle on its x-offset from the anchor
                 left:            w.x - w.size / 2,
                 width:           w.size,
                 height:          w.size,
                 borderRadius:    "50%",
-                // var(--foreground) = #F5E6D3 — warm cream from design system
                 backgroundColor: "var(--foreground)",
                 filter:          `blur(${w.blur}px)`,
                 animation:       `${w.anim} ${w.dur}s ease-out ${w.delay}s infinite`,
-                // Dropped at 2.8 s when the fade begins
                 willChange:      useWillChg ? "transform, opacity" : "auto",
               }}
             />
