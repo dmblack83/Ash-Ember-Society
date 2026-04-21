@@ -23,13 +23,11 @@ interface SafetyScores {
 }
 
 /* ------------------------------------------------------------------
-   Vision client — credentials decoded from the base64 env var.
-   Initialised once at module scope so the connection is reused
-   across warm Lambda/Edge invocations.
+   Vision client — lazy singleton to avoid build-time crash.
+   Next.js runs module-level code during static analysis before env
+   vars are available, so we initialize only on first request.
    ------------------------------------------------------------------ */
 
-// Lazily initialised on first request — avoids throwing at build time
-// when runtime env vars are not yet available.
 let _visionClient: ImageAnnotatorClient | null = null;
 
 function getVisionClient(): ImageAnnotatorClient {
