@@ -1162,10 +1162,10 @@ export function BurnReport({
   };
 
   return (
-    <div className="h-dvh bg-background flex flex-col">
-      {/* ── Fixed header ──────────────────────────────────────────── */}
+    <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* ── Header ────────────────────────────────────────────────── */}
       <header
-        className="flex-shrink-0 sticky top-0 z-10 px-4 pt-safe"
+        className="flex-shrink-0 px-4 pt-safe"
         style={{ backgroundColor: "var(--background)", borderBottom: "1px solid var(--border)" }}
       >
         <div className="max-w-lg mx-auto">
@@ -1203,7 +1203,7 @@ export function BurnReport({
       {/* ── Scrollable content with scroll shadows ───────────────── */}
       <div className="flex-1 relative overflow-hidden min-h-0">
 
-        {/* Top shadow — fades in when scrolled down */}
+        {/* Top shadow + caret — fades in when scrolled down */}
         <div
           aria-hidden="true"
           className="absolute inset-x-0 top-0 z-10 pointer-events-none transition-opacity duration-200"
@@ -1213,6 +1213,25 @@ export function BurnReport({
             background: "linear-gradient(to bottom, #1A1210 0%, transparent 100%)",
           }}
         />
+        {/* Up caret — mobile only */}
+        <div
+          aria-hidden="true"
+          className="absolute top-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none sm:hidden transition-opacity duration-200"
+          style={{ opacity: shadowTop ? 1 : 0 }}
+        >
+          <div
+            className="flex items-center justify-center rounded-full"
+            style={{
+              width: 26, height: 26,
+              background: "rgba(212,160,74,0.12)",
+              border: "1px solid rgba(212,160,74,0.2)",
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+              <path d="M2 7.5l3.5-4 3.5 4" stroke="#D4A04A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
 
         <main
           ref={scrollRef}
@@ -1229,7 +1248,7 @@ export function BurnReport({
           </div>
         </main>
 
-        {/* Bottom shadow — fades in when more content below */}
+        {/* Bottom shadow + caret — fades in when more content below */}
         <div
           aria-hidden="true"
           className="absolute inset-x-0 bottom-0 z-10 pointer-events-none transition-opacity duration-200"
@@ -1239,12 +1258,31 @@ export function BurnReport({
             background: "linear-gradient(to top, #1A1210 0%, transparent 100%)",
           }}
         />
+        {/* Down caret — mobile only */}
+        <div
+          aria-hidden="true"
+          className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 pointer-events-none sm:hidden transition-opacity duration-200"
+          style={{ opacity: shadowBottom ? 1 : 0 }}
+        >
+          <div
+            className="flex items-center justify-center rounded-full"
+            style={{
+              width: 26, height: 26,
+              background: "rgba(212,160,74,0.12)",
+              border: "1px solid rgba(212,160,74,0.2)",
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+              <path d="M2 3.5l3.5 4 3.5-4" stroke="#D4A04A" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
 
       </div>
 
-      {/* ── Fixed footer ──────────────────────────────────────────── */}
+      {/* ── Footer ────────────────────────────────────────────────── */}
       <footer
-        className="flex-shrink-0 sticky bottom-0 px-4 py-4 pb-safe"
+        className="flex-shrink-0 px-4 py-4 pb-safe"
         style={{ backgroundColor: "var(--background)", borderTop: "1px solid var(--border)" }}
       >
         <div className="max-w-lg mx-auto space-y-2">
