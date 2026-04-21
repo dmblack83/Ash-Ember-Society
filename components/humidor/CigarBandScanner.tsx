@@ -70,10 +70,19 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
 
   type Scored = CatalogResult & { _score: number };
   const scored: Scored[] = data.map((cigar) => {
-    const text = `${cigar.brand ?? ""} ${cigar.series ?? ""} ${cigar.name}`.toLowerCase();
-    const hits = words.filter((w) => text.includes(w)).length;
-    const brandExact = words.some((w) => (cigar.brand ?? "").toLowerCase() === w) ? 2 : 0;
-    return { ...(cigar as CatalogResult), _score: hits + brandExact };
+    const brand      = (cigar.brand  ?? "").toLowerCase();
+    const seriesName = `${cigar.series ?? ""} ${cigar.name}`.toLowerCase();
+
+    // Brand hits worth 3×, series/name hits worth 2×
+    const brandHits      = words.filter((w) => brand.includes(w)).length;
+    const seriesNameHits = words.filter((w) => seriesName.includes(w)).length;
+    // Bonus if a word is an exact full match for the brand
+    const brandExact     = words.some((w) => brand === w) ? 3 : 0;
+
+    return {
+      ...(cigar as CatalogResult),
+      _score: brandHits * 3 + seriesNameHits * 2 + brandExact,
+    };
   });
 
   return scored
@@ -259,9 +268,9 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
               position:  "absolute",
               top:       "50%",
               left:      "50%",
-              transform: "translate(-50%, -50%) translateY(-8%)",
-              width:     "min(88vw, 340px)",
-              height:    "min(34vw, 130px)",
+              transform: "translate(-50%, -50%) translateY(-10%)",
+              width:     "min(80vw, 300px)",
+              height:    "min(80vw, 300px)",
               boxShadow: "0 0 0 9999px rgba(0,0,0,0.62)",
               borderRadius: 8,
               zIndex:    1,
@@ -284,7 +293,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
               position:  "absolute",
               top:       "50%",
               left:      "50%",
-              transform: "translate(-50%, calc(-50% + min(17vw, 65px) + 16px + -8%))",
+              transform: "translate(-50%, calc(-50% + min(40vw, 150px) + 16px + -10%))",
               zIndex:    2,
               textAlign: "center",
             }}
