@@ -28,14 +28,19 @@ interface SafetyScores {
    across warm Lambda/Edge invocations.
    ------------------------------------------------------------------ */
 
-function buildVisionClient(): ImageAnnotatorClient {
-  const raw = process.env.GOOGLE_CLOUD_VISION_CREDENTIALS;
-  if (!raw) throw new Error("GOOGLE_CLOUD_VISION_CREDENTIALS is not set");
-  const credentials = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
-  return new ImageAnnotatorClient({ credentials });
-}
+// Lazily initialised on first request — avoids throwing at build time
+// when runtime env vars are not yet available.
+let _visionClient: ImageAnnotatorClient | null = null;
 
-const visionClient = buildVisionClient();
+function getVisionClient(): ImageAnnotatorClient {
+  if (!_visionClient) {
+    const raw = process.env.GOOGLE_CLOUD_VISION_CREDENTIALS;
+    if (!raw) throw new Error("GOOGLE_CLOUD_VISION_CREDENTIALS is not set");
+    const credentials = JSON.parse(Buffer.from(raw, "base64").toString("utf-8"));
+    _visionClient = new ImageAnnotatorClient({ credentials });
+  }
+  return _visionClient;
+}
 
 /* ------------------------------------------------------------------
    Safety helpers
@@ -124,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   let visionResult;
   try {
-    [visionResult] = await visionClient.annotateImage({
+    [visionResult] = await getVisionClient().annotateImage({
       image:    { content: image },
       features,
     });
