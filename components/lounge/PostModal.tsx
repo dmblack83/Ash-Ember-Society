@@ -661,7 +661,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
     >
       {/* ---- Fixed header ----------------------------------------- */}
       <div
-        className="flex items-center justify-between px-4 flex-shrink-0"
+        className="flex-shrink-0 flex items-center justify-center"
         style={{
           height:               HEADER_H,
           backgroundColor:      "rgba(26,18,16,0.97)",
@@ -670,62 +670,69 @@ export function PostModal({ postId, userId, onClose }: Props) {
           borderBottom:         "1px solid var(--border)",
         }}
       >
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex items-center gap-1.5 text-sm"
-          style={{
-            color:                   "var(--gold, #D4A04A)",
-            background:              "none",
-            border:                  "none",
-            cursor:                  "pointer",
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-            minHeight:               44,
-            padding:                 "0 4px",
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Back
-        </button>
-
-        {post ? (
-          <span
-            className="text-xs font-medium px-2.5 py-1 rounded-full"
-            style={{ border: "1px solid var(--gold, #D4A04A)", color: "var(--gold, #D4A04A)" }}
-          >
-            {post.category.name}
-          </span>
-        ) : (
-          <div />
-        )}
-
-        {post && !post.is_system && post.user_id === userId ? (
+        {/* Inner constrained to card width */}
+        <div className="relative flex items-center w-full px-4 md:max-w-[50%]">
+          {/* Back */}
           <button
             type="button"
-            onClick={() => setShowDeletePost(true)}
-            className="flex items-center justify-center"
+            onClick={onClose}
+            className="flex items-center gap-1.5 text-sm shrink-0"
             style={{
-              width:                   36,
-              height:                  36,
+              color:                   "var(--gold, #D4A04A)",
               background:              "none",
               border:                  "none",
-              color:                   "var(--muted-foreground)",
               cursor:                  "pointer",
               touchAction:             "manipulation",
               WebkitTapHighlightColor: "transparent",
+              minHeight:               44,
+              padding:                 "0 4px",
+              zIndex:                  1,
             }}
-            aria-label="Delete post"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 4h12M5 4V2.5a.5.5 0 01.5-.5h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l1 9.5a.5.5 0 00.5.5h7a.5.5 0 00.5-.5L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+            Back
           </button>
-        ) : (
-          <div style={{ width: 36 }} />
-        )}
+
+          {/* Category name — absolutely centered */}
+          {post && (
+            <p
+              className="absolute left-0 right-0 text-center font-serif font-semibold text-xl pointer-events-none px-16 truncate"
+              style={{ color: "var(--foreground)" }}
+            >
+              {post.category.name}
+            </p>
+          )}
+
+          {/* Delete / spacer */}
+          <div className="ml-auto shrink-0" style={{ zIndex: 1 }}>
+            {post && !post.is_system && post.user_id === userId ? (
+              <button
+                type="button"
+                onClick={() => setShowDeletePost(true)}
+                className="flex items-center justify-center"
+                style={{
+                  width:                   36,
+                  height:                  36,
+                  background:              "none",
+                  border:                  "none",
+                  color:                   "var(--muted-foreground)",
+                  cursor:                  "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+                aria-label="Delete post"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M2 4h12M5 4V2.5a.5.5 0 01.5-.5h5a.5.5 0 01.5.5V4M6 7v5M10 7v5M3 4l1 9.5a.5.5 0 00.5.5h7a.5.5 0 00.5-.5L13 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            ) : (
+              <div style={{ width: 36 }} />
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ---- Loading ------------------------------------------------ */}
@@ -803,22 +810,23 @@ export function PostModal({ postId, userId, onClose }: Props) {
                 </>
               )}
 
-              {/* Add to Wishlist — centered, only for other users' burn reports */}
-              {smokeLog && post.user_id !== userId && smokeLogCigarId && (
-                <div className="flex justify-center mt-5">
+              {/* Action row — Add to Wishlist centered, like pinned right, same vertical level */}
+              <div className="relative flex items-center justify-center mt-5" style={{ minHeight: 44 }}>
+                {/* Add to Wishlist — centered, no border, only for other users' burn reports */}
+                {smokeLog && post.user_id !== userId && smokeLogCigarId && (
                   <button
                     type="button"
                     onClick={handleAddToWishlist}
                     disabled={addingWishlist || wishlistAdded}
-                    className="flex items-center gap-2 text-xs font-semibold px-4 py-2 rounded-full"
+                    className="flex items-center gap-2 text-xs font-semibold"
                     style={{
-                      border:                  `1.5px solid ${wishlistAdded ? "rgba(212,160,74,0.4)" : "var(--gold, #D4A04A)"}`,
+                      border:                  "none",
                       color:                   wishlistAdded ? "rgba(212,160,74,0.5)" : "var(--gold, #D4A04A)",
-                      background:              wishlistAdded ? "rgba(212,160,74,0.08)" : "transparent",
+                      background:              "none",
                       cursor:                  wishlistAdded || addingWishlist ? "default" : "pointer",
                       touchAction:             "manipulation",
                       WebkitTapHighlightColor: "transparent",
-                      minHeight:               44,
+                      padding:                 0,
                     }}
                   >
                     <svg width="12" height="12" viewBox="0 0 24 24"
@@ -830,16 +838,14 @@ export function PostModal({ postId, userId, onClose }: Props) {
                     </svg>
                     {wishlistAdded ? "In Wishlist" : addingWishlist ? "Adding..." : "Add to Wishlist"}
                   </button>
-                </div>
-              )}
+                )}
 
-              {/* Like — right aligned */}
-              <div className="flex justify-end mt-5">
+                {/* Like — pinned to right edge */}
                 <button
                   type="button"
                   onClick={handleLike}
                   disabled={liking}
-                  className="flex items-center gap-1.5"
+                  className="absolute right-0 flex items-center gap-1.5"
                   style={{
                     background:              "none",
                     border:                  "none",
@@ -847,7 +853,6 @@ export function PostModal({ postId, userId, onClose }: Props) {
                     touchAction:             "manipulation",
                     WebkitTapHighlightColor: "transparent",
                     color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-                    minHeight:               44,
                     padding:                 0,
                   }}
                 >
