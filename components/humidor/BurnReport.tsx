@@ -1282,8 +1282,12 @@ export function BurnReport({
 
       {/* ── Footer ────────────────────────────────────────────────── */}
       <footer
-        className="flex-shrink-0 px-4 py-4 pb-safe"
-        style={{ backgroundColor: "var(--background)", borderTop: "1px solid var(--border)" }}
+        className="flex-shrink-0 px-4 pt-4"
+        style={{
+          backgroundColor: "var(--background)",
+          borderTop:       "1px solid var(--border)",
+          paddingBottom:   "calc(env(safe-area-inset-bottom) + 24px)",
+        }}
       >
         <div className="max-w-lg mx-auto space-y-2">
           {/* Validation / submit error */}
