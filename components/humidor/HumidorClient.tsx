@@ -4,6 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
+import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
+import { CigarBandScanner } from "@/components/humidor/CigarBandScanner";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { getCigarImage } from "@/lib/cigar-default-image";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
@@ -406,6 +408,8 @@ export function HumidorClient({
   const [hasWishlist,  setHasWishlist]  = useState(initialHasWishlist);
   const [view,         setView]         = useState<ViewMode>("grid");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
+  const [showOptions,  setShowOptions]  = useState(false);
+  const [showScanner,  setShowScanner]  = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
   const hasMounted = useRef(false);
 
@@ -429,7 +433,7 @@ export function HumidorClient({
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
     if (new URLSearchParams(window.location.search).get("add") === "true") {
-      setShowAddSheet(true);
+      setShowOptions(true);
     }
   }, []);
 
@@ -548,7 +552,7 @@ export function HumidorClient({
               )}
             </div>
             <button
-              onClick={() => setShowAddSheet(true)}
+              onClick={() => setShowOptions(true)}
               className="btn btn-primary flex-shrink-0"
             >
               Add Cigar
@@ -640,7 +644,7 @@ export function HumidorClient({
             </button>
           </div>
         ) : items.length === 0 ? (
-          <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowAddSheet(true)} />
+          <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowOptions(true)} />
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayed.map((item) => (
@@ -655,6 +659,22 @@ export function HumidorClient({
           </div>
         )}
       </div>
+
+      {showOptions && (
+        <AddCigarOptions
+          onScan={() => { setShowOptions(false); setShowScanner(true); }}
+          onSearch={() => { setShowOptions(false); setShowAddSheet(true); }}
+          onClose={() => setShowOptions(false)}
+        />
+      )}
+
+      {showScanner && (
+        <CigarBandScanner
+          onClose={() => setShowScanner(false)}
+          onAdded={() => { setShowScanner(false); fetchItems(); }}
+          onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
+        />
+      )}
 
       <AddCigarSheet
         open={showAddSheet}
