@@ -12,6 +12,8 @@ export interface BurnReportCigar {
   series: string | null;
   name: string;
   format: string | null;
+  image_url: string | null;
+  wrapper: string | null;
 }
 
 export interface BurnReportItem {
@@ -46,7 +48,7 @@ export default async function BurnReportPage({
 
   const { data: item, error } = await supabase
     .from("humidor_items")
-    .select("id, cigar_id, quantity, cigar:cigar_catalog(id, brand, series, name, format)")
+    .select("id, cigar_id, quantity, cigar:cigar_catalog(id, brand, series, name, format, image_url, wrapper)")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();

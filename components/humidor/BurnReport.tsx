@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag } from "@/app/(app)/humidor/[id]/burn-report/page";
+import { getCigarImage } from "@/lib/cigar-default-image";
 
 /* ------------------------------------------------------------------
    Constants
@@ -207,13 +208,13 @@ function CigarContext({ item }: { item: BurnReportItem }) {
       className="flex items-center gap-3 p-3 rounded-xl mb-6"
       style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}
     >
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-card flex items-center justify-center flex-shrink-0">
-        <span
-          className="text-xl font-bold select-none"
-          style={{ fontFamily: "var(--font-serif)", color: "var(--muted-foreground)" }}
-        >
-          {(c.brand ?? "?").charAt(0)}
-        </span>
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-card flex-shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={getCigarImage(c.image_url, c.wrapper)}
+          alt={c.name}
+          className="w-full h-full object-cover"
+        />
       </div>
       <div className="min-w-0">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
