@@ -226,24 +226,39 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
         <div style={{ borderTop: "1px solid var(--border)" }}>
           {/* Sort + New Post row */}
           <div className="flex items-center justify-between px-4 py-3">
-            <div className="flex gap-2">
-              {(["latest", "top"] as const).map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => handleSortChange(s)}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                  style={{
-                    background:              sort === s ? "var(--gold, #D4A04A)" : "transparent",
-                    color:                   sort === s ? "#1A1210"              : "var(--muted-foreground)",
-                    border:                  sort === s ? "none"                 : "1px solid var(--border)",
-                    cursor:                  "pointer",
-                    touchAction:             "manipulation",
-                    WebkitTapHighlightColor: "transparent",
-                  }}
-                >
-                  {s === "latest" ? "Latest" : "Top"}
-                </button>
+            <div className="flex items-center gap-0">
+              {(["latest", "top"] as const).map((s, i) => (
+                <>
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleSortChange(s)}
+                    className="text-xs"
+                    style={{
+                      background:              "none",
+                      border:                  "none",
+                      borderBottom:            sort === s ? "2px solid var(--gold, #D4A04A)" : "2px solid transparent",
+                      color:                   sort === s ? "var(--foreground)"              : "var(--muted-foreground)",
+                      fontWeight:              sort === s ? 700                              : 400,
+                      cursor:                  "pointer",
+                      padding:                 "2px 2px 4px",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                    }}
+                  >
+                    {s === "latest" ? "Latest" : "Top"}
+                  </button>
+                  {i === 0 && (
+                    <span
+                      key="sep"
+                      className="text-xs mx-2 select-none"
+                      style={{ color: "var(--border)" }}
+                      aria-hidden="true"
+                    >
+                      |
+                    </span>
+                  )}
+                </>
               ))}
             </div>
 

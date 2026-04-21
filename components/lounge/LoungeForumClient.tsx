@@ -460,7 +460,7 @@ export function LoungeForumClient({
           </div>
         )}
 
-        <div className="px-4 pt-5 pb-3">
+        <div className="px-4 pt-5 pb-3 w-full md:max-w-[50%] md:mx-auto">
           <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--muted-foreground)" }}>
             Categories
           </p>
