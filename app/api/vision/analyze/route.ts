@@ -41,14 +41,28 @@ const visionClient = buildVisionClient();
    Safety helpers
    ------------------------------------------------------------------ */
 
-const LIKELIHOOD_RANK: Record<string, number> = {
-  UNKNOWN:      0,
-  VERY_UNLIKELY: 1,
-  UNLIKELY:     2,
-  POSSIBLE:     3,
-  LIKELY:       4,
-  VERY_LIKELY:  5,
-};
+const LIKELIHOOD_NAMES = [
+  "UNKNOWN",
+  "VERY_UNLIKELY",
+  "UNLIKELY",
+  "POSSIBLE",
+  "LIKELY",
+  "VERY_LIKELY",
+] as const;
+
+const LIKELIHOOD_RANK: Record<string, number> = Object.fromEntries(
+  LIKELIHOOD_NAMES.map((n, i) => [n, i])
+);
+
+/**
+ * The Vision SDK can return Likelihood as either a string ("LIKELY") or a
+ * numeric enum value (4). Normalise both to a plain string.
+ */
+function likelihoodToString(val: string | number | null | undefined): string {
+  if (val == null) return "UNKNOWN";
+  if (typeof val === "number") return LIKELIHOOD_NAMES[val] ?? "UNKNOWN";
+  return val;
+}
 
 function rank(level: string): number {
   return LIKELIHOOD_RANK[level] ?? 0;
@@ -122,11 +136,11 @@ export async function POST(req: NextRequest) {
   /* ── Extract safety scores ────────────────────────────────────── */
   const ss = visionResult.safeSearchAnnotation ?? {};
   const safety: SafetyScores = {
-    adult:    ss.adult    ?? "UNKNOWN",
-    violence: ss.violence ?? "UNKNOWN",
-    racy:     ss.racy     ?? "UNKNOWN",
-    spoof:    ss.spoof    ?? "UNKNOWN",
-    medical:  ss.medical  ?? "UNKNOWN",
+    adult:    likelihoodToString(ss.adult),
+    violence: likelihoodToString(ss.violence),
+    racy:     likelihoodToString(ss.racy),
+    spoof:    likelihoodToString(ss.spoof),
+    medical:  likelihoodToString(ss.medical),
   };
 
   /* ── OCR text (cigar_band only) ───────────────────────────────── */
