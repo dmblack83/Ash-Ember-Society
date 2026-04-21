@@ -803,10 +803,9 @@ export function PostModal({ postId, userId, onClose }: Props) {
                 </>
               )}
 
-              {/* Action row — centered, like + optional Add to Wishlist */}
-              <div className="flex items-center justify-center gap-6 mt-5">
-                {/* Add to Wishlist — only for other users' burn reports */}
-                {smokeLog && post.user_id !== userId && smokeLogCigarId && (
+              {/* Add to Wishlist — centered, only for other users' burn reports */}
+              {smokeLog && post.user_id !== userId && smokeLogCigarId && (
+                <div className="flex justify-center mt-5">
                   <button
                     type="button"
                     onClick={handleAddToWishlist}
@@ -831,9 +830,11 @@ export function PostModal({ postId, userId, onClose }: Props) {
                     </svg>
                     {wishlistAdded ? "In Wishlist" : addingWishlist ? "Adding..." : "Add to Wishlist"}
                   </button>
-                )}
+                </div>
+              )}
 
-                {/* Like */}
+              {/* Like — right aligned */}
+              <div className="flex justify-end mt-5">
                 <button
                   type="button"
                   onClick={handleLike}
