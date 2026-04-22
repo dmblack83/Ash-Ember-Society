@@ -247,34 +247,22 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
       >
         <div className="flex items-start gap-2">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
-                {category.name}
-              </p>
-              <span
-                className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-                style={{
-                  border: "1px solid var(--gold, #D4A04A)",
-                  color:  "var(--gold, #D4A04A)",
-                }}
-              >
-                {category.post_count} post{category.post_count !== 1 ? "s" : ""}
-              </span>
-            </div>
+            <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
+              {category.name}
+            </p>
             <p
               className="text-xs mt-1"
               style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}
             >
               {category.description}
             </p>
-            {(() => {
-              const rel = relativeLastPost(category.last_post_at);
-              return rel ? (
-                <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.6 }}>
-                  Last post {rel}
-                </p>
-              ) : null;
-            })()}
+            <p className="text-xs mt-1.5" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>
+              {category.post_count.toLocaleString()} post{category.post_count !== 1 ? "s" : ""}
+              {(() => {
+                const rel = relativeLastPost(category.last_post_at);
+                return rel ? <>&nbsp;&nbsp;Last post {rel}</> : null;
+              })()}
+            </p>
           </div>
 
           <div className="shrink-0 mt-0.5">
