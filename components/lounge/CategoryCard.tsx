@@ -32,8 +32,9 @@ interface Props {
   category:    Category;
   userId:      string;
   canPost:     boolean;
-  refreshKey?: number;
-  onNewPost:   (categoryId: string) => void;
+  refreshKey?:     number;
+  postRefreshKey?: number;
+  onNewPost:       (categoryId: string) => void;
   onPostClick: (postId: string) => void;
 }
 
@@ -116,7 +117,7 @@ function Avatar({
 
 /* ------------------------------------------------------------------ */
 
-export function CategoryCard({ category, userId, canPost, refreshKey, onNewPost, onPostClick }: Props) {
+export function CategoryCard({ category, userId, canPost, refreshKey, postRefreshKey, onNewPost, onPostClick }: Props) {
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -283,6 +284,15 @@ export function CategoryCard({ category, userId, canPost, refreshKey, onNewPost,
     if (expanded) fetchPosts(1, sort);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
+  // Re-fetch immediately after a post is created in this category
+  useEffect(() => {
+    if (!postRefreshKey) return;
+    setPage(1);
+    fetchPosts(1, sort);
+    setFetchedOnce(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [postRefreshKey]);
 
   function handleSortChange(newSort: "latest" | "top") {
     if (newSort === sort) return;

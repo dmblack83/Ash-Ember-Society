@@ -253,6 +253,7 @@ export function LoungeForumClient({
   const [toast,           setToast]           = useState<string | null>(null);
   const [selectedPostId,  setSelectedPostId]  = useState<string | null>(null);
   const [refreshKey,      setRefreshKey]      = useState(0);
+  const [postRefreshKeys, setPostRefreshKeys] = useState<Record<string, number>>({});
   const [refreshing,      setRefreshing]      = useState(false);
 
   const router   = useRouter();
@@ -528,6 +529,7 @@ export function LoungeForumClient({
               userId={userId}
               canPost={canPost}
               refreshKey={refreshKey}
+              postRefreshKey={postRefreshKeys[c.id] ?? 0}
               onNewPost={handleNewPost}
               onPostClick={(postId) => setSelectedPostId(postId)}
             />
@@ -558,9 +560,10 @@ export function LoungeForumClient({
           initialCategoryId={newPostCategory}
           userId={userId}
           onClose={() => setShowNewPost(false)}
-          onCreated={() => {
+          onCreated={(categoryId) => {
             setShowNewPost(false);
             showToast("Post created.");
+            setPostRefreshKeys((prev) => ({ ...prev, [categoryId]: (prev[categoryId] ?? 0) + 1 }));
           }}
         />
       )}
