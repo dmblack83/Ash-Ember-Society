@@ -44,43 +44,32 @@ export function AddCigarOptions({ onScan, onSearch, onClose }: Props) {
         style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.6)" }}
       />
 
-      {/* Sheet */}
+      {/* Centered modal — 75vw on mobile, 360px on desktop */}
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Add cigar"
         style={{
           position:        "fixed",
-          bottom:          0,
-          left:            0,
-          right:           0,
+          top:             "50%",
+          left:            "50%",
+          transform:       "translate(-50%, -50%)",
           zIndex:          9999,
+          width:           "min(75vw, 360px)",
           backgroundColor: "var(--card)",
-          borderRadius:    "20px 20px 0 0",
-          paddingBottom:   "env(safe-area-inset-bottom)",
+          borderRadius:    20,
+          border:          "1px solid var(--border)",
+          padding:         "24px 20px 20px",
         }}
       >
-        {/* Handle */}
-        <div style={{ position: "relative", height: 32 }}>
-          <div
-            style={{
-              position:        "absolute",
-              top:             10,
-              left:            "50%",
-              transform:       "translateX(-50%)",
-              width:           36,
-              height:          4,
-              borderRadius:    2,
-              backgroundColor: "rgba(255,255,255,0.15)",
-            }}
-          />
-        </div>
+        <p
+          className="text-center text-sm font-semibold pb-4"
+          style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 11 }}
+        >
+          Add Cigar
+        </p>
 
-        <div className="px-5 pb-6 space-y-3">
-          <p
-            className="text-center text-sm font-semibold pb-1"
-            style={{ color: "var(--muted-foreground)", letterSpacing: "0.08em", textTransform: "uppercase", fontSize: 11 }}
-          >
-            Add Cigar
-          </p>
-
+        <div className="space-y-3">
           {/* Scan */}
           <button
             type="button"
@@ -143,6 +132,16 @@ export function AddCigarOptions({ onScan, onSearch, onClose }: Props) {
             </div>
           </button>
         </div>
+
+        {/* Cancel */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full mt-3 text-sm"
+          style={{ color: "var(--muted-foreground)", padding: "8px 0", cursor: "pointer", background: "none", border: "none" }}
+        >
+          Cancel
+        </button>
       </div>
     </>,
     document.body

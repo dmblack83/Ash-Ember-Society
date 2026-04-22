@@ -43,6 +43,16 @@ function AddWishlistSheet({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  /* Breakpoint detection — desktop = sm (640px+) */
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
   const [manual,          setManual]          = useState<ManualFields>({
@@ -168,8 +178,23 @@ function AddWishlistSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Add to wishlist"
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
-        style={{
+        className="fixed z-50 flex flex-col"
+        style={isDesktop ? {
+          top:             "50%",
+          left:            "50%",
+          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, -50%) scale(0.96)",
+          opacity:         open ? 1 : 0,
+          transition:      "opacity 200ms ease, transform 200ms ease",
+          width:           "min(90vw, 640px)",
+          maxHeight:       "90dvh",
+          height:          "auto",
+          backgroundColor: "var(--background)",
+          border:          "1px solid var(--border)",
+          borderRadius:    20,
+          pointerEvents:   open ? "auto" : "none",
+        } : {
+          insetInline:          "0",
+          bottom:               "0",
           height:               "calc(100dvh - 48px)",
           backgroundColor:      "var(--background)",
           borderTopLeftRadius:  20,
@@ -179,9 +204,11 @@ function AddWishlistSheet({
           transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
         }}
       >
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-        </div>
+        {!isDesktop && (
+          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+          </div>
+        )}
 
         <div
           className="flex items-center justify-between px-5 pb-4 flex-shrink-0"

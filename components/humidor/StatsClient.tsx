@@ -103,10 +103,12 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
       className="flex-shrink-0 rounded-xl px-5 py-4 min-w-[140px] space-y-1"
       style={{ backgroundColor: T.card, border: `1px solid ${T.border}` }}
     >
-      <p className="text-3xl font-bold leading-none" style={{ fontFamily: "var(--font-serif)", color: T.accent }}>
-        {value}
-      </p>
-      {sub && <p className="text-xs" style={{ color: T.accent }}>{sub}</p>}
+      <div className="flex items-baseline gap-1.5 leading-none">
+        <p className="text-3xl font-bold" style={{ fontFamily: "var(--font-serif)", color: T.accent }}>
+          {value}
+        </p>
+        {sub && <p className="text-xs" style={{ color: T.accent }}>{sub}</p>}
+      </div>
       <p className="text-[11px] uppercase tracking-widest font-medium" style={{ color: T.mutedFg }}>
         {label}
       </p>
@@ -226,8 +228,8 @@ export function StatsClient({ data }: { data: StatsClientData }) {
               value={avgRating ?? "\u2014"}
               sub={avgRating ? "/ 100" : undefined}
             />
-            <StatCard label="Lifetime Investment"  value={fmtMoney(lifetimeInvestmentCents)} />
             <StatCard label="Collection Value"     value={fmtMoney(collectionValueCents)} />
+            <StatCard label="Lifetime Investment"  value={fmtMoney(lifetimeInvestmentCents)} />
           </div>
         </section>
 
