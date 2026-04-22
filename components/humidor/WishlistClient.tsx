@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { CigarSearch, CatalogResult } from "@/components/cigar-search";
+import { CatalogResult, Highlight } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
@@ -34,6 +34,22 @@ interface ManualFields {
    Add Wishlist Sheet
    ------------------------------------------------------------------ */
 
+const CATALOG_SELECT_WL =
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+
+function WishlistCaret({ dir }: { dir: "up" | "down" }) {
+  return (
+    <svg
+      width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"
+      style={{ color: "var(--muted-foreground)", opacity: 0.65 }}
+    >
+      {dir === "up"
+        ? <path d="M4.5 11.5L9 7L13.5 11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        : <path d="M4.5 6.5L9 11L13.5 6.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />}
+    </svg>
+  );
+}
+
 function AddWishlistSheet({
   open,
   onClose,
@@ -43,16 +59,13 @@ function AddWishlistSheet({
   onClose: () => void;
   onAdded: () => void;
 }) {
-  /* Breakpoint detection — desktop = sm (640px+) */
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 640px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
+  /* Search state */
+  const [query,     setQuery]     = useState("");
+  const [results,   setResults]   = useState<CatalogResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [isPopular, setIsPopular] = useState(true);
 
+  /* Selection state */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
   const [manual,          setManual]          = useState<ManualFields>({
@@ -63,19 +76,106 @@ function AddWishlistSheet({
   const [submitting,      setSubmitting]      = useState(false);
   const [submitError,     setSubmitError]     = useState<string | null>(null);
 
+  /* Layout state */
+  const [isDesktop,       setIsDesktop]       = useState(false);
+  const [showTopCaret,    setShowTopCaret]    = useState(false);
+  const [showBottomCaret, setShowBottomCaret] = useState(false);
+
+  const bodyRef     = useRef<HTMLDivElement>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* Desktop detection */
+  useEffect(() => {
+    const mq      = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  /* Body scroll lock */
   useEffect(() => {
     if (!open) return;
-    setSelected(null);
-    setIsManual(false);
+    const scrollY = window.scrollY;
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      document.body.style.overflow = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [open]);
+
+  /* Search helpers */
+  function loadPopular() {
+    const supabase = createClient();
+    supabase
+      .from("cigar_catalog")
+      .select(CATALOG_SELECT_WL)
+      .order("usage_count", { ascending: false })
+      .limit(20)
+      .then(({ data }) => { setResults(data ?? []); setIsPopular(true); });
+  }
+
+  const doSearch = useCallback(async (q: string) => {
+    setSearching(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("cigar_catalog")
+      .select(CATALOG_SELECT_WL)
+      .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
+      .limit(8);
+    setResults(data ?? []);
+    setIsPopular(false);
+    setSearching(false);
+  }, []);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      loadPopular();
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, doSearch]);
+
+  /* Reset on open */
+  useEffect(() => {
+    if (!open) return;
+    setSelected(null); setIsManual(false); setQuery("");
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
     setSubmitToCatalog(true);
-    setNotes("");
-    setSubmitError(null);
+    setNotes(""); setSubmitError(null);
+    loadPopular();
+    setTimeout(() => inputRef.current?.focus(), 120);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
+
+  /* Scroll caret tracking */
+  function updateCarets() {
+    const el = bodyRef.current;
+    if (!el) return;
+    setShowTopCaret(el.scrollTop > 4);
+    setShowBottomCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }
+
+  useEffect(() => {
+    const id = requestAnimationFrame(updateCarets);
+    return () => cancelAnimationFrame(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, selected, isManual, open]);
 
   function handleClear() {
     setSelected(null);
     setIsManual(false);
+    setTimeout(() => inputRef.current?.focus(), 80);
   }
 
   async function handleSubmit() {
@@ -163,6 +263,7 @@ function AddWishlistSheet({
 
   return (
     <>
+      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 transition-opacity duration-300"
         style={{
@@ -174,6 +275,7 @@ function AddWishlistSheet({
         aria-hidden="true"
       />
 
+      {/* Modal */}
       <div
         role="dialog"
         aria-modal="true"
@@ -182,36 +284,40 @@ function AddWishlistSheet({
         style={isDesktop ? {
           top:             "50%",
           left:            "50%",
-          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, -50%) scale(0.96)",
+          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, calc(-50% + 24px))",
           opacity:         open ? 1 : 0,
-          transition:      "opacity 200ms ease, transform 200ms ease",
-          width:           "min(90vw, 640px)",
-          maxHeight:       "90dvh",
-          height:          "auto",
-          backgroundColor: "var(--background)",
-          border:          "1px solid var(--border)",
-          borderRadius:    20,
+          transition:      "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease",
           pointerEvents:   open ? "auto" : "none",
+          width:           "min(90vw, 640px)",
+          height:          "80dvh",
+          backgroundColor: "var(--background)",
+          borderRadius:    20,
+          border:          "1px solid var(--border)",
+          overflow:        "hidden",
         } : {
-          insetInline:          "0",
-          bottom:               "0",
+          left:                 0,
+          right:                0,
+          bottom:               0,
+          transform:            open ? "translateY(0)" : "translateY(100%)",
+          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
           height:               "calc(100dvh - 48px)",
           backgroundColor:      "var(--background)",
           borderTopLeftRadius:  20,
           borderTopRightRadius: 20,
           borderTop:            "1px solid var(--border)",
-          transform:            open ? "translateY(0)" : "translateY(100%)",
-          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+          overflow:             "hidden",
         }}
       >
+        {/* Drag handle — mobile only */}
         {!isDesktop && (
           <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
             <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
           </div>
         )}
 
+        {/* Fixed header: title */}
         <div
-          className="flex items-center justify-between px-5 pb-4 flex-shrink-0"
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <h2
@@ -232,208 +338,369 @@ function AddWishlistSheet({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-8 space-y-5">
-
-          {!hasSelection && (
-            <CigarSearch
-              onSelect={setSelected}
-              onManual={() => setIsManual(true)}
-              autoFocus={open}
-            />
-          )}
-
-          {selected && (
-            <div
-              className="rounded-2xl p-4 animate-fade-in"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  {selected.brand && (
-                    <p className="text-[11px] font-bold tracking-widest uppercase mb-1" style={{ color: "var(--primary)" }}>
-                      {selected.brand}
-                    </p>
-                  )}
-                  <p className="text-base font-semibold text-foreground leading-snug" style={{ fontFamily: "var(--font-serif)" }}>
-                    {selected.series ?? selected.format}
-                  </p>
-                  {(selected.format || selected.wrapper || selected.ring_gauge) && (
-                    <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-                      {[
-                        selected.format,
-                        selected.wrapper,
-                        selected.ring_gauge    ? `${selected.ring_gauge} ring` : null,
-                        selected.length_inches ? `${selected.length_inches}"` : null,
-                      ].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={handleClear}
-                  className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
-                  style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-          )}
-
-          {isManual && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
-                <button onClick={handleClear} className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                  Back to search
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Brand <span style={{ color: "var(--destructive)" }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.brand}
-                    onChange={(e) => setManual((m) => ({ ...m, brand: e.target.value }))}
-                    placeholder="e.g. Arturo Fuente"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Series / Name</label>
-                  <input
-                    type="text"
-                    value={manual.series}
-                    onChange={(e) => setManual((m) => ({ ...m, series: e.target.value }))}
-                    placeholder="e.g. Opus X"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Format / Vitola</label>
-                  <input
-                    type="text"
-                    value={manual.format}
-                    onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
-                    placeholder="e.g. Robusto"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Ring Gauge</label>
-                  <input
-                    type="number"
-                    value={manual.ringGauge}
-                    onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
-                    placeholder="50"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Length (inches)</label>
-                  <input
-                    type="number"
-                    step="0.25"
-                    value={manual.lengthInches}
-                    onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
-                    placeholder="5.0"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Wrapper</label>
-                  <input
-                    type="text"
-                    value={manual.wrapper}
-                    onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
-                    placeholder="e.g. Colorado"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Wrapper Country</label>
-                  <input
-                    type="text"
-                    value={manual.wrapperCountry}
-                    onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
-                    placeholder="e.g. Dominican Republic"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-              </div>
-
-              <label className="flex items-start gap-3 cursor-pointer select-none">
-                <div
-                  className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
-                  style={{
-                    width:           20,
-                    height:          20,
-                    backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
-                    border:          `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
-                  }}
-                  onClick={() => setSubmitToCatalog((v) => !v)}
-                >
-                  {submitToCatalog && (
-                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-                      <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <div onClick={() => setSubmitToCatalog((v) => !v)}>
-                  <p className="text-sm font-medium text-foreground">Submit to catalog</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                    Help the community - we&apos;ll review and add it.
-                  </p>
-                </div>
-              </label>
-            </div>
-          )}
-
-          {hasSelection && (
-            <div
-              className="space-y-4 pt-5 animate-slide-up"
-              style={{ borderTop: "1px solid var(--border)" }}
-            >
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Why you want to try this one..."
-                  rows={3}
-                  className="input w-full resize-none text-sm py-3"
-                />
-              </div>
-
-              {submitError && (
-                <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>{submitError}</p>
-              )}
-
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="btn btn-primary w-full disabled:opacity-40"
-                style={{ minHeight: 52 }}
+        {/* Fixed search bar */}
+        {!hasSelection && (
+          <div
+            className="px-5 py-3 flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: "var(--muted-foreground)" }}
+                width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"
               >
-                {submitting ? (
-                  <span className="flex items-center justify-center gap-2">
+                <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M12 12l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search cigars…"
+                className="input w-full pl-11 pr-4 text-base"
+                style={{ minHeight: 48 }}
+                autoComplete="off"
+              />
+              {searching && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <span
+                    className="rounded-full border animate-spin block"
+                    style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
+                  />
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Scrollable body */}
+        <div className="relative flex-1 min-h-0">
+
+          <div
+            ref={bodyRef}
+            className="h-full overflow-y-auto overscroll-contain"
+            onScroll={updateCarets}
+          >
+            {/* Results list */}
+            {!hasSelection && (
+              <div className="pb-4">
+                {isPopular && results.length > 0 && (
+                  <div className="px-5 pt-4 pb-2">
                     <span
-                      className="rounded-full border animate-spin"
-                      style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
+                      className="text-[10px] font-bold tracking-widest uppercase"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      Popular Cigars
+                    </span>
+                  </div>
+                )}
+
+                {results.map((r, i) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => { setSelected(r); setQuery(""); }}
+                    className="w-full text-left px-5 flex flex-col justify-center transition-colors active:opacity-70"
+                    style={{
+                      minHeight:    56,
+                      borderBottom: i < results.length - 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-foreground leading-snug">
+                      <Highlight text={r.brand ?? ""} query={query} />
+                      {r.series && (
+                        <span className="font-normal text-muted-foreground">
+                          {" · "}<Highlight text={r.series} query={query} />
+                        </span>
+                      )}
+                    </span>
+                    {(r.format || r.wrapper || r.ring_gauge) && (
+                      <span className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                        {[
+                          r.format,
+                          r.wrapper,
+                          r.ring_gauge    ? `${r.ring_gauge} ring` : null,
+                          r.length_inches ? `${r.length_inches}"`  : null,
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </button>
+                ))}
+
+                {!searching && query.trim() && results.length === 0 && (
+                  <div className="px-5 py-6 text-center">
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                      No results for &ldquo;{query}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ borderTop: results.length > 0 ? "1px solid var(--border)" : undefined }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsManual(true)}
+                    className="w-full text-sm text-center transition-colors active:opacity-70"
+                    style={{ minHeight: 48, color: "var(--muted-foreground)" }}
+                  >
+                    Can&apos;t find it? Add manually
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Selection + form */}
+            {hasSelection && (
+              <div className="px-5 pt-5 pb-8 space-y-5">
+
+                {/* Selected cigar card */}
+                {selected && (
+                  <div
+                    className="rounded-2xl p-4 animate-fade-in"
+                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {selected.brand && (
+                          <p
+                            className="text-[11px] font-bold tracking-widest uppercase mb-1"
+                            style={{ color: "var(--primary)" }}
+                          >
+                            {selected.brand}
+                          </p>
+                        )}
+                        <p
+                          className="text-base font-semibold text-foreground leading-snug"
+                          style={{ fontFamily: "var(--font-serif)" }}
+                        >
+                          {selected.series ?? selected.format}
+                        </p>
+                        {(selected.format || selected.wrapper || selected.ring_gauge) && (
+                          <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                            {[
+                              selected.format,
+                              selected.wrapper,
+                              selected.ring_gauge    ? `${selected.ring_gauge} ring` : null,
+                              selected.length_inches ? `${selected.length_inches}"` : null,
+                            ].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleClear}
+                        className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
+                        style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual entry fields */}
+                {isManual && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
+                      <button onClick={handleClear} className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                        Back to search
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Brand <span style={{ color: "var(--destructive)" }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.brand}
+                          onChange={(e) => setManual((m) => ({ ...m, brand: e.target.value }))}
+                          placeholder="e.g. Arturo Fuente"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Series / Name</label>
+                        <input
+                          type="text"
+                          value={manual.series}
+                          onChange={(e) => setManual((m) => ({ ...m, series: e.target.value }))}
+                          placeholder="e.g. Opus X"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Format / Vitola</label>
+                        <input
+                          type="text"
+                          value={manual.format}
+                          onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
+                          placeholder="e.g. Robusto"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Ring Gauge</label>
+                        <input
+                          type="number"
+                          value={manual.ringGauge}
+                          onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
+                          placeholder="50"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Length (inches)</label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={manual.lengthInches}
+                          onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
+                          placeholder="5.0"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Wrapper</label>
+                        <input
+                          type="text"
+                          value={manual.wrapper}
+                          onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
+                          placeholder="e.g. Colorado"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Wrapper Country</label>
+                        <input
+                          type="text"
+                          value={manual.wrapperCountry}
+                          onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
+                          placeholder="e.g. Dominican Republic"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <div
+                        className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
+                        style={{
+                          width:           20,
+                          height:          20,
+                          backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
+                          border:          `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
+                        }}
+                        onClick={() => setSubmitToCatalog((v) => !v)}
+                      >
+                        {submitToCatalog && (
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                            <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <div onClick={() => setSubmitToCatalog((v) => !v)}>
+                        <p className="text-sm font-medium text-foreground">Submit to catalog</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                          Help the community - we&apos;ll review and add it.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Notes + submit */}
+                <div
+                  className="space-y-4 pt-5"
+                  style={{ borderTop: "1px solid var(--border)" }}
+                >
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Notes</label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Why you want to try this one..."
+                      rows={3}
+                      className="input w-full resize-none text-sm py-3"
                     />
-                    Adding...
-                  </span>
-                ) : "Add to Wishlist"}
-              </button>
+                  </div>
+
+                  {submitError && (
+                    <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>{submitError}</p>
+                  )}
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="btn btn-primary w-full disabled:opacity-40"
+                    style={{ minHeight: 52 }}
+                  >
+                    {submitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span
+                          className="rounded-full border animate-spin"
+                          style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
+                        />
+                        Adding...
+                      </span>
+                    ) : "Add to Wishlist"}
+                  </button>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* Top scroll caret */}
+          {showTopCaret && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                top:            0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-start",
+                justifyContent: "center",
+                paddingTop:     8,
+                pointerEvents:  "none",
+              }}
+            >
+              <WishlistCaret dir="up" />
+            </div>
+          )}
+
+          {/* Bottom scroll caret */}
+          {showBottomCaret && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                bottom:         0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to top, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-end",
+                justifyContent: "center",
+                paddingBottom:  8,
+                pointerEvents:  "none",
+              }}
+            >
+              <WishlistCaret dir="down" />
             </div>
           )}
 
