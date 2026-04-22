@@ -1,9 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
-import { CigarSearch, CatalogResult } from "@/components/cigar-search";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createClient }      from "@/utils/supabase/client";
+import { CatalogResult, Highlight } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
+
+/* ------------------------------------------------------------------
+   Constants
+   ------------------------------------------------------------------ */
+
+const CATALOG_SELECT =
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
 
 /* ------------------------------------------------------------------
    Types
@@ -19,18 +26,42 @@ interface ManualFields {
   wrapperCountry: string;
 }
 
-/* ------------------------------------------------------------------
-   Component
-   ------------------------------------------------------------------ */
-
 export interface AddCigarSheetProps {
   open:    boolean;
   onClose: () => void;
   onAdded: () => void;
 }
 
+/* ------------------------------------------------------------------
+   Scroll caret chevron
+   ------------------------------------------------------------------ */
+
+function Caret({ dir }: { dir: "up" | "down" }) {
+  return (
+    <svg
+      width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"
+      style={{ color: "var(--muted-foreground)", opacity: 0.65 }}
+    >
+      {dir === "up"
+        ? <path d="M4.5 11.5L9 7L13.5 11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        : <path d="M4.5 6.5L9 11L13.5 6.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------
+   AddCigarSheet
+   ------------------------------------------------------------------ */
+
 export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
-  /* Selection */
+
+  /* ── Search state ─────────────────────────────────────────── */
+  const [query,     setQuery]     = useState("");
+  const [results,   setResults]   = useState<CatalogResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [isPopular, setIsPopular] = useState(true);
+
+  /* ── Selection state ──────────────────────────────────────── */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
   const [manual,          setManual]          = useState<ManualFields>({
@@ -38,7 +69,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   });
   const [submitToCatalog, setSubmitToCatalog] = useState(true);
 
-  /* Humidor form */
+  /* ── Form state ───────────────────────────────────────────── */
   const today = new Date().toISOString().split("T")[0];
   const [quantity,     setQuantity]     = useState(1);
   const [purchaseDate, setPurchaseDate] = useState(today);
@@ -48,11 +79,29 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [agingTarget,  setAgingTarget]  = useState("");
   const [notes,        setNotes]        = useState("");
 
-  /* Submit */
+  /* ── Submit state ─────────────────────────────────────────── */
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
+  /* ── Layout state ─────────────────────────────────────────── */
+  const [isDesktop,       setIsDesktop]       = useState(false);
+  const [showTopCaret,    setShowTopCaret]    = useState(false);
+  const [showBottomCaret, setShowBottomCaret] = useState(false);
+
+  const bodyRef     = useRef<HTMLDivElement>(null);
+  const inputRef    = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ── Desktop detection ────────────────────────────────────── */
+  useEffect(() => {
+    const mq      = window.matchMedia("(min-width: 640px)");
+    setIsDesktop(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  /* ── Body scroll lock ─────────────────────────────────────── */
   useEffect(() => {
     if (!open) return;
     const scrollY = window.scrollY;
@@ -69,23 +118,74 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     };
   }, [open]);
 
-  /* Reset when sheet opens */
+  /* ── Search helpers ───────────────────────────────────────── */
+  function loadPopular() {
+    const supabase = createClient();
+    supabase
+      .from("cigar_catalog")
+      .select(CATALOG_SELECT)
+      .order("usage_count", { ascending: false })
+      .limit(20)
+      .then(({ data }) => { setResults(data ?? []); setIsPopular(true); });
+  }
+
+  const doSearch = useCallback(async (q: string) => {
+    setSearching(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("cigar_catalog")
+      .select(CATALOG_SELECT)
+      .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
+      .limit(8);
+    setResults(data ?? []);
+    setIsPopular(false);
+    setSearching(false);
+  }, []);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      loadPopular();
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, doSearch]);
+
+  /* ── Reset on open ────────────────────────────────────────── */
   useEffect(() => {
     if (!open) return;
-    setSelected(null); setIsManual(false);
+    setSelected(null); setIsManual(false); setQuery("");
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
     setSubmitToCatalog(true);
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
+    loadPopular();
+    setTimeout(() => inputRef.current?.focus(), 120);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  /* ── Handlers ────────────────────────────────────────────── */
+  /* ── Scroll caret tracking ────────────────────────────────── */
+  function updateCarets() {
+    const el = bodyRef.current;
+    if (!el) return;
+    setShowTopCaret(el.scrollTop > 4);
+    setShowBottomCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }
 
+  useEffect(() => {
+    const id = requestAnimationFrame(updateCarets);
+    return () => cancelAnimationFrame(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, selected, isManual, open]);
+
+  /* ── Handlers ─────────────────────────────────────────────── */
   function handleClear() {
     setSelected(null);
     setIsManual(false);
+    setTimeout(() => inputRef.current?.focus(), 80);
   }
 
   async function handleSubmit() {
@@ -105,7 +205,6 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     const supabase = createClient();
 
     try {
-      /* 1 — Resolve cigar_catalog id */
       let cigarId: string;
 
       if (selected) {
@@ -127,28 +226,25 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
         cigarId = data as string;
       }
 
-      /* 2 — Current user */
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setSubmitError("Not authenticated."); return; }
 
-      /* 3 — Insert humidor item */
       const priceCents = priceStr ? Math.round(parseFloat(priceStr) * 100) : null;
       const { error: insertErr } = await supabase.from("humidor_items").insert({
-        user_id:          user.id,
-        cigar_id:         cigarId,
+        user_id:           user.id,
+        cigar_id:          cigarId,
         quantity,
-        purchase_date:    purchaseDate    || null,
-        price_paid_cents: isNaN(priceCents ?? NaN) ? null : priceCents,
-        source:           source.trim()   || null,
+        purchase_date:     purchaseDate     || null,
+        price_paid_cents:  isNaN(priceCents ?? NaN) ? null : priceCents,
+        source:            source.trim()    || null,
         aging_start_date:  agingStart       || null,
         aging_target_date: agingTarget      || null,
-        notes:             notes.trim()    || null,
-        is_wishlist:      false,
+        notes:             notes.trim()     || null,
+        is_wishlist:       false,
       });
 
       if (insertErr) { setSubmitError(insertErr.message); return; }
 
-      /* 4 — Increment usage_count on the selected catalog row */
       if (selected) {
         await supabase
           .from("cigar_catalog")
@@ -156,13 +252,12 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           .eq("id", selected.id);
       }
 
-      /* 5 — Optionally submit catalog suggestion for manual entries */
       if (isManual && submitToCatalog && brand) {
         await supabase.from("cigar_catalog_suggestions").insert({
           suggested_by:    user.id,
           brand,
           series:          series          || null,
-          name:            [brand, series, format].filter(Boolean).join(" — "),
+          name:            [brand, series, format].filter(Boolean).join(" - "),
           format:          format          || null,
           ring_gauge:      ringGauge,
           length_inches:   lengthInches,
@@ -198,30 +293,49 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
         aria-hidden="true"
       />
 
-      {/* Sheet panel */}
+      {/* Modal */}
       <div
         role="dialog"
         aria-modal="true"
         aria-label="Add cigar to humidor"
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col"
-        style={{
+        className="fixed z-50 flex flex-col"
+        style={isDesktop ? {
+          top:             "50%",
+          left:            "50%",
+          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, calc(-50% + 24px))",
+          opacity:         open ? 1 : 0,
+          transition:      "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease",
+          pointerEvents:   open ? "auto" : "none",
+          width:           "min(90vw, 640px)",
+          height:          "80dvh",
+          backgroundColor: "var(--background)",
+          borderRadius:    20,
+          border:          "1px solid var(--border)",
+          overflow:        "hidden",
+        } : {
+          left:                 0,
+          right:                0,
+          bottom:               0,
+          transform:            open ? "translateY(0)" : "translateY(100%)",
+          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
           height:               "calc(100dvh - 48px)",
           backgroundColor:      "var(--background)",
           borderTopLeftRadius:  20,
           borderTopRightRadius: 20,
           borderTop:            "1px solid var(--border)",
-          transform:            open ? "translateY(0)" : "translateY(100%)",
-          transition:           "transform 320ms cubic-bezier(0.32,0.72,0,1)",
+          overflow:             "hidden",
         }}
       >
-        {/* Drag handle */}
-        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-          <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-        </div>
+        {/* Drag handle — mobile only */}
+        {!isDesktop && (
+          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
+          </div>
+        )}
 
-        {/* Header */}
+        {/* ── Fixed header: title ──────────────────────────── */}
         <div
-          className="flex items-center justify-between px-5 pb-4 flex-shrink-0"
+          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
           style={{ borderBottom: "1px solid var(--border)" }}
         >
           <h2
@@ -242,354 +356,503 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto overscroll-contain px-5 pt-5 pb-8 space-y-5">
-
-          {/* ── Search ─────────────────────────────────────────── */}
-          {!hasSelection && (
-            <CigarSearch
-              onSelect={setSelected}
-              onManual={() => setIsManual(true)}
-              autoFocus={open}
-            />
-          )}
-
-          {/* ── Selected cigar card ─────────────────────────────── */}
-          {selected && (
-            <div
-              className="rounded-2xl p-4 animate-fade-in"
-              style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  {selected.brand && (
-                    <p
-                      className="text-[11px] font-bold tracking-widest uppercase mb-1"
-                      style={{ color: "var(--primary)" }}
-                    >
-                      {selected.brand}
-                    </p>
-                  )}
-                  <p
-                    className="text-base font-semibold text-foreground leading-snug"
-                    style={{ fontFamily: "var(--font-serif)" }}
-                  >
-                    {selected.series ?? selected.format}
-                  </p>
-                  {(selected.format || selected.wrapper || selected.ring_gauge) && (
-                    <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-                      {[
-                        selected.format,
-                        selected.wrapper,
-                        selected.ring_gauge    ? `${selected.ring_gauge} ring`  : null,
-                        selected.length_inches ? `${selected.length_inches}"`   : null,
-                      ].filter(Boolean).join(" · ")}
-                    </p>
-                  )}
-                </div>
-                <button
-                  onClick={handleClear}
-                  className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
-                  style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
-                >
-                  Change
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ── Manual entry fields ─────────────────────────────── */}
-          {isManual && (
-            <div className="space-y-4 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
-                <button
-                  onClick={handleClear}
-                  className="text-xs"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  ← Back to search
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Brand <span style={{ color: "var(--destructive)" }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.brand}
-                    onChange={(e) => setManual((m) => ({ ...m, brand: e.target.value }))}
-                    placeholder="e.g. Arturo Fuente"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Series / Name
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.series}
-                    onChange={(e) => setManual((m) => ({ ...m, series: e.target.value }))}
-                    placeholder="e.g. Opus X"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Format / Vitola
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.format}
-                    onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
-                    placeholder="e.g. Robusto"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Ring Gauge
-                  </label>
-                  <input
-                    type="number"
-                    value={manual.ringGauge}
-                    onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
-                    placeholder="50"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Length (inches)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.25"
-                    value={manual.lengthInches}
-                    onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
-                    placeholder="5.0"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Wrapper
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.wrapper}
-                    onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
-                    placeholder="e.g. Colorado"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                    Wrapper Country
-                  </label>
-                  <input
-                    type="text"
-                    value={manual.wrapperCountry}
-                    onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
-                    placeholder="e.g. Dominican Republic"
-                    className="input w-full text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-              </div>
-
-              {/* Submit to catalog checkbox */}
-              <label className="flex items-start gap-3 cursor-pointer select-none">
-                <div
-                  className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
-                  style={{
-                    width: 20, height: 20,
-                    backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
-                    border: `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
-                  }}
-                  onClick={() => setSubmitToCatalog((v) => !v)}
-                >
-                  {submitToCatalog && (
-                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-                      <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </div>
-                <div onClick={() => setSubmitToCatalog((v) => !v)}>
-                  <p className="text-sm font-medium text-foreground">Submit to catalog</p>
-                  <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                    Help the community — we&apos;ll review and add it.
-                  </p>
-                </div>
-              </label>
-            </div>
-          )}
-
-          {/* ── Humidor details ─────────────────────────────────── */}
-          {hasSelection && (
-            <div
-              className="space-y-4 pt-5 animate-slide-up"
-              style={{ borderTop: "1px solid var(--border)" }}
-            >
-              <h3 className="text-sm font-semibold text-foreground">Humidor Details</h3>
-
-              {/* Quantity stepper */}
-              <div>
-                <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>
-                  Quantity
-                </label>
-                <div className="flex items-center gap-4">
-                  <button
-                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="flex items-center justify-center rounded-xl text-xl font-light transition-colors active:opacity-70"
-                    style={{ width: 48, height: 48, backgroundColor: "var(--muted)", color: "var(--foreground)" }}
-                    aria-label="Decrease quantity"
-                  >
-                    −
-                  </button>
-                  <span className="text-xl font-semibold text-foreground w-10 text-center tabular-nums">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity((q) => q + 1)}
-                    className="flex items-center justify-center rounded-xl text-xl font-light transition-colors active:opacity-70"
-                    style={{ width: 48, height: 48, backgroundColor: "var(--muted)", color: "var(--foreground)" }}
-                    aria-label="Increase quantity"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-
-              {/* Purchase date */}
-              <div style={{ overflow: "hidden" }}>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Purchase Date
-                </label>
-                <input
-                  type="date"
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                  className="input text-sm"
-                  style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
-                />
-              </div>
-
-              {/* Price per cigar */}
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Price Per Cigar
-                </label>
-                <div className="relative">
-                  <span
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-sm"
-                    style={{ color: "var(--muted-foreground)" }}
-                  >
-                    $
-                  </span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={priceStr}
-                    onChange={(e) => setPriceStr(e.target.value)}
-                    placeholder="0.00"
-                    className="input w-full pl-8 text-sm"
-                    style={{ minHeight: 48 }}
-                  />
-                </div>
-              </div>
-
-              {/* Source */}
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Source / Retailer
-                </label>
-                <input
-                  type="text"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  placeholder="e.g. Famous Smoke Shop"
-                  className="input w-full text-sm"
-                  style={{ minHeight: 48 }}
-                />
-              </div>
-
-              {/* Aging start date */}
-              <div style={{ overflow: "hidden" }}>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Start Aging
-                </label>
-                <input
-                  type="date"
-                  value={agingStart}
-                  onChange={(e) => setAgingStart(e.target.value)}
-                  className="input text-sm"
-                  style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
-                />
-              </div>
-
-              {/* Aging target date */}
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Ready to Smoke By
-                </label>
-                <AgingTargetSelect
-                  value={agingTarget}
-                  onChange={setAgingTarget}
-                  defaultPreset="2_weeks"
-                />
-              </div>
-
-              {/* Notes */}
-              <div>
-                <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                  Notes
-                </label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Storage location, thoughts…"
-                  rows={3}
-                  className="input w-full resize-none text-sm py-3"
-                />
-              </div>
-
-              {/* Error */}
-              {submitError && (
-                <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>
-                  {submitError}
-                </p>
-              )}
-
-              {/* Submit */}
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="btn btn-primary w-full disabled:opacity-40"
-                style={{ minHeight: 52 }}
+        {/* ── Fixed search bar ─────────────────────────────── */}
+        {!hasSelection && (
+          <div
+            className="px-5 py-3 flex-shrink-0"
+            style={{ borderBottom: "1px solid var(--border)" }}
+          >
+            <div className="relative">
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ color: "var(--muted-foreground)" }}
+                width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"
               >
-                {submitting ? (
-                  <span className="flex items-center justify-center gap-2">
+                <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+                <path d="M12 12l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search cigars…"
+                className="input w-full pl-11 pr-4 text-base"
+                style={{ minHeight: 48 }}
+                autoComplete="off"
+              />
+              {searching && (
+                <span className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <span
+                    className="rounded-full border animate-spin block"
+                    style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
+                  />
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Scrollable body (relative for caret overlays) ── */}
+        <div className="relative flex-1 min-h-0">
+
+          <div
+            ref={bodyRef}
+            className="h-full overflow-y-auto overscroll-contain"
+            onScroll={updateCarets}
+          >
+
+            {/* Results list — shown when not yet selected */}
+            {!hasSelection && (
+              <div className="pb-4">
+                {isPopular && results.length > 0 && (
+                  <div className="px-5 pt-4 pb-2">
                     <span
-                      className="rounded-full border animate-spin"
-                      style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
-                    />
-                    Adding…
-                  </span>
-                ) : (
-                  `Add ${quantity > 1 ? `${quantity} ` : ""}to Humidor`
+                      className="text-[10px] font-bold tracking-widest uppercase"
+                      style={{ color: "var(--muted-foreground)" }}
+                    >
+                      Popular Cigars
+                    </span>
+                  </div>
                 )}
-              </button>
+
+                {results.map((r, i) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => { setSelected(r); setQuery(""); }}
+                    className="w-full text-left px-5 flex flex-col justify-center transition-colors active:opacity-70"
+                    style={{
+                      minHeight:    56,
+                      borderBottom: i < results.length - 1 ? "1px solid var(--border)" : "none",
+                    }}
+                  >
+                    <span className="text-sm font-semibold text-foreground leading-snug">
+                      <Highlight text={r.brand ?? ""} query={query} />
+                      {r.series && (
+                        <span className="font-normal text-muted-foreground">
+                          {" · "}<Highlight text={r.series} query={query} />
+                        </span>
+                      )}
+                    </span>
+                    {(r.format || r.wrapper || r.ring_gauge) && (
+                      <span className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                        {[
+                          r.format,
+                          r.wrapper,
+                          r.ring_gauge    ? `${r.ring_gauge} ring` : null,
+                          r.length_inches ? `${r.length_inches}"`  : null,
+                        ].filter(Boolean).join(" · ")}
+                      </span>
+                    )}
+                  </button>
+                ))}
+
+                {!searching && query.trim() && results.length === 0 && (
+                  <div className="px-5 py-6 text-center">
+                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                      No results for &ldquo;{query}&rdquo;
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ borderTop: results.length > 0 ? "1px solid var(--border)" : undefined }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsManual(true)}
+                    className="w-full text-sm text-center transition-colors active:opacity-70"
+                    style={{ minHeight: 48, color: "var(--muted-foreground)" }}
+                  >
+                    Can&apos;t find it? Add manually
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Selection + form */}
+            {hasSelection && (
+              <div className="px-5 pt-5 pb-8 space-y-5">
+
+                {/* Selected cigar card */}
+                {selected && (
+                  <div
+                    className="rounded-2xl p-4 animate-fade-in"
+                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        {selected.brand && (
+                          <p
+                            className="text-[11px] font-bold tracking-widest uppercase mb-1"
+                            style={{ color: "var(--primary)" }}
+                          >
+                            {selected.brand}
+                          </p>
+                        )}
+                        <p
+                          className="text-base font-semibold text-foreground leading-snug"
+                          style={{ fontFamily: "var(--font-serif)" }}
+                        >
+                          {selected.series ?? selected.format}
+                        </p>
+                        {(selected.format || selected.wrapper || selected.ring_gauge) && (
+                          <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
+                            {[
+                              selected.format,
+                              selected.wrapper,
+                              selected.ring_gauge    ? `${selected.ring_gauge} ring`  : null,
+                              selected.length_inches ? `${selected.length_inches}"`   : null,
+                            ].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                      <button
+                        onClick={handleClear}
+                        className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
+                        style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Manual entry fields */}
+                {isManual && (
+                  <div className="space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
+                      <button
+                        onClick={handleClear}
+                        className="text-xs"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        Back to search
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Brand <span style={{ color: "var(--destructive)" }}>*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.brand}
+                          onChange={(e) => setManual((m) => ({ ...m, brand: e.target.value }))}
+                          placeholder="e.g. Arturo Fuente"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Series / Name
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.series}
+                          onChange={(e) => setManual((m) => ({ ...m, series: e.target.value }))}
+                          placeholder="e.g. Opus X"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Format / Vitola
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.format}
+                          onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
+                          placeholder="e.g. Robusto"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Ring Gauge
+                        </label>
+                        <input
+                          type="number"
+                          value={manual.ringGauge}
+                          onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
+                          placeholder="50"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Length (inches)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.25"
+                          value={manual.lengthInches}
+                          onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
+                          placeholder="5.0"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Wrapper
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.wrapper}
+                          onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
+                          placeholder="e.g. Colorado"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Wrapper Country
+                        </label>
+                        <input
+                          type="text"
+                          value={manual.wrapperCountry}
+                          onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
+                          placeholder="e.g. Dominican Republic"
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        />
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-3 cursor-pointer select-none">
+                      <div
+                        className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
+                        style={{
+                          width:           20,
+                          height:          20,
+                          backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
+                          border:          `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
+                        }}
+                        onClick={() => setSubmitToCatalog((v) => !v)}
+                      >
+                        {submitToCatalog && (
+                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
+                            <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </div>
+                      <div onClick={() => setSubmitToCatalog((v) => !v)}>
+                        <p className="text-sm font-medium text-foreground">Submit to catalog</p>
+                        <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                          Help the community — we&apos;ll review and add it.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
+                )}
+
+                {/* Humidor details */}
+                <div
+                  className="space-y-4 pt-5"
+                  style={{ borderTop: "1px solid var(--border)" }}
+                >
+                  <h3 className="text-sm font-semibold text-foreground">Humidor Details</h3>
+
+                  {/* Quantity stepper */}
+                  <div>
+                    <label className="block text-xs font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>
+                      Quantity
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <button
+                        onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                        className="flex items-center justify-center rounded-xl text-xl font-light transition-colors active:opacity-70"
+                        style={{ width: 48, height: 48, backgroundColor: "var(--muted)", color: "var(--foreground)" }}
+                        aria-label="Decrease quantity"
+                      >
+                        −
+                      </button>
+                      <span className="text-xl font-semibold text-foreground w-10 text-center tabular-nums">
+                        {quantity}
+                      </span>
+                      <button
+                        onClick={() => setQuantity((q) => q + 1)}
+                        className="flex items-center justify-center rounded-xl text-xl font-light transition-colors active:opacity-70"
+                        style={{ width: 48, height: 48, backgroundColor: "var(--muted)", color: "var(--foreground)" }}
+                        aria-label="Increase quantity"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Purchase date */}
+                  <div style={{ overflow: "hidden" }}>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Purchase Date
+                    </label>
+                    <input
+                      type="date"
+                      value={purchaseDate}
+                      onChange={(e) => setPurchaseDate(e.target.value)}
+                      className="input text-sm"
+                      style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
+                    />
+                  </div>
+
+                  {/* Price per cigar */}
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Price Per Cigar
+                    </label>
+                    <div className="relative">
+                      <span
+                        className="absolute left-4 top-1/2 -translate-y-1/2 text-sm"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={priceStr}
+                        onChange={(e) => setPriceStr(e.target.value)}
+                        placeholder="0.00"
+                        className="input w-full pl-8 text-sm"
+                        style={{ minHeight: 48 }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Source */}
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Source / Retailer
+                    </label>
+                    <input
+                      type="text"
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      placeholder="e.g. Famous Smoke Shop"
+                      className="input w-full text-sm"
+                      style={{ minHeight: 48 }}
+                    />
+                  </div>
+
+                  {/* Aging start */}
+                  <div style={{ overflow: "hidden" }}>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Start Aging
+                    </label>
+                    <input
+                      type="date"
+                      value={agingStart}
+                      onChange={(e) => setAgingStart(e.target.value)}
+                      className="input text-sm"
+                      style={{ display: "block", width: "100%", minWidth: 0, boxSizing: "border-box", minHeight: 48 }}
+                    />
+                  </div>
+
+                  {/* Aging target */}
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Ready to Smoke By
+                    </label>
+                    <AgingTargetSelect
+                      value={agingTarget}
+                      onChange={setAgingTarget}
+                      defaultPreset="2_weeks"
+                    />
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                      Notes
+                    </label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Storage location, thoughts…"
+                      rows={3}
+                      className="input w-full resize-none text-sm py-3"
+                    />
+                  </div>
+
+                  {submitError && (
+                    <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>
+                      {submitError}
+                    </p>
+                  )}
+
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="btn btn-primary w-full disabled:opacity-40"
+                    style={{ minHeight: 52 }}
+                  >
+                    {submitting ? (
+                      <span className="flex items-center justify-center gap-2">
+                        <span
+                          className="rounded-full border animate-spin"
+                          style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
+                        />
+                        Adding…
+                      </span>
+                    ) : (
+                      `Add ${quantity > 1 ? `${quantity} ` : ""}to Humidor`
+                    )}
+                  </button>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* Top scroll caret */}
+          {showTopCaret && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                top:            0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-start",
+                justifyContent: "center",
+                paddingTop:     8,
+                pointerEvents:  "none",
+              }}
+            >
+              <Caret dir="up" />
+            </div>
+          )}
+
+          {/* Bottom scroll caret */}
+          {showBottomCaret && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                bottom:         0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to top, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-end",
+                justifyContent: "center",
+                paddingBottom:  8,
+                pointerEvents:  "none",
+              }}
+            >
+              <Caret dir="down" />
             </div>
           )}
 
