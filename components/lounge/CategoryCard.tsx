@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter }                                   from "next/navigation";
-import { createClient }                               from "@/utils/supabase/client";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter }                                           from "next/navigation";
+import { createClient }                                       from "@/utils/supabase/client";
 import { formatDistanceToNow }                        from "date-fns";
 
 /* ------------------------------------------------------------------ */
@@ -119,13 +119,23 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const [expanded,    setExpanded]    = useState(false);
-  const [posts,       setPosts]       = useState<PostRow[]>([]);
-  const [sort,        setSort]        = useState<"latest" | "top">("latest");
-  const [page,        setPage]        = useState(1);
-  const [loading,     setLoading]     = useState(false);
-  const [hasMore,     setHasMore]     = useState(false);
-  const [fetchedOnce, setFetchedOnce] = useState(false);
+  const [expanded,       setExpanded]       = useState(false);
+  const [posts,          setPosts]          = useState<PostRow[]>([]);
+  const [sort,           setSort]           = useState<"latest" | "top">("latest");
+  const [page,           setPage]           = useState(1);
+  const [loading,        setLoading]        = useState(false);
+  const [hasMore,        setHasMore]        = useState(false);
+  const [fetchedOnce,    setFetchedOnce]    = useState(false);
+  const [localPostCount, setLocalPostCount] = useState(category.post_count);
+  const [localLastPost,  setLocalLastPost]  = useState(category.last_post_at);
+
+  // Refs so realtime callback sees current values without re-subscribing
+  const expandedRef = useRef(expanded);
+  const pageRef     = useRef(page);
+  const sortRef     = useRef(sort);
+  useEffect(() => { expandedRef.current = expanded; }, [expanded]);
+  useEffect(() => { pageRef.current     = page;     }, [page]);
+  useEffect(() => { sortRef.current     = sort;     }, [sort]);
 
   const isBurnReports = category.slug === "burn-reports";
 
@@ -192,6 +202,74 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
     }
   }, [expanded, fetchedOnce, fetchPosts, sort]);
 
+  /* ---- Realtime subscription --------------------------------------- */
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`forum-posts-${category.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event:  "INSERT",
+          schema: "public",
+          table:  "forum_posts",
+          filter: `category_id=eq.${category.id}`,
+        },
+        async (payload) => {
+          const row = payload.new as {
+            id:         string;
+            title:      string;
+            created_at: string;
+            user_id:    string | null;
+            is_system:  boolean;
+          };
+
+          if (row.is_system) return;
+
+          // Update header stats immediately
+          setLocalPostCount((n) => n + 1);
+          setLocalLastPost(row.created_at);
+
+          // If expanded on page 1 sorted by latest, prepend the new post
+          if (expandedRef.current && pageRef.current === 1 && sortRef.current === "latest") {
+            let display_name: string | null = null;
+            let avatar_url:   string | null = null;
+
+            if (row.user_id) {
+              const { data } = await supabase
+                .from("profiles")
+                .select("display_name, avatar_url")
+                .eq("id", row.user_id)
+                .single();
+              display_name = data?.display_name ?? null;
+              avatar_url   = data?.avatar_url   ?? null;
+            }
+
+            const newPost: PostRow = {
+              id:            row.id,
+              title:         row.title,
+              created_at:    row.created_at,
+              user_id:       row.user_id,
+              display_name,
+              avatar_url,
+              like_count:    0,
+              comment_count: 0,
+            };
+
+            setPosts((prev) => {
+              if (prev.some((p) => p.id === newPost.id)) return prev;
+              return [newPost, ...prev];
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [category.id, supabase]);
+
   function handleSortChange(newSort: "latest" | "top") {
     if (newSort === sort) return;
     setSort(newSort);
@@ -257,9 +335,9 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
               {category.description}
             </p>
             <p className="text-xs mt-1.5" style={{ color: "var(--muted-foreground)", opacity: 0.7 }}>
-              {category.post_count.toLocaleString()} post{category.post_count !== 1 ? "s" : ""}
+              {localPostCount.toLocaleString()} post{localPostCount !== 1 ? "s" : ""}
               {(() => {
-                const rel = relativeLastPost(category.last_post_at);
+                const rel = relativeLastPost(localLastPost);
                 return rel ? <>&nbsp;&nbsp;Last post {rel}</> : null;
               })()}
             </p>
