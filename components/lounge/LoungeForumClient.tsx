@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { createPortal }                  from "react-dom";
-import { createClient }                  from "@/utils/supabase/client";
-import { CategoryCard }                  from "./CategoryCard";
-import { NewPostSheet }                  from "./NewPostSheet";
-import { PostModal }                     from "./PostModal";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal }                               from "react-dom";
+import { useRouter }                                  from "next/navigation";
+import { createClient }                               from "@/utils/supabase/client";
+import { CategoryCard }                               from "./CategoryCard";
+import { NewPostSheet }                               from "./NewPostSheet";
+import { PostModal }                                  from "./PostModal";
 
 /* ------------------------------------------------------------------ */
 
@@ -251,8 +252,19 @@ export function LoungeForumClient({
   const [showRules,       setShowRules]       = useState(false);
   const [toast,           setToast]           = useState<string | null>(null);
   const [selectedPostId,  setSelectedPostId]  = useState<string | null>(null);
+  const [refreshKey,      setRefreshKey]      = useState(0);
+  const [refreshing,      setRefreshing]      = useState(false);
 
+  const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  const handleRefresh = useCallback(async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    router.refresh();
+    setRefreshKey((k) => k + 1);
+    setTimeout(() => setRefreshing(false), 800);
+  }, [refreshing, router]);
   const canPost  = membershipTier !== "free";
 
   function showToast(msg: string) {
@@ -427,6 +439,37 @@ export function LoungeForumClient({
         <h1 className="font-serif text-xl font-semibold flex-1" style={{ color: "var(--foreground)" }}>
           The Lounge
         </h1>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-label="Refresh"
+          className="md:hidden flex items-center justify-center rounded-full"
+          style={{
+            width:                   36,
+            height:                  36,
+            background:              "transparent",
+            border:                  "1px solid var(--border)",
+            color:                   "var(--muted-foreground)",
+            cursor:                  refreshing ? "default" : "pointer",
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            flexShrink:              0,
+          }}
+        >
+          <svg
+            width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true"
+            style={{
+              transition: "transform 0.6s ease",
+              transform:  refreshing ? "rotate(360deg)" : "rotate(0deg)",
+            }}
+          >
+            <path
+              d="M7.5 1.5A6 6 0 1 1 2.636 4M7.5 1.5V4.5M7.5 1.5H4.5"
+              stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+            />
+          </svg>
+        </button>
       </div>
 
       {/* Content offset */}
@@ -484,6 +527,7 @@ export function LoungeForumClient({
               category={c}
               userId={userId}
               canPost={canPost}
+              refreshKey={refreshKey}
               onNewPost={handleNewPost}
               onPostClick={(postId) => setSelectedPostId(postId)}
             />
