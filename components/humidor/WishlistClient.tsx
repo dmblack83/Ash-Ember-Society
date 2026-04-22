@@ -228,7 +228,7 @@ function AddWishlistSheet({
                     </p>
                   )}
                   <p className="text-base font-semibold text-foreground leading-snug" style={{ fontFamily: "var(--font-serif)" }}>
-                    {selected.series ?? selected.name}
+                    {selected.series ?? selected.brand}
                   </p>
                   {(selected.format || selected.wrapper || selected.ring_gauge) && (
                     <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
@@ -487,7 +487,7 @@ function WishlistCard({
         <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
           <img
             src={getCigarImage(c.image_url, c.wrapper)}
-            alt={c.series ?? c.name}
+            alt={c.series ?? c.brand ?? ""}
             className="w-full h-full object-contain"
             loading="lazy"
           />
@@ -495,7 +495,7 @@ function WishlistCard({
 
         <div className="flex flex-col gap-1 min-w-0 pr-8">
           <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">{c.brand}</p>
-          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">{c.series ?? c.name}</h3>
+          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">{c.series ?? c.brand}</h3>
           {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
           {(c.wrapper || c.ring_gauge) && (
             <p className="text-xs text-muted-foreground mt-1 truncate">
@@ -533,14 +533,14 @@ function WishlistListRow({
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
         <img
           src={getCigarImage(c.image_url, c.wrapper)}
-          alt={c.series ?? c.name}
+          alt={c.series ?? c.brand ?? ""}
           className="w-full h-full object-contain"
         />
       </div>
 
       <div className="flex-1 min-w-0">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{c.brand}</p>
-        <p className="text-sm font-semibold text-foreground truncate">{c.series ?? c.name}</p>
+        <p className="text-sm font-semibold text-foreground truncate">{c.series ?? c.brand}</p>
         {(c.format || c.wrapper) && (
           <p className="text-xs text-muted-foreground truncate">
             {[c.format, c.wrapper].filter(Boolean).join(" · ")}
@@ -651,7 +651,7 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     const supabase = createClient();
     const { data, error: fetchError } = await supabase
       .from("humidor_items")
-      .select("id, cigar_id, created_at, cigar:cigar_catalog(id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)")
+      .select("id, cigar_id, created_at, cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)")
       .eq("user_id", userId)
       .eq("is_wishlist", true)
       .order("created_at", { ascending: false });

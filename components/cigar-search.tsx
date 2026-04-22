@@ -11,7 +11,6 @@ export interface CatalogResult {
   id:              string;
   brand:           string | null;
   series:          string | null;
-  name:            string;
   format:          string | null;
   ring_gauge:      number | null;
   length_inches:   number | null;
@@ -22,7 +21,7 @@ export interface CatalogResult {
 }
 
 const CATALOG_SELECT =
-  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
 
 /* ------------------------------------------------------------------
    Gold-highlight matched text
@@ -102,7 +101,7 @@ export function CigarSearch({
     const { data } = await supabase
       .from("cigar_catalog")
       .select(CATALOG_SELECT)
-      .or(`name.ilike.%${q}%,brand.ilike.%${q}%,series.ilike.%${q}%`)
+      .or(`brand.ilike.%${q}%,series.ilike.%${q}%`)
       .limit(8);
     setResults(data ?? []);
     setIsPopular(false);

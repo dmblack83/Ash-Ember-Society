@@ -197,7 +197,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         {cigar && (
           <>
             <p className="text-xs uppercase tracking-widest font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{cigar.brand}</p>
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>{cigar.series ?? cigar.name}</p>
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>{cigar.series ?? cigar.brand}</p>
             {cigar.format && <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>}
           </>
         )}
@@ -491,7 +491,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
       if (raw.smoke_log_id) {
         const { data: logData } = await supabase
           .from("smoke_logs")
-          .select("id, cigar_id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, cigar:cigar_catalog(brand, series, name, format)")
+          .select("id, cigar_id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, cigar:cigar_catalog(brand, series, format)")
           .eq("id", raw.smoke_log_id as string)
           .single();
         if (logData) {
