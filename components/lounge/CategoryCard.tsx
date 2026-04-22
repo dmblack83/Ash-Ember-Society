@@ -130,6 +130,10 @@ export function CategoryCard({ category, userId, canPost, refreshKey, onNewPost,
   const [localPostCount, setLocalPostCount] = useState(category.post_count);
   const [localLastPost,  setLocalLastPost]  = useState(category.last_post_at);
 
+  // Sync stats when server re-fetches (router.refresh) deliver new props
+  useEffect(() => { setLocalPostCount(category.post_count);   }, [category.post_count]);
+  useEffect(() => { setLocalLastPost(category.last_post_at);  }, [category.last_post_at]);
+
   // Refs so realtime callback sees current values without re-subscribing
   const expandedRef = useRef(expanded);
   const pageRef     = useRef(page);
