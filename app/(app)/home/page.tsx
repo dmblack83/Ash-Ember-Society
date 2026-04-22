@@ -48,7 +48,7 @@ export default async function HomePage() {
           .from("humidor_items")
           .select(
             "id, aging_start_date, aging_target_date, " +
-            "cigar:cigar_catalog(brand, series, name)"
+            "cigar:cigar_catalog(brand, series)"
           )
           .eq("user_id", user.id)
           .eq("is_wishlist", false)

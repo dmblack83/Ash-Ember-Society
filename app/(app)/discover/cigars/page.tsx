@@ -11,7 +11,7 @@ export default async function DiscoverCigarsPage() {
   const { data } = await supabase
     .from("cigar_catalog")
     .select(
-      "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url"
+      "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url"
     )
     .order("usage_count", { ascending: false })
     .limit(20);
