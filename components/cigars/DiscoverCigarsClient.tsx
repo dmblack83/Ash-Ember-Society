@@ -69,7 +69,7 @@ function CatalogGridCard({
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
         <img
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
-          alt={cigar.series ?? cigar.brand ?? ""}
+          alt={cigar.series ?? cigar.format ?? ""}
           className="w-full h-full object-contain"
           loading="lazy"
         />
@@ -81,7 +81,7 @@ function CatalogGridCard({
           {cigar.brand}
         </p>
         <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-          {cigar.series ?? cigar.brand ?? ""}
+          {cigar.series ?? cigar.format}
         </p>
         {cigar.format && (
           <p className="text-xs text-muted-foreground">
@@ -106,7 +106,7 @@ function CatalogGridCard({
             color:           "var(--foreground)",
             minHeight:       36,
           }}
-          aria-label={`Add ${cigar.series ?? cigar.brand ?? ""} to humidor`}
+          aria-label={`Add ${cigar.series ?? cigar.format} to humidor`}
         >
           <HumidorIcon />
           <span>Humidor</span>
@@ -123,7 +123,7 @@ function CatalogGridCard({
             height:          36,
             flexShrink:      0,
           }}
-          aria-label={`Add ${cigar.series ?? cigar.brand ?? ""} to wishlist`}
+          aria-label={`Add ${cigar.series ?? cigar.format} to wishlist`}
         >
           <WishlistIcon />
         </button>
@@ -161,7 +161,7 @@ function CatalogListRow({
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
         <img
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
-          alt={cigar.series ?? cigar.brand ?? ""}
+          alt={cigar.series ?? cigar.format ?? ""}
           className="w-full h-full object-contain"
           loading="lazy"
         />
@@ -173,7 +173,7 @@ function CatalogListRow({
           {cigar.brand}
         </p>
         <p className="text-sm font-semibold text-foreground truncate">
-          {cigar.series ?? cigar.brand ?? ""}
+          {cigar.series ?? cigar.format}
         </p>
         {cigar.wrapper && (
           <p className="text-xs text-muted-foreground truncate">{cigar.wrapper}</p>
@@ -199,7 +199,7 @@ function CatalogListRow({
             width:           36,
             height:          36,
           }}
-          aria-label={`Add ${cigar.series ?? cigar.brand ?? ""} to humidor`}
+          aria-label={`Add ${cigar.series ?? cigar.format} to humidor`}
         >
           <HumidorIcon />
         </button>
@@ -214,7 +214,7 @@ function CatalogListRow({
             width:           36,
             height:          36,
           }}
-          aria-label={`Add ${cigar.series ?? cigar.brand ?? ""} to wishlist`}
+          aria-label={`Add ${cigar.series ?? cigar.format} to wishlist`}
         >
           <WishlistIcon />
         </button>
@@ -316,7 +316,7 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
 
         if (isSearch) {
           q = q.or(
-            `brand.ilike.%${debouncedQ}%,series.ilike.%${debouncedQ}%`
+            `brand.ilike.%${debouncedQ}%,series.ilike.%${debouncedQ}%,format.ilike.%${debouncedQ}%`
           );
         } else {
           q = q.order("usage_count", { ascending: false });

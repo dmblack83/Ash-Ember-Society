@@ -52,6 +52,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
     .flatMap((w) => [
       `brand.ilike.%${w}%`,
       `series.ilike.%${w}%`,
+      `format.ilike.%${w}%`,
     ])
     .join(",");
 
@@ -69,18 +70,18 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
 
   type Scored = CatalogResult & { _score: number };
   const scored: Scored[] = data.map((cigar) => {
-    const brand      = (cigar.brand  ?? "").toLowerCase();
-    const seriesName = (cigar.series ?? "").toLowerCase();
+    const brand         = (cigar.brand  ?? "").toLowerCase();
+    const seriesFormat  = `${cigar.series ?? ""} ${cigar.format ?? ""}`.toLowerCase();
 
-    // Brand hits worth 3×, series hits worth 2×
-    const brandHits      = words.filter((w) => brand.includes(w)).length;
-    const seriesNameHits = words.filter((w) => seriesName.includes(w)).length;
+    // Brand hits worth 3×, series/format hits worth 2×
+    const brandHits        = words.filter((w) => brand.includes(w)).length;
+    const seriesFormatHits = words.filter((w) => seriesFormat.includes(w)).length;
     // Bonus if a word is an exact full match for the brand
-    const brandExact     = words.some((w) => brand === w) ? 3 : 0;
+    const brandExact       = words.some((w) => brand === w) ? 3 : 0;
 
     return {
       ...(cigar as CatalogResult),
-      _score: brandHits * 3 + seriesNameHits * 2 + brandExact,
+      _score: brandHits * 3 + seriesFormatHits * 2 + brandExact,
     };
   });
 
@@ -434,7 +435,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={getCigarImage(cigar.image_url, cigar.wrapper)}
-                          alt={cigar.series ?? cigar.brand ?? ""}
+                          alt={cigar.series ?? cigar.format ?? ""}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       </div>
@@ -445,7 +446,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
                           {cigar.brand}
                         </p>
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-                          {cigar.series ?? cigar.brand}
+                          {cigar.series ?? cigar.format}
                         </p>
                         {cigar.format && (
                           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>

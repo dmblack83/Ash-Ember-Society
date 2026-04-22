@@ -176,7 +176,7 @@ function RatingStars({ rating }: { rating: number }) {
 function GridCard({ item }: { item: HumidorItem }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
-  const displayName = c.series ?? c.brand ?? "";
+  const displayName = c.series ?? c.format;
 
   return (
     <Link href={`/humidor/${item.id}`} className="block">
@@ -196,7 +196,7 @@ function GridCard({ item }: { item: HumidorItem }) {
 
         {/* Cigar image */}
         <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.brand ?? ""} className="w-full h-full object-contain" loading="lazy" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" loading="lazy" />
         </div>
 
         {/* Info */}
@@ -232,14 +232,14 @@ function GridCard({ item }: { item: HumidorItem }) {
 function ListRow({ item }: { item: HumidorItem }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
-  const displayName = c.series ?? c.brand ?? "";
+  const displayName = c.series ?? c.format;
 
   return (
     <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.brand ?? ""} className="w-full h-full object-contain" loading="lazy" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" loading="lazy" />
         </div>
 
         {/* Brand + name */}

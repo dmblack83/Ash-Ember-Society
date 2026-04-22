@@ -6,8 +6,10 @@
  * like "Connecticut Shade" or "Habano Maduro" resolve correctly.
  */
 
+import { wrapperDisplay } from "@/lib/country-name";
+
 export function getCigarDefaultImage(wrapper: string | null | undefined): string {
-  const w = (wrapper ?? "").toLowerCase().trim();
+  const w = wrapperDisplay(wrapper ?? "").toLowerCase().trim();
 
   // Oscuro (darkest)
   if (w.includes("oscuro")) return "/Cigar Default Images/Oscuro.png";

@@ -308,7 +308,7 @@ function BurnReportCard({
     }
 
     const c = report.cigar;
-    const cigarLabel = [c?.brand, c?.series].filter(Boolean).join(" ");
+    const cigarLabel = [c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ");
     const title      = `${cigarLabel} — ${report.overall_rating ?? "N/A"}/100`;
     const content    = report.review_text?.trim() || `Rating: ${report.overall_rating ?? "N/A"}/100`;
 
@@ -381,7 +381,7 @@ function BurnReportCard({
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
           <img
             src={getCigarImage(c?.image_url, c?.wrapper)}
-            alt={c?.series ?? c?.brand ?? "Cigar"}
+            alt={c?.series ?? c?.format ?? "Cigar"}
             className="w-full h-full object-contain"
             loading="lazy"
           />
@@ -393,7 +393,7 @@ function BurnReportCard({
             {c?.brand ?? "Unknown Brand"}
           </p>
           <p className="text-sm font-semibold text-foreground truncate">
-            {c?.series ?? c?.brand ?? "Unknown Cigar"}
+            {c?.series ?? c?.format ?? "Unknown Cigar"}
           </p>
           {(c?.format || c?.wrapper) && (
             <p className="text-xs text-muted-foreground truncate">

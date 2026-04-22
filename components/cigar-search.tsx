@@ -101,7 +101,7 @@ export function CigarSearch({
     const { data } = await supabase
       .from("cigar_catalog")
       .select(CATALOG_SELECT)
-      .or(`brand.ilike.%${q}%,series.ilike.%${q}%`)
+      .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
       .limit(8);
     setResults(data ?? []);
     setIsPopular(false);

@@ -14,6 +14,7 @@ export interface AgingItem {
   cigar: {
     brand:  string | null;
     series: string | null;
+    format: string | null;
   };
 }
 
@@ -107,7 +108,7 @@ function AgingRow({ item }: { item: AgingItem }) {
   const router   = useRouter();
   const days     = daysUntil(item.aging_target_date);
   const duration = agingDuration(item.aging_start_date);
-  const display  = item.cigar.series ?? item.cigar.brand ?? "";
+  const display  = item.cigar.series ?? item.cigar.format;
 
   return (
     <button
