@@ -274,7 +274,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                     className="text-base font-semibold text-foreground leading-snug"
                     style={{ fontFamily: "var(--font-serif)" }}
                   >
-                    {selected.series ?? selected.name}
+                    {selected.series ?? selected.format}
                   </p>
                   {(selected.format || selected.wrapper || selected.ring_gauge) && (
                     <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>

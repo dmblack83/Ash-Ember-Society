@@ -28,7 +28,6 @@ export interface SmokeLogData {
   cigar: {
     brand:  string | null;
     series: string | null;
-    name:   string;
     format: string | null;
   } | null;
 }
@@ -244,7 +243,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
               {cigar.brand}
             </p>
             <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-              {cigar.series ?? cigar.name}
+              {cigar.series ?? cigar.format}
             </p>
             {cigar.format && (
               <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>

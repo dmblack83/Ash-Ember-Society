@@ -52,7 +52,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
     .flatMap((w) => [
       `brand.ilike.%${w}%`,
       `series.ilike.%${w}%`,
-      `name.ilike.%${w}%`,
+      `format.ilike.%${w}%`,
     ])
     .join(",");
 
@@ -60,7 +60,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
   const { data } = await supabase
     .from("cigar_catalog")
     .select(
-      "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url"
+      "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url"
     )
     .or(orFilter)
     .order("usage_count", { ascending: false })
@@ -70,7 +70,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
 
   type Scored = CatalogResult & { _score: number };
   const scored: Scored[] = data.map((cigar) => {
-    const text = `${cigar.brand ?? ""} ${cigar.series ?? ""} ${cigar.name}`.toLowerCase();
+    const text = `${cigar.brand ?? ""} ${cigar.series ?? ""} ${cigar.format ?? ""}`.toLowerCase();
     const hits = words.filter((w) => text.includes(w)).length;
     const brandExact = words.some((w) => (cigar.brand ?? "").toLowerCase() === w) ? 2 : 0;
     return { ...(cigar as CatalogResult), _score: hits + brandExact };
@@ -426,7 +426,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={getCigarImage(cigar.image_url, cigar.wrapper)}
-                          alt={cigar.name}
+                          alt={cigar.series ?? cigar.format ?? ""}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       </div>
@@ -437,7 +437,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
                           {cigar.brand}
                         </p>
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-                          {cigar.series ?? cigar.name}
+                          {cigar.series ?? cigar.format}
                         </p>
                         {cigar.format && (
                           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>

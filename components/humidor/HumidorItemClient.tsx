@@ -8,6 +8,7 @@ import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { getCigarImage } from "@/lib/cigar-default-image";
+import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 
@@ -650,7 +651,7 @@ export function HumidorItemClient({
 
     if (!category) { setSharingLogId(null); setToast("Could not find Burn Reports category."); return; }
 
-    const cigarLabel = [c.brand, c.series ?? c.name].filter(Boolean).join(" ");
+    const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
     const title      = `${cigarLabel} — ${log.overall_rating ?? "N/A"}`;
     const content    = log.review_text?.trim() || `Rating: ${log.overall_rating ?? "N/A"}`;
 
@@ -699,7 +700,7 @@ export function HumidorItemClient({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}
@@ -708,7 +709,7 @@ export function HumidorItemClient({
             {c.brand}
           </p>
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
-            {c.series ?? c.name}
+            {c.series ?? c.format}
           </h1>
           {c.format && (
             <p className="text-sm text-muted-foreground">{c.format}</p>
@@ -716,10 +717,10 @@ export function HumidorItemClient({
 
           {/* Wrapper / binder / filler chips */}
           <div className="flex flex-wrap gap-2 mt-2">
-            {c.wrapper && <Chip label="Wrapper" value={c.wrapper} />}
-            {c.binder_country && <Chip label="Binder" value={c.binder_country} />}
+            {c.wrapper && <Chip label="Wrapper" value={wrapperDisplay(c.wrapper)} />}
+            {c.binder_country && <Chip label="Binder" value={countryName(c.binder_country)} />}
             {c.filler_countries && c.filler_countries.length > 0 && (
-              <Chip label="Filler" value={c.filler_countries.join(", ")} />
+              <Chip label="Filler" value={c.filler_countries.map(countryName).join(", ")} />
             )}
           </div>
         </div>

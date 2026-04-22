@@ -212,7 +212,7 @@ function CigarContext({ item }: { item: BurnReportItem }) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getCigarImage(c.image_url, c.wrapper)}
-          alt={c.name}
+          alt={c.series ?? c.format ?? ""}
           className="w-full h-full object-cover"
         />
       </div>
@@ -224,7 +224,7 @@ function CigarContext({ item }: { item: BurnReportItem }) {
           className="text-sm font-semibold text-foreground truncate"
           style={{ fontFamily: "var(--font-serif)" }}
         >
-          {c.series ?? c.name}
+          {c.series ?? c.format}
         </p>
         {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
       </div>
@@ -726,7 +726,7 @@ function SummaryStep({
           {c.brand}
         </p>
         <p className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-          {c.series ?? c.name}
+          {c.series ?? c.format}
         </p>
         <p
           className="text-6xl font-bold leading-none mt-3"
@@ -836,7 +836,7 @@ function SuccessScreen({
   quantityAfter:       number;
   humidorItemId:       string;
   cigarBrand:          string | null;
-  cigarName:           string;
+  cigarName:           string | null;
   reviewText:          string;
   smokeLogId:          string | null;
   onRemoveFromHumidor: () => void;
@@ -1140,7 +1140,7 @@ export function BurnReport({
         quantityAfter={quantityAfter}
         humidorItemId={item.id}
         cigarBrand={item.cigar.brand}
-        cigarName={item.cigar.name}
+        cigarName={item.cigar.series ?? item.cigar.format}
         reviewText={form.review_text}
         smokeLogId={smokeLogId}
         onRemoveFromHumidor={handleRemoveFromHumidor}

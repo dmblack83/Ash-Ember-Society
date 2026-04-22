@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
 import { getCigarImage } from "@/lib/cigar-default-image";
+import { countryName, wrapperDisplay } from "@/lib/country-name";
 
 /* ------------------------------------------------------------------
    Types
@@ -13,7 +14,6 @@ interface CigarDetail {
   id: string;
   brand: string | null;
   series: string | null;
-  name: string;
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;
@@ -58,7 +58,7 @@ export default async function CigarDetailPage({
   const [{ data, error }, { data: { user } }] = await Promise.all([
     supabase
       .from("cigar_catalog")
-      .select("id, brand, series, name, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
+      .select("id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
       .eq("id", id)
       .single(),
     supabase.auth.getUser(),
@@ -82,16 +82,16 @@ export default async function CigarDetailPage({
   }
   /* Build details list — omit null/undefined fields */
   const details: { label: string; value: string }[] = [
-    c.wrapper        ? { label: "Wrapper",        value: c.wrapper }                     : null,
-    c.wrapper_country ? { label: "Wrapper Country", value: c.wrapper_country }           : null,
-    c.binder_country  ? { label: "Binder Country",  value: c.binder_country }            : null,
+    c.wrapper        ? { label: "Wrapper",          value: wrapperDisplay(c.wrapper) }                           : null,
+    c.wrapper_country ? { label: "Wrapper Country",  value: countryName(c.wrapper_country) }                    : null,
+    c.binder_country  ? { label: "Binder Country",   value: countryName(c.binder_country) }                     : null,
     (c.filler_countries && c.filler_countries.length > 0)
-      ? { label: "Filler Countries", value: c.filler_countries.join(", ") }              : null,
-    c.format         ? { label: "Format",         value: c.format }                      : null,
+      ? { label: "Filler Countries", value: c.filler_countries.map(countryName).join(", ") }                    : null,
+    c.format         ? { label: "Format",           value: c.format }                                           : null,
     c.ring_gauge != null
-      ? { label: "Ring Gauge", value: String(c.ring_gauge) }                              : null,
+      ? { label: "Ring Gauge", value: String(c.ring_gauge) }                                                    : null,
     c.length_inches != null
-      ? { label: "Length",     value: `${c.length_inches}"` }                            : null,
+      ? { label: "Length",     value: `${c.length_inches}"` }                                                   : null,
   ].filter((d): d is { label: string; value: string } => d !== null);
 
   return (
@@ -124,7 +124,7 @@ export default async function CigarDetailPage({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}
@@ -136,7 +136,7 @@ export default async function CigarDetailPage({
             className="text-foreground"
             style={{ fontFamily: "var(--font-serif)" }}
           >
-            {c.series ?? c.name}
+            {c.series ?? c.format}
           </h1>
           {c.format && (
             <p className="text-sm text-muted-foreground">{c.format}</p>
