@@ -32,6 +32,7 @@ interface Props {
   category:    Category;
   userId:      string;
   canPost:     boolean;
+  refreshKey?: number;
   onNewPost:   (categoryId: string) => void;
   onPostClick: (postId: string) => void;
 }
@@ -115,7 +116,7 @@ function Avatar({
 
 /* ------------------------------------------------------------------ */
 
-export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick }: Props) {
+export function CategoryCard({ category, userId, canPost, refreshKey, onNewPost, onPostClick }: Props) {
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
@@ -269,6 +270,15 @@ export function CategoryCard({ category, userId, canPost, onNewPost, onPostClick
       supabase.removeChannel(channel);
     };
   }, [category.id, supabase]);
+
+  // Re-fetch when parent triggers a manual refresh
+  useEffect(() => {
+    if (!refreshKey) return;
+    setFetchedOnce(false);
+    setPage(1);
+    if (expanded) fetchPosts(1, sort);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
   function handleSortChange(newSort: "latest" | "top") {
     if (newSort === sort) return;
