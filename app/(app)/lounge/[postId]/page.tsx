@@ -79,7 +79,7 @@ export default async function PostDetailPage({ params }: Props) {
         draw_rating, burn_rating, construction_rating, flavor_rating,
         pairing_drink, pairing_food, location, occasion,
         smoke_duration_minutes, review_text, photo_urls,
-        cigar:cigar_catalog(brand, series, name, format)
+        cigar:cigar_catalog(brand, series, format)
       `)
       .eq("id", raw.smoke_log_id as string)
       .single();

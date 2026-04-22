@@ -650,7 +650,7 @@ export function HumidorItemClient({
 
     if (!category) { setSharingLogId(null); setToast("Could not find Burn Reports category."); return; }
 
-    const cigarLabel = [c.brand, c.series ?? c.name].filter(Boolean).join(" ");
+    const cigarLabel = [c.brand, c.series].filter(Boolean).join(" ");
     const title      = `${cigarLabel} — ${log.overall_rating ?? "N/A"}`;
     const content    = log.review_text?.trim() || `Rating: ${log.overall_rating ?? "N/A"}`;
 
@@ -699,7 +699,7 @@ export function HumidorItemClient({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.brand ?? ""} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}
@@ -708,7 +708,7 @@ export function HumidorItemClient({
             {c.brand}
           </p>
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
-            {c.series ?? c.name}
+            {c.series ?? c.brand}
           </h1>
           {c.format && (
             <p className="text-sm text-muted-foreground">{c.format}</p>

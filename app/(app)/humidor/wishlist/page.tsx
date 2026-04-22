@@ -17,7 +17,7 @@ export default async function WishlistPage() {
   const { data: rows } = await supabase
     .from("humidor_items")
     .select(
-      "id, cigar_id, created_at, cigar:cigar_catalog(id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)"
+      "id, cigar_id, created_at, cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)"
     )
     .eq("user_id", user.id)
     .eq("is_wishlist", true)

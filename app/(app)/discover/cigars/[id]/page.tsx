@@ -13,7 +13,6 @@ interface CigarDetail {
   id: string;
   brand: string | null;
   series: string | null;
-  name: string;
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;
@@ -58,7 +57,7 @@ export default async function CigarDetailPage({
   const [{ data, error }, { data: { user } }] = await Promise.all([
     supabase
       .from("cigar_catalog")
-      .select("id, brand, series, name, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
+      .select("id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
       .eq("id", id)
       .single(),
     supabase.auth.getUser(),
@@ -124,7 +123,7 @@ export default async function CigarDetailPage({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.name} className="w-full h-full object-contain" />
+          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.brand ?? ""} className="w-full h-full object-contain" />
         </div>
 
         {/* Info */}
@@ -136,7 +135,7 @@ export default async function CigarDetailPage({
             className="text-foreground"
             style={{ fontFamily: "var(--font-serif)" }}
           >
-            {c.series ?? c.name}
+            {c.series ?? c.brand}
           </h1>
           {c.format && (
             <p className="text-sm text-muted-foreground">{c.format}</p>
