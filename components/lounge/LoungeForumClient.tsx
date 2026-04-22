@@ -10,14 +10,15 @@ import { PostModal }                     from "./PostModal";
 /* ------------------------------------------------------------------ */
 
 interface Category {
-  id:          string;
-  name:        string;
-  slug:        string;
-  description: string;
-  sort_order:  number;
-  is_gate:     boolean;
-  is_locked:   boolean;
-  post_count:  number;
+  id:           string;
+  name:         string;
+  slug:         string;
+  description:  string;
+  sort_order:   number;
+  is_gate:      boolean;
+  is_locked:    boolean;
+  post_count:   number;
+  last_post_at: string | null;
 }
 
 interface RulesPost {

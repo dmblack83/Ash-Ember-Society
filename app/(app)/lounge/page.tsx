@@ -11,9 +11,9 @@ export default async function LoungePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [categoriesRes, allPostsRes, profileRes, rulesPostRes] = await Promise.all([
+  const [categoriesRes, statsRes, profileRes, rulesPostRes] = await Promise.all([
     supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate").order("sort_order"),
-    supabase.from("forum_posts").select("id, category_id"),
+    supabase.rpc("get_forum_category_stats"),
     supabase.from("profiles").select("display_name, membership_tier").eq("id", user.id).single(),
     supabase
       .from("forum_posts")
@@ -23,19 +23,19 @@ export default async function LoungePage() {
       .single(),
   ]);
 
-  const categories  = categoriesRes.data ?? [];
-  const allPosts    = allPostsRes.data ?? [];
-  const rulesPost   = rulesPostRes.data;
+  const categories = categoriesRes.data ?? [];
+  const stats      = statsRes.data ?? [];
+  const rulesPost  = rulesPostRes.data;
 
-  // Count posts per category
-  const postCountMap: Record<string, number> = {};
-  for (const p of allPosts) {
-    postCountMap[p.category_id] = (postCountMap[p.category_id] ?? 0) + 1;
+  const statsMap: Record<string, { post_count: number; last_post_at: string | null }> = {};
+  for (const s of stats as { category_id: string; post_count: number; last_post_at: string | null }[]) {
+    statsMap[s.category_id] = { post_count: Number(s.post_count), last_post_at: s.last_post_at };
   }
 
   const categoriesWithCount = categories.map((c) => ({
     ...c,
-    post_count: postCountMap[c.id] ?? 0,
+    post_count:   statsMap[c.id]?.post_count   ?? 0,
+    last_post_at: statsMap[c.id]?.last_post_at ?? null,
   }));
 
   // Check if user has unlocked (liked the rules post)
