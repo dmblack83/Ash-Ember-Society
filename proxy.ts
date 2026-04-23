@@ -4,7 +4,13 @@ import { NextResponse, type NextRequest } from "next/server";
 /*
  * Paths the proxy will never gate behind authentication or onboarding.
  */
-const PUBLIC_PATHS = ["/login", "/signup", "/auth/callback"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/signup",
+  "/auth/callback",
+  "/manifest.webmanifest",
+  "/manifest.json",
+];
 
 function isPublicAuthPage(pathname: string): boolean {
   return pathname === "/login" || pathname === "/signup";
@@ -104,6 +110,6 @@ export const config = {
      * _next/data routes are intentionally NOT excluded — they carry RSC
      * payloads and must be protected the same way their page routes are.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|manifest\\.json|sw\\.js|workbox-.*\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
