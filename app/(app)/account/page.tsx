@@ -22,6 +22,7 @@ interface ProfileRow {
   phone:                  string | null;
   city:                   string | null;
   state:                  string | null;
+  zip_code:               string | null;
   avatar_url:             string | null;
   created_at:             string;
 }
@@ -38,7 +39,7 @@ export default async function AccountPage() {
     .from("profiles")
     .select(
       "membership_tier, stripe_customer_id, stripe_subscription_id, " +
-      "display_name, first_name, last_name, phone, city, state, avatar_url, created_at"
+      "display_name, first_name, last_name, phone, city, state, zip_code, avatar_url, created_at"
     )
     .eq("id", user.id)
     .single()) as unknown as { data: ProfileRow | null };
@@ -82,6 +83,7 @@ export default async function AccountPage() {
     <AccountClient
       userId={user.id}
       email={user.email ?? ""}
+      memberSince={profile?.created_at ?? null}
       profile={{
         display_name: profile?.display_name ?? null,
         first_name:   profile?.first_name   ?? null,
@@ -89,6 +91,7 @@ export default async function AccountPage() {
         phone:        profile?.phone        ?? null,
         city:         profile?.city         ?? null,
         state:        profile?.state        ?? null,
+        zip_code:     profile?.zip_code     ?? null,
         avatar_url:   profile?.avatar_url   ?? null,
       }}
       membership={{
