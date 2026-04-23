@@ -83,9 +83,9 @@ SUPABASE_SERVICE_ROLE_KEY=[set]
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=[set]
 STRIPE_SECRET_KEY=[set]
 STRIPE_WEBHOOK_SECRET=whsec_xxx (placeholder — local dev only)
-STRIPE_MEMBER_MONTHLY_PRICE_ID=price_1TGpPmP1shPjr0YSUI8RMbm5
+STRIPE_MEMBER_MONTHLY_PRICE_ID=price_1TPQIvP1shPjr0YS465wU2BG
 STRIPE_MEMBER_ANNUAL_PRICE_ID=price_1TGpPmP1shPjr0YSF4gSfaCV
-STRIPE_PREMIUM_MONTHLY_PRICE_ID=price_1TGpQZP1shPjr0YSg3BM5vGm
+STRIPE_PREMIUM_MONTHLY_PRICE_ID=price_1TPQFZP1shPjr0YSXhR13LJi
 STRIPE_PREMIUM_ANNUAL_PRICE_ID=price_1TGpQZP1shPjr0YSmQLQOgvq
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyAovIoRicBzpuWpIBBFzzCHi3gEuZXPlBI
 GOOGLE_API_KEY=AIzaSyD-FTLdHi0mseW30ShexWrBPEEQpBj1QA8 (Ash & Ember Society GCP project — Custom Search, currently 403ing)
@@ -216,8 +216,8 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 | Tier | Price | Limits |
 |------|-------|--------|
 | Free | $0 | 25 humidor items, read-only feed |
-| Member | $9.99/mo or $99/yr | Unlimited, community posting, shop discounts (10%), events |
-| Premium | $19.99/mo or $179/yr | Everything + exclusive events, 15% discount |
+| Member | $4.99/mo or $50/yr | Unlimited, community posting, shop discounts (10%), events |
+| Premium | $9.99/mo or $100/yr | Everything + exclusive events, 15% discount |
 
 ---
 
