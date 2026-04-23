@@ -197,51 +197,26 @@ function RulesModal({
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {rulesPost.content
               .replace(/\r\n/g, "\n")
-              .split(/\n\s*\n/)
-              .map((block) => block.split("\n").map((l) => l.trim()).filter(Boolean))
-              .filter((lines) => lines.length > 0)
-              .map((lines, bi) => {
-                const stripMd = (s: string) =>
-                  s
-                    .replace(/^#{1,6}\s+/, "")
-                    .replace(/^\*\*(.+)\*\*$/, "$1")
-                    .replace(/^__(.+)__$/, "$1")
-                    .trim();
-                const first     = stripMd(lines[0]);
-                const isRule    = /^\d+[.)]\s/.test(first);
-                const titleText = isRule ? first : null;
-                const bodyLines = isRule ? lines.slice(1) : lines;
-                const body      = bodyLines.map(stripMd).join(" ");
+              .split("\n")
+              .map((line, i) => {
+                const trimmed = line.trim();
+                if (!trimmed) return <div key={i} style={{ height: 8 }} />;
+                const isTitle = /^\d+[.)]\s/.test(trimmed);
                 return (
-                  <div key={bi} style={{ marginTop: bi > 0 ? 14 : 0 }}>
-                    {titleText && (
-                      <p
-                        style={{
-                          fontSize:   14,
-                          fontWeight: 700,
-                          fontFamily: "var(--font-serif)",
-                          color:      "var(--gold, #D4A04A)",
-                          lineHeight: 1.55,
-                        }}
-                      >
-                        {titleText}
-                      </p>
-                    )}
-                    {body && (
-                      <p
-                        style={{
-                          fontSize:   13,
-                          fontWeight: 400,
-                          color:      "var(--foreground)",
-                          opacity:    0.85,
-                          lineHeight: 1.55,
-                          marginTop:  titleText ? 4 : 0,
-                        }}
-                      >
-                        {body}
-                      </p>
-                    )}
-                  </div>
+                  <p
+                    key={i}
+                    style={{
+                      fontSize:   isTitle ? 14 : 13,
+                      fontWeight: isTitle ? 700 : 400,
+                      fontFamily: isTitle ? "var(--font-serif)" : undefined,
+                      color:      isTitle ? "var(--gold, #D4A04A)" : "var(--foreground)",
+                      opacity:    isTitle ? 1 : 0.85,
+                      lineHeight: 1.55,
+                      marginTop:  isTitle && i > 0 ? 10 : 0,
+                    }}
+                  >
+                    {trimmed}
+                  </p>
                 );
               })}
           </div>
