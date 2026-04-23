@@ -17,6 +17,7 @@ export interface WishlistItem {
   id:         string;
   cigar_id:   string;
   created_at: string;
+  notes:      string | null;
   cigar:      CatalogResult;
 }
 
@@ -739,6 +740,7 @@ function WishlistCard({
 }) {
   const c        = item.cigar;
   const menuOpen = menuOpenId === item.id;
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="card flex flex-col gap-3 relative">
@@ -787,7 +789,19 @@ function WishlistCard({
         )}
       </div>
 
-      <div className="flex flex-col gap-3 flex-1">
+      <button
+        type="button"
+        onClick={() => item.notes && setExpanded((v) => !v)}
+        className="flex flex-col gap-3 flex-1 text-left w-full"
+        style={{
+          background:              "none",
+          border:                  "none",
+          padding:                 0,
+          cursor:                  item.notes ? "pointer" : "default",
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+        }}
+      >
         <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
           <img
             src={getCigarImage(c.image_url, c.wrapper)}
@@ -797,7 +811,7 @@ function WishlistCard({
           />
         </div>
 
-        <div className="flex flex-col gap-1 min-w-0 pr-8">
+        <div className="flex flex-col gap-1 min-w-0 pr-8 w-full">
           <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">{c.brand}</p>
           <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">{c.series ?? c.format}</h3>
           {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
@@ -806,8 +820,24 @@ function WishlistCard({
               {[c.wrapper, c.ring_gauge ? `${c.ring_gauge} ring` : null, c.length_inches ? `${c.length_inches}"` : null].filter(Boolean).join(" · ")}
             </p>
           )}
+          {item.notes && (
+            <p className="text-xs mt-1.5" style={{ color: "var(--gold, #D4A04A)", opacity: 0.8 }}>
+              Notes {expanded ? "▲" : "▼"}
+            </p>
+          )}
         </div>
-      </div>
+      </button>
+
+      {expanded && item.notes && (
+        <div
+          className="w-full pt-3 mt-1"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+            {item.notes}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -831,26 +861,47 @@ function WishlistListRow({
 }) {
   const c        = item.cigar;
   const menuOpen = menuOpenId === item.id;
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="card flex items-center gap-3 p-3 relative">
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-        <img
-          src={getCigarImage(c.image_url, c.wrapper)}
-          alt={c.series ?? c.format ?? ""}
-          className="w-full h-full object-contain"
-        />
-      </div>
+    <div className="card relative" style={{ padding: 0 }}>
+      <div className="flex items-center gap-3 p-3">
+        <button
+          type="button"
+          onClick={() => item.notes && setExpanded((v) => !v)}
+          className="flex items-center gap-3 flex-1 min-w-0 text-left"
+          style={{
+            background:              "none",
+            border:                  "none",
+            padding:                 0,
+            cursor:                  item.notes ? "pointer" : "default",
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
+            <img
+              src={getCigarImage(c.image_url, c.wrapper)}
+              alt={c.series ?? c.format ?? ""}
+              className="w-full h-full object-contain"
+            />
+          </div>
 
-      <div className="flex-1 min-w-0">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{c.brand}</p>
-        <p className="text-sm font-semibold text-foreground truncate">{c.series ?? c.format}</p>
-        {(c.format || c.wrapper) && (
-          <p className="text-xs text-muted-foreground truncate">
-            {[c.format, c.wrapper].filter(Boolean).join(" · ")}
-          </p>
-        )}
-      </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{c.brand}</p>
+            <p className="text-sm font-semibold text-foreground truncate">{c.series ?? c.format}</p>
+            {(c.format || c.wrapper) && (
+              <p className="text-xs text-muted-foreground truncate">
+                {[c.format, c.wrapper].filter(Boolean).join(" · ")}
+              </p>
+            )}
+            {item.notes && (
+              <p className="text-xs mt-0.5" style={{ color: "var(--gold, #D4A04A)", opacity: 0.8 }}>
+                Notes {expanded ? "▲" : "▼"}
+              </p>
+            )}
+          </div>
+        </button>
 
       <div className="flex-shrink-0 relative" data-menu>
         <button
@@ -896,6 +947,15 @@ function WishlistListRow({
           </div>
         )}
       </div>
+      </div>
+
+      {expanded && item.notes && (
+        <div className="px-3 pb-3" style={{ borderTop: "1px solid var(--border)", paddingTop: 10 }}>
+          <p className="text-xs leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
+            {item.notes}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
