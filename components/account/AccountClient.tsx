@@ -84,6 +84,14 @@ function tierColor(tier: MembershipTier): string {
   return "var(--muted-foreground)";
 }
 
+function formatPhone(value: string): string {
+  const d = value.replace(/\D/g, "").slice(0, 10);
+  if (d.length === 0) return "";
+  if (d.length <= 3)  return `(${d}`;
+  if (d.length <= 6)  return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+  return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+}
+
 /* ─── Shared UI ──────────────────────────────────────────────────────── */
 
 function FieldInput({
@@ -543,7 +551,7 @@ function ProfileCard({
                 </button>
               </div>
               <p style={{ fontSize: 13, color: tierColor(tier), marginTop: 3 }}>
-                {tierLabel(tier)}{year ? ` · Member since ${year}` : ""}
+                {tierLabel(tier)}{year ? ` since ${year}` : ""}
               </p>
             </>
           )}
@@ -552,7 +560,7 @@ function ProfileCard({
 
       {!editing && (
         <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 12 }}>
-          Tap photo to change · Tap pencil to edit name
+          Tap pencil to edit display name
         </p>
       )}
     </div>
@@ -649,7 +657,7 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
   const [sendingEmail, setSendingEmail] = useState(false);
 
   // Phone
-  const [phone,       setPhone]       = useState(profile.phone ?? "");
+  const [phone,       setPhone]       = useState(formatPhone(profile.phone ?? ""));
   const [savingPhone, setSavingPhone] = useState(false);
 
   // Location
@@ -847,7 +855,7 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
         </button>
         {open === "phone" && (
           <div style={panelPad}>
-            <FieldInput value={phone} onChange={setPhone} placeholder="(555) 555-5555" type="tel" />
+            <FieldInput value={phone} onChange={v => setPhone(formatPhone(v))} placeholder="(555) 555-5555" type="tel" />
             <SaveButton loading={savingPhone} onClick={savePhone} />
           </div>
         )}
@@ -909,21 +917,36 @@ interface AccountSectionProps {
 
 function AccountSection({ userId, email, membership, legal, onToast }: AccountSectionProps) {
   const [sheet,     setSheet]    = useState<"membership" | "privacy" | null>(null);
-  const [resetting, setResetting] = useState(false);
+  const [pwOpen,    setPwOpen]   = useState(false);
+  const [currentPw, setCurrentPw] = useState("");
+  const [newPw,     setNewPw]    = useState("");
+  const [confirmPw, setConfirmPw] = useState("");
+  const [savingPw,  setSavingPw]  = useState(false);
 
-  async function handlePasswordReset() {
-    setResetting(true);
+  async function handlePasswordChange() {
+    if (!currentPw) { onToast("Enter your current password."); return; }
+    if (newPw.length < 8) { onToast("New password must be at least 8 characters."); return; }
+    if (newPw !== confirmPw) { onToast("Passwords don't match."); return; }
+
+    setSavingPw(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/login`,
-      });
-      if (error) throw error;
-      onToast("Password reset email sent. Check your inbox.");
+
+      // Verify current password
+      const { error: authErr } = await supabase.auth.signInWithPassword({ email, password: currentPw });
+      if (authErr) { onToast("Current password is incorrect."); setSavingPw(false); return; }
+
+      // Set new password
+      const { error: updateErr } = await supabase.auth.updateUser({ password: newPw });
+      if (updateErr) throw updateErr;
+
+      onToast("Password updated.");
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      setPwOpen(false);
     } catch (err) {
-      onToast(err instanceof Error ? err.message : "Reset failed.");
+      onToast(err instanceof Error ? err.message : "Password update failed.");
     } finally {
-      setResetting(false);
+      setSavingPw(false);
     }
   }
 
@@ -942,6 +965,13 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
     minHeight: 56,
   };
 
+  const panelPad: React.CSSProperties = {
+    padding: "0 20px 18px",
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  };
+
   return (
     <>
       <div>
@@ -952,13 +982,34 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
           border: "1px solid var(--border)",
           overflow: "hidden",
         }}>
-          {/* Password Reset */}
-          <button type="button" onClick={handlePasswordReset} disabled={resetting} style={rowBase}>
-            <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>
-              {resetting ? "Sending…" : "Password Reset"}
-            </p>
-            <ChevronRight />
+          {/* Reset Password */}
+          <button type="button" onClick={() => setPwOpen(v => !v)} style={rowBase}>
+            <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>Reset Password</p>
+            <ChevronDown open={pwOpen} />
           </button>
+          {pwOpen && (
+            <div style={panelPad}>
+              <FieldInput
+                value={currentPw}
+                onChange={setCurrentPw}
+                placeholder="Current password"
+                type="password"
+              />
+              <FieldInput
+                value={newPw}
+                onChange={setNewPw}
+                placeholder="New password (min 8 characters)"
+                type="password"
+              />
+              <FieldInput
+                value={confirmPw}
+                onChange={setConfirmPw}
+                placeholder="Confirm new password"
+                type="password"
+              />
+              <SaveButton loading={savingPw} onClick={handlePasswordChange} label="Update Password" />
+            </div>
+          )}
 
           <RowDivider />
 
