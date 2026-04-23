@@ -166,8 +166,8 @@ function RulesModal({
             flexShrink:    0,
           }}
         >
-          <h2 className="font-serif font-semibold text-base" style={{ color: "var(--foreground)" }}>
-            {rulesPost.title}
+          <h2 className="font-serif font-bold text-base" style={{ color: "var(--gold, #D4A04A)" }}>
+            Lounge Rules
           </h2>
           <button
             type="button"
@@ -194,12 +194,39 @@ function RulesModal({
 
         {/* Scrollable content */}
         <div className="overflow-y-auto px-5 py-5" style={{ flex: 1, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
-          <p
-            className="text-sm leading-relaxed"
-            style={{ color: "var(--foreground)", whiteSpace: "pre-line", opacity: 0.9 }}
-          >
-            {rulesPost.content}
-          </p>
+          <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              `The "Golden Rule" of the Lounge`,
+              "No Politics, No Religion",
+              "Respect the Palate",
+              `No "Hustling" or "Soliciting"`,
+              `Keep it "Low Key"`,
+              "Discretion is Paramount",
+            ].map((rule, i) => (
+              <li key={i} style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                <span style={{
+                  fontFamily:  "var(--font-serif)",
+                  fontWeight:  700,
+                  fontSize:    13,
+                  color:       "var(--gold, #D4A04A)",
+                  flexShrink:  0,
+                  minWidth:    18,
+                  opacity:     0.6,
+                }}>
+                  {i + 1}.
+                </span>
+                <span style={{
+                  fontFamily:  "var(--font-serif)",
+                  fontWeight:  700,
+                  fontSize:    15,
+                  color:       "var(--gold, #D4A04A)",
+                  lineHeight:  1.4,
+                }}>
+                  {rule}
+                </span>
+              </li>
+            ))}
+          </ol>
         </div>
 
         {/* Like footer */}
@@ -478,38 +505,34 @@ export function LoungeForumClient({
         {/* Lounge Rules row */}
         {gateCategory && rulesPost && (
           <div className="px-4 pt-4 w-full md:max-w-[50%] md:mx-auto">
+            {/* Gradient border wrapper */}
             <button
               type="button"
               onClick={() => setShowRules(true)}
-              className="w-full rounded-xl px-4 py-4 text-left"
+              className="w-full text-left"
               style={{
-                backgroundColor:         "var(--card)",
-                border:                  "1px solid var(--border)",
+                display:                 "block",
+                padding:                 1,
+                borderRadius:            14,
+                background:              "linear-gradient(135deg, rgba(212,160,74,0.9) 0%, rgba(212,160,74,0.25) 50%, rgba(212,160,74,0.9) 100%)",
                 cursor:                  "pointer",
                 touchAction:             "manipulation",
                 WebkitTapHighlightColor: "transparent",
               }}
             >
-              <div className="flex items-start gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-sm" style={{ color: "var(--foreground)" }}>
-                      {gateCategory.name}
-                    </p>
-                    <span
-                      className="text-xs font-medium px-2 py-0.5 rounded-full shrink-0"
-                      style={{ border: "1px solid rgba(212,160,74,0.4)", color: "rgba(212,160,74,0.7)" }}
-                    >
-                      Pinned
-                    </span>
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-                    Before you take your seat at the table, we ask that you respect the house rules.
-                  </p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" style={{ color: "var(--muted-foreground)", flexShrink: 0, marginTop: 2 }}>
-                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+              <div
+                style={{
+                  backgroundColor: "var(--card)",
+                  borderRadius:    13,
+                  padding:         "14px 16px",
+                }}
+              >
+                <p style={{ fontSize: 14, fontWeight: 700, color: "var(--gold, #D4A04A)", fontFamily: "var(--font-serif)" }}>
+                  Lounge Rules
+                </p>
+                <p style={{ fontSize: 12, marginTop: 4, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                  Before you take your seat at the table, we ask that you respect the house rules.
+                </p>
               </div>
             </button>
           </div>
