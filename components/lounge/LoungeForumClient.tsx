@@ -60,17 +60,6 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
   );
 }
 
-/* ---- Rule title matcher ------------------------------------------- */
-
-const RULE_TITLES = [
-  `the "golden rule" of the lounge`,
-  "no politics, no religion",
-  "respect the palate",
-  `no "hustling" or "soliciting"`,
-  `keep it "low key"`,
-  "discretion is paramount",
-];
-
 /* ---- Rules modal -------------------------------------------------- */
 
 function RulesModal({
@@ -206,28 +195,50 @@ function RulesModal({
         {/* Scrollable content */}
         <div className="overflow-y-auto px-5 py-5" style={{ flex: 1, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {rulesPost.content.split("\n").map((line, i) => {
-              const trimmed = line.trim();
-              if (!trimmed) return <div key={i} style={{ height: 8 }} />;
-              const cleaned = trimmed.replace(/^\d+\.\s*/, "").toLowerCase();
-              const isTitle = RULE_TITLES.some((t) => cleaned.includes(t));
-              return (
-                <p
-                  key={i}
-                  style={{
-                    fontSize:   isTitle ? 14 : 13,
-                    fontWeight: isTitle ? 700 : 400,
-                    fontFamily: isTitle ? "var(--font-serif)" : undefined,
-                    color:      isTitle ? "var(--gold, #D4A04A)" : "var(--foreground)",
-                    opacity:    isTitle ? 1 : 0.85,
-                    lineHeight: 1.55,
-                    marginTop:  isTitle && i > 0 ? 10 : 0,
-                  }}
-                >
-                  {trimmed}
-                </p>
-              );
-            })}
+            {rulesPost.content
+              .replace(/\r\n/g, "\n")
+              .split(/\n\s*\n/)
+              .map((block) => block.split("\n").map((l) => l.trim()).filter(Boolean))
+              .filter((lines) => lines.length > 0)
+              .map((lines, bi) => {
+                const stripMd = (s: string) =>
+                  s
+                    .replace(/^#{1,6}\s+/, "")
+                    .replace(/^\*\*(.+)\*\*$/, "$1")
+                    .replace(/^__(.+)__$/, "$1")
+                    .trim();
+                const title = stripMd(lines[0]);
+                const body  = lines.slice(1).map(stripMd).join(" ");
+                return (
+                  <div key={bi} style={{ marginTop: bi > 0 ? 14 : 0 }}>
+                    <p
+                      style={{
+                        fontSize:   14,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-serif)",
+                        color:      "var(--gold, #D4A04A)",
+                        lineHeight: 1.55,
+                      }}
+                    >
+                      {title}
+                    </p>
+                    {body && (
+                      <p
+                        style={{
+                          fontSize:   13,
+                          fontWeight: 400,
+                          color:      "var(--foreground)",
+                          opacity:    0.85,
+                          lineHeight: 1.55,
+                          marginTop:  4,
+                        }}
+                      >
+                        {body}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         </div>
 
