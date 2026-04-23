@@ -6,8 +6,8 @@
  *
  * Tiers:
  *   free    — default, limited to 25 humidor items, read-only feed
- *   member  — $9.99/mo or $99/yr — unlimited items, community posting
- *   premium — $19.99/mo or $179/yr — all Member features + future premium perks
+ *   member  — $4.99/mo or $50/yr — unlimited items, community posting
+ *   premium — $9.99/mo or $100/yr — all Member features + future premium perks
  */
 
 import type { MembershipTier } from "@/lib/stripe";
@@ -116,11 +116,11 @@ export const TIER_DISPLAY: Record<MembershipTier, { label: string; color: string
 
 export const PLAN_PRICING = {
   member: {
-    monthly: { cents: 999,   label: "$9.99/month"  },
-    annual:  { cents: 9900,  label: "$99/year"      },
+    monthly: { cents: 499,   label: "$4.99/month"  },
+    annual:  { cents: 5000,  label: "$50/year"      },
   },
   premium: {
-    monthly: { cents: 1999,  label: "$19.99/month" },
-    annual:  { cents: 17900, label: "$179/year"     },
+    monthly: { cents: 999,   label: "$9.99/month"  },
+    annual:  { cents: 10000, label: "$100/year"     },
   },
 } as const;
