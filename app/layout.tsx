@@ -39,7 +39,6 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
   description: "A premium cigar enthusiast experience.",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
