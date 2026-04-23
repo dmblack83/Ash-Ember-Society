@@ -60,16 +60,6 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
   );
 }
 
-/* ---- Rule title matcher ------------------------------------------- */
-
-const RULE_TITLES = [
-  "golden rule",
-  "no politics",
-  "respect the palate",
-  "hustling",
-  "low-key",
-  "discretion is paramount",
-];
 
 /* ---- Rules modal -------------------------------------------------- */
 
@@ -209,9 +199,7 @@ function RulesModal({
             {rulesPost.content.split("\n").map((line, i) => {
               const trimmed = line.trim();
               if (!trimmed) return <div key={i} style={{ height: 8 }} />;
-              const cleaned = trimmed.replace(/^\d+\.\s*/, "").toLowerCase()
-                .replace(/[\u201c\u201d\u2018\u2019]/g, '"');
-              const isTitle = RULE_TITLES.some((t) => cleaned.includes(t));
+              const isTitle = /^\d+\./.test(trimmed);
               return (
                 <p
                   key={i}
