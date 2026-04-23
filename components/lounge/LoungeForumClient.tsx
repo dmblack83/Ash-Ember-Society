@@ -61,6 +61,15 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
 
 /* ---- Rules modal -------------------------------------------------- */
 
+const RULE_TITLES = [
+  `the "golden rule" of the lounge`,
+  "no politics, no religion",
+  "respect the palate",
+  `no "hustling" or "soliciting"`,
+  `keep it "low key"`,
+  "discretion is paramount",
+];
+
 function RulesModal({
   rulesPost,
   userId,
@@ -194,39 +203,34 @@ function RulesModal({
 
         {/* Scrollable content */}
         <div className="overflow-y-auto px-5 py-5" style={{ flex: 1, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
-          <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-            {[
-              `The "Golden Rule" of the Lounge`,
-              "No Politics, No Religion",
-              "Respect the Palate",
-              `No "Hustling" or "Soliciting"`,
-              `Keep it "Low Key"`,
-              "Discretion is Paramount",
-            ].map((rule, i) => (
-              <li key={i} style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-                <span style={{
-                  fontFamily:  "var(--font-serif)",
-                  fontWeight:  700,
-                  fontSize:    13,
-                  color:       "var(--gold, #D4A04A)",
-                  flexShrink:  0,
-                  minWidth:    18,
-                  opacity:     0.6,
-                }}>
-                  {i + 1}.
-                </span>
-                <span style={{
-                  fontFamily:  "var(--font-serif)",
-                  fontWeight:  700,
-                  fontSize:    15,
-                  color:       "var(--gold, #D4A04A)",
-                  lineHeight:  1.4,
-                }}>
-                  {rule}
-                </span>
-              </li>
-            ))}
-          </ol>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {rulesPost.content.split("\n").map((line, i) => {
+              const trimmed = line.trim();
+              if (!trimmed) return <div key={i} style={{ height: 6 }} />;
+              const isTitle = RULE_TITLES.some(t =>
+                trimmed.replace(/^\d+[\.\)]\s*/, "").toLowerCase().includes(t.toLowerCase())
+              );
+              if (isTitle) {
+                return (
+                  <p key={i} style={{
+                    fontFamily: "var(--font-serif)",
+                    fontWeight: 700,
+                    fontSize:   14,
+                    color:      "var(--gold, #D4A04A)",
+                    lineHeight: 1.5,
+                    marginTop:  8,
+                  }}>
+                    {trimmed}
+                  </p>
+                );
+              }
+              return (
+                <p key={i} className="text-sm leading-relaxed" style={{ color: "var(--foreground)", opacity: 0.85 }}>
+                  {trimmed}
+                </p>
+              );
+            })}
+          </div>
         </div>
 
         {/* Like footer */}
