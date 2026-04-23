@@ -5,6 +5,7 @@ import { NextResponse, type NextRequest } from "next/server";
  * Paths the proxy will never gate behind authentication or onboarding.
  */
 const PUBLIC_PATHS = [
+  "/",
   "/login",
   "/signup",
   "/auth/callback",
@@ -80,7 +81,7 @@ export async function proxy(request: NextRequest) {
     // Send to onboarding or dashboard depending on whether they've completed it.
     if (isPublicAuthPage(pathname)) {
       const url = request.nextUrl.clone();
-      url.pathname = onboardingComplete ? "/dashboard" : "/onboarding";
+      url.pathname = onboardingComplete ? "/home" : "/onboarding";
       url.search = "";
       return NextResponse.redirect(url);
     }
