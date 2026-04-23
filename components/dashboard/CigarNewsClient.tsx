@@ -384,7 +384,7 @@ function CommentThread({
                 style={{ width: 28, height: 28, background: "rgba(193,120,23,0.25)", overflow: "hidden" }}
               >
                 {c.user?.avatar_url ? (
-                  <img src={c.user.avatar_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                  <img src={c.user.avatar_url} alt="" className="block w-full h-full object-cover" loading="lazy" />
                 ) : (
                   <span style={{ fontSize: 11, fontWeight: 700, color: "var(--gold)" }}>
                     {(c.user?.display_name ?? "?")[0].toUpperCase()}

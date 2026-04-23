@@ -90,19 +90,10 @@ function Avatar({
 }) {
   if (avatarUrl) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={avatarUrl}
-        alt={name ?? "Member"}
-        style={{
-          width:        size,
-          height:       size,
-          borderRadius: "50%",
-          objectFit:    "cover",
-          border:       "1px solid var(--border)",
-          flexShrink:   0,
-        }}
-      />
+      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
     );
   }
   return (
