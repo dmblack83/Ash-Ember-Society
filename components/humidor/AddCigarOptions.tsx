@@ -128,7 +128,7 @@ export function AddCigarOptions({ onScan, onSearch, onClose }: Props) {
             </div>
             <div>
               <p className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>Search Catalog</p>
-              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Browse 4,221 cigars by name or brand</p>
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>Browse by brand, series, wrapper, vitola, and more</p>
             </div>
           </button>
         </div>
