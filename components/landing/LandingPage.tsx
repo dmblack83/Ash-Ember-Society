@@ -1,99 +1,35 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { motion, useInView, useScroll, useTransform, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, Archive, BookOpen, Compass, Users, Check } from "lucide-react";
 
 /* ------------------------------------------------------------------
-   Animation helpers
+   Tailwind class → CSS-variable mapping shim
+   The existing project uses Tailwind v4 CSS-first config.
+   Colors reference CSS variables declared in globals.css.
    ------------------------------------------------------------------ */
-
-function FadeUp({
-  children,
-  delay = 0,
-  className,
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-60px" });
-  return (
-    <motion.div
-      ref={ref}
-      initial={{ opacity: 0, y: 28 }}
-      animate={inView ? { opacity: 1, y: 0 } : {}}
-      transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}
-      className={className}
-    >
-      {children}
-    </motion.div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Icons (inline SVG — no extra dependency)
-   ------------------------------------------------------------------ */
-
-function FlameIcon({ size = 20 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M12 2C12 2 7 8 7 13a5 5 0 0010 0c0-3-2-6-5-8z"
-        fill="var(--ember, #E8642C)"
-        opacity="0.9"
-      />
-      <path
-        d="M12 10c0 0-2 2.5-2 4a2 2 0 004 0c0-1.5-2-4-2-4z"
-        fill="var(--gold, #D4A04A)"
-      />
-    </svg>
-  );
-}
-
-function CheckIcon({ size = 18 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M5 12l5 5L19 7" stroke="var(--gold, #D4A04A)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function MenuIcon({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CloseIcon({ size = 22 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
-}
 
 /* ------------------------------------------------------------------
    Navbar
    ------------------------------------------------------------------ */
 
-function Navbar() {
-  const [scrolled, setScrolled]     = useState(false);
-  const [menuOpen, setMenuOpen]     = useState(false);
+export function Navbar() {
+  const [isScrolled, setIsScrolled]         = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
-    const handler = () => setScrolled(window.scrollY > 32);
-    window.addEventListener("scroll", handler, { passive: true });
-    return () => window.removeEventListener("scroll", handler);
+    const handleScroll = () => setIsScrolled(window.scrollY > 50);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   const navLinks = [
-    { label: "Features",   href: "#features"   },
-    { label: "Membership", href: "#membership" },
-    { label: "Community",  href: "#community"  },
+    { name: "About",      href: "#philosophy" },
+    { name: "Features",   href: "#features"   },
+    { name: "Membership", href: "#membership" },
+    { name: "Community",  href: "#community"  },
   ];
 
   return (
@@ -104,160 +40,141 @@ function Navbar() {
         left:            0,
         right:           0,
         zIndex:          50,
-        transition:      "background 0.3s, border-color 0.3s, backdrop-filter 0.3s",
-        backgroundColor: scrolled ? "rgba(26,18,16,0.92)" : "transparent",
-        backdropFilter:  scrolled ? "blur(16px)" : "none",
-        WebkitBackdropFilter: scrolled ? "blur(16px)" : "none",
-        borderBottom:    scrolled ? "1px solid rgba(61,46,35,0.6)" : "1px solid transparent",
+        transition:      "all 0.3s",
+        backgroundColor: isScrolled ? "rgba(26,18,16,0.95)" : "transparent",
+        backdropFilter:  isScrolled ? "blur(12px)" : "none",
+        WebkitBackdropFilter: isScrolled ? "blur(12px)" : "none",
+        borderBottom:    isScrolled ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
+        padding:         isScrolled ? "16px 0" : "24px 0",
       }}
     >
       <div
         style={{
-          maxWidth:      "1200px",
+          maxWidth:      "1280px",
           margin:        "0 auto",
           padding:       "0 24px",
-          height:        "64px",
           display:       "flex",
           alignItems:    "center",
           justifyContent:"space-between",
         }}
       >
         {/* Logo */}
-        <Link href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-          <FlameIcon size={22} />
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 18, fontWeight: 700, color: "var(--foreground)", letterSpacing: "0.01em" }}>
-            Ash & Ember
+        <a
+          href="#"
+          style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}
+        >
+          <span
+            style={{
+              fontFamily:   "var(--font-serif)",
+              fontSize:     "clamp(18px, 2.5vw, 22px)",
+              fontWeight:   600,
+              letterSpacing:"0.04em",
+              color:        "var(--foreground)",
+              transition:   "color 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--primary)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+          >
+            Ash &amp; Ember
           </span>
-        </Link>
+        </a>
 
-        {/* Desktop nav */}
+        {/* Desktop Nav */}
         <nav style={{ display: "flex", alignItems: "center", gap: 32 }} className="hidden md:flex">
-          {navLinks.map((l) => (
+          {navLinks.map((link) => (
             <a
-              key={l.href}
-              href={l.href}
+              key={link.name}
+              href={link.href}
               style={{
-                color:          "var(--muted-foreground)",
                 fontSize:       14,
+                fontWeight:     500,
+                color:          "var(--muted-foreground)",
                 textDecoration: "none",
-                letterSpacing:  "0.02em",
                 transition:     "color 0.2s",
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
             >
-              {l.label}
+              {link.name}
             </a>
           ))}
-          <Link
-            href="/login"
+          <a
+            href="#join"
             style={{
-              color:          "var(--muted-foreground)",
+              padding:        "10px 20px",
               fontSize:       14,
+              fontWeight:     500,
+              border:         "1px solid rgba(193,120,23,0.5)",
+              color:          "var(--primary)",
               textDecoration: "none",
-              transition:     "color 0.2s",
+              borderRadius:   "2px",
+              transition:     "all 0.3s",
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-          >
-            Sign In
-          </Link>
-          <Link
-            href="/signup"
-            style={{
-              display:         "inline-flex",
-              alignItems:      "center",
-              gap:             8,
-              padding:         "9px 20px",
-              borderRadius:    "6px",
-              background:      "linear-gradient(135deg, var(--primary), var(--gold))",
-              color:           "#fff",
-              fontSize:        13,
-              fontWeight:      600,
-              textDecoration:  "none",
-              letterSpacing:   "0.04em",
-              textTransform:   "uppercase",
-              transition:      "opacity 0.2s",
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = "var(--primary)";
+              e.currentTarget.style.color = "var(--card)";
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = "0.88")}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = "1")}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = "transparent";
+              e.currentTarget.style.color = "var(--primary)";
+            }}
           >
-            Join Free
-          </Link>
+            Join the Society
+          </a>
         </nav>
 
-        {/* Mobile hamburger */}
+        {/* Mobile toggle */}
         <button
           className="md:hidden"
-          onClick={() => setMenuOpen((o) => !o)}
-          style={{ background: "none", border: "none", color: "var(--foreground)", cursor: "pointer", padding: 4 }}
-          aria-label="Toggle menu"
+          onClick={() => setIsMobileMenuOpen((o) => !o)}
+          style={{ background: "none", border: "none", color: "var(--foreground)", cursor: "pointer", padding: 8 }}
         >
-          {menuOpen ? <CloseIcon /> : <MenuIcon />}
+          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
       {/* Mobile menu */}
       <AnimatePresence>
-        {menuOpen && (
+        {isMobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
             style={{
-              position:        "absolute",
-              top:             "64px",
-              left:            0,
-              right:           0,
-              backgroundColor: "rgba(26,18,16,0.98)",
-              backdropFilter:  "blur(16px)",
-              borderBottom:    "1px solid var(--border)",
-              padding:         "16px 24px 24px",
-              display:         "flex",
-              flexDirection:   "column",
-              gap:             8,
+              overflow:        "hidden",
+              backgroundColor: "var(--background)",
+              borderBottom:    "1px solid rgba(255,255,255,0.05)",
             }}
           >
-            {navLinks.map((l) => (
+            <div style={{ display: "flex", flexDirection: "column", padding: "16px 24px", gap: 16 }}>
+              {navLinks.map((link) => (
+                <a
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  style={{ fontSize: 16, fontWeight: 500, color: "var(--muted-foreground)", textDecoration: "none", padding: "8px 0" }}
+                >
+                  {link.name}
+                </a>
+              ))}
               <a
-                key={l.href}
-                href={l.href}
-                onClick={() => setMenuOpen(false)}
+                href="#join"
+                onClick={() => setIsMobileMenuOpen(false)}
                 style={{
-                  color:          "var(--foreground)",
-                  fontSize:       16,
+                  marginTop:      8,
+                  padding:        "12px",
+                  textAlign:      "center",
+                  fontSize:       14,
+                  fontWeight:     500,
+                  backgroundColor:"var(--primary)",
+                  color:          "#fff",
                   textDecoration: "none",
-                  padding:        "10px 0",
-                  borderBottom:   "1px solid var(--border)",
+                  borderRadius:   "2px",
                 }}
               >
-                {l.label}
+                Join the Society
               </a>
-            ))}
-            <Link href="/login" onClick={() => setMenuOpen(false)} style={{ color: "var(--muted-foreground)", fontSize: 16, textDecoration: "none", padding: "10px 0", borderBottom: "1px solid var(--border)" }}>
-              Sign In
-            </Link>
-            <Link
-              href="/signup"
-              onClick={() => setMenuOpen(false)}
-              style={{
-                display:       "inline-flex",
-                justifyContent:"center",
-                padding:       "12px",
-                marginTop:     8,
-                borderRadius:  "6px",
-                background:    "linear-gradient(135deg, var(--primary), var(--gold))",
-                color:         "#fff",
-                fontSize:      14,
-                fontWeight:    600,
-                textDecoration:"none",
-                letterSpacing: "0.04em",
-                textTransform: "uppercase",
-              }}
-            >
-              Join Free
-            </Link>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -269,196 +186,183 @@ function Navbar() {
    Hero
    ------------------------------------------------------------------ */
 
-function Hero() {
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] });
-  const y       = useTransform(scrollYProgress, [0, 1], ["0%", "30%"]);
-  const opacity = useTransform(scrollYProgress, [0, 0.7], [1, 0]);
-
+export function Hero() {
   return (
     <section
-      ref={ref}
       style={{
         position:       "relative",
         minHeight:      "100svh",
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
+        paddingTop:     80,
         overflow:       "hidden",
       }}
     >
-      {/* Parallax background */}
-      <motion.div
-        style={{
-          position:           "absolute",
-          inset:              "-20%",
-          backgroundImage:    "url(https://images.unsplash.com/photo-1574634534894-89d7576c8259?w=1920&q=80)",
-          backgroundSize:     "cover",
-          backgroundPosition: "center",
-          y,
-        }}
-      />
-
-      {/* Gradient overlay */}
-      <div
-        style={{
-          position:   "absolute",
-          inset:      0,
-          background: "linear-gradient(180deg, rgba(26,18,16,0.55) 0%, rgba(26,18,16,0.75) 60%, rgba(26,18,16,1) 100%)",
-        }}
-      />
+      {/* Background image */}
+      <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://images.unsplash.com/photo-1528459105426-b9548367069b?auto=format&fit=crop&q=80&w=1920"
+          alt="Cigars resting on aged wood"
+          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+        />
+        <div
+          style={{
+            position:   "absolute",
+            inset:      0,
+            backgroundColor: "rgba(18,18,18,0.80)",
+            mixBlendMode:    "multiply",
+          }}
+        />
+        <div
+          style={{
+            position:   "absolute",
+            inset:      0,
+            background: "linear-gradient(to top, #121212 0%, rgba(18,18,18,0.6) 50%, transparent 100%)",
+          }}
+        />
+      </div>
 
       {/* Content */}
-      <motion.div
+      <div
         style={{
-          position:      "relative",
-          textAlign:     "center",
-          padding:       "0 24px",
-          maxWidth:      760,
-          opacity,
+          position:  "relative",
+          zIndex:    10,
+          maxWidth:  860,
+          margin:    "0 auto",
+          padding:   "0 24px",
+          textAlign: "center",
         }}
       >
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          style={{
-            display:        "inline-flex",
-            alignItems:     "center",
-            gap:            8,
-            padding:        "6px 16px",
-            borderRadius:   "100px",
-            border:         "1px solid rgba(212,160,74,0.35)",
-            backgroundColor:"rgba(212,160,74,0.08)",
-            marginBottom:   28,
-          }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <FlameIcon size={14} />
-          <span style={{ fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600 }}>
-            For the Serious Enthusiast
-          </span>
-        </motion.div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 24 }}>
+            <div style={{ height: 1, width: 48, backgroundColor: "rgba(193,120,23,0.5)" }} />
+            <span
+              style={{
+                color:         "var(--primary)",
+                fontSize:      13,
+                fontWeight:    500,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+              }}
+            >
+              Est. 2026
+            </span>
+            <div style={{ height: 1, width: 48, backgroundColor: "rgba(193,120,23,0.5)" }} />
+          </div>
 
-        <motion.h1
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
-          style={{
-            fontFamily:   "var(--font-serif)",
-            fontSize:     "clamp(38px, 7vw, 72px)",
-            fontWeight:   700,
-            lineHeight:   1.12,
-            color:        "var(--foreground)",
-            marginBottom: 20,
-            letterSpacing:"-0.01em",
-          }}
-        >
-          Every Smoke Tells{" "}
-          <span style={{ color: "var(--gold)" }}>a Story</span>
-        </motion.h1>
+          <h1
+            style={{
+              fontFamily:   "var(--font-serif)",
+              fontSize:     "clamp(42px, 8vw, 88px)",
+              fontWeight:   500,
+              color:        "var(--foreground)",
+              lineHeight:   1.1,
+              marginBottom: 32,
+            }}
+          >
+            Where Passion <br className="hidden md:block" />
+            <em style={{ color: "rgba(193,120,23,0.9)", fontStyle: "italic" }}>Meets Tradition</em>
+          </h1>
+        </motion.div>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           style={{
-            fontSize:     "clamp(16px, 2.2vw, 19px)",
-            color:        "rgba(245,230,211,0.75)",
-            lineHeight:   1.65,
-            marginBottom: 40,
-            maxWidth:     560,
-            margin:       "0 auto 40px",
+            fontSize:     "clamp(16px, 2.2vw, 20px)",
+            color:        "var(--muted-foreground)",
+            maxWidth:     640,
+            margin:       "0 auto 48px",
+            fontWeight:   300,
+            lineHeight:   1.7,
           }}
         >
-          Track your humidor, log every burn, discover cigars and local shops,
-          and connect with a community of enthusiasts who share your passion.
+          An exclusive digital sanctuary for the modern aficionado. Track your
+          collection, refine your palate, and connect with a society of
+          discerning enthusiasts.
         </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.75, delay: 0.6, ease: [0.22, 1, 0.36, 1] }}
-          style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}
+          transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
+          style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center" }}
         >
           <Link
             href="/signup"
             style={{
-              display:        "inline-flex",
-              alignItems:     "center",
-              gap:            10,
-              padding:        "14px 32px",
-              borderRadius:   "8px",
-              background:     "linear-gradient(135deg, var(--primary), var(--gold))",
+              padding:        "16px 32px",
+              backgroundColor:"var(--primary)",
               color:          "#fff",
-              fontSize:       15,
-              fontWeight:     700,
-              textDecoration: "none",
-              letterSpacing:  "0.04em",
-              textTransform:  "uppercase",
-              boxShadow:      "0 8px 32px rgba(193,120,23,0.35)",
-              transition:     "transform 0.2s, box-shadow 0.2s",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 12px 40px rgba(193,120,23,0.45)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = "";
-              e.currentTarget.style.boxShadow = "0 8px 32px rgba(193,120,23,0.35)";
-            }}
-          >
-            <FlameIcon size={16} />
-            Start Free
-          </Link>
-          <a
-            href="#features"
-            style={{
-              display:        "inline-flex",
-              alignItems:     "center",
-              padding:        "14px 32px",
-              borderRadius:   "8px",
-              border:         "1px solid rgba(245,230,211,0.2)",
-              backgroundColor:"rgba(245,230,211,0.06)",
-              color:          "var(--foreground)",
-              fontSize:       15,
               fontWeight:     500,
               textDecoration: "none",
-              transition:     "border-color 0.2s, background 0.2s",
+              borderRadius:   "2px",
+              transition:     "background-color 0.3s",
+              minWidth:       200,
+              textAlign:      "center",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
+          >
+            Request Invitation
+          </Link>
+          <a
+            href="#philosophy"
+            style={{
+              padding:        "16px 32px",
+              border:         "1px solid rgba(255,255,255,0.2)",
+              color:          "var(--foreground)",
+              textDecoration: "none",
+              borderRadius:   "2px",
+              transition:     "all 0.3s",
+              minWidth:       200,
+              textAlign:      "center",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "rgba(212,160,74,0.45)";
-              e.currentTarget.style.backgroundColor = "rgba(212,160,74,0.08)";
+              e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)";
+              e.currentTarget.style.color = "var(--gold)";
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "rgba(245,230,211,0.2)";
-              e.currentTarget.style.backgroundColor = "rgba(245,230,211,0.06)";
+              e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
+              e.currentTarget.style.color = "var(--foreground)";
             }}
           >
-            See What&apos;s Inside
+            Discover the Society
           </a>
         </motion.div>
-      </motion.div>
+      </div>
 
       {/* Scroll indicator */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
+        transition={{ delay: 1, duration: 1 }}
         style={{
-          position:  "absolute",
-          bottom:    32,
-          left:      "50%",
-          transform: "translateX(-50%)",
+          position:       "absolute",
+          bottom:         48,
+          left:           "50%",
+          transform:      "translateX(-50%)",
+          display:        "flex",
+          flexDirection:  "column",
+          alignItems:     "center",
+          gap:            8,
         }}
       >
-        <motion.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
+        <span style={{ fontSize: 11, color: "var(--muted-foreground)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
+          Scroll
+        </span>
+        <div
           style={{
-            width:        1,
-            height:       40,
-            background:   "linear-gradient(to bottom, rgba(212,160,74,0.6), transparent)",
-            borderRadius: 1,
+            width:      1,
+            height:     48,
+            background: "linear-gradient(to bottom, rgba(193,120,23,0.5), transparent)",
           }}
         />
       </motion.div>
@@ -470,88 +374,102 @@ function Hero() {
    Philosophy
    ------------------------------------------------------------------ */
 
-function Philosophy() {
+export function Philosophy() {
   return (
-    <section style={{ padding: "120px 24px", maxWidth: 1100, margin: "0 auto" }}>
-      <div
-        style={{
-          display:             "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap:                 64,
-          alignItems:          "center",
-        }}
-      >
-        <FadeUp>
-          <div
-            style={{
-              display:        "inline-flex",
-              alignItems:     "center",
-              gap:            8,
-              marginBottom:   20,
-              padding:        "5px 14px",
-              borderRadius:   "100px",
-              border:         "1px solid rgba(212,160,74,0.3)",
-              backgroundColor:"rgba(212,160,74,0.07)",
-            }}
+    <section
+      id="philosophy"
+      style={{ padding: "96px 24px", backgroundColor: "var(--background)", position: "relative" }}
+    >
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap:                 64,
+            alignItems:          "center",
+          }}
+        >
+          {/* Text */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ order: 2 }}
+            className="lg:order-first"
           >
-            <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600 }}>
-              The Philosophy
-            </span>
-          </div>
-          <h2
-            style={{
-              fontFamily:   "var(--font-serif)",
-              fontSize:     "clamp(28px, 4vw, 44px)",
-              fontWeight:   700,
-              lineHeight:   1.2,
-              color:        "var(--foreground)",
-              marginBottom: 20,
-            }}
-          >
-            A Gentleman&apos;s<br />Pursuit, Modernized
-          </h2>
-          <p style={{ color: "var(--muted-foreground)", lineHeight: 1.75, fontSize: 16, maxWidth: 440 }}>
-            Cigar culture has always been about more than tobacco. It&apos;s the ritual,
-            the patience, the conversation. Ash & Ember Society brings that tradition
-            into the digital age without losing the soul of what makes it special.
-          </p>
-        </FadeUp>
+            <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", marginBottom: 32 }} />
+            <h2
+              style={{
+                fontFamily:   "var(--font-serif)",
+                fontSize:     "clamp(30px, 4.5vw, 52px)",
+                color:        "var(--foreground)",
+                marginBottom: 32,
+                lineHeight:   1.2,
+              }}
+            >
+              A return to <br />
+              <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>craftsmanship.</em>
+            </h2>
 
-        <FadeUp delay={0.15}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-            {[
-              {
-                title: "Curated, Not Crowded",
-                body:  "4,221 cigars in our catalog, organized by brand, series, wrapper, and vitola. Find exactly what you smoked and add it to your humidor in seconds.",
-              },
-              {
-                title: "Your Memory, Preserved",
-                body:  "Every burn deserves a record. Rate draw, burn, construction, and flavor. Leave notes for your future self. Build a library of personal history.",
-              },
-              {
-                title: "Community Worth Having",
-                body:  "A members-only lounge with a real code of conduct. No spam, no noise. Just enthusiasts who take their hobby as seriously as you do.",
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                style={{
-                  padding:      "20px 24px",
-                  borderRadius: "10px",
-                  backgroundColor:"var(--card)",
-                  border:       "1px solid var(--border)",
-                }}
-              >
-                <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 700, color: "var(--gold)", marginBottom: 8 }}>
-                  {item.title}
-                </h3>
-                <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.65 }}>
-                  {item.body}
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {[
+                "In a world obsessed with speed, the enjoyment of a fine cigar remains one of the few rituals that demands our patience. It is an art form that connects us to the earth, to history, and to each other.",
+                "Ash & Ember Society was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share the smoke with those who understand.",
+                "No noise. No distractions. Just the pure appreciation of the leaf.",
+              ].map((text, i) => (
+                <p key={i} style={{ color: "var(--muted-foreground)", fontWeight: 300, lineHeight: 1.75, fontSize: 17 }}>
+                  {text}
                 </p>
-              </div>
-            ))}
-          </div>
-        </FadeUp>
+              ))}
+            </div>
+
+            <div style={{ marginTop: 48 }}>
+              <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "rgba(193,120,23,0.6)", fontSize: 18 }}>
+                — The Founders
+              </p>
+            </div>
+          </motion.div>
+
+          {/* Image */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: "-100px" }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            style={{ position: "relative", order: 1 }}
+            className="lg:order-last"
+          >
+            <div style={{ aspectRatio: "4/5", position: "relative", overflow: "hidden", borderRadius: 2 }}>
+              <div
+                style={{
+                  position:   "absolute",
+                  inset:      0,
+                  backgroundColor: "rgba(26,18,16,0.2)",
+                  zIndex:     1,
+                  mixBlendMode: "multiply",
+                }}
+              />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://media.istockphoto.com/id/1468287900/photo/close-up-of-dried-tobacco-leaves-and-fresh-hand-rolled-premium-cuban-cigars-in-the-factory.jpg?s=612x612&w=0&k=20&c=MT7eYnFF68ZPU6G07Algj8das_KEOWB75srf3bF7TNI="
+                alt="Dried tobacco leaves and hand-rolled premium cigars"
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+              />
+            </div>
+            {/* Decorative border */}
+            <div
+              className="hidden md:block"
+              style={{
+                position:     "absolute",
+                inset:        -16,
+                border:       "1px solid rgba(193,120,23,0.2)",
+                zIndex:       0,
+                pointerEvents:"none",
+              }}
+            />
+          </motion.div>
+        </div>
       </div>
     </section>
   );
@@ -561,158 +479,133 @@ function Philosophy() {
    Features
    ------------------------------------------------------------------ */
 
-const FEATURES = [
+const features = [
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <rect x="4" y="8" width="20" height="15" rx="2.5" stroke="var(--gold)" strokeWidth="1.8" />
-        <path d="M4 13h20" stroke="var(--gold)" strokeWidth="1.5" />
-        <path d="M9 5.5v2.5M19 5.5v2.5" stroke="var(--gold)" strokeWidth="1.5" strokeLinecap="round" />
-        <circle cx="14" cy="18" r="2" fill="var(--gold)" opacity="0.7" />
-      </svg>
-    ),
-    title:       "Humidor Management",
-    description: "Track every cigar by brand, vitola, quantity, purchase date, and price. Set aging targets and get alerts when a stick is ready.",
+    icon:        <Archive className="w-6 h-6" style={{ color: "var(--primary)" }} />,
+    title:       "Personal Humidor",
+    description: "Digitally catalog your collection. Track aging times, box dates, and current inventory with elegant precision.",
   },
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <path d="M7 14l5 5 9-9" stroke="var(--ember)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="14" cy="14" r="10" stroke="var(--ember)" strokeWidth="1.8" opacity="0.5" />
-      </svg>
-    ),
-    title:       "Burn Reports",
-    description: "Multi-point rating system for draw, burn, construction, and flavor. Add tasting notes, pairing drinks, and smoke duration.",
+    icon:        <BookOpen className="w-6 h-6" style={{ color: "var(--primary)" }} />,
+    title:       "Tasting Journal",
+    description: "Document your experiences. Record flavor profiles, construction notes, and pairings in a beautifully designed ledger.",
   },
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <circle cx="14" cy="14" r="10" stroke="var(--gold)" strokeWidth="1.8" />
-        <path d="M18.5 9.5l-3.5 7-7 3.5 3.5-7 7-3.5z" stroke="var(--gold)" strokeWidth="1.5" strokeLinejoin="round" />
-        <circle cx="14" cy="14" r="1.8" fill="var(--gold)" />
-      </svg>
-    ),
-    title:       "Cigar Catalog",
-    description: "Browse 4,221 cigars with wrapper details, vitola specs, and real community usage data. Add anything to your humidor instantly.",
+    icon:        <Compass className="w-6 h-6" style={{ color: "var(--primary)" }} />,
+    title:       "Discovery Engine",
+    description: "Unearth your next favorite smoke. Receive personalized recommendations based on your unique palate and past ratings.",
   },
   {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <path d="M14 3c0 0-6.5 7.5-6.5 12.5a6.5 6.5 0 0013 0C20.5 10.5 14 3 14 3z" stroke="var(--ember)" strokeWidth="1.8" />
-        <path d="M14 13c0 0-2.5 3-2.5 5a2.5 2.5 0 005 0c0-2-2.5-5-2.5-5z" fill="var(--gold)" />
-      </svg>
-    ),
-    title:       "Community Lounge",
-    description: "Members-only forum with a real code of conduct. Share smokes, ask questions, and connect with enthusiasts in your area.",
-  },
-  {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <rect x="3" y="5" width="22" height="18" rx="3" stroke="var(--gold)" strokeWidth="1.8" />
-        <path d="M8 12h12M8 16h8" stroke="var(--gold)" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-    title:       "Shop Directory",
-    description: "Find partnered cigar shops near you with hours, amenities, lounge info, and exclusive member discounts up to 15%.",
-  },
-  {
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-        <polyline points="5,20 10,13 15,17 20,9 25,12" stroke="var(--ember)" strokeWidth="1.9" strokeLinejoin="round" fill="none" />
-        <circle cx="5" cy="20" r="1.5" fill="var(--ember)" />
-        <circle cx="25" cy="12" r="1.5" fill="var(--ember)" />
-      </svg>
-    ),
-    title:       "Personal Stats",
-    description: "See your smoking trends, most-smoked brands, top-rated sticks, and a full history dashboard of your cigar journey.",
+    icon:        <Users className="w-6 h-6" style={{ color: "var(--primary)" }} />,
+    title:       "Society Events",
+    description: "Gain access to exclusive virtual tastings, local chapter meetups, and private lounge access worldwide.",
   },
 ];
 
-function Features() {
+const containerVariants = {
+  hidden:   { opacity: 0 },
+  visible:  { opacity: 1, transition: { staggerChildren: 0.2 } },
+};
+
+const itemVariants = {
+  hidden:   { opacity: 0, y: 20 },
+  visible:  { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+};
+
+export function Features() {
   return (
     <section
       id="features"
       style={{
-        padding:         "100px 24px",
+        padding:         "96px 24px",
         backgroundColor: "var(--card)",
-        borderTop:       "1px solid var(--border)",
-        borderBottom:    "1px solid var(--border)",
+        borderTop:       "1px solid rgba(255,255,255,0.05)",
+        borderBottom:    "1px solid rgba(255,255,255,0.05)",
+        position:        "relative",
       }}
     >
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <FadeUp>
-          <div style={{ textAlign: "center", marginBottom: 64 }}>
-            <div
-              style={{
-                display:        "inline-flex",
-                alignItems:     "center",
-                gap:            8,
-                marginBottom:   20,
-                padding:        "5px 14px",
-                borderRadius:   "100px",
-                border:         "1px solid rgba(212,160,74,0.3)",
-                backgroundColor:"rgba(212,160,74,0.07)",
-              }}
-            >
-              <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600 }}>
-                Everything You Need
-              </span>
-            </div>
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto 80px" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
             <h2
               style={{
                 fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(26px, 4vw, 42px)",
-                fontWeight:   700,
+                fontSize:     "clamp(26px, 4.5vw, 52px)",
                 color:        "var(--foreground)",
-                marginBottom: 16,
+                marginBottom: 24,
               }}
             >
-              Built for Every Part of the Experience
+              Tools for the Aficionado
             </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.65, maxWidth: 520, margin: "0 auto" }}>
-              From your first stick to your thousandth burn, Ash & Ember Society grows with your collection and your palate.
+            <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300 }}>
+              We&apos;ve crafted a suite of digital instruments designed specifically
+              for the nuances of cigar appreciation.
             </p>
-          </div>
-        </FadeUp>
+          </motion.div>
+        </div>
 
-        <div
+        <motion.div
+          variants={containerVariants}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true, margin: "-50px" }}
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
             gap:                 24,
           }}
         >
-          {FEATURES.map((f, i) => (
-            <FadeUp key={f.title} delay={i * 0.07}>
+          {features.map((feature, index) => (
+            <motion.div
+              key={index}
+              variants={itemVariants}
+              style={{
+                backgroundColor: "var(--background)",
+                padding:         "32px",
+                border:          "1px solid rgba(255,255,255,0.05)",
+                borderRadius:    "2px",
+                transition:      "border-color 0.5s",
+                cursor:          "default",
+              }}
+              onMouseEnter={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = "rgba(193,120,23,0.3)")}
+              onMouseLeave={(e) => ((e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.05)")}
+            >
               <div
                 style={{
-                  padding:      "28px 24px",
-                  borderRadius: "12px",
-                  backgroundColor:"var(--background)",
-                  border:       "1px solid var(--border)",
-                  height:       "100%",
-                  transition:   "border-color 0.25s, transform 0.25s",
-                }}
-                onMouseEnter={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(212,160,74,0.4)";
-                  (e.currentTarget as HTMLDivElement).style.transform = "translateY(-3px)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "var(--border)";
-                  (e.currentTarget as HTMLDivElement).style.transform = "";
+                  width:           48,
+                  height:          48,
+                  borderRadius:    "50%",
+                  backgroundColor: "var(--card)",
+                  display:         "flex",
+                  alignItems:      "center",
+                  justifyContent:  "center",
+                  marginBottom:    24,
+                  transition:      "transform 0.5s",
                 }}
               >
-                <div style={{ marginBottom: 16 }}>{f.icon}</div>
-                <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 17, fontWeight: 700, color: "var(--foreground)", marginBottom: 10 }}>
-                  {f.title}
-                </h3>
-                <p style={{ fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.65 }}>
-                  {f.description}
-                </p>
+                {feature.icon}
               </div>
-            </FadeUp>
+              <h3
+                style={{
+                  fontFamily:   "var(--font-serif)",
+                  fontSize:     20,
+                  color:        "var(--foreground)",
+                  marginBottom: 16,
+                }}
+              >
+                {feature.title}
+              </h3>
+              <p style={{ color: "var(--muted-foreground)", fontWeight: 300, fontSize: 14, lineHeight: 1.7 }}>
+                {feature.description}
+              </p>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );
@@ -722,206 +615,189 @@ function Features() {
    Membership
    ------------------------------------------------------------------ */
 
-const TIERS = [
+const tiers = [
   {
-    name:        "Free",
-    price:       "$0",
-    period:      "forever",
-    description: "Get started and explore the catalog.",
-    highlighted: false,
+    name:        "Enthusiast",
+    price:       "Free",
+    description: "For the casual smoker beginning their journey.",
     features: [
-      "Up to 25 humidor items",
-      "Full cigar catalog access",
-      "Community feed (read-only)",
-      "Basic burn reports",
-      "Wishlist",
-      "Personal stats",
+      "Digital Humidor (up to 50 cigars)",
+      "Basic Tasting Journal",
+      "Community Forum Access",
+      "Standard Recommendations",
     ],
-    cta: "Start Free",
+    buttonText:  "Join Free",
+    highlighted: false,
   },
   {
-    name:        "Member",
-    price:       "$4.99",
-    period:      "per month",
-    annual:      "$50/year",
-    description: "The full Ash & Ember experience.",
+    name:        "Connoisseur",
+    price:       "$12",
+    period:      "/month",
+    description: "For the dedicated aficionado who demands the best.",
+    features: [
+      "Unlimited Digital Humidor",
+      "Advanced Tasting Analytics",
+      "Priority Event Access",
+      "Exclusive Partner Discounts",
+      "Private Messaging",
+    ],
+    buttonText:  "Apply for Membership",
     highlighted: true,
-    features: [
-      "Unlimited humidor items",
-      "Community posting and replies",
-      "10% discount at partner shops",
-      "Member events access",
-      "All free features included",
-    ],
-    cta: "Join as Member",
   },
   {
-    name:        "Premium",
-    price:       "$9.99",
-    period:      "per month",
-    annual:      "$100/year",
-    description: "For the dedicated collector.",
-    highlighted: false,
+    name:        "Founder's Circle",
+    price:       "$99",
+    period:      "/year",
+    description: "For the true patron of the leaf.",
     features: [
-      "Everything in Member",
-      "15% discount at partner shops",
-      "Exclusive premium events",
-      "Early access to new features",
-      "Premium badge on profile",
+      "All Connoisseur Benefits",
+      "Annual Welcome Box (3 Premium Cigars)",
+      "Metal Membership Card",
+      "VIP Concierge Service",
+      "Early Access to App Features",
     ],
-    cta: "Go Premium",
+    buttonText:  "Request Invitation",
+    highlighted: false,
   },
 ];
 
-function Membership() {
+export function Membership() {
   return (
-    <section id="membership" style={{ padding: "120px 24px" }}>
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        <FadeUp>
-          <div style={{ textAlign: "center", marginBottom: 64 }}>
-            <div
-              style={{
-                display:        "inline-flex",
-                alignItems:     "center",
-                gap:            8,
-                marginBottom:   20,
-                padding:        "5px 14px",
-                borderRadius:   "100px",
-                border:         "1px solid rgba(212,160,74,0.3)",
-                backgroundColor:"rgba(212,160,74,0.07)",
-              }}
-            >
-              <span style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--gold)", fontWeight: 600 }}>
-                Membership
-              </span>
-            </div>
+    <section id="membership" style={{ padding: "96px 24px", backgroundColor: "var(--background)" }}>
+      <div style={{ maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto 80px" }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+          >
             <h2
               style={{
                 fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(26px, 4vw, 42px)",
-                fontWeight:   700,
+                fontSize:     "clamp(26px, 4.5vw, 52px)",
                 color:        "var(--foreground)",
-                marginBottom: 16,
+                marginBottom: 24,
               }}
             >
               Choose Your Tier
             </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: 16, lineHeight: 1.65, maxWidth: 480, margin: "0 auto" }}>
-              Start free and upgrade anytime. Annual plans save 17% compared to monthly billing.
+            <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300 }}>
+              Whether you enjoy an occasional weekend smoke or maintain a
+              walk-in humidor, there is a place for you in the Society.
             </p>
-          </div>
-        </FadeUp>
+          </motion.div>
+        </div>
 
         <div
           style={{
             display:             "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap:                 24,
-            alignItems:          "stretch",
+            gap:                 32,
+            alignItems:          "center",
           }}
         >
-          {TIERS.map((tier, i) => (
-            <FadeUp key={tier.name} delay={i * 0.1}>
-              <div
-                style={{
-                  position:        "relative",
-                  padding:         tier.highlighted ? "36px 28px" : "32px 28px",
-                  borderRadius:    "14px",
-                  backgroundColor: tier.highlighted ? "var(--card)" : "var(--card)",
-                  border:          tier.highlighted ? "1.5px solid var(--gold)" : "1px solid var(--border)",
-                  boxShadow:       tier.highlighted ? "0 0 40px rgba(212,160,74,0.12)" : "none",
-                  height:          "100%",
-                  display:         "flex",
-                  flexDirection:   "column",
-                }}
-              >
-                {tier.highlighted && (
-                  <div
-                    style={{
-                      position:      "absolute",
-                      top:           -12,
-                      left:          "50%",
-                      transform:     "translateX(-50%)",
-                      padding:       "4px 16px",
-                      borderRadius:  "100px",
-                      background:    "linear-gradient(135deg, var(--primary), var(--gold))",
-                      color:         "#fff",
-                      fontSize:      11,
-                      fontWeight:    700,
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      whiteSpace:    "nowrap",
-                    }}
-                  >
-                    Most Popular
-                  </div>
-                )}
-
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ fontSize: 12, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted-foreground)", fontWeight: 600, marginBottom: 8 }}>
-                    {tier.name}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "var(--font-serif)", fontSize: 40, fontWeight: 700, color: "var(--foreground)" }}>
-                      {tier.price}
-                    </span>
-                    <span style={{ fontSize: 14, color: "var(--muted-foreground)" }}>/{tier.period}</span>
-                  </div>
-                  {tier.annual && (
-                    <div style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                      or {tier.annual} (save 17%)
-                    </div>
-                  )}
-                  <p style={{ marginTop: 12, fontSize: 14, color: "var(--muted-foreground)", lineHeight: 1.5 }}>
-                    {tier.description}
-                  </p>
-                </div>
-
-                <ul style={{ listStyle: "none", padding: 0, margin: "0 0 28px", display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
-                  {tier.features.map((f) => (
-                    <li key={f} style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "var(--foreground)" }}>
-                      <span style={{ flexShrink: 0, marginTop: 1 }}><CheckIcon size={16} /></span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                <Link
-                  href="/signup"
+          {tiers.map((tier, index) => (
+            <motion.div
+              key={index}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: index * 0.2 }}
+              style={{
+                position:        "relative",
+                padding:         "32px",
+                borderRadius:    "2px",
+                backgroundColor: "var(--card)",
+                border:          tier.highlighted ? "2px solid rgba(193,120,23,0.5)" : "1px solid rgba(255,255,255,0.05)",
+                boxShadow:       tier.highlighted ? "0 25px 50px rgba(193,120,23,0.05)" : "none",
+                transform:       tier.highlighted ? "translateY(-16px)" : "none",
+              }}
+            >
+              {tier.highlighted && (
+                <div
                   style={{
-                    display:        "block",
-                    textAlign:      "center",
-                    padding:        "13px",
-                    borderRadius:   "8px",
-                    background:     tier.highlighted
-                      ? "linear-gradient(135deg, var(--primary), var(--gold))"
-                      : "transparent",
-                    border:         tier.highlighted ? "none" : "1px solid var(--border)",
-                    color:          tier.highlighted ? "#fff" : "var(--foreground)",
-                    fontSize:       14,
-                    fontWeight:     600,
-                    textDecoration: "none",
-                    transition:     "opacity 0.2s, border-color 0.2s",
-                    letterSpacing:  "0.02em",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (tier.highlighted) {
-                      e.currentTarget.style.opacity = "0.88";
-                    } else {
-                      e.currentTarget.style.borderColor = "var(--gold)";
-                      e.currentTarget.style.color = "var(--gold)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.opacity = "1";
-                    e.currentTarget.style.borderColor = "var(--border)";
-                    e.currentTarget.style.color = tier.highlighted ? "#fff" : "var(--foreground)";
+                    position:      "absolute",
+                    top:           0,
+                    left:          "50%",
+                    transform:     "translate(-50%, -50%)",
+                    backgroundColor:"var(--primary)",
+                    color:         "#fff",
+                    fontSize:      11,
+                    fontWeight:    700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    padding:       "4px 16px",
+                    borderRadius:  "2px",
+                    whiteSpace:    "nowrap",
                   }}
                 >
-                  {tier.cta}
-                </Link>
+                  Most Popular
+                </div>
+              )}
+
+              <div style={{ marginBottom: 32 }}>
+                <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "var(--foreground)", marginBottom: 8 }}>
+                  {tier.name}
+                </h3>
+                <p style={{ color: "var(--muted-foreground)", fontSize: 14, fontWeight: 300, minHeight: 40 }}>
+                  {tier.description}
+                </p>
               </div>
-            </FadeUp>
+
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 32 }}>
+                <span style={{ fontFamily: "var(--font-serif)", fontSize: 40, color: "var(--foreground)" }}>
+                  {tier.price}
+                </span>
+                {tier.period && (
+                  <span style={{ color: "var(--muted-foreground)" }}>{tier.period}</span>
+                )}
+              </div>
+
+              <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
+                {tier.features.map((feature, fIndex) => (
+                  <li key={fIndex} style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: 14, color: "var(--muted-foreground)" }}>
+                    <Check size={20} style={{ color: "var(--primary)", flexShrink: 0 }} />
+                    <span>{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <Link
+                href="/signup"
+                style={{
+                  display:        "block",
+                  width:          "100%",
+                  padding:        "12px 16px",
+                  textAlign:      "center",
+                  borderRadius:   "2px",
+                  fontWeight:     500,
+                  textDecoration: "none",
+                  transition:     "all 0.3s",
+                  backgroundColor: tier.highlighted ? "var(--primary)" : "transparent",
+                  color:          tier.highlighted ? "#fff" : "var(--foreground)",
+                  border:         tier.highlighted ? "none" : "1px solid rgba(255,255,255,0.2)",
+                }}
+                onMouseEnter={(e) => {
+                  if (tier.highlighted) {
+                    e.currentTarget.style.backgroundColor = "var(--gold)";
+                  } else {
+                    e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)";
+                    e.currentTarget.style.color = "var(--gold)";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (tier.highlighted) {
+                    e.currentTarget.style.backgroundColor = "var(--primary)";
+                  } else {
+                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
+                    e.currentTarget.style.color = "var(--foreground)";
+                  }
+                }}
+              >
+                {tier.buttonText}
+              </Link>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -933,120 +809,186 @@ function Membership() {
    Community
    ------------------------------------------------------------------ */
 
-const STATS = [
-  { value: "4,221", label: "Cigars in catalog" },
-  { value: "500+",  label: "Partner shops" },
-  { value: "5-star", label: "Curator-reviewed" },
+const stats = [
+  { value: "12,400+", label: "Active Members"   },
+  { value: "85,000+", label: "Cigars Logged"     },
+  { value: "4.9/5",   label: "App Store Rating"  },
 ];
 
-const TESTIMONIALS = [
+const testimonials = [
   {
-    quote:  "Finally an app that takes this hobby as seriously as I do. The burn report system alone is worth the membership.",
-    author: "Marcus R.",
-    detail: "Member since 2025 | 180 smokes logged",
+    quote:  "Finally, an app that understands the nuance of cigar smoking. The tasting journal has completely changed how I appreciate my collection.",
+    author: "James W.",
+    title:  "Connoisseur Member",
   },
   {
-    quote:  "I&apos;ve tried every cigar app out there. Nothing comes close to the humidor management and the community here.",
-    author: "Derek P.",
-    detail: "Premium member | 420 cigars tracked",
-  },
-  {
-    quote:  "The shop directory found me three great lounges I had no idea existed in my city. Game changer.",
-    author: "Thomas A.",
-    detail: "Member | Utah Chapter",
+    quote:  "The community here is unparalleled. No snobbery, just genuine enthusiasts sharing their passion and knowledge.",
+    author: "Elena R.",
+    title:  "Founder's Circle",
   },
 ];
 
-function Community() {
+export function Community() {
   return (
     <section
       id="community"
       style={{
-        padding:         "120px 24px",
+        padding:         "96px 24px",
         backgroundColor: "var(--card)",
-        borderTop:       "1px solid var(--border)",
-        borderBottom:    "1px solid var(--border)",
+        borderTop:       "1px solid rgba(255,255,255,0.05)",
+        borderBottom:    "1px solid rgba(255,255,255,0.05)",
+        position:        "relative",
+        overflow:        "hidden",
       }}
     >
-      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
-        {/* Stats */}
-        <FadeUp>
-          <div
-            style={{
-              display:             "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap:                 32,
-              marginBottom:        80,
-              textAlign:           "center",
-            }}
-          >
-            {STATS.map((s) => (
-              <div key={s.label}>
-                <div style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 700, color: "var(--gold)", marginBottom: 8 }}>
-                  {s.value}
-                </div>
-                <div style={{ fontSize: 14, color: "var(--muted-foreground)", letterSpacing: "0.04em" }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </FadeUp>
+      {/* Decorative gradient */}
+      <div
+        style={{
+          position:       "absolute",
+          top:            0,
+          right:          0,
+          width:          "50%",
+          height:         "100%",
+          background:     "linear-gradient(to left, rgba(18,18,18,0.5), transparent)",
+          pointerEvents:  "none",
+        }}
+      />
 
-        {/* Section header */}
-        <FadeUp>
-          <div style={{ textAlign: "center", marginBottom: 48 }}>
-            <h2
-              style={{
-                fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(26px, 4vw, 42px)",
-                fontWeight:   700,
-                color:        "var(--foreground)",
-                marginBottom: 12,
-              }}
-            >
-              What Members Are Saying
-            </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: 16 }}>
-              From serious collectors to weekend enthusiasts.
-            </p>
-          </div>
-        </FadeUp>
-
-        {/* Testimonials */}
+      <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative", zIndex: 1 }}>
         <div
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-            gap:                 24,
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+            gap:                 64,
           }}
         >
-          {TESTIMONIALS.map((t, i) => (
-            <FadeUp key={t.author} delay={i * 0.1}>
-              <div
+          {/* Stats */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+          >
+            <h2
+              style={{
+                fontFamily:   "var(--font-serif)",
+                fontSize:     "clamp(24px, 3.5vw, 40px)",
+                color:        "var(--foreground)",
+                marginBottom: 48,
+                lineHeight:   1.3,
+              }}
+            >
+              Join a growing society of <br />
+              <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>like-minded individuals.</em>
+            </h2>
+
+            <div
+              style={{
+                display:             "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap:                 32,
+              }}
+            >
+              {stats.map((stat, index) => (
+                <div key={index}>
+                  <div
+                    style={{
+                      fontFamily:   "var(--font-serif)",
+                      fontSize:     "clamp(32px, 4vw, 52px)",
+                      color:        "var(--foreground)",
+                      marginBottom: 8,
+                    }}
+                  >
+                    {stat.value}
+                  </div>
+                  <div
+                    style={{
+                      fontSize:      13,
+                      color:         "var(--primary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                    }}
+                  >
+                    {stat.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Testimonials */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.2 }}
                 style={{
-                  padding:         "28px 24px",
-                  borderRadius:    "12px",
                   backgroundColor: "var(--background)",
-                  border:          "1px solid var(--border)",
+                  padding:         "32px",
+                  border:          "1px solid rgba(255,255,255,0.05)",
+                  borderRadius:    "2px",
+                  position:        "relative",
                 }}
               >
-                <div style={{ fontSize: 28, color: "var(--gold)", opacity: 0.5, marginBottom: 12, fontFamily: "var(--font-serif)" }}>&ldquo;</div>
+                <div
+                  style={{
+                    position:   "absolute",
+                    top:        16,
+                    left:       16,
+                    fontFamily: "var(--font-serif)",
+                    fontSize:   64,
+                    color:      "rgba(193,120,23,0.2)",
+                    lineHeight: 1,
+                  }}
+                >
+                  &ldquo;
+                </div>
                 <p
                   style={{
-                    fontSize:     15,
-                    color:        "var(--foreground)",
+                    color:        "var(--muted-foreground)",
+                    fontStyle:    "italic",
+                    position:     "relative",
+                    zIndex:       1,
+                    marginBottom: 24,
+                    fontSize:     17,
                     lineHeight:   1.7,
-                    marginBottom: 20,
-                    opacity:      0.9,
                   }}
-                  dangerouslySetInnerHTML={{ __html: t.quote }}
-                />
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "var(--foreground)" }}>{t.author}</div>
-                  <div style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>{t.detail}</div>
+                >
+                  {testimonial.quote}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div
+                    style={{
+                      width:           40,
+                      height:          40,
+                      borderRadius:    "50%",
+                      backgroundColor: "var(--card)",
+                      border:          "1px solid rgba(255,255,255,0.1)",
+                      display:         "flex",
+                      alignItems:      "center",
+                      justifyContent:  "center",
+                      fontFamily:      "var(--font-serif)",
+                      color:           "var(--primary)",
+                      fontSize:        16,
+                    }}
+                  >
+                    {testimonial.author.charAt(0)}
+                  </div>
+                  <div>
+                    <div style={{ color: "var(--foreground)", fontWeight: 500, fontSize: 14 }}>
+                      {testimonial.author}
+                    </div>
+                    <div style={{ color: "var(--muted-foreground)", fontSize: 12 }}>
+                      {testimonial.title}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </FadeUp>
-          ))}
+              </motion.div>
+            ))}
+          </div>
         </div>
       </div>
     </section>
@@ -1054,100 +996,113 @@ function Community() {
 }
 
 /* ------------------------------------------------------------------
-   Call to Action
+   CallToAction
    ------------------------------------------------------------------ */
 
-function CallToAction() {
+export function CallToAction() {
   return (
-    <section style={{ padding: "120px 24px" }}>
-      <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-        <FadeUp>
-          <div
-            style={{
-              display:        "inline-flex",
-              alignItems:     "center",
-              gap:            10,
-              marginBottom:   28,
-            }}
-          >
-            <FlameIcon size={32} />
-            <FlameIcon size={20} />
-            <FlameIcon size={32} />
-          </div>
+    <section
+      id="join"
+      style={{
+        padding:         "128px 24px",
+        backgroundColor: "var(--background)",
+        position:        "relative",
+        overflow:        "hidden",
+      }}
+    >
+      {/* Background glow */}
+      <div
+        style={{
+          position:      "absolute",
+          top:           "50%",
+          left:          "50%",
+          transform:     "translate(-50%, -50%)",
+          width:         800,
+          height:        800,
+          background:    "radial-gradient(circle, rgba(193,120,23,0.05) 0%, transparent 70%)",
+          borderRadius:  "50%",
+          pointerEvents: "none",
+        }}
+      />
+
+      <div style={{ maxWidth: 768, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8 }}
+        >
+          <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", margin: "0 auto 32px" }} />
           <h2
             style={{
               fontFamily:   "var(--font-serif)",
-              fontSize:     "clamp(28px, 5vw, 52px)",
-              fontWeight:   700,
-              lineHeight:   1.15,
+              fontSize:     "clamp(32px, 6vw, 64px)",
               color:        "var(--foreground)",
-              marginBottom: 20,
+              marginBottom: 24,
+              lineHeight:   1.15,
             }}
           >
-            Your Humidor Deserves<br />Better Than a Spreadsheet
+            Your Place at the Table{" "}
+            <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>Awaits</em>
           </h2>
-          <p style={{ color: "var(--muted-foreground)", fontSize: 17, lineHeight: 1.65, marginBottom: 44 }}>
-            Join free. No credit card required. Start tracking your collection today
-            and upgrade when you&apos;re ready for the full experience.
+          <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300, marginBottom: 48, maxWidth: 560, margin: "0 auto 48px" }}>
+            Join the waitlist today to secure early access and lock in founder
+            pricing before our public launch.
           </p>
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
-              href="/signup"
+
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            style={{
+              display:  "flex",
+              flexWrap: "wrap",
+              gap:      16,
+              maxWidth: 520,
+              margin:   "0 auto",
+            }}
+          >
+            <input
+              type="email"
+              placeholder="Enter your email address"
+              required
               style={{
-                display:        "inline-flex",
-                alignItems:     "center",
-                gap:            10,
-                padding:        "15px 36px",
-                borderRadius:   "8px",
-                background:     "linear-gradient(135deg, var(--primary), var(--gold))",
-                color:          "#fff",
-                fontSize:       15,
-                fontWeight:     700,
-                textDecoration: "none",
-                letterSpacing:  "0.04em",
-                textTransform:  "uppercase",
-                boxShadow:      "0 8px 32px rgba(193,120,23,0.3)",
-                transition:     "transform 0.2s, box-shadow 0.2s",
+                flex:            "1 1 240px",
+                backgroundColor: "var(--card)",
+                border:          "1px solid rgba(255,255,255,0.1)",
+                color:           "var(--foreground)",
+                padding:         "16px 24px",
+                borderRadius:    "2px",
+                fontSize:        16,
+                outline:         "none",
+                transition:      "border-color 0.2s",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 12px 40px rgba(193,120,23,0.4)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "";
-                e.currentTarget.style.boxShadow = "0 8px 32px rgba(193,120,23,0.3)";
-              }}
-            >
-              <FlameIcon size={16} />
-              Create Free Account
-            </Link>
-            <Link
-              href="/login"
+              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+            />
+            <button
+              type="submit"
               style={{
-                display:        "inline-flex",
-                alignItems:     "center",
-                padding:        "15px 36px",
-                borderRadius:   "8px",
-                border:         "1px solid var(--border)",
-                color:          "var(--muted-foreground)",
-                fontSize:       15,
-                fontWeight:     500,
-                textDecoration: "none",
-                transition:     "border-color 0.2s, color 0.2s",
+                flex:            "0 0 auto",
+                padding:         "16px 32px",
+                backgroundColor: "var(--primary)",
+                color:           "#fff",
+                fontWeight:      500,
+                borderRadius:    "2px",
+                border:          "none",
+                cursor:          "pointer",
+                fontSize:        15,
+                transition:      "background-color 0.3s",
+                whiteSpace:      "nowrap",
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--gold)";
-                e.currentTarget.style.color = "var(--foreground)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border)";
-                e.currentTarget.style.color = "var(--muted-foreground)";
-              }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
             >
-              Sign In
-            </Link>
-          </div>
-        </FadeUp>
+              Request Access
+            </button>
+          </form>
+          <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", marginTop: 16 }}>
+            By joining, you agree to our terms of service. No spam, ever.
+          </p>
+        </motion.div>
       </div>
     </section>
   );
@@ -1157,97 +1112,76 @@ function CallToAction() {
    Footer
    ------------------------------------------------------------------ */
 
-function Footer() {
+export function Footer() {
   return (
     <footer
       style={{
-        borderTop:       "1px solid var(--border)",
-        backgroundColor: "var(--card)",
-        padding:         "48px 24px 40px",
+        backgroundColor: "var(--background)",
+        borderTop:       "1px solid rgba(255,255,255,0.05)",
+        padding:         "48px 24px",
       }}
     >
       <div
         style={{
-          maxWidth:      1100,
-          margin:        "0 auto",
-          display:       "flex",
-          flexWrap:      "wrap",
-          gap:           32,
-          justifyContent:"space-between",
-          alignItems:    "flex-start",
+          maxWidth:       1280,
+          margin:         "0 auto",
+          display:        "flex",
+          flexWrap:       "wrap",
+          justifyContent: "space-between",
+          alignItems:     "center",
+          gap:            24,
         }}
       >
-        {/* Brand */}
-        <div style={{ maxWidth: 280 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-            <FlameIcon size={18} />
-            <span style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 700, color: "var(--foreground)" }}>
-              Ash & Ember Society
-            </span>
-          </div>
-          <p style={{ fontSize: 13, color: "var(--muted-foreground)", lineHeight: 1.65 }}>
-            The premium cigar enthusiast app. Built for those who take their hobby seriously.
-          </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, letterSpacing: "0.04em", color: "var(--foreground)" }}>
+            Ash &amp; Ember
+          </span>
         </div>
 
-        {/* Links */}
-        <div style={{ display: "flex", gap: 48, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted-foreground)", fontWeight: 700, marginBottom: 14 }}>
-              App
-            </div>
-            {["Features", "Membership", "Community"].map((l) => (
-              <a
-                key={l}
-                href={`#${l.toLowerCase()}`}
-                style={{ display: "block", fontSize: 14, color: "var(--muted-foreground)", textDecoration: "none", marginBottom: 10, transition: "color 0.2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-              >
-                {l}
-              </a>
-            ))}
-          </div>
-          <div>
-            <div style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted-foreground)", fontWeight: 700, marginBottom: 14 }}>
-              Account
-            </div>
-            {[
-              { label: "Sign In",    href: "/login"  },
-              { label: "Sign Up",    href: "/signup" },
-            ].map((l) => (
-              <Link
-                key={l.label}
-                href={l.href}
-                style={{ display: "block", fontSize: 14, color: "var(--muted-foreground)", textDecoration: "none", marginBottom: 10, transition: "color 0.2s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = "var(--foreground)")}
-                onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
-              >
-                {l.label}
-              </Link>
-            ))}
-          </div>
-        </div>
+        <nav style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 24 }}>
+          {[
+            { label: "Privacy Policy", href: "#" },
+            { label: "Terms of Service", href: "#" },
+            { label: "Contact", href: "#" },
+            { label: "Twitter", href: "#" },
+            { label: "Instagram", href: "#" },
+          ].map((l) => (
+            <a
+              key={l.label}
+              href={l.href}
+              style={{
+                fontSize:       14,
+                color:          "var(--muted-foreground)",
+                textDecoration: "none",
+                transition:     "color 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
+            >
+              {l.label}
+            </a>
+          ))}
+        </nav>
       </div>
 
       <div
         style={{
-          maxWidth:   1100,
-          margin:     "32px auto 0",
-          paddingTop: 24,
-          borderTop:  "1px solid var(--border)",
-          display:    "flex",
-          flexWrap:   "wrap",
-          gap:        16,
-          justifyContent:"space-between",
-          alignItems: "center",
+          maxWidth:       1280,
+          margin:         "32px auto 0",
+          display:        "flex",
+          flexWrap:       "wrap",
+          justifyContent: "space-between",
+          alignItems:     "center",
+          gap:            8,
+          paddingTop:     24,
+          borderTop:      "1px solid rgba(255,255,255,0.05)",
         }}
       >
-        <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-          &copy; {new Date().getFullYear()} Ash & Ember Society. All rights reserved.
+        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)" }}>
+          &copy; {new Date().getFullYear()} Ash &amp; Ember Society. All rights reserved.
         </p>
-        <p style={{ fontSize: 12, color: "var(--muted-foreground)", opacity: 0.6 }}>
-          Enjoy responsibly. 21+ only.
+        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)" }}>
+          Designed for the discerning.
         </p>
       </div>
     </footer>
@@ -1262,12 +1196,14 @@ export default function LandingPage() {
   return (
     <div style={{ backgroundColor: "var(--background)", color: "var(--foreground)", minHeight: "100vh" }}>
       <Navbar />
-      <Hero />
-      <Philosophy />
-      <Features />
-      <Membership />
-      <Community />
-      <CallToAction />
+      <main style={{ flexGrow: 1 }}>
+        <Hero />
+        <Philosophy />
+        <Features />
+        <Membership />
+        <Community />
+        <CallToAction />
+      </main>
       <Footer />
     </div>
   );
