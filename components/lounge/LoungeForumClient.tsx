@@ -63,8 +63,12 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
 /* ---- Rule title matcher ------------------------------------------- */
 
 const RULE_TITLES = [
-  `the "golden rule" of the lounge`,
-  `low-key`,
+  "golden rule",
+  "no politics",
+  "respect the palate",
+  "hustling",
+  "low-key",
+  "discretion is paramount",
 ];
 
 /* ---- Rules modal -------------------------------------------------- */
