@@ -38,15 +38,18 @@ export default async function LoungePage() {
     last_post_at: statsMap[c.id]?.last_post_at ?? null,
   }));
 
-  // Check if user has unlocked (liked the rules post)
-  let hasUnlocked = false;
+  // Check if user has unlocked + total agreement count
+  let hasUnlocked    = false;
+  let agreementCount = 0;
   if (rulesPost) {
-    const { count } = await supabase
-      .from("forum_post_likes")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("post_id", rulesPost.id);
-    hasUnlocked = (count ?? 0) > 0;
+    const [userLikeRes, totalLikeRes] = await Promise.all([
+      supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
+        .eq("user_id", user.id).eq("post_id", rulesPost.id),
+      supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
+        .eq("post_id", rulesPost.id),
+    ]);
+    hasUnlocked    = (userLikeRes.count  ?? 0) > 0;
+    agreementCount = (totalLikeRes.count ?? 0);
   }
 
   const displayName    = profileRes.data?.display_name ?? user.email?.split("@")[0] ?? "Member";
@@ -57,6 +60,7 @@ export default async function LoungePage() {
       categories={categoriesWithCount}
       rulesPost={rulesPost ?? null}
       hasUnlocked={hasUnlocked}
+      agreementCount={agreementCount}
       userId={user.id}
       displayName={displayName}
       membershipTier={membershipTier}
