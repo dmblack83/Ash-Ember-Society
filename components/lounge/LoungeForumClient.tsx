@@ -64,7 +64,7 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
 
 const RULE_TITLES = [
   `the "golden rule" of the lounge`,
-  `keep it "low-key"`,
+  `low-key`,
 ];
 
 /* ---- Rules modal -------------------------------------------------- */
@@ -205,7 +205,8 @@ function RulesModal({
             {rulesPost.content.split("\n").map((line, i) => {
               const trimmed = line.trim();
               if (!trimmed) return <div key={i} style={{ height: 8 }} />;
-              const cleaned = trimmed.replace(/^\d+\.\s*/, "").toLowerCase();
+              const cleaned = trimmed.replace(/^\d+\.\s*/, "").toLowerCase()
+                .replace(/[\u201c\u201d\u2018\u2019]/g, '"');
               const isTitle = RULE_TITLES.some((t) => cleaned.includes(t));
               return (
                 <p
