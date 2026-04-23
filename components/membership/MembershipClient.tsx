@@ -293,10 +293,10 @@ function PricingTable({
   const memberPriceId  = interval === "month" ? priceIds.memberMonthly  : priceIds.memberAnnual;
   const premiumPriceId = interval === "month" ? priceIds.premiumMonthly : priceIds.premiumAnnual;
 
-  const memberMonthlyEquiv  = interval === "year" ? "$8.25" : "$9.99";
-  const premiumMonthlyEquiv = interval === "year" ? "$14.92" : "$19.99";
+  const memberMonthlyEquiv  = interval === "year" ? "$4.17" : "$4.99";
+  const premiumMonthlyEquiv = interval === "year" ? "$8.33" : "$9.99";
   const memberSavingsPct    = 17;
-  const premiumSavingsPct   = 25;
+  const premiumSavingsPct   = 17;
 
   const memberCtaLabel = isExistingUser
     ? "Upgrade to Member"
@@ -413,7 +413,7 @@ function PricingTable({
             </div>
             {interval === "year" ? (
               <p className="text-xs" style={{ color: "var(--primary)" }}>
-                Billed $99/year · Save {memberSavingsPct}%
+                Billed $50/year · Save {memberSavingsPct}%
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">billed monthly</p>
@@ -476,7 +476,7 @@ function PricingTable({
             </div>
             {interval === "year" ? (
               <p className="text-xs" style={{ color: "var(--accent)" }}>
-                Billed $179/year · Save {premiumSavingsPct}%
+                Billed $100/year · Save {premiumSavingsPct}%
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">billed monthly</p>
