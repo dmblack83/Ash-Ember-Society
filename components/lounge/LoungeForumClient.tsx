@@ -32,6 +32,7 @@ interface Props {
   categories:     Category[];
   rulesPost:      RulesPost | null;
   hasUnlocked:    boolean;
+  agreementCount: number;
   userId:         string;
   displayName:    string;
   membershipTier: string;
@@ -59,7 +60,7 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
   );
 }
 
-/* ---- Rules modal -------------------------------------------------- */
+/* ---- Rule title matcher ------------------------------------------- */
 
 const RULE_TITLES = [
   `the "golden rule" of the lounge`,
@@ -70,20 +71,25 @@ const RULE_TITLES = [
   "discretion is paramount",
 ];
 
+/* ---- Rules modal -------------------------------------------------- */
+
 function RulesModal({
   rulesPost,
   userId,
   initialLiked,
+  initialCount,
   onClose,
 }: {
   rulesPost:    RulesPost;
   userId:       string;
   initialLiked: boolean;
+  initialCount: number;
   onClose:      () => void;
 }) {
-  const [mounted, setMounted] = useState(false);
-  const [liked,   setLiked]   = useState(initialLiked);
-  const [liking,  setLiking]  = useState(false);
+  const [mounted,     setMounted]    = useState(false);
+  const [liked,       setLiked]      = useState(initialLiked);
+  const [liking,      setLiking]     = useState(false);
+  const [localCount,  setLocalCount] = useState(initialCount);
 
   const supabase = useMemo(() => createClient(), []);
 
@@ -111,22 +117,18 @@ function RulesModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  async function handleLike() {
-    if (liking) return;
+  // One-way: agreement is permanent, no toggle
+  async function handleAgree() {
+    if (liking || liked) return;
     setLiking(true);
-    if (liked) {
+    setLiked(true);
+    setLocalCount(c => c + 1);
+    const { error } = await supabase
+      .from("forum_post_likes")
+      .insert({ user_id: userId, post_id: rulesPost.id });
+    if (error && error.code !== "23505") {
       setLiked(false);
-      await supabase
-        .from("forum_post_likes")
-        .delete()
-        .eq("user_id", userId)
-        .eq("post_id", rulesPost.id);
-    } else {
-      setLiked(true);
-      const { error } = await supabase
-        .from("forum_post_likes")
-        .insert({ user_id: userId, post_id: rulesPost.id });
-      if (error && error.code !== "23505") setLiked(false);
+      setLocalCount(c => c - 1);
     }
     setLiking(false);
   }
@@ -203,29 +205,25 @@ function RulesModal({
 
         {/* Scrollable content */}
         <div className="overflow-y-auto px-5 py-5" style={{ flex: 1, overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {rulesPost.content.split("\n").map((line, i) => {
               const trimmed = line.trim();
-              if (!trimmed) return <div key={i} style={{ height: 6 }} />;
-              const isTitle = RULE_TITLES.some(t =>
-                trimmed.replace(/^\d+[\.\)]\s*/, "").toLowerCase().includes(t.toLowerCase())
-              );
-              if (isTitle) {
-                return (
-                  <p key={i} style={{
-                    fontFamily: "var(--font-serif)",
-                    fontWeight: 700,
-                    fontSize:   14,
-                    color:      "var(--gold, #D4A04A)",
-                    lineHeight: 1.5,
-                    marginTop:  8,
-                  }}>
-                    {trimmed}
-                  </p>
-                );
-              }
+              if (!trimmed) return <div key={i} style={{ height: 8 }} />;
+              const cleaned = trimmed.replace(/^\d+\.\s*/, "").toLowerCase();
+              const isTitle = RULE_TITLES.some((t) => cleaned.includes(t));
               return (
-                <p key={i} className="text-sm leading-relaxed" style={{ color: "var(--foreground)", opacity: 0.85 }}>
+                <p
+                  key={i}
+                  style={{
+                    fontSize:   isTitle ? 14 : 13,
+                    fontWeight: isTitle ? 700 : 400,
+                    fontFamily: isTitle ? "var(--font-serif)" : undefined,
+                    color:      isTitle ? "var(--gold, #D4A04A)" : "var(--foreground)",
+                    opacity:    isTitle ? 1 : 0.85,
+                    lineHeight: 1.55,
+                    marginTop:  isTitle && i > 0 ? 10 : 0,
+                  }}
+                >
                   {trimmed}
                 </p>
               );
@@ -233,31 +231,43 @@ function RulesModal({
           </div>
         </div>
 
-        {/* Like footer */}
+        {/* Agreement footer */}
         <div
           className="px-5 py-4 flex items-center justify-between"
           style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }}
         >
-          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-            {liked ? "You've agreed to the house code." : "Agree to the house code to participate."}
-          </p>
-          <button
-            type="button"
-            onClick={handleLike}
-            disabled={liking}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-            style={{
-              background:              liked ? "rgba(212,160,74,0.15)" : "transparent",
-              border:                  `1.5px solid ${liked ? "var(--gold, #D4A04A)" : "var(--border)"}`,
-              color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-              cursor:                  liking ? "default" : "pointer",
-              touchAction:             "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            <FlameIcon size={13} filled={liked} />
-            {liked ? "Agreed" : "Agree"}
-          </button>
+          {liked ? (
+            <div className="flex items-center gap-2" style={{ color: "var(--gold, #D4A04A)" }}>
+              <FlameIcon size={14} filled />
+              <span className="text-xs font-semibold">
+                {localCount.toLocaleString()} members agreed
+              </span>
+            </div>
+          ) : (
+            <>
+              <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                Agree to the house code to participate.
+              </p>
+              <button
+                type="button"
+                onClick={handleAgree}
+                disabled={liking}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+                style={{
+                  background:              "transparent",
+                  border:                  "1.5px solid var(--border)",
+                  color:                   "var(--muted-foreground)",
+                  cursor:                  liking ? "default" : "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  flexShrink:              0,
+                }}
+              >
+                <FlameIcon size={13} />
+                I Agree
+              </button>
+            </>
+          )}
         </div>
       </div>
     </>,
@@ -271,6 +281,7 @@ export function LoungeForumClient({
   categories,
   rulesPost,
   hasUnlocked,
+  agreementCount,
   userId,
   displayName,
   membershipTier,
@@ -577,6 +588,7 @@ export function LoungeForumClient({
           rulesPost={rulesPost}
           userId={userId}
           initialLiked={unlocked}
+          initialCount={agreementCount}
           onClose={() => setShowRules(false)}
         />
       )}
