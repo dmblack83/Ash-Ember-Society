@@ -207,21 +207,26 @@ function RulesModal({
                     .replace(/^\*\*(.+)\*\*$/, "$1")
                     .replace(/^__(.+)__$/, "$1")
                     .trim();
-                const title = stripMd(lines[0]);
-                const body  = lines.slice(1).map(stripMd).join(" ");
+                const first     = stripMd(lines[0]);
+                const isRule    = /^\d+[.)]\s/.test(first);
+                const titleText = isRule ? first : null;
+                const bodyLines = isRule ? lines.slice(1) : lines;
+                const body      = bodyLines.map(stripMd).join(" ");
                 return (
                   <div key={bi} style={{ marginTop: bi > 0 ? 14 : 0 }}>
-                    <p
-                      style={{
-                        fontSize:   14,
-                        fontWeight: 700,
-                        fontFamily: "var(--font-serif)",
-                        color:      "var(--gold, #D4A04A)",
-                        lineHeight: 1.55,
-                      }}
-                    >
-                      {title}
-                    </p>
+                    {titleText && (
+                      <p
+                        style={{
+                          fontSize:   14,
+                          fontWeight: 700,
+                          fontFamily: "var(--font-serif)",
+                          color:      "var(--gold, #D4A04A)",
+                          lineHeight: 1.55,
+                        }}
+                      >
+                        {titleText}
+                      </p>
+                    )}
                     {body && (
                       <p
                         style={{
@@ -230,7 +235,7 @@ function RulesModal({
                           color:      "var(--foreground)",
                           opacity:    0.85,
                           lineHeight: 1.55,
-                          marginTop:  4,
+                          marginTop:  titleText ? 4 : 0,
                         }}
                       >
                         {body}
