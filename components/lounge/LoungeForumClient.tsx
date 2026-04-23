@@ -60,7 +60,6 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
   );
 }
 
-
 /* ---- Rules modal -------------------------------------------------- */
 
 function RulesModal({
