@@ -64,7 +64,7 @@ function FlameIcon({ size = 16, filled = false }: { size?: number; filled?: bool
 
 const RULE_TITLES = [
   `the "golden rule" of the lounge`,
-  `keep it "low key"`,
+  `keep it "low-key"`,
 ];
 
 /* ---- Rules modal -------------------------------------------------- */
