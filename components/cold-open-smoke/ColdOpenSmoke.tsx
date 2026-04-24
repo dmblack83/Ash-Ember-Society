@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
 
 /* ------------------------------------------------------------------
-   Flash prevention — module-level flag so the overlay is visible
-   from the very first render on cold open, eliminating any flash
-   of the home screen between SSR and hydration.
+   Flash prevention — useLayoutEffect fires synchronously before the
+   browser paints, so the overlay is in place before any frame is
+   drawn. useEffect fires after paint, which causes the flash.
+   The isomorphic alias falls back to useEffect during SSR (no-op).
    ------------------------------------------------------------------ */
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 let _hasShown = false;
 
@@ -77,13 +81,11 @@ const KEYFRAMES = `
    ------------------------------------------------------------------ */
 
 export function ColdOpenSmoke() {
-  // Start hidden — shown only after confirming PWA + mobile in useEffect.
-  // This avoids rendering the overlay at all in a browser context.
   const [visible,    setVisible]    = useState(false);
   const [fading,     setFading]     = useState(false);
   const [useWillChg, setUseWillChg] = useState(true);
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     // Only play when launched from the installed PWA on a mobile device.
     // navigator.standalone covers iOS Safari; display-mode: standalone
     // covers Android/Chrome PWA. Both are checked for full coverage.
