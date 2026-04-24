@@ -280,8 +280,8 @@ export function Hero() {
           className="flex flex-col sm:flex-row"
           style={{ gap: 14, justifyContent: "center", alignItems: "stretch" }}
         >
-          <Link
-            href="/signup"
+          <a
+            href="#join"
             style={{
               padding:         "15px 32px",
               backgroundColor: "var(--primary)",
@@ -297,7 +297,7 @@ export function Hero() {
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
           >
             Request Invitation
-          </Link>
+          </a>
           <a
             href="#philosophy"
             style={{
@@ -386,7 +386,7 @@ export function Philosophy() {
             <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {[
                 "In a world obsessed with speed, the enjoyment of a fine cigar remains one of the few rituals that demands our patience. It is an art form that connects us to the earth, to history, and to each other.",
-                "Ash & Ember Society was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share a smoke & story with those who understand.",
+                "Ash & Ember was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share a smoke & story with those who understand.",
                 "No noise. No distractions. Just the pure appreciation of the leaf.",
               ].map((text, i) => (
                 <p key={i} style={{ color: "var(--muted-foreground)", fontWeight: 300, lineHeight: 1.75, fontSize: "clamp(15px, 2vw, 17px)" }}>
@@ -397,7 +397,7 @@ export function Philosophy() {
 
             <div style={{ marginTop: 36 }}>
               <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "rgba(193,120,23,0.6)", fontSize: 17 }}>
-                — Dave, Founder &amp; CEO
+                — Dave, Founder
               </p>
             </div>
           </motion.div>
@@ -445,22 +445,22 @@ const features = [
   {
     icon:        <Archive className="w-6 h-6" style={{ color: "var(--primary)" }} />,
     title:       "Personal Humidor",
-    description: "Digitally catalog your collection. Track aging times, box dates, and current inventory with elegant precision.",
+    description: "Digitally catalog your collection. Tracking inventory, aging times, and dates with elegant precision.",
   },
   {
     icon:        <BookOpen className="w-6 h-6" style={{ color: "var(--primary)" }} />,
     title:       "Tasting Journal",
-    description: "Document your experiences. Record flavor profiles, construction notes, and pairings in a beautifully designed ledger.",
+    description: "Document your experiences. Record each smoke for personal use or file a Burn Report to share with the community with flavor profiles, construction notes, and pairings in a beautifully designed ledger.",
   },
   {
     icon:        <Compass className="w-6 h-6" style={{ color: "var(--primary)" }} />,
     title:       "Discovery Engine",
-    description: "Unearth your next favorite smoke. Receive personalized recommendations based on your unique palate and past ratings.",
+    description: "Unearth your next favorite smoke. Search our extensive cigar database with over 5k unique cigars or wishlist a cigar from a Burn Report that caught your attention.",
   },
   {
     icon:        <Users className="w-6 h-6" style={{ color: "var(--primary)" }} />,
-    title:       "Society Events",
-    description: "Gain access to exclusive virtual tastings, local chapter meetups, and private lounge access worldwide.",
+    title:       "Socialize",
+    description: "Gain access to our exclusive forum to connect and share a smoke & story with those who understand.",
   },
 ];
 
@@ -1012,7 +1012,7 @@ export default function LandingPage() {
         <Hero />
         <Philosophy />
         <Features />
-        <Membership />
+        {/* <Membership /> — hidden until public launch */}
         {/* <Community /> — hidden until public launch */}
         <CallToAction />
       </main>
