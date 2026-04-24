@@ -29,7 +29,7 @@ export function Navbar() {
     { name: "About",      href: "#philosophy" },
     { name: "Features",   href: "#features"   },
     { name: "Membership", href: "#membership" },
-    { name: "Community",  href: "#community"  },
+    // { name: "Community",  href: "#community"  }, // hidden — coming soon
   ];
 
   return (
@@ -415,7 +415,7 @@ export function Philosophy() {
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               {[
                 "In a world obsessed with speed, the enjoyment of a fine cigar remains one of the few rituals that demands our patience. It is an art form that connects us to the earth, to history, and to each other.",
-                "Ash & Ember Society was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share the smoke with those who understand.",
+                "Ash & Ember Society was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share a smoke & story with those who understand.",
                 "No noise. No distractions. Just the pure appreciation of the leaf.",
               ].map((text, i) => (
                 <p key={i} style={{ color: "var(--muted-foreground)", fontWeight: 300, lineHeight: 1.75, fontSize: 17 }}>
@@ -426,7 +426,7 @@ export function Philosophy() {
 
             <div style={{ marginTop: 48 }}>
               <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "rgba(193,120,23,0.6)", fontSize: 18 }}>
-                — The Founders
+                — Dave, Founder &amp; CEO
               </p>
             </div>
           </motion.div>
@@ -665,7 +665,7 @@ export function Membership() {
   return (
     <section id="membership" style={{ padding: "96px 24px", backgroundColor: "var(--background)" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto 80px" }}>
+        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -680,7 +680,7 @@ export function Membership() {
                 marginBottom: 24,
               }}
             >
-              Choose Your Tier
+              Closed Beta Coming Soon
             </h2>
             <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300 }}>
               Whether you enjoy an occasional weekend smoke or maintain a
@@ -689,6 +689,7 @@ export function Membership() {
           </motion.div>
         </div>
 
+        {/* Tier details — hidden until public launch
         <div
           style={{
             display:             "grid",
@@ -715,45 +716,18 @@ export function Membership() {
               }}
             >
               {tier.highlighted && (
-                <div
-                  style={{
-                    position:      "absolute",
-                    top:           0,
-                    left:          "50%",
-                    transform:     "translate(-50%, -50%)",
-                    backgroundColor:"var(--primary)",
-                    color:         "#fff",
-                    fontSize:      11,
-                    fontWeight:    700,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    padding:       "4px 16px",
-                    borderRadius:  "2px",
-                    whiteSpace:    "nowrap",
-                  }}
-                >
+                <div style={{ position: "absolute", top: 0, left: "50%", transform: "translate(-50%, -50%)", backgroundColor:"var(--primary)", color: "#fff", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", padding: "4px 16px", borderRadius: "2px", whiteSpace: "nowrap" }}>
                   Most Popular
                 </div>
               )}
-
               <div style={{ marginBottom: 32 }}>
-                <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "var(--foreground)", marginBottom: 8 }}>
-                  {tier.name}
-                </h3>
-                <p style={{ color: "var(--muted-foreground)", fontSize: 14, fontWeight: 300, minHeight: 40 }}>
-                  {tier.description}
-                </p>
+                <h3 style={{ fontFamily: "var(--font-serif)", fontSize: 24, color: "var(--foreground)", marginBottom: 8 }}>{tier.name}</h3>
+                <p style={{ color: "var(--muted-foreground)", fontSize: 14, fontWeight: 300, minHeight: 40 }}>{tier.description}</p>
               </div>
-
               <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 32 }}>
-                <span style={{ fontFamily: "var(--font-serif)", fontSize: 40, color: "var(--foreground)" }}>
-                  {tier.price}
-                </span>
-                {tier.period && (
-                  <span style={{ color: "var(--muted-foreground)" }}>{tier.period}</span>
-                )}
+                <span style={{ fontFamily: "var(--font-serif)", fontSize: 40, color: "var(--foreground)" }}>{tier.price}</span>
+                {tier.period && <span style={{ color: "var(--muted-foreground)" }}>{tier.period}</span>}
               </div>
-
               <ul style={{ listStyle: "none", padding: 0, margin: "0 0 32px", display: "flex", flexDirection: "column", gap: 16 }}>
                 {tier.features.map((feature, fIndex) => (
                   <li key={fIndex} style={{ display: "flex", alignItems: "flex-start", gap: 12, fontSize: 14, color: "var(--muted-foreground)" }}>
@@ -762,44 +736,13 @@ export function Membership() {
                   </li>
                 ))}
               </ul>
-
-              <Link
-                href="/signup"
-                style={{
-                  display:        "block",
-                  width:          "100%",
-                  padding:        "12px 16px",
-                  textAlign:      "center",
-                  borderRadius:   "2px",
-                  fontWeight:     500,
-                  textDecoration: "none",
-                  transition:     "all 0.3s",
-                  backgroundColor: tier.highlighted ? "var(--primary)" : "transparent",
-                  color:          tier.highlighted ? "#fff" : "var(--foreground)",
-                  border:         tier.highlighted ? "none" : "1px solid rgba(255,255,255,0.2)",
-                }}
-                onMouseEnter={(e) => {
-                  if (tier.highlighted) {
-                    e.currentTarget.style.backgroundColor = "var(--gold)";
-                  } else {
-                    e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)";
-                    e.currentTarget.style.color = "var(--gold)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (tier.highlighted) {
-                    e.currentTarget.style.backgroundColor = "var(--primary)";
-                  } else {
-                    e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
-                    e.currentTarget.style.color = "var(--foreground)";
-                  }
-                }}
-              >
+              <Link href="/signup" style={{ display: "block", width: "100%", padding: "12px 16px", textAlign: "center", borderRadius: "2px", fontWeight: 500, textDecoration: "none", transition: "all 0.3s", backgroundColor: tier.highlighted ? "var(--primary)" : "transparent", color: tier.highlighted ? "#fff" : "var(--foreground)", border: tier.highlighted ? "none" : "1px solid rgba(255,255,255,0.2)" }}>
                 {tier.buttonText}
               </Link>
             </motion.div>
           ))}
         </div>
+        */}
       </div>
     </section>
   );
@@ -1201,7 +1144,7 @@ export default function LandingPage() {
         <Philosophy />
         <Features />
         <Membership />
-        <Community />
+        {/* <Community /> — hidden until public launch */}
         <CallToAction />
       </main>
       <Footer />
