@@ -85,9 +85,10 @@ export function ColdOpenSmoke() {
 
   useEffect(() => {
     // Only play when launched from the installed PWA on a mobile device.
-    // display-mode: standalone is true only when running as an installed
-    // home-screen app (iOS Safari "Add to Home Screen" or Android PWA).
-    const isPWA    = window.matchMedia("(display-mode: standalone)").matches;
+    // navigator.standalone covers iOS Safari; display-mode: standalone
+    // covers Android/Chrome PWA. Both are checked for full coverage.
+    const isPWA    = (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+                     window.matchMedia("(display-mode: standalone)").matches;
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
     if (!isPWA || !isMobile) return;
