@@ -77,32 +77,32 @@ const KEYFRAMES = `
    ------------------------------------------------------------------ */
 
 export function ColdOpenSmoke() {
-  // Initialise as true on first mount so the overlay is present from
-  // the very first render — no flash between SSR and hydration.
-  const [visible,    setVisible]    = useState(() => !_hasShown);
+  // Start hidden — shown only after confirming PWA + mobile in useEffect.
+  // This avoids rendering the overlay at all in a browser context.
+  const [visible,    setVisible]    = useState(false);
   const [fading,     setFading]     = useState(false);
   const [useWillChg, setUseWillChg] = useState(true);
 
   useEffect(() => {
-    // Respect the user's motion preference
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(false);
-      return;
-    }
+    // Only play when launched from the installed PWA on a mobile device.
+    // display-mode: standalone is true only when running as an installed
+    // home-screen app (iOS Safari "Add to Home Screen" or Android PWA).
+    const isPWA    = window.matchMedia("(display-mode: standalone)").matches;
+    const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
-    // Show once per session
-    if (_hasShown) {
-      setVisible(false);
-      return;
-    }
+    if (!isPWA || !isMobile) return;
+
+    // Respect reduced-motion preference
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    // Show once per JS session (module-level flag survives client-side nav)
+    if (_hasShown) return;
     _hasShown = true;
 
-    // Fade out at 4 s, drop will-change at the same time
-    const tFade = setTimeout(() => {
-      setFading(true);
-      setUseWillChg(false);
-    }, 4000);
+    setVisible(true);
 
+    // Fade out at 4 s, drop will-change at the same time
+    const tFade    = setTimeout(() => { setFading(true); setUseWillChg(false); }, 4000);
     // Unmount at 5 s — animation complete
     const tUnmount = setTimeout(() => setVisible(false), 5000);
 
