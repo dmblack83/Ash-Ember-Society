@@ -6,22 +6,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Archive, BookOpen, Compass, Users, Check } from "lucide-react";
 
 /* ------------------------------------------------------------------
-   Tailwind class → CSS-variable mapping shim
-   The existing project uses Tailwind v4 CSS-first config.
-   Colors reference CSS variables declared in globals.css.
-   ------------------------------------------------------------------ */
-
-/* ------------------------------------------------------------------
    Navbar
    ------------------------------------------------------------------ */
 
 export function Navbar() {
-  const [isScrolled, setIsScrolled]         = useState(false);
+  const [isScrolled, setIsScrolled]             = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -35,42 +29,39 @@ export function Navbar() {
   return (
     <header
       style={{
-        position:        "fixed",
-        top:             0,
-        left:            0,
-        right:           0,
-        zIndex:          50,
-        transition:      "all 0.3s",
-        backgroundColor: isScrolled ? "rgba(26,18,16,0.95)" : "transparent",
-        backdropFilter:  isScrolled ? "blur(12px)" : "none",
+        position:             "fixed",
+        top:                  0,
+        left:                 0,
+        right:                0,
+        zIndex:               50,
+        transition:           "all 0.3s",
+        backgroundColor:      isScrolled ? "rgba(26,18,16,0.95)" : "transparent",
+        backdropFilter:       isScrolled ? "blur(12px)" : "none",
         WebkitBackdropFilter: isScrolled ? "blur(12px)" : "none",
-        borderBottom:    isScrolled ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
-        padding:         isScrolled ? "16px 0" : "24px 0",
+        borderBottom:         isScrolled ? "1px solid rgba(255,255,255,0.05)" : "1px solid transparent",
+        padding:              isScrolled ? "12px 0" : "20px 0",
       }}
     >
       <div
         style={{
-          maxWidth:      "1280px",
-          margin:        "0 auto",
-          padding:       "0 24px",
-          display:       "flex",
-          alignItems:    "center",
-          justifyContent:"space-between",
+          maxWidth:       "1280px",
+          margin:         "0 auto",
+          padding:        "0 20px",
+          display:        "flex",
+          alignItems:     "center",
+          justifyContent: "space-between",
         }}
       >
         {/* Logo */}
-        <a
-          href="#"
-          style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}
-        >
+        <a href="#" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
           <span
             style={{
-              fontFamily:   "var(--font-serif)",
-              fontSize:     "clamp(18px, 2.5vw, 22px)",
-              fontWeight:   600,
-              letterSpacing:"0.04em",
-              color:        "var(--foreground)",
-              transition:   "color 0.2s",
+              fontFamily:    "var(--font-serif)",
+              fontSize:      "clamp(17px, 2.5vw, 22px)",
+              fontWeight:    600,
+              letterSpacing: "0.04em",
+              color:         "var(--foreground)",
+              transition:    "color 0.2s",
             }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--foreground)")}
@@ -80,18 +71,12 @@ export function Navbar() {
         </a>
 
         {/* Desktop Nav */}
-        <nav style={{ display: "flex", alignItems: "center", gap: 32 }} className="hidden md:flex">
+        <nav className="hidden md:flex" style={{ alignItems: "center", gap: 32 }}>
           {navLinks.map((link) => (
             <a
               key={link.name}
               href={link.href}
-              style={{
-                fontSize:       14,
-                fontWeight:     500,
-                color:          "var(--muted-foreground)",
-                textDecoration: "none",
-                transition:     "color 0.2s",
-              }}
+              style={{ fontSize: 14, fontWeight: 500, color: "var(--muted-foreground)", textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
             >
@@ -110,26 +95,33 @@ export function Navbar() {
               borderRadius:   "2px",
               transition:     "all 0.3s",
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "var(--primary)";
-              e.currentTarget.style.color = "var(--card)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "transparent";
-              e.currentTarget.style.color = "var(--primary)";
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "var(--primary)"; e.currentTarget.style.color = "#fff"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; e.currentTarget.style.color = "var(--primary)"; }}
           >
             Join the Society
           </a>
         </nav>
 
-        {/* Mobile toggle */}
+        {/* Mobile toggle — 44px touch target */}
         <button
           className="md:hidden"
           onClick={() => setIsMobileMenuOpen((o) => !o)}
-          style={{ background: "none", border: "none", color: "var(--foreground)", cursor: "pointer", padding: 8 }}
+          aria-label="Toggle menu"
+          style={{
+            background: "none",
+            border:     "none",
+            color:      "var(--foreground)",
+            cursor:     "pointer",
+            padding:    "10px",
+            margin:     "-10px",
+            minWidth:   44,
+            minHeight:  44,
+            display:    "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          {isMobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
@@ -140,19 +132,25 @@ export function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            style={{
-              overflow:        "hidden",
-              backgroundColor: "var(--background)",
-              borderBottom:    "1px solid rgba(255,255,255,0.05)",
-            }}
+            style={{ overflow: "hidden", backgroundColor: "var(--background)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}
           >
-            <div style={{ display: "flex", flexDirection: "column", padding: "16px 24px", gap: 16 }}>
+            <div style={{ display: "flex", flexDirection: "column", padding: "16px 20px 20px", gap: 4 }}>
               {navLinks.map((link) => (
                 <a
                   key={link.name}
                   href={link.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  style={{ fontSize: 16, fontWeight: 500, color: "var(--muted-foreground)", textDecoration: "none", padding: "8px 0" }}
+                  style={{
+                    fontSize:       16,
+                    fontWeight:     500,
+                    color:          "var(--muted-foreground)",
+                    textDecoration: "none",
+                    padding:        "12px 0",
+                    borderBottom:   "1px solid rgba(255,255,255,0.04)",
+                    minHeight:      44,
+                    display:        "flex",
+                    alignItems:     "center",
+                  }}
                 >
                   {link.name}
                 </a>
@@ -161,15 +159,19 @@ export function Navbar() {
                 href="#join"
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={{
-                  marginTop:      8,
-                  padding:        "12px",
-                  textAlign:      "center",
-                  fontSize:       14,
-                  fontWeight:     500,
-                  backgroundColor:"var(--primary)",
-                  color:          "#fff",
-                  textDecoration: "none",
-                  borderRadius:   "2px",
+                  marginTop:       12,
+                  padding:         "14px",
+                  textAlign:       "center",
+                  fontSize:        15,
+                  fontWeight:      500,
+                  backgroundColor: "var(--primary)",
+                  color:           "#fff",
+                  textDecoration:  "none",
+                  borderRadius:    "2px",
+                  minHeight:       44,
+                  display:         "flex",
+                  alignItems:      "center",
+                  justifyContent:  "center",
                 }}
               >
                 Join the Society
@@ -195,7 +197,7 @@ export function Hero() {
         display:        "flex",
         alignItems:     "center",
         justifyContent: "center",
-        paddingTop:     80,
+        paddingTop:     64,
         overflow:       "hidden",
       }}
     >
@@ -207,21 +209,8 @@ export function Hero() {
           alt="Cigars resting on aged wood"
           style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
         />
-        <div
-          style={{
-            position:   "absolute",
-            inset:      0,
-            backgroundColor: "rgba(18,18,18,0.80)",
-            mixBlendMode:    "multiply",
-          }}
-        />
-        <div
-          style={{
-            position:   "absolute",
-            inset:      0,
-            background: "linear-gradient(to top, #121212 0%, rgba(18,18,18,0.6) 50%, transparent 100%)",
-          }}
-        />
+        <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(18,18,18,0.80)", mixBlendMode: "multiply" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #121212 0%, rgba(18,18,18,0.6) 50%, transparent 100%)" }} />
       </div>
 
       {/* Content */}
@@ -230,8 +219,9 @@ export function Hero() {
           position:  "relative",
           zIndex:    10,
           maxWidth:  860,
+          width:     "100%",
           margin:    "0 auto",
-          padding:   "0 24px",
+          padding:   "0 20px",
           textAlign: "center",
         }}
       >
@@ -240,33 +230,26 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginBottom: 24 }}>
-            <div style={{ height: 1, width: 48, backgroundColor: "rgba(193,120,23,0.5)" }} />
-            <span
-              style={{
-                color:         "var(--primary)",
-                fontSize:      13,
-                fontWeight:    500,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-              }}
-            >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 20 }}>
+            <div style={{ height: 1, width: 32, backgroundColor: "rgba(193,120,23,0.5)" }} />
+            <span style={{ color: "var(--primary)", fontSize: 11, fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase" }}>
               Est. 2026
             </span>
-            <div style={{ height: 1, width: 48, backgroundColor: "rgba(193,120,23,0.5)" }} />
+            <div style={{ height: 1, width: 32, backgroundColor: "rgba(193,120,23,0.5)" }} />
           </div>
 
           <h1
             style={{
               fontFamily:   "var(--font-serif)",
-              fontSize:     "clamp(42px, 8vw, 88px)",
+              fontSize:     "clamp(36px, 8vw, 88px)",
               fontWeight:   500,
               color:        "var(--foreground)",
               lineHeight:   1.1,
-              marginBottom: 32,
+              marginBottom: 24,
             }}
           >
-            Where Passion <br className="hidden md:block" />
+            Where Passion{" "}
+            <br className="hidden sm:block" />
             <em style={{ color: "rgba(193,120,23,0.9)", fontStyle: "italic" }}>Meets Tradition</em>
           </h1>
         </motion.div>
@@ -276,10 +259,10 @@ export function Hero() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
           style={{
-            fontSize:     "clamp(16px, 2.2vw, 20px)",
+            fontSize:     "clamp(15px, 2.2vw, 20px)",
             color:        "var(--muted-foreground)",
-            maxWidth:     640,
-            margin:       "0 auto 48px",
+            maxWidth:     560,
+            margin:       "0 auto 36px",
             fontWeight:   300,
             lineHeight:   1.7,
           }}
@@ -289,24 +272,26 @@ export function Hero() {
           discerning enthusiasts.
         </motion.p>
 
+        {/* Buttons: stacked on mobile, side-by-side on sm+ */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.4, ease: "easeOut" }}
-          style={{ display: "flex", flexWrap: "wrap", gap: 24, justifyContent: "center" }}
+          className="flex flex-col sm:flex-row"
+          style={{ gap: 14, justifyContent: "center", alignItems: "stretch" }}
         >
           <Link
             href="/signup"
             style={{
-              padding:        "16px 32px",
-              backgroundColor:"var(--primary)",
-              color:          "#fff",
-              fontWeight:     500,
-              textDecoration: "none",
-              borderRadius:   "2px",
-              transition:     "background-color 0.3s",
-              minWidth:       200,
-              textAlign:      "center",
+              padding:         "15px 32px",
+              backgroundColor: "var(--primary)",
+              color:           "#fff",
+              fontWeight:      500,
+              textDecoration:  "none",
+              borderRadius:    "2px",
+              transition:      "background-color 0.3s",
+              textAlign:       "center",
+              fontSize:        15,
             }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
@@ -316,23 +301,17 @@ export function Hero() {
           <a
             href="#philosophy"
             style={{
-              padding:        "16px 32px",
+              padding:        "15px 32px",
               border:         "1px solid rgba(255,255,255,0.2)",
               color:          "var(--foreground)",
               textDecoration: "none",
               borderRadius:   "2px",
               transition:     "all 0.3s",
-              minWidth:       200,
               textAlign:      "center",
+              fontSize:       15,
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)";
-              e.currentTarget.style.color = "var(--gold)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)";
-              e.currentTarget.style.color = "var(--foreground)";
-            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)"; e.currentTarget.style.color = "var(--gold)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; e.currentTarget.style.color = "var(--foreground)"; }}
           >
             Discover the Society
           </a>
@@ -344,27 +323,21 @@ export function Hero() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 1, duration: 1 }}
+        className="hidden sm:flex"
         style={{
-          position:       "absolute",
-          bottom:         48,
-          left:           "50%",
-          transform:      "translateX(-50%)",
-          display:        "flex",
-          flexDirection:  "column",
-          alignItems:     "center",
-          gap:            8,
+          position:      "absolute",
+          bottom:        32,
+          left:          "50%",
+          transform:     "translateX(-50%)",
+          flexDirection: "column",
+          alignItems:    "center",
+          gap:           8,
         }}
       >
         <span style={{ fontSize: 11, color: "var(--muted-foreground)", letterSpacing: "0.2em", textTransform: "uppercase" }}>
           Scroll
         </span>
-        <div
-          style={{
-            width:      1,
-            height:     48,
-            background: "linear-gradient(to bottom, rgba(193,120,23,0.5), transparent)",
-          }}
-        />
+        <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, rgba(193,120,23,0.5), transparent)" }} />
       </motion.div>
     </section>
   );
@@ -378,33 +351,31 @@ export function Philosophy() {
   return (
     <section
       id="philosophy"
-      style={{ padding: "96px 24px", backgroundColor: "var(--background)", position: "relative" }}
+      style={{ padding: "clamp(56px, 8vw, 96px) 20px", backgroundColor: "var(--background)", position: "relative" }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
         <div
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap:                 64,
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))",
+            gap:                 "clamp(36px, 5vw, 64px)",
             alignItems:          "center",
           }}
         >
-          {/* Text */}
+          {/* Text — order 1 on mobile so it's first; lg: stays in DOM order (left col) */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ order: 2 }}
-            className="lg:order-first"
           >
-            <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", marginBottom: 32 }} />
+            <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", marginBottom: 28 }} />
             <h2
               style={{
                 fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(30px, 4.5vw, 52px)",
+                fontSize:     "clamp(26px, 4.5vw, 52px)",
                 color:        "var(--foreground)",
-                marginBottom: 32,
+                marginBottom: 28,
                 lineHeight:   1.2,
               }}
             >
@@ -412,44 +383,36 @@ export function Philosophy() {
               <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>craftsmanship.</em>
             </h2>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
               {[
                 "In a world obsessed with speed, the enjoyment of a fine cigar remains one of the few rituals that demands our patience. It is an art form that connects us to the earth, to history, and to each other.",
                 "Ash & Ember Society was founded on a simple premise: the experience of a great cigar should extend beyond the final draw. We've built a digital haven that honors the analog tradition — a place to document your journey, discover hidden gems, and share a smoke & story with those who understand.",
                 "No noise. No distractions. Just the pure appreciation of the leaf.",
               ].map((text, i) => (
-                <p key={i} style={{ color: "var(--muted-foreground)", fontWeight: 300, lineHeight: 1.75, fontSize: 17 }}>
+                <p key={i} style={{ color: "var(--muted-foreground)", fontWeight: 300, lineHeight: 1.75, fontSize: "clamp(15px, 2vw, 17px)" }}>
                   {text}
                 </p>
               ))}
             </div>
 
-            <div style={{ marginTop: 48 }}>
-              <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "rgba(193,120,23,0.6)", fontSize: 18 }}>
+            <div style={{ marginTop: 36 }}>
+              <p style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", color: "rgba(193,120,23,0.6)", fontSize: 17 }}>
                 — Dave, Founder &amp; CEO
               </p>
             </div>
           </motion.div>
 
-          {/* Image */}
+          {/* Image — hidden on mobile to keep page tight; visible md+ */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
+            viewport={{ once: true, margin: "-80px" }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            style={{ position: "relative", order: 1 }}
-            className="lg:order-last"
+            className="hidden md:block"
+            style={{ position: "relative" }}
           >
             <div style={{ aspectRatio: "4/5", position: "relative", overflow: "hidden", borderRadius: 2 }}>
-              <div
-                style={{
-                  position:   "absolute",
-                  inset:      0,
-                  backgroundColor: "rgba(26,18,16,0.2)",
-                  zIndex:     1,
-                  mixBlendMode: "multiply",
-                }}
-              />
+              <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(26,18,16,0.2)", zIndex: 1, mixBlendMode: "multiply" }} />
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="https://media.istockphoto.com/id/1468287900/photo/close-up-of-dried-tobacco-leaves-and-fresh-hand-rolled-premium-cuban-cigars-in-the-factory.jpg?s=612x612&w=0&k=20&c=MT7eYnFF68ZPU6G07Algj8das_KEOWB75srf3bF7TNI="
@@ -459,13 +422,12 @@ export function Philosophy() {
             </div>
             {/* Decorative border */}
             <div
-              className="hidden md:block"
               style={{
-                position:     "absolute",
-                inset:        -16,
-                border:       "1px solid rgba(193,120,23,0.2)",
-                zIndex:       0,
-                pointerEvents:"none",
+                position:      "absolute",
+                inset:         -16,
+                border:        "1px solid rgba(193,120,23,0.2)",
+                zIndex:        0,
+                pointerEvents: "none",
               }}
             />
           </motion.div>
@@ -503,13 +465,13 @@ const features = [
 ];
 
 const containerVariants = {
-  hidden:   { opacity: 0 },
-  visible:  { opacity: 1, transition: { staggerChildren: 0.2 } },
+  hidden:  { opacity: 0 },
+  visible: { opacity: 1, transition: { staggerChildren: 0.15 } },
 };
 
 const itemVariants = {
-  hidden:   { opacity: 0, y: 20 },
-  visible:  { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
+  hidden:  { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] as const } },
 };
 
 export function Features() {
@@ -517,7 +479,7 @@ export function Features() {
     <section
       id="features"
       style={{
-        padding:         "96px 24px",
+        padding:         "clamp(56px, 8vw, 96px) 20px",
         backgroundColor: "var(--card)",
         borderTop:       "1px solid rgba(255,255,255,0.05)",
         borderBottom:    "1px solid rgba(255,255,255,0.05)",
@@ -525,7 +487,7 @@ export function Features() {
       }}
     >
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto 80px" }}>
+        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto clamp(40px, 6vw, 80px)" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -535,14 +497,14 @@ export function Features() {
             <h2
               style={{
                 fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(26px, 4.5vw, 52px)",
+                fontSize:     "clamp(24px, 4.5vw, 52px)",
                 color:        "var(--foreground)",
-                marginBottom: 24,
+                marginBottom: 16,
               }}
             >
               Tools for the Aficionado
             </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300 }}>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 300 }}>
               We&apos;ve crafted a suite of digital instruments designed specifically
               for the nuances of cigar appreciation.
             </p>
@@ -556,8 +518,8 @@ export function Features() {
           viewport={{ once: true, margin: "-50px" }}
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap:                 24,
+            gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))",
+            gap:                 16,
           }}
         >
           {features.map((feature, index) => (
@@ -566,7 +528,7 @@ export function Features() {
               variants={itemVariants}
               style={{
                 backgroundColor: "var(--background)",
-                padding:         "32px",
+                padding:         "clamp(20px, 3vw, 32px)",
                 border:          "1px solid rgba(255,255,255,0.05)",
                 borderRadius:    "2px",
                 transition:      "border-color 0.5s",
@@ -577,15 +539,14 @@ export function Features() {
             >
               <div
                 style={{
-                  width:           48,
-                  height:          48,
+                  width:           44,
+                  height:          44,
                   borderRadius:    "50%",
                   backgroundColor: "var(--card)",
                   display:         "flex",
                   alignItems:      "center",
                   justifyContent:  "center",
-                  marginBottom:    24,
-                  transition:      "transform 0.5s",
+                  marginBottom:    20,
                 }}
               >
                 {feature.icon}
@@ -593,9 +554,9 @@ export function Features() {
               <h3
                 style={{
                   fontFamily:   "var(--font-serif)",
-                  fontSize:     20,
+                  fontSize:     "clamp(17px, 2vw, 20px)",
                   color:        "var(--foreground)",
-                  marginBottom: 16,
+                  marginBottom: 12,
                 }}
               >
                 {feature.title}
@@ -663,9 +624,9 @@ const tiers = [
 
 export function Membership() {
   return (
-    <section id="membership" style={{ padding: "96px 24px", backgroundColor: "var(--background)" }}>
+    <section id="membership" style={{ padding: "clamp(56px, 8vw, 96px) 20px", backgroundColor: "var(--background)" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto" }}>
-        <div style={{ textAlign: "center", maxWidth: 768, margin: "0 auto" }}>
+        <div style={{ textAlign: "center", maxWidth: 680, margin: "0 auto" }}>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -675,14 +636,14 @@ export function Membership() {
             <h2
               style={{
                 fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(26px, 4.5vw, 52px)",
+                fontSize:     "clamp(24px, 4.5vw, 52px)",
                 color:        "var(--foreground)",
-                marginBottom: 24,
+                marginBottom: 20,
               }}
             >
               Closed Beta Coming Soon
             </h2>
-            <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300 }}>
+            <p style={{ color: "var(--muted-foreground)", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 300 }}>
               Whether you enjoy an occasional weekend smoke or maintain a
               walk-in humidor, there is a place for you in the Society.
             </p>
@@ -753,9 +714,9 @@ export function Membership() {
    ------------------------------------------------------------------ */
 
 const stats = [
-  { value: "12,400+", label: "Active Members"   },
-  { value: "85,000+", label: "Cigars Logged"     },
-  { value: "4.9/5",   label: "App Store Rating"  },
+  { value: "12,400+", label: "Active Members"  },
+  { value: "85,000+", label: "Cigars Logged"    },
+  { value: "4.9/5",   label: "App Store Rating" },
 ];
 
 const testimonials = [
@@ -776,7 +737,7 @@ export function Community() {
     <section
       id="community"
       style={{
-        padding:         "96px 24px",
+        padding:         "clamp(56px, 8vw, 96px) 20px",
         backgroundColor: "var(--card)",
         borderTop:       "1px solid rgba(255,255,255,0.05)",
         borderBottom:    "1px solid rgba(255,255,255,0.05)",
@@ -784,74 +745,36 @@ export function Community() {
         overflow:        "hidden",
       }}
     >
-      {/* Decorative gradient */}
       <div
         style={{
-          position:       "absolute",
-          top:            0,
-          right:          0,
-          width:          "50%",
-          height:         "100%",
-          background:     "linear-gradient(to left, rgba(18,18,18,0.5), transparent)",
-          pointerEvents:  "none",
+          position:      "absolute",
+          top:           0,
+          right:         0,
+          width:         "50%",
+          height:        "100%",
+          background:    "linear-gradient(to left, rgba(18,18,18,0.5), transparent)",
+          pointerEvents: "none",
         }}
       />
-
       <div style={{ maxWidth: 1280, margin: "0 auto", position: "relative", zIndex: 1 }}>
-        <div
-          style={{
-            display:             "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-            gap:                 64,
-          }}
-        >
-          {/* Stats */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: "clamp(32px, 5vw, 64px)" }}>
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
           >
-            <h2
-              style={{
-                fontFamily:   "var(--font-serif)",
-                fontSize:     "clamp(24px, 3.5vw, 40px)",
-                color:        "var(--foreground)",
-                marginBottom: 48,
-                lineHeight:   1.3,
-              }}
-            >
+            <h2 style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(22px, 3.5vw, 40px)", color: "var(--foreground)", marginBottom: 40, lineHeight: 1.3 }}>
               Join a growing society of <br />
               <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>like-minded individuals.</em>
             </h2>
-
-            <div
-              style={{
-                display:             "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap:                 32,
-              }}
-            >
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
               {stats.map((stat, index) => (
                 <div key={index}>
-                  <div
-                    style={{
-                      fontFamily:   "var(--font-serif)",
-                      fontSize:     "clamp(32px, 4vw, 52px)",
-                      color:        "var(--foreground)",
-                      marginBottom: 8,
-                    }}
-                  >
+                  <div style={{ fontFamily: "var(--font-serif)", fontSize: "clamp(28px, 4vw, 52px)", color: "var(--foreground)", marginBottom: 6 }}>
                     {stat.value}
                   </div>
-                  <div
-                    style={{
-                      fontSize:      13,
-                      color:         "var(--primary)",
-                      textTransform: "uppercase",
-                      letterSpacing: "0.12em",
-                    }}
-                  >
+                  <div style={{ fontSize: 12, color: "var(--primary)", textTransform: "uppercase", letterSpacing: "0.12em" }}>
                     {stat.label}
                   </div>
                 </div>
@@ -859,8 +782,7 @@ export function Community() {
             </div>
           </motion.div>
 
-          {/* Testimonials */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {testimonials.map((testimonial, index) => (
               <motion.div
                 key={index}
@@ -868,65 +790,19 @@ export function Community() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: index * 0.2 }}
-                style={{
-                  backgroundColor: "var(--background)",
-                  padding:         "32px",
-                  border:          "1px solid rgba(255,255,255,0.05)",
-                  borderRadius:    "2px",
-                  position:        "relative",
-                }}
+                style={{ backgroundColor: "var(--background)", padding: "clamp(20px, 3vw, 32px)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: "2px", position: "relative" }}
               >
-                <div
-                  style={{
-                    position:   "absolute",
-                    top:        16,
-                    left:       16,
-                    fontFamily: "var(--font-serif)",
-                    fontSize:   64,
-                    color:      "rgba(193,120,23,0.2)",
-                    lineHeight: 1,
-                  }}
-                >
-                  &ldquo;
-                </div>
-                <p
-                  style={{
-                    color:        "var(--muted-foreground)",
-                    fontStyle:    "italic",
-                    position:     "relative",
-                    zIndex:       1,
-                    marginBottom: 24,
-                    fontSize:     17,
-                    lineHeight:   1.7,
-                  }}
-                >
+                <div style={{ position: "absolute", top: 12, left: 16, fontFamily: "var(--font-serif)", fontSize: 56, color: "rgba(193,120,23,0.2)", lineHeight: 1 }}>&ldquo;</div>
+                <p style={{ color: "var(--muted-foreground)", fontStyle: "italic", position: "relative", zIndex: 1, marginBottom: 20, fontSize: 15, lineHeight: 1.7 }}>
                   {testimonial.quote}
                 </p>
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div
-                    style={{
-                      width:           40,
-                      height:          40,
-                      borderRadius:    "50%",
-                      backgroundColor: "var(--card)",
-                      border:          "1px solid rgba(255,255,255,0.1)",
-                      display:         "flex",
-                      alignItems:      "center",
-                      justifyContent:  "center",
-                      fontFamily:      "var(--font-serif)",
-                      color:           "var(--primary)",
-                      fontSize:        16,
-                    }}
-                  >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", backgroundColor: "var(--card)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-serif)", color: "var(--primary)", fontSize: 14, flexShrink: 0 }}>
                     {testimonial.author.charAt(0)}
                   </div>
                   <div>
-                    <div style={{ color: "var(--foreground)", fontWeight: 500, fontSize: 14 }}>
-                      {testimonial.author}
-                    </div>
-                    <div style={{ color: "var(--muted-foreground)", fontSize: 12 }}>
-                      {testimonial.title}
-                    </div>
+                    <div style={{ color: "var(--foreground)", fontWeight: 500, fontSize: 13 }}>{testimonial.author}</div>
+                    <div style={{ color: "var(--muted-foreground)", fontSize: 12 }}>{testimonial.title}</div>
                   </div>
                 </div>
               </motion.div>
@@ -947,85 +823,82 @@ export function CallToAction() {
     <section
       id="join"
       style={{
-        padding:         "128px 24px",
+        padding:         "clamp(64px, 10vw, 128px) 20px",
         backgroundColor: "var(--background)",
         position:        "relative",
         overflow:        "hidden",
       }}
     >
-      {/* Background glow */}
+      {/* Glow — capped to viewport so it never causes horizontal scroll */}
       <div
         style={{
           position:      "absolute",
           top:           "50%",
           left:          "50%",
           transform:     "translate(-50%, -50%)",
-          width:         800,
-          height:        800,
+          width:         "min(800px, 100vw)",
+          height:        "min(800px, 100vw)",
           background:    "radial-gradient(circle, rgba(193,120,23,0.05) 0%, transparent 70%)",
           borderRadius:  "50%",
           pointerEvents: "none",
         }}
       />
 
-      <div style={{ maxWidth: 768, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
+      <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1 }}>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", margin: "0 auto 32px" }} />
+          <div style={{ width: 64, height: 1, backgroundColor: "var(--primary)", margin: "0 auto 28px" }} />
           <h2
             style={{
               fontFamily:   "var(--font-serif)",
-              fontSize:     "clamp(32px, 6vw, 64px)",
+              fontSize:     "clamp(28px, 6vw, 64px)",
               color:        "var(--foreground)",
-              marginBottom: 24,
+              marginBottom: 20,
               lineHeight:   1.15,
             }}
           >
             Your Place at the Table{" "}
             <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>Awaits</em>
           </h2>
-          <p style={{ color: "var(--muted-foreground)", fontSize: 18, fontWeight: 300, marginBottom: 48, maxWidth: 560, margin: "0 auto 48px" }}>
+          <p style={{ color: "var(--muted-foreground)", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 300, margin: "0 auto 40px", maxWidth: 480 }}>
             Join the waitlist today to secure early access and lock in founder
             pricing before our public launch.
           </p>
 
+          {/* Form: stacks on mobile, side-by-side on sm+ */}
           <form
             onSubmit={(e) => e.preventDefault()}
-            style={{
-              display:  "flex",
-              flexWrap: "wrap",
-              gap:      16,
-              maxWidth: 520,
-              margin:   "0 auto",
-            }}
+            className="flex flex-col sm:flex-row"
+            style={{ gap: 12, maxWidth: 520, margin: "0 auto" }}
           >
             <input
               type="email"
               placeholder="Enter your email address"
               required
               style={{
-                flex:            "1 1 240px",
+                flex:            "1 1 auto",
                 backgroundColor: "var(--card)",
                 border:          "1px solid rgba(255,255,255,0.1)",
                 color:           "var(--foreground)",
-                padding:         "16px 24px",
+                padding:         "15px 20px",
                 borderRadius:    "2px",
                 fontSize:        16,
                 outline:         "none",
                 transition:      "border-color 0.2s",
+                minWidth:        0,
               }}
               onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)")}
-              onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+              onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
             />
             <button
               type="submit"
               style={{
                 flex:            "0 0 auto",
-                padding:         "16px 32px",
+                padding:         "15px 28px",
                 backgroundColor: "var(--primary)",
                 color:           "#fff",
                 fontWeight:      500,
@@ -1042,7 +915,7 @@ export function CallToAction() {
               Request Access
             </button>
           </form>
-          <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", marginTop: 16 }}>
+          <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", marginTop: 14 }}>
             By joining, you agree to our terms of service. No spam, ever.
           </p>
         </motion.div>
@@ -1061,27 +934,28 @@ export function Footer() {
       style={{
         backgroundColor: "var(--background)",
         borderTop:       "1px solid rgba(255,255,255,0.05)",
-        padding:         "48px 24px",
+        padding:         "40px 20px",
       }}
     >
+      {/* Top row: brand + nav */}
       <div
+        className="flex flex-col md:flex-row"
         style={{
           maxWidth:       1280,
           margin:         "0 auto",
-          display:        "flex",
-          flexWrap:       "wrap",
-          justifyContent: "space-between",
-          alignItems:     "center",
           gap:            24,
+          alignItems:     "center",
+          justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 600, letterSpacing: "0.04em", color: "var(--foreground)" }}>
-            Ash &amp; Ember
-          </span>
-        </div>
+        <span style={{ fontFamily: "var(--font-serif)", fontSize: 19, fontWeight: 600, letterSpacing: "0.04em", color: "var(--foreground)" }}>
+          Ash &amp; Ember
+        </span>
 
-        <nav style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 24 }}>
+        <nav
+          className="flex flex-wrap justify-center"
+          style={{ gap: 20 }}
+        >
           {[
             { label: "Privacy Policy", href: "#" },
             { label: "Terms of Service", href: "#" },
@@ -1092,12 +966,7 @@ export function Footer() {
             <a
               key={l.label}
               href={l.href}
-              style={{
-                fontSize:       14,
-                color:          "var(--muted-foreground)",
-                textDecoration: "none",
-                transition:     "color 0.2s",
-              }}
+              style={{ fontSize: 13, color: "var(--muted-foreground)", textDecoration: "none", transition: "color 0.2s" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
             >
@@ -1107,23 +976,23 @@ export function Footer() {
         </nav>
       </div>
 
+      {/* Bottom row: copyright */}
       <div
+        className="flex flex-col md:flex-row"
         style={{
           maxWidth:       1280,
-          margin:         "32px auto 0",
-          display:        "flex",
-          flexWrap:       "wrap",
-          justifyContent: "space-between",
-          alignItems:     "center",
-          gap:            8,
-          paddingTop:     24,
+          margin:         "24px auto 0",
+          paddingTop:     20,
           borderTop:      "1px solid rgba(255,255,255,0.05)",
+          gap:            8,
+          alignItems:     "center",
+          justifyContent: "space-between",
         }}
       >
-        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)" }}>
+        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", textAlign: "center" }}>
           &copy; {new Date().getFullYear()} Ash &amp; Ember Society. All rights reserved.
         </p>
-        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)" }}>
+        <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", textAlign: "center" }}>
           Designed for the discerning.
         </p>
       </div>
