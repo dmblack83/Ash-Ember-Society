@@ -217,11 +217,46 @@ function BottomSheet({
   onClose:  () => void;
   children: React.ReactNode;
 }) {
+  const scrollRef                       = useRef<HTMLDivElement>(null);
+  const [canScrollUp,   setCanScrollUp]   = useState(false);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  function checkScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollUp(el.scrollTop > 12);
+    setCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 12);
+  }
+
+  useEffect(() => {
+    const t = setTimeout(checkScroll, 60);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [children]);
+
+  const caretBase: React.CSSProperties = {
+    position:        "absolute",
+    left:            "50%",
+    transform:       "translateX(-50%)",
+    width:           28,
+    height:          28,
+    borderRadius:    "50%",
+    backgroundColor: "rgba(26,18,16,0.88)",
+    border:          "1px solid var(--border)",
+    display:         "flex",
+    alignItems:      "center",
+    justifyContent:  "center",
+    pointerEvents:   "none",
+    backdropFilter:  "blur(6px)",
+    zIndex:          10,
+    transition:      "opacity 0.25s ease",
+  };
 
   return (
     <>
@@ -231,8 +266,17 @@ function BottomSheet({
         aria-hidden="true"
       />
       <div
-        className="fixed inset-x-0 bottom-0 top-16 z-50 flex flex-col animate-slide-up overflow-hidden sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-lg sm:top-auto sm:bottom-0 sm:max-h-[85vh] sm:rounded-t-2xl"
-        style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+        className="fixed z-50 flex flex-col overflow-hidden rounded-2xl animate-fade-in"
+        style={{
+          top:             "50%",
+          left:            "50%",
+          transform:       "translate(-50%, -50%)",
+          width:           "calc(100% - 32px)",
+          maxWidth:        520,
+          maxHeight:       "85vh",
+          backgroundColor: "var(--card)",
+          border:          "1px solid var(--border)",
+        }}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -266,9 +310,28 @@ function BottomSheet({
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5">
-          {children}
+        {/* Scrollable body with carets */}
+        <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
+          <div style={{ ...caretBase, top: 8, opacity: canScrollUp ? 1 : 0 }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 8L6 4L10 8" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+
+          <div
+            ref={scrollRef}
+            onScroll={checkScroll}
+            className="px-5 py-5"
+            style={{ height: "100%", overflowY: "auto" }}
+          >
+            {children}
+          </div>
+
+          <div style={{ ...caretBase, bottom: 8, opacity: canScrollDown ? 1 : 0 }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <path d="M2 4L6 8L10 4" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </div>
       </div>
     </>
