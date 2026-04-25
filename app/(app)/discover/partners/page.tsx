@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 
-export const metadata = undefined; // client page — metadata in layout
-
 /* ------------------------------------------------------------------
    Accordion card
    ------------------------------------------------------------------ */
