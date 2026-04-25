@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -181,12 +182,21 @@ function BottomNav() {
   );
 }
 
+function ScrollReset() {
+  const pathname = usePathname();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [pathname]);
+  return null;
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
       {/* Page content — bottom padding clears the nav bar.
           app-container enables dvh tracking on Android so the layout
           shrinks correctly when the software keyboard opens. */}
+      <ScrollReset />
       <main className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
