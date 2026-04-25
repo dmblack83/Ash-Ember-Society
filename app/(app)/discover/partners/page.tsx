@@ -136,7 +136,7 @@ function AccordionCard({ title }: { title: string }) {
 
 export default function PartnersPage() {
   return (
-    <div style={{ padding: "24px 16px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="max-w-2xl mx-auto" style={{ padding: "24px 16px 32px", display: "flex", flexDirection: "column", gap: 12 }}>
       {/* Section header */}
       <div style={{ marginBottom: 8 }}>
         <h1
