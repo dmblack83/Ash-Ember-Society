@@ -18,13 +18,13 @@ interface Feature {
 }
 
 const FEATURES: Feature[] = [
-  { label: "Humidor",               free: "5 Cigars",      member: "Unlimited"   },
+  { label: "Humidor",                free: "5 Cigars",     member: "Unlimited"   },
   { label: "Cigar Catalog & Search", free: true,           member: true          },
-  { label: "Cigar Scanner",         free: false,           member: "25 scans/mo" },
-  { label: "Wishlist",              free: "5 Cigars",      member: "Unlimited"   },
-  { label: "Smoke Logs",            free: true,            member: true          },
-  { label: "Burn Reports",          free: false,           member: "Unlimited"   },
-  { label: "Lounge Access",         free: "10 posts/mo",   member: "Unlimited"   },
+  { label: "Cigar Scanner",          free: false,          member: "25 scans/mo" },
+  { label: "Wishlist",               free: "5 Cigars",     member: "Unlimited"   },
+  { label: "Smoke Logs",             free: true,           member: true          },
+  { label: "Burn Reports",           free: false,          member: "Unlimited"   },
+  { label: "Lounge Access",          free: "10 posts/mo",  member: "Unlimited"   },
 ];
 
 function FeatureCell({ value }: { value: FeatureValue }) {
@@ -43,15 +43,11 @@ function FeatureCell({ value }: { value: FeatureValue }) {
       </svg>
     </div>
   );
-  return (
-    <p className="text-center text-xs font-semibold" style={{ color: "var(--primary)" }}>
-      {value}
-    </p>
-  );
+  return <p className="text-center text-xs font-semibold" style={{ color: "var(--primary)" }}>{value}</p>;
 }
 
 /* ------------------------------------------------------------------
-   Downgrade confirmation modal
+   Downgrade confirmation — always centered
    ------------------------------------------------------------------ */
 
 interface DowngradeModalProps {
@@ -69,16 +65,22 @@ function DowngradeModal({ targetTier, currentTier, nextBillingDate, onConfirm, o
 
   return (
     <>
-      <div className="fixed inset-0 z-50 bg-black/60 animate-fade-in" onClick={onCancel} />
+      <div className="fixed inset-0 z-[60] bg-black/60 animate-fade-in" onClick={onCancel} />
       <div
-        className="fixed inset-x-4 bottom-4 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-sm sm:w-full z-50 rounded-2xl p-6 space-y-5 animate-slide-up"
-        style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+        className="fixed z-[60] rounded-2xl p-6 space-y-5 w-[calc(100%-32px)] max-w-sm"
+        style={{
+          top:             "50%",
+          left:            "50%",
+          transform:       "translate(-50%, -50%)",
+          backgroundColor: "var(--card)",
+          border:          "1px solid var(--border)",
+        }}
       >
         <div className="space-y-2">
-          <h2 className="text-base font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
+          <h2 className="text-base font-semibold" style={{ fontFamily: "var(--font-serif)", color: "var(--foreground)" }}>
             Downgrade to {targetLabel}?
           </h2>
-          <p className="text-sm text-muted-foreground leading-relaxed">
+          <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
             {targetTier === "free"
               ? `Your ${currentLabel} subscription will cancel on ${nextBillingDate ?? "your next billing date"}. You keep your current benefits until then.`
               : "Your plan will switch to Member. No charge or credit will be applied for the current billing period."
@@ -109,6 +111,22 @@ function DowngradeModal({ targetTier, currentTier, nextBillingDate, onConfirm, o
     </>
   );
 }
+
+/* ------------------------------------------------------------------
+   Shared card action row styles
+   Upgrade = filled button. Downgrade / Current Plan = plain text.
+   All three use identical font so hierarchy comes from the fill only.
+   ------------------------------------------------------------------ */
+
+const ACTION_TEXT_BASE: React.CSSProperties = {
+  display:    "block",
+  width:      "100%",
+  textAlign:  "center",
+  fontSize:   13,
+  fontWeight: 500,
+  padding:    "10px 0",
+  marginTop:  "auto",
+};
 
 /* ------------------------------------------------------------------
    Main component
@@ -199,10 +217,9 @@ export function MembershipTab({
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      const msg = downgradeTarget === "free"
+      setToast(downgradeTarget === "free"
         ? `Subscription will cancel on ${data.effectiveDate}.`
-        : "Plan switched to Member.";
-      setToast(msg);
+        : "Plan switched to Member.");
       setDowngradeTarget(null);
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Downgrade failed.");
@@ -307,132 +324,135 @@ export function MembershipTab({
       {/* ── Tier cards ─────────────────────────────────────────── */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-        {/* ── Free ─────────────────────────────────────────────── */}
+        {/* Free */}
         {(() => {
           const isCurrent = currentTier === "free";
           const info      = TIER_DISPLAY["free"];
           return (
             <div
-              className="rounded-2xl p-5 flex flex-col gap-4"
+              className="rounded-2xl p-5 flex flex-col"
               style={{
                 backgroundColor: isCurrent ? "var(--secondary)" : "var(--card)",
                 border: isCurrent ? `2px solid ${info.color}` : "1px solid var(--border)",
+                minHeight: 120,
               }}
             >
               <div>
-                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>
-                  Free
-                </p>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Free</p>
                 <p className="text-sm text-muted-foreground mt-0.5">Free forever</p>
               </div>
 
               {isCurrent ? (
-                <span className="block text-center text-xs font-semibold py-2.5 mt-auto" style={{ color: info.color }}>
-                  Current Plan
-                </span>
+                <span style={{ ...ACTION_TEXT_BASE, color: info.color }}>Current Plan</span>
               ) : (
+                /* Downgrade — text only, no button styling */
                 <button
                   type="button"
                   onClick={() => setDowngradeTarget("free")}
-                  className="w-full btn btn-ghost text-sm mt-auto"
-                  style={{ minHeight: 44, touchAction: "manipulation", fontSize: 13 }}
+                  style={{
+                    ...ACTION_TEXT_BASE,
+                    background:              "none",
+                    border:                  "none",
+                    cursor:                  "pointer",
+                    color:                   "var(--muted-foreground)",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
                 >
-                  Downgrade to Free
+                  Downgrade
                 </button>
               )}
             </div>
           );
         })()}
 
-        {/* ── Member ───────────────────────────────────────────── */}
+        {/* Member */}
         {(() => {
           const isCurrent = currentTier === "member";
           const info      = TIER_DISPLAY["member"];
           return (
             <div
-              className="rounded-2xl p-5 flex flex-col gap-4"
+              className="rounded-2xl p-5 flex flex-col"
               style={{
                 backgroundColor: isCurrent ? "var(--secondary)" : "var(--card)",
                 border: isCurrent ? `2px solid ${info.color}` : "1px solid var(--border)",
+                minHeight: 120,
               }}
             >
               <div>
-                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>
-                  Member
-                </p>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Member</p>
                 <p className="text-sm text-muted-foreground mt-0.5">$4.99/mo</p>
               </div>
 
               {isCurrent ? (
-                <span className="block text-center text-xs font-semibold py-2.5 mt-auto" style={{ color: info.color }}>
-                  Current Plan
-                </span>
+                <span style={{ ...ACTION_TEXT_BASE, color: info.color }}>Current Plan</span>
               ) : currentTier === "free" ? (
+                /* Upgrade — real button */
                 <button
                   type="button"
                   onClick={() => handleUpgrade("member")}
                   disabled={upgrading}
-                  className="w-full btn btn-primary text-sm mt-auto"
-                  style={{ minHeight: 44, backgroundColor: info.color, borderColor: info.color, touchAction: "manipulation", fontSize: 13 }}
+                  style={{
+                    ...ACTION_TEXT_BASE,
+                    backgroundColor:         info.color,
+                    color:                   "#fff",
+                    borderRadius:            10,
+                    border:                  "none",
+                    cursor:                  upgrading ? "not-allowed" : "pointer",
+                    opacity:                 upgrading ? 0.7 : 1,
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
                 >
-                  {upgrading ? "…" : "Upgrade to Member"}
+                  {upgrading ? "…" : "Upgrade"}
                 </button>
               ) : (
-                /* currentTier === "premium" */
+                /* Downgrade from Premium — text only */
                 <button
                   type="button"
                   onClick={() => setDowngradeTarget("member")}
-                  className="w-full btn btn-ghost text-sm mt-auto"
-                  style={{ minHeight: 44, touchAction: "manipulation", fontSize: 13 }}
+                  style={{
+                    ...ACTION_TEXT_BASE,
+                    background:              "none",
+                    border:                  "none",
+                    cursor:                  "pointer",
+                    color:                   "var(--muted-foreground)",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
                 >
-                  Downgrade to Member
+                  Downgrade
                 </button>
               )}
             </div>
           );
         })()}
 
-        {/* ── Premium ──────────────────────────────────────────── */}
+        {/* Premium */}
         {(() => {
           const isCurrent = currentTier === "premium";
           const info      = TIER_DISPLAY["premium"];
           return (
             <div
-              className="rounded-2xl p-5 flex flex-col gap-4"
+              className="rounded-2xl p-5 flex flex-col"
               style={{
                 backgroundColor: isCurrent ? "var(--secondary)" : "var(--card)",
                 border: isCurrent ? `2px solid ${info.color}` : "1px solid var(--border)",
-                opacity: isCurrent ? 1 : 0.7,
+                opacity: isCurrent ? 1 : 0.65,
+                minHeight: 120,
               }}
             >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>
-                    Premium
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-0.5">
-                    {isCurrent ? pricingLabel("premium") : "Coming soon"}
-                  </p>
-                </div>
-                {!isCurrent && (
-                  <span
-                    className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide"
-                    style={{
-                      backgroundColor: "rgba(193,120,23,0.12)",
-                      border:          "1px solid rgba(193,120,23,0.25)",
-                      color:           "var(--primary)",
-                    }}
-                  >
-                    Soon
-                  </span>
-                )}
+              <div>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Premium</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {isCurrent ? pricingLabel("premium") : "Coming soon"}
+                </p>
               </div>
 
               {isCurrent && (
-                <span className="block text-center text-xs font-semibold py-2.5 mt-auto" style={{ color: info.color }}>
-                  Current Plan
-                </span>
+                <span style={{ ...ACTION_TEXT_BASE, color: info.color }}>Current Plan</span>
               )}
+              {/* No button when not current — Coming Soon state */}
             </div>
           );
         })()}
@@ -444,30 +464,21 @@ export function MembershipTab({
         className="rounded-2xl overflow-hidden"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
       >
-        {/* Header row */}
-        <div
-          className="grid grid-cols-4 px-4 py-3 border-b"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">
-            Feature
-          </p>
+        {/* Header */}
+        <div className="grid grid-cols-4 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+          <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">Feature</p>
           {(["free", "member"] as MembershipTier[]).map(t => (
-            <p
-              key={t}
-              className="text-[11px] uppercase tracking-widest font-medium text-center"
-              style={{ color: currentTier === t ? TIER_DISPLAY[t].color : "var(--muted-foreground)" }}
-            >
+            <p key={t} className="text-[11px] uppercase tracking-widest font-medium text-center"
+              style={{ color: currentTier === t ? TIER_DISPLAY[t].color : "var(--muted-foreground)" }}>
               {TIER_DISPLAY[t].label}
             </p>
           ))}
-          {/* Premium column header */}
           <p className="text-[11px] uppercase tracking-widest font-medium text-center text-muted-foreground">
             Premium
           </p>
         </div>
 
-        {/* Feature rows */}
+        {/* Rows */}
         {FEATURES.map((f, i) => (
           <div
             key={f.label}
@@ -477,10 +488,7 @@ export function MembershipTab({
             <p className="text-xs text-muted-foreground pr-2">{f.label}</p>
             <FeatureCell value={f.free} />
             <FeatureCell value={f.member} />
-            {/* Premium — Coming Soon for every row */}
-            <p className="text-center text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-foreground)", opacity: 0.5 }}>
-              Soon
-            </p>
+            <p className="text-center text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
           </div>
         ))}
       </section>
@@ -497,7 +505,6 @@ export function MembershipTab({
         />
       )}
 
-      {/* ── Toast ──────────────────────────────────────────────── */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </div>
   );
