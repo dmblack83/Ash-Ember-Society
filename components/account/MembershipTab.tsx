@@ -162,6 +162,7 @@ export function MembershipTab({
   const [downgradeTarget,  setDowngradeTarget]  = useState<"free" | "member" | null>(null);
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [toast,            setToast]            = useState<string | null>(null);
+  const [featureTier,      setFeatureTier]      = useState<MembershipTier>(currentTier);
 
   const isPaid   = currentTier !== "free";
   const tierInfo = TIER_DISPLAY[currentTier];
@@ -464,33 +465,94 @@ export function MembershipTab({
         className="rounded-2xl overflow-hidden"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
       >
-        {/* Header */}
-        <div className="grid grid-cols-4 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
-          <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">Feature</p>
-          {(["free", "member"] as MembershipTier[]).map(t => (
-            <p key={t} className="text-[11px] uppercase tracking-widest font-medium text-center"
-              style={{ color: currentTier === t ? TIER_DISPLAY[t].color : "var(--muted-foreground)" }}>
-              {TIER_DISPLAY[t].label}
+
+        {/* ── Mobile: tab per tier ── */}
+        <div className="sm:hidden">
+          <div className="px-4 pt-4 pb-0">
+            <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">
+              Features by Tier
             </p>
+          </div>
+
+          {/* Tier tab strip */}
+          <div className="flex mt-3" style={{ borderBottom: "1px solid var(--border)" }}>
+            {(["free", "member", "premium"] as MembershipTier[]).map(t => {
+              const active = featureTier === t;
+              const color  = TIER_DISPLAY[t].color;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => setFeatureTier(t)}
+                  style={{
+                    flex:                    1,
+                    padding:                 "10px 4px",
+                    fontSize:                12,
+                    fontWeight:              600,
+                    background:              "none",
+                    border:                  "none",
+                    borderBottom:            active ? `2px solid ${color}` : "2px solid transparent",
+                    color:                   active ? color : "var(--muted-foreground)",
+                    cursor:                  "pointer",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                    transition:              "color 0.15s ease",
+                    marginBottom:            -1,
+                  } as React.CSSProperties}
+                >
+                  {TIER_DISPLAY[t].label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Feature rows for selected tier */}
+          {FEATURES.map((f, i) => (
+            <div
+              key={f.label}
+              className="flex items-center justify-between px-4 py-3"
+              style={{ borderBottom: i < FEATURES.length - 1 ? "1px solid var(--border)" : "none" }}
+            >
+              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{f.label}</p>
+              <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                {featureTier === "premium"
+                  ? <p className="text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
+                  : <FeatureCell value={f[featureTier as "free" | "member"]} />
+                }
+              </div>
+            </div>
           ))}
-          <p className="text-[11px] uppercase tracking-widest font-medium text-center text-muted-foreground">
-            Premium
-          </p>
         </div>
 
-        {/* Rows */}
-        {FEATURES.map((f, i) => (
-          <div
-            key={f.label}
-            className="grid grid-cols-4 items-center px-4 py-3"
-            style={{ borderBottom: i < FEATURES.length - 1 ? "1px solid var(--border)" : "none" }}
-          >
-            <p className="text-xs text-muted-foreground pr-2">{f.label}</p>
-            <FeatureCell value={f.free} />
-            <FeatureCell value={f.member} />
-            <p className="text-center text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
+        {/* ── Desktop: 4-column comparison table ── */}
+        <div className="hidden sm:block">
+          <div className="grid grid-cols-4 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
+            <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">Feature</p>
+            {(["free", "member"] as MembershipTier[]).map(t => (
+              <p key={t} className="text-[11px] uppercase tracking-widest font-medium text-center"
+                style={{ color: currentTier === t ? TIER_DISPLAY[t].color : "var(--muted-foreground)" }}>
+                {TIER_DISPLAY[t].label}
+              </p>
+            ))}
+            <p className="text-[11px] uppercase tracking-widest font-medium text-center text-muted-foreground">
+              Premium
+            </p>
           </div>
-        ))}
+
+          {FEATURES.map((f, i) => (
+            <div
+              key={f.label}
+              className="grid grid-cols-4 items-center px-4 py-3"
+              style={{ borderBottom: i < FEATURES.length - 1 ? "1px solid var(--border)" : "none" }}
+            >
+              <p className="text-xs text-muted-foreground pr-2">{f.label}</p>
+              <FeatureCell value={f.free} />
+              <FeatureCell value={f.member} />
+              <p className="text-center text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
+            </div>
+          ))}
+        </div>
+
       </section>
 
       {/* ── Downgrade modal ────────────────────────────────────── */}
