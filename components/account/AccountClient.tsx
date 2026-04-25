@@ -224,7 +224,23 @@ function BottomSheet({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    // Body scroll lock — position:fixed trick required for iOS Safari.
+    // Plain overflow:hidden doesn't stop momentum/rubber-band scrolling.
+    const scrollY = window.scrollY;
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      window.scrollTo(0, scrollY);
+    };
   }, [onClose]);
 
   function checkScroll() {
@@ -322,7 +338,7 @@ function BottomSheet({
             ref={scrollRef}
             onScroll={checkScroll}
             className="px-5 py-5"
-            style={{ height: "100%", overflowY: "auto" }}
+            style={{ height: "100%", overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
           >
             {children}
           </div>
