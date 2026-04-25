@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/discover/cigars", label: "Cigars", match: (p: string) => p.startsWith("/discover/cigars") },
-  { href: "/discover/shops",  label: "Shops",  match: (p: string) => p.startsWith("/discover/shops") },
+  { href: "/discover/content",  label: "Content",  match: (p: string) => p.startsWith("/discover/content") },
+  { href: "/discover/partners", label: "Partners", match: (p: string) => p.startsWith("/discover/partners") },
+  { href: "/discover/shops",    label: "Shops",    match: (p: string) => p.startsWith("/discover/shops") },
 ];
 
 export default function DiscoverLayout({ children }: { children: React.ReactNode }) {

@@ -82,7 +82,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href:  "/discover/cigars",
+    href:  "/discover/partners",
     label: "Discover",
     center: false,
     match: (p: string) => p.startsWith("/discover"),
