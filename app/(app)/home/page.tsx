@@ -37,7 +37,7 @@ export default async function HomePage() {
 
   /* ── Cutoffs ───────────────────────────────────────────────────── */
   const cutoff    = new Date();
-  cutoff.setDate(cutoff.getDate() + 14);
+  cutoff.setDate(cutoff.getDate() + 7);
   const cutoffStr = cutoff.toISOString().split("T")[0];
   const since     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
