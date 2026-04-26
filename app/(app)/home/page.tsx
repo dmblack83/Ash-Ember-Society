@@ -37,7 +37,7 @@ export default async function HomePage() {
 
   /* ── Cutoffs ───────────────────────────────────────────────────── */
   const cutoff    = new Date();
-  cutoff.setDate(cutoff.getDate() + 7);
+  cutoff.setDate(cutoff.getDate() + 31);
   const cutoffStr = cutoff.toISOString().split("T")[0];
   const agingFloor = new Date();
   agingFloor.setDate(agingFloor.getDate() - 7);
