@@ -115,37 +115,20 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
     }
 
     setUploading(true);
-    setUploadPct(10);
-
-    const supabase = createClient();
-    const ext      = file.name.split(".").pop() ?? "jpg";
-    const path     = `${userId}/avatar.${ext}`;
+    setUploadPct(20);
 
     try {
-      setUploadPct(30);
-
-      // Remove any existing avatar files so the subsequent upload is always an INSERT
-      const { data: existing } = await supabase.storage.from("avatars").list(userId);
-      if (existing && existing.length > 0) {
-        await supabase.storage
-          .from("avatars")
-          .remove(existing.map((f) => `${userId}/${f.name}`));
-      }
+      const body = new FormData();
+      body.append("file", file);
 
       setUploadPct(50);
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: false, contentType: file.type });
+      const res  = await fetch("/api/avatar", { method: "POST", body });
+      const json = await res.json();
 
-      if (uploadError) throw uploadError;
-      setUploadPct(80);
+      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
 
-      const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
-      const publicUrl = urlData.publicUrl;
-
-      await supabase.from("profiles").update({ avatar_url: publicUrl }).eq("id", userId);
-      setAvatarUrl(publicUrl + `?t=${Date.now()}`); // cache-bust
       setUploadPct(100);
+      setAvatarUrl(json.url + `?t=${Date.now()}`); // cache-bust for immediate display
       setToast("Profile photo updated.");
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Upload failed.");
@@ -154,7 +137,7 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
       setUploadPct(0);
       e.target.value = "";
     }
-  }, [userId]);
+  }, []);
 
   /* ── Email change handler ────────────────────────────────────── */
   async function handleEmailChange() {
