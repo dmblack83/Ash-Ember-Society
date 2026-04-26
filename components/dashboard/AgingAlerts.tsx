@@ -22,14 +22,6 @@ export interface AgingItem {
    Helpers
    ------------------------------------------------------------------ */
 
-/** Days between today (00:00 local) and a YYYY-MM-DD date string. */
-function daysUntil(dateStr: string): number {
-  const today  = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr + "T00:00:00");
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
-
 /** How long a cigar has been aging, expressed as a readable string. */
 function agingDuration(startDate: string | null): string | null {
   if (!startDate) return null;
@@ -75,27 +67,10 @@ function Chevron({ open }: { open: boolean }) {
    Status label
    ------------------------------------------------------------------ */
 
-function StatusLabel({ days }: { days: number }) {
-  if (days < 0) {
-    return (
-      <span
-        className="text-xs font-semibold flex-shrink-0"
-        style={{ color: "rgba(239,68,68,0.85)" }}
-      >
-        Past Peak
-      </span>
-    );
-  }
-  if (days === 0) {
-    return (
-      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "#4ade80" }}>
-        Ready Today
-      </span>
-    );
-  }
+function StatusLabel() {
   return (
-    <span className="text-xs font-semibold flex-shrink-0" style={{ color: "var(--gold)" }}>
-      Ready in {days}d
+    <span className="text-xs font-semibold flex-shrink-0" style={{ color: "#4ade80" }}>
+      Ready
     </span>
   );
 }
@@ -106,7 +81,6 @@ function StatusLabel({ days }: { days: number }) {
 
 function AgingRow({ item }: { item: AgingItem }) {
   const router   = useRouter();
-  const days     = daysUntil(item.aging_target_date);
   const duration = agingDuration(item.aging_start_date);
   const display  = item.cigar.series ?? item.cigar.format;
 
@@ -124,7 +98,7 @@ function AgingRow({ item }: { item: AgingItem }) {
         padding:                 "10px 0",
         cursor:                  "pointer",
       } as React.CSSProperties}
-      aria-label={`${display} — ${days < 0 ? "past peak" : days === 0 ? "ready today" : `ready in ${days} days`}`}
+      aria-label={`${display} — ready to smoke`}
     >
       <div className="flex flex-col gap-0.5 min-w-0">
         {item.cigar.brand && (
@@ -139,7 +113,7 @@ function AgingRow({ item }: { item: AgingItem }) {
           <p className="text-xs text-muted-foreground">{duration}</p>
         )}
       </div>
-      <StatusLabel days={days} />
+      <StatusLabel />
     </button>
   );
 }
