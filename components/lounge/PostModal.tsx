@@ -395,6 +395,10 @@ export function PostModal({ postId, userId, onClose }: Props) {
   const [liked,            setLiked]            = useState(false);
   const [likeCount,        setLikeCount]        = useState(0);
   const [liking,           setLiking]           = useState(false);
+  const [upvotes,          setUpvotes]          = useState(0);
+  const [downvotes,        setDownvotes]        = useState(0);
+  const [userVote,         setUserVote]         = useState<0 | 1 | -1>(0);
+  const [voting,           setVoting]           = useState(false);
   const [commentText,      setCommentText]      = useState("");
   const [submitting,       setSubmitting]       = useState(false);
   const [commentError,     setCommentError]     = useState<string | null>(null);
@@ -441,7 +445,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
     async function fetchData() {
       setLoading(true);
 
-      const [postRes, commentsRes, likeRes] = await Promise.all([
+      const [postRes, commentsRes, likeRes, votesRes] = await Promise.all([
         supabase
           .from("forum_posts")
           .select("id, title, content, created_at, is_system, is_locked, user_id, image_url, smoke_log_id, forum_post_likes(count), forum_categories(name, slug)")
@@ -457,6 +461,10 @@ export function PostModal({ postId, userId, onClose }: Props) {
           .from("forum_post_likes")
           .select("*", { count: "exact", head: true })
           .eq("user_id", userId)
+          .eq("post_id", postId),
+        supabase
+          .from("forum_post_votes")
+          .select("user_id, value")
           .eq("post_id", postId),
       ]);
 
@@ -511,6 +519,12 @@ export function PostModal({ postId, userId, onClose }: Props) {
       });
       setLikeCount(likeCountVal);
       setLiked((likeRes.count ?? 0) > 0);
+
+      // Votes (for feedback posts)
+      const voteRows = (votesRes.data ?? []) as { user_id: string; value: number }[];
+      setUpvotes(voteRows.filter((v) => v.value === 1).length);
+      setDownvotes(voteRows.filter((v) => v.value === -1).length);
+      setUserVote((voteRows.find((v) => v.user_id === userId)?.value ?? 0) as 0 | 1 | -1);
       setLocalComments(
         commentRows.map((c: any) => ({
           ...c,
@@ -579,6 +593,36 @@ export function PostModal({ postId, userId, onClose }: Props) {
       if (error && error.code !== "23505") { setLiked(false); setLikeCount((n) => Math.max(0, n - 1)); }
     }
     setLiking(false);
+  }
+
+  /* ---- Vote (feedback posts only) --------------------------------- */
+
+  async function handleVote(direction: 1 | -1) {
+    if (!post || voting) return;
+    setVoting(true);
+
+    const prev    = userVote;
+    const newVote = prev === direction ? 0 : direction;
+
+    // Optimistic
+    let up   = upvotes;
+    let down = downvotes;
+    if (prev === 1)  up   -= 1;
+    if (prev === -1) down -= 1;
+    if (newVote === 1)  up   += 1;
+    if (newVote === -1) down += 1;
+    setUpvotes(up);
+    setDownvotes(down);
+    setUserVote(newVote as 0 | 1 | -1);
+
+    if (newVote === 0) {
+      await supabase.from("forum_post_votes").delete().eq("user_id", userId).eq("post_id", post.id);
+    } else if (prev === 0) {
+      await supabase.from("forum_post_votes").insert({ user_id: userId, post_id: post.id, value: newVote });
+    } else {
+      await supabase.from("forum_post_votes").update({ value: newVote }).eq("user_id", userId).eq("post_id", post.id);
+    }
+    setVoting(false);
   }
 
   /* ---- Submit comment --------------------------------------------- */
@@ -840,25 +884,77 @@ export function PostModal({ postId, userId, onClose }: Props) {
                   </button>
                 )}
 
-                {/* Like — pinned to right edge */}
-                <button
-                  type="button"
-                  onClick={handleLike}
-                  disabled={liking}
-                  className="absolute right-0 flex items-center gap-1.5"
-                  style={{
-                    background:              "none",
-                    border:                  "none",
-                    cursor:                  liking ? "default" : "pointer",
-                    touchAction:             "manipulation",
-                    WebkitTapHighlightColor: "transparent",
-                    color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-                    padding:                 0,
-                  }}
-                >
-                  <FlameIcon size={20} filled={liked} />
-                  <span className="text-sm font-medium">{likeCount}</span>
-                </button>
+                {post.category.slug === "product-feedback" ? (
+                  /* Vote buttons — feedback posts */
+                  <div className="absolute right-0 flex items-center gap-2">
+                    {/* Upvote */}
+                    <button
+                      type="button"
+                      onClick={() => handleVote(1)}
+                      disabled={voting}
+                      aria-label="Upvote"
+                      className="flex items-center gap-1"
+                      style={{
+                        background:              userVote === 1 ? "rgba(232,100,44,0.12)" : "none",
+                        border:                  userVote === 1 ? "1px solid rgba(232,100,44,0.35)" : "1px solid transparent",
+                        borderRadius:            8,
+                        padding:                 "4px 8px",
+                        color:                   userVote === 1 ? "var(--ember, #E8642C)" : "var(--muted-foreground)",
+                        cursor:                  voting ? "default" : "pointer",
+                        touchAction:             "manipulation",
+                        WebkitTapHighlightColor: "transparent",
+                      } as React.CSSProperties}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                        <path d="M6 2L10 8H2L6 2Z" fill={userVote === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                      </svg>
+                      <span className="text-sm font-medium">{upvotes}</span>
+                    </button>
+                    {/* Downvote */}
+                    <button
+                      type="button"
+                      onClick={() => handleVote(-1)}
+                      disabled={voting}
+                      aria-label="Downvote"
+                      className="flex items-center gap-1"
+                      style={{
+                        background:              userVote === -1 ? "rgba(196,69,54,0.12)" : "none",
+                        border:                  userVote === -1 ? "1px solid rgba(196,69,54,0.35)" : "1px solid transparent",
+                        borderRadius:            8,
+                        padding:                 "4px 8px",
+                        color:                   userVote === -1 ? "#C44536" : "var(--muted-foreground)",
+                        cursor:                  voting ? "default" : "pointer",
+                        touchAction:             "manipulation",
+                        WebkitTapHighlightColor: "transparent",
+                      } as React.CSSProperties}
+                    >
+                      <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ transform: "rotate(180deg)" }}>
+                        <path d="M6 2L10 8H2L6 2Z" fill={userVote === -1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                      </svg>
+                      <span className="text-sm font-medium">{downvotes}</span>
+                    </button>
+                  </div>
+                ) : (
+                  /* Like — standard posts */
+                  <button
+                    type="button"
+                    onClick={handleLike}
+                    disabled={liking}
+                    className="absolute right-0 flex items-center gap-1.5"
+                    style={{
+                      background:              "none",
+                      border:                  "none",
+                      cursor:                  liking ? "default" : "pointer",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                      color:                   liked ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                      padding:                 0,
+                    }}
+                  >
+                    <FlameIcon size={20} filled={liked} />
+                    <span className="text-sm font-medium">{likeCount}</span>
+                  </button>
+                )}
               </div>
             </div>
 

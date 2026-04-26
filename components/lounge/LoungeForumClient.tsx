@@ -5,6 +5,7 @@ import { createPortal }                               from "react-dom";
 import { useRouter }                                  from "next/navigation";
 import { createClient }                               from "@/utils/supabase/client";
 import { CategoryCard }                               from "./CategoryCard";
+import { FeedbackCard }                               from "./FeedbackCard";
 import { NewPostSheet }                               from "./NewPostSheet";
 import { PostModal }                                  from "./PostModal";
 
@@ -18,6 +19,7 @@ interface Category {
   sort_order:   number;
   is_gate:      boolean;
   is_locked:    boolean;
+  is_feedback:  boolean;
   post_count:   number;
   last_post_at: string | null;
 }
@@ -431,8 +433,9 @@ export function LoungeForumClient({
 
   /* ---- Unlocked view ---------------------------------------------- */
 
-  const gateCategory      = categories.find((c) => c.is_gate);
-  const nonGateCategories = categories.filter((c) => !c.is_gate);
+  const gateCategory       = categories.find((c) => c.is_gate);
+  const nonGateCategories  = categories.filter((c) => !c.is_gate && !c.is_feedback);
+  const feedbackCategories = categories.filter((c) => c.is_feedback);
 
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
@@ -564,6 +567,45 @@ export function LoungeForumClient({
             />
           ))}
         </div>
+
+        {/* ── Product Feedback — visually distinct section ─────────── */}
+        {feedbackCategories.length > 0 && (
+          <>
+            {/* Separator */}
+            <div className="px-4 w-full md:max-w-[50%] md:mx-auto">
+              <div style={{ height: 1, backgroundColor: "var(--border)", margin: "4px 0 20px" }} />
+            </div>
+
+            {/* Section header */}
+            <div className="px-4 pb-3 w-full md:max-w-[50%] md:mx-auto">
+              <div className="flex items-center gap-2 mb-1">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" style={{ color: "var(--ember, #E8642C)", flexShrink: 0 }}>
+                  <path d="M7 1.5l1.3 2.6 2.9.42-2.1 2.05.5 2.88L7 8.1l-2.6 1.35.5-2.88L2.8 4.52l2.9-.42L7 1.5z" fill="currentColor" />
+                </svg>
+                <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "var(--ember, #E8642C)" }}>
+                  Product Feedback
+                </p>
+              </div>
+              <p className="text-xs" style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                Vote on ideas and report issues. Your input shapes what we build.
+              </p>
+            </div>
+
+            <div className="px-4 flex flex-col gap-2 pb-6 w-full md:max-w-[50%] md:mx-auto">
+              {feedbackCategories.map((c) => (
+                <FeedbackCard
+                  key={c.id}
+                  category={c}
+                  userId={userId}
+                  canPost={canPost}
+                  refreshKey={refreshKey}
+                  onNewPost={handleNewPost}
+                  onPostClick={(postId) => setSelectedPostId(postId)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {selectedPostId && (

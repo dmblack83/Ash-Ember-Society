@@ -12,7 +12,7 @@ export default async function LoungePage() {
   if (!user) redirect("/login");
 
   const [categoriesRes, statsRes, profileRes, rulesPostRes] = await Promise.all([
-    supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate").order("sort_order"),
+    supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback").order("sort_order"),
     supabase.rpc("get_forum_category_stats"),
     supabase.from("profiles").select("display_name, membership_tier").eq("id", user.id).single(),
     supabase
