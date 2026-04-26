@@ -37,8 +37,11 @@ export default async function HomePage() {
 
   /* ── Cutoffs ───────────────────────────────────────────────────── */
   const cutoff    = new Date();
-  cutoff.setDate(cutoff.getDate() + 7);
+  cutoff.setDate(cutoff.getDate() + 31);
   const cutoffStr = cutoff.toISOString().split("T")[0];
+  const agingFloor = new Date();
+  agingFloor.setDate(agingFloor.getDate() - 7);
+  const agingFloorStr = agingFloor.toISOString().split("T")[0];
   const since     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   /* ── Run all data queries in parallel ─────────────────────────── */
@@ -53,6 +56,7 @@ export default async function HomePage() {
           .eq("user_id", user.id)
           .eq("is_wishlist", false)
           .not("aging_target_date", "is", null)
+          .gte("aging_target_date", agingFloorStr)
           .lte("aging_target_date", cutoffStr)
           .order("aging_target_date", { ascending: true })
       : Promise.resolve({ data: [] as unknown[] }),
