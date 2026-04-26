@@ -630,12 +630,14 @@ export function LoungeForumClient({
         <NewPostSheet
           categories={nonGateCategories}
           initialCategoryId={newPostCategory}
+          isFeedback={feedbackCategories.some((c) => c.id === newPostCategory)}
           userId={userId}
           onClose={() => setShowNewPost(false)}
           onCreated={(categoryId) => {
             setShowNewPost(false);
-            showToast("Post created.");
+            showToast(feedbackCategories.some((c) => c.id === categoryId) ? "Idea submitted. Thanks!" : "Post created.");
             setPostRefreshKeys((prev) => ({ ...prev, [categoryId]: (prev[categoryId] ?? 0) + 1 }));
+            setRefreshKey((k) => k + 1);
           }}
         />
       )}
