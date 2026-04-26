@@ -58,14 +58,14 @@ export default async function PostDetailPage({ params }: Props) {
     ),
   ];
 
-  let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+  let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
   if (allUserIds.length > 0) {
     const { data: profileRows } = await supabase
       .from("profiles")
-      .select("id, display_name, avatar_url")
+      .select("id, display_name, avatar_url, badge, membership_tier")
       .in("id", allUserIds);
     for (const p of profileRows ?? []) {
-      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
+      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
     }
   }
 
@@ -98,7 +98,7 @@ export default async function PostDetailPage({ params }: Props) {
     category_id: raw.category_id as string,
     category:    raw.forum_categories as { name: string; slug: string },
     author:      postAuthorId
-      ? { display_name: nameMap[postAuthorId]?.display_name ?? null, avatar_url: nameMap[postAuthorId]?.avatar_url ?? null }
+      ? { display_name: nameMap[postAuthorId]?.display_name ?? null, avatar_url: nameMap[postAuthorId]?.avatar_url ?? null, badge: nameMap[postAuthorId]?.badge ?? null, membership_tier: nameMap[postAuthorId]?.membership_tier ?? null }
       : null,
     like_count:  likeCount,
     image_url:   (raw.image_url as string | null) ?? null,
@@ -106,7 +106,7 @@ export default async function PostDetailPage({ params }: Props) {
 
   const comments = commentRows.map((c) => ({
     ...c,
-    profiles: { display_name: nameMap[c.user_id]?.display_name ?? null, avatar_url: nameMap[c.user_id]?.avatar_url ?? null },
+    profiles: { display_name: nameMap[c.user_id]?.display_name ?? null, avatar_url: nameMap[c.user_id]?.avatar_url ?? null, badge: nameMap[c.user_id]?.badge ?? null, membership_tier: nameMap[c.user_id]?.membership_tier ?? null },
   }));
 
   const hasLiked = (likeRes.count ?? 0) > 0;

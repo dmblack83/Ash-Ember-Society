@@ -1,6 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { AvatarFrame } from "@/components/ui/AvatarFrame";
+import { resolveBadge } from "@/lib/badge";
 
 /* ------------------------------------------------------------------
    Types
@@ -13,8 +15,10 @@ export interface LoungePost {
   comments_count: number;
   created_at:     string;
   user: {
-    display_name: string | null;
-    avatar_url:   string | null;
+    display_name:    string | null;
+    avatar_url:      string | null;
+    badge:           string | null;
+    membership_tier: string | null;
   } | null;
 }
 
@@ -22,7 +26,7 @@ export interface LoungePost {
    Avatar — initials fallback
    ------------------------------------------------------------------ */
 
-function Avatar({ src, name }: { src: string | null; name: string }) {
+function Avatar({ src, name, badge, tier }: { src: string | null; name: string; badge?: string | null; tier?: string | null }) {
   const initials = name
     .split(" ")
     .map((w) => w[0])
@@ -30,16 +34,14 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
     .slice(0, 2)
     .toUpperCase();
 
-  if (src) {
-    return (
-      <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt={name} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
+  const resolved = resolveBadge(badge, tier);
 
-  return (
+  const avatarContent = src ? (
+    <div style={{ width: 28, height: 28, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt={name} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  ) : (
     <div
       aria-hidden="true"
       style={{
@@ -60,6 +62,12 @@ function Avatar({ src, name }: { src: string | null; name: string }) {
     >
       {initials || "?"}
     </div>
+  );
+
+  return (
+    <AvatarFrame badge={resolved} size={28}>
+      {avatarContent}
+    </AvatarFrame>
   );
 }
 
@@ -98,7 +106,7 @@ function PostRow({
       } as React.CSSProperties}
     >
       {/* Avatar */}
-      <Avatar src={post.user?.avatar_url ?? null} name={name} />
+      <Avatar src={post.user?.avatar_url ?? null} name={name} badge={post.user?.badge} tier={post.user?.membership_tier} />
 
       {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
