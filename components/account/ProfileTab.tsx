@@ -122,10 +122,20 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
     const path     = `${userId}/avatar.${ext}`;
 
     try {
-      setUploadPct(40);
+      setUploadPct(30);
+
+      // Remove any existing avatar files so the subsequent upload is always an INSERT
+      const { data: existing } = await supabase.storage.from("avatars").list(userId);
+      if (existing && existing.length > 0) {
+        await supabase.storage
+          .from("avatars")
+          .remove(existing.map((f) => `${userId}/${f.name}`));
+      }
+
+      setUploadPct(50);
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
+        .upload(path, file, { upsert: false, contentType: file.type });
 
       if (uploadError) throw uploadError;
       setUploadPct(80);
