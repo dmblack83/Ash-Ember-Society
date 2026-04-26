@@ -88,8 +88,11 @@ function VoteButton({
   disabled:  boolean;
   onClick:   () => void;
 }) {
-  const isUp    = direction === 1;
-  const color   = active ? "var(--ember, #E8642C)" : "var(--muted-foreground)";
+  const isUp       = direction === 1;
+  const activeColor = isUp ? "#4ade80" : "#f87171";   // green-400 / red-400
+  const activeBg    = isUp ? "rgba(74,222,128,0.12)" : "rgba(248,113,113,0.12)";
+  const activeBorder= isUp ? "rgba(74,222,128,0.35)"  : "rgba(248,113,113,0.35)";
+  const color       = active ? activeColor : "var(--muted-foreground)";
 
   return (
     <button
@@ -99,30 +102,31 @@ function VoteButton({
       aria-label={isUp ? "Upvote" : "Downvote"}
       style={{
         display:                 "flex",
-        flexDirection:           "column",
+        flexDirection:           "row",
         alignItems:              "center",
         justifyContent:          "center",
-        gap:                     2,
-        width:                   40,
-        minHeight:               44,
+        gap:                     4,
+        paddingLeft:             8,
+        paddingRight:            8,
+        height:                  32,
         flexShrink:              0,
-        background:              active ? "rgba(232,100,44,0.1)" : "none",
-        border:                  active ? "1px solid rgba(232,100,44,0.3)" : "1px solid transparent",
+        background:              active ? activeBg : "rgba(255,255,255,0.04)",
+        border:                  active ? `1px solid ${activeBorder}` : "1px solid var(--border)",
         borderRadius:            8,
         cursor:                  disabled ? "default" : "pointer",
         touchAction:             "manipulation",
         WebkitTapHighlightColor: "transparent",
         color,
-        transition:              "background 0.15s ease, border-color 0.15s ease",
+        transition:              "background 0.15s ease, border-color 0.15s ease, color 0.15s ease",
       } as React.CSSProperties}
     >
       <svg
-        width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true"
-        style={{ transform: isUp ? "none" : "rotate(180deg)" }}
+        width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true"
+        style={{ transform: isUp ? "none" : "rotate(180deg)", flexShrink: 0 }}
       >
         <path d="M6 2L10 8H2L6 2Z" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
       </svg>
-      <span style={{ fontSize: 11, fontWeight: 600, lineHeight: 1 }}>{count}</span>
+      <span style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{count}</span>
     </button>
   );
 }
@@ -178,13 +182,8 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
       };
     });
 
-    // Sort by net score descending, then by newest
-    mapped.sort((a, b) => {
-      const scoreA = a.upvotes - a.downvotes;
-      const scoreB = b.upvotes - b.downvotes;
-      if (scoreB !== scoreA) return scoreB - scoreA;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
+    // Newest first
+    mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
     setLoading(false);
     setFetchedOnce(true);
@@ -293,7 +292,7 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
           {/* Controls row */}
           <div className="flex items-center justify-between px-4 py-3">
             <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-              Sorted by votes
+              Newest first
             </p>
             {!category.is_locked && canPost && (
               <button
@@ -338,15 +337,40 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
               {posts.map((post, i) => (
                 <div
                   key={post.id}
-                  className="flex items-center gap-3"
                   style={{
                     paddingTop:    10,
                     paddingBottom: 10,
                     borderBottom:  i < posts.length - 1 ? "1px solid var(--border)" : "none",
                   }}
                 >
-                  {/* Vote column */}
-                  <div className="flex flex-col items-center gap-1 shrink-0">
+                  {/* Content row — tapping opens the post */}
+                  <button
+                    type="button"
+                    onClick={() => onPostClick(post.id)}
+                    className="w-full flex items-center gap-3 min-w-0 text-left"
+                    style={{
+                      background:              "none",
+                      border:                  "none",
+                      cursor:                  "pointer",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                      padding:                 0,
+                      marginBottom:            8,
+                    }}
+                  >
+                    <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={32} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium line-clamp-2" style={{ color: "var(--foreground)", lineHeight: 1.4 }}>
+                        {post.title}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
+                        {post.display_name ?? "Member"} &middot; {relativeTime(post.created_at)}
+                      </p>
+                    </div>
+                  </button>
+
+                  {/* Action row — votes + comments, inline */}
+                  <div className="flex items-center gap-2" style={{ paddingLeft: 44 }}>
                     <VoteButton
                       direction={1}
                       active={post.user_vote === 1}
@@ -361,40 +385,13 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
                       disabled={voting === post.id}
                       onClick={() => handleVote(post.id, -1)}
                     />
-                  </div>
-
-                  {/* Content — tapping opens the post */}
-                  <button
-                    type="button"
-                    onClick={() => onPostClick(post.id)}
-                    className="flex-1 flex items-center gap-3 min-w-0 text-left"
-                    style={{
-                      background:              "none",
-                      border:                  "none",
-                      cursor:                  "pointer",
-                      touchAction:             "manipulation",
-                      WebkitTapHighlightColor: "transparent",
-                      padding:                 0,
-                    }}
-                  >
-                    <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={32} />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium line-clamp-2" style={{ color: "var(--foreground)", lineHeight: 1.4 }}>
-                        {post.title}
-                      </p>
-                      <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                        {post.display_name ?? "Member"} &middot; {relativeTime(post.created_at)}
-                      </p>
-                    </div>
-
-                    {/* Comment count */}
-                    <div className="flex items-center gap-1 shrink-0 text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    <div className="flex items-center gap-1 text-xs" style={{ color: "var(--muted-foreground)", marginLeft: 4 }}>
                       <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
                         <path d="M6 1.25C3.377 1.25 1.25 3.377 1.25 6a4.75 4.75 0 007.496 3.874L11 11l-1.126-2.254A4.75 4.75 0 006 1.25z" />
                       </svg>
                       {post.comment_count}
                     </div>
-                  </button>
+                  </div>
                 </div>
               ))}
             </div>
