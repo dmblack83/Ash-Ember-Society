@@ -366,6 +366,7 @@ interface AvatarProps {
 }
 
 function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast }: AvatarProps) {
+  const router    = useRouter();
   const fileRef   = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [pct,       setPct]       = useState(0);
@@ -392,12 +393,15 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast
       onUpdated(url);
       setPct(100);
       onToast("Profile photo updated.");
+      // Invalidate the Next.js router cache so navigating away and back
+      // shows the new avatar immediately without a hard reload.
+      router.refresh();
     } catch (err) {
       onToast(err instanceof Error ? err.message : "Upload failed.");
     } finally {
       setUploading(false); setPct(0); e.target.value = "";
     }
-  }, [onUpdated, onToast]);
+  }, [onUpdated, onToast, router]);
 
   return (
     <>
