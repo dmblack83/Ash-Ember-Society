@@ -280,9 +280,11 @@ export function AvatarFrame({ badge, size, children }: AvatarFrameProps) {
   if (!badge) return <>{children}</>;
 
   const isFounder = badge === "founder";
-  // Frame SVG is 108×108 with a 72px avatar slot (ratio 1.5×)
-  // Founder frame is 140×140 with a 90px avatar slot (ratio ~1.556×)
-  const outerSize = isFounder ? Math.round(size * (140 / 90)) : Math.round(size * (108 / 72));
+  // 1.2× ratio aligns the avatar edge to the frame's inner ring at zero gap.
+  // Derivation: inner ring radius ≈ r45 in 108px viewBox → 45*(outerSize/108) = size/2
+  //             → outerSize = size * 108/90 = size * 1.2
+  // Same 1.2× works for the 140px Founder viewBox (inner ring r59 → 59*(outerSize/140) ≈ size/2).
+  const outerSize = Math.round(size * 1.2);
 
   return (
     <div style={{ position: "relative", width: outerSize, height: outerSize, flexShrink: 0 }}>
