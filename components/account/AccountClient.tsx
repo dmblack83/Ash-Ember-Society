@@ -6,6 +6,8 @@ import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
+import { AvatarFrame } from "@/components/ui/AvatarFrame";
+import { resolveBadge } from "@/lib/badge";
 import type { MembershipTier } from "@/lib/stripe";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -47,6 +49,7 @@ interface Props {
   membership:  MembershipData;
   legal:       LegalData;
   memberSince: string | null;
+  badge:       string | null;
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -361,11 +364,13 @@ interface AvatarProps {
   avatarUrl: string | null;
   initials:  string;
   bgColor:   string;
+  badge:     string | null;
+  tier:      MembershipTier;
   onUpdated: (url: string) => void;
   onToast:   (msg: string) => void;
 }
 
-function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast }: AvatarProps) {
+function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, onUpdated, onToast }: AvatarProps) {
   const router    = useRouter();
   const fileRef   = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -403,8 +408,11 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast
     }
   }, [onUpdated, onToast, router]);
 
+  const resolvedBadge = resolveBadge(badge, tier);
+
   return (
     <>
+      <AvatarFrame badge={resolvedBadge} size={72}>
       <button
         type="button"
         onClick={() => fileRef.current?.click()}
@@ -446,6 +454,7 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast
           </div>
         )}
       </button>
+      </AvatarFrame>
       <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={handleFile} />
     </>
   );
@@ -457,6 +466,7 @@ interface ProfileCardProps {
   userId:      string;
   initialName: string | null;
   tier:        MembershipTier;
+  badge:       string | null;
   memberSince: string | null;
   initials:    string;
   bgColor:     string;
@@ -465,7 +475,7 @@ interface ProfileCardProps {
 }
 
 function ProfileCard({
-  userId, initialName, tier, memberSince,
+  userId, initialName, tier, badge, memberSince,
   initials, bgColor, avatarUrl: initialAvatarUrl, onToast,
 }: ProfileCardProps) {
   const [avatarUrl,  setAvatarUrl]  = useState(initialAvatarUrl);
@@ -538,6 +548,8 @@ function ProfileCard({
           avatarUrl={avatarUrl}
           initials={initials}
           bgColor={bgColor}
+          badge={badge}
+          tier={tier}
           onUpdated={setAvatarUrl}
           onToast={onToast}
         />
@@ -1182,7 +1194,7 @@ function ScrollCarets() {
 
 /* ─── Main ───────────────────────────────────────────────────────────── */
 
-export function AccountClient({ userId, email, profile, membership, legal, memberSince }: Props) {
+export function AccountClient({ userId, email, profile, membership, legal, memberSince, badge }: Props) {
   const router = useRouter();
   const [toast,       setToast]       = useState<string | null>(null);
   const [signingOut,  setSigningOut]  = useState(false);
@@ -1235,6 +1247,7 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
             userId={userId}
             initialName={profile.display_name}
             tier={membership.currentTier}
+            badge={badge}
             memberSince={memberSince}
             initials={initials}
             bgColor={bgColor}

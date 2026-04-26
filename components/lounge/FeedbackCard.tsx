@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient }                               from "@/utils/supabase/client";
 import { formatDistanceToNow }                        from "date-fns";
+import { AvatarFrame }                                from "@/components/ui/AvatarFrame";
+import { resolveBadge }                               from "@/lib/badge";
 
 /* ------------------------------------------------------------------ */
 
@@ -17,16 +19,18 @@ interface Category {
 }
 
 interface FeedbackPost {
-  id:            string;
-  title:         string;
-  created_at:    string;
-  user_id:       string | null;
-  display_name:  string | null;
-  avatar_url:    string | null;
-  upvotes:       number;
-  downvotes:     number;
-  comment_count: number;
-  user_vote:     1 | -1 | 0;
+  id:              string;
+  title:           string;
+  created_at:      string;
+  user_id:         string | null;
+  display_name:    string | null;
+  avatar_url:      string | null;
+  badge:           string | null;
+  membership_tier: string | null;
+  upvotes:         number;
+  downvotes:       number;
+  comment_count:   number;
+  user_vote:       1 | -1 | 0;
 }
 
 interface Props {
@@ -49,21 +53,23 @@ function Avatar({
   name,
   avatarUrl,
   size = 32,
+  badge,
+  tier,
 }: {
   name:      string | null | undefined;
   avatarUrl: string | null | undefined;
   size?:     number;
+  badge?:    string | null;
+  tier?:     string | null;
 }) {
-  if (avatarUrl) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
+  const resolved = resolveBadge(badge, tier);
   const init = name ? name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") : "A";
-  return (
+  const inner = avatarUrl ? (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  ) : (
     <div
       className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
       style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
@@ -71,6 +77,7 @@ function Avatar({
       {init}
     </div>
   );
+  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 /* ---- Vote button -------------------------------------------------- */
@@ -157,13 +164,13 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
     if (error || !data) { setLoading(false); return; }
 
     const userIds = [...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean))] as string[];
-    let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+    let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
     if (userIds.length > 0) {
       const { data: profileRows } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url")
+        .select("id, display_name, avatar_url, badge, membership_tier")
         .in("id", userIds);
-      for (const p of profileRows ?? []) nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
+      for (const p of profileRows ?? []) nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
     }
 
     const mapped: FeedbackPost[] = (data as any[]).map((row: any) => {
@@ -176,8 +183,10 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
         title:         row.title,
         created_at:    row.created_at,
         user_id:       row.user_id ?? null,
-        display_name:  row.user_id ? (nameMap[row.user_id]?.display_name ?? null) : null,
-        avatar_url:    row.user_id ? (nameMap[row.user_id]?.avatar_url   ?? null) : null,
+        display_name:    row.user_id ? (nameMap[row.user_id]?.display_name    ?? null) : null,
+        avatar_url:      row.user_id ? (nameMap[row.user_id]?.avatar_url      ?? null) : null,
+        badge:           row.user_id ? (nameMap[row.user_id]?.badge            ?? null) : null,
+        membership_tier: row.user_id ? (nameMap[row.user_id]?.membership_tier ?? null) : null,
         upvotes,
         downvotes,
         comment_count: (row.forum_comments as { count: number }[])[0]?.count ?? 0,
@@ -365,7 +374,7 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
                       marginBottom:            8,
                     }}
                   >
-                    <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={32} />
+                    <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={32} badge={post.badge} tier={post.membership_tier} />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium line-clamp-2" style={{ color: "var(--foreground)", lineHeight: 1.4 }}>
                         {post.title}

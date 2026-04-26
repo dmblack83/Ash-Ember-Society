@@ -5,6 +5,8 @@ import { createPortal }                        from "react-dom";
 import { useRouter }                           from "next/navigation";
 import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
+import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
+import { resolveBadge }                        from "@/lib/badge";
 
 /* ------------------------------------------------------------------ */
 /* Exported type — consumed by the server page                          */
@@ -45,7 +47,7 @@ interface Post {
   user_id:     string | null;
   category_id: string;
   category:    { name: string; slug: string };
-  author:      { display_name: string | null; avatar_url: string | null } | null;
+  author:      { display_name: string | null; avatar_url: string | null; badge?: string | null; membership_tier?: string | null } | null;
   like_count:  number;
   image_url:   string | null;
 }
@@ -57,7 +59,7 @@ interface Comment {
   updated_at:        string;
   user_id:           string;
   parent_comment_id: string | null;
-  profiles:          { display_name: string | null; avatar_url: string | null } | null;
+  profiles:          { display_name: string | null; avatar_url: string | null; badge?: string | null; membership_tier?: string | null } | null;
 }
 
 interface Props {
@@ -89,20 +91,22 @@ function Avatar({
   name,
   avatarUrl,
   size = 32,
+  badge,
+  tier,
 }: {
   name:      string | null | undefined;
   avatarUrl: string | null | undefined;
   size?:     number;
+  badge?:    string | null;
+  tier?:     string | null;
 }) {
-  if (avatarUrl) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
-  return (
+  const resolved = resolveBadge(badge, tier);
+  const inner = avatarUrl ? (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  ) : (
     <div
       className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
       style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
@@ -110,6 +114,7 @@ function Avatar({
       {initials(name)}
     </div>
   );
+  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 function ratingColor(v: number): string {
@@ -394,7 +399,7 @@ const CommentNode = memo(function CommentNode({
 
     const { data: profileData } = await supabase
       .from("profiles")
-      .select("display_name, avatar_url")
+      .select("display_name, avatar_url, badge, membership_tier")
       .eq("id", userId)
       .single();
 
@@ -415,7 +420,7 @@ const CommentNode = memo(function CommentNode({
     >
       {/* Author row */}
       <div className="flex items-center gap-2 mb-2">
-        <Avatar name={comment.profiles?.display_name} avatarUrl={comment.profiles?.avatar_url} size={28} />
+        <Avatar name={comment.profiles?.display_name} avatarUrl={comment.profiles?.avatar_url} size={28} badge={comment.profiles?.badge} tier={comment.profiles?.membership_tier} />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>
             {comment.profiles?.display_name ?? "Member"}
@@ -822,6 +827,8 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
               name={post.is_system ? "Ash & Ember Society" : post.author?.display_name}
               avatarUrl={post.is_system ? null : post.author?.avatar_url}
               size={32}
+              badge={post.is_system ? null : post.author?.badge}
+              tier={post.is_system ? null : post.author?.membership_tier}
             />
             <div>
               <p className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>

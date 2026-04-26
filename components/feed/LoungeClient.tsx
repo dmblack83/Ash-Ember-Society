@@ -10,13 +10,18 @@ import {
 } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { formatDistanceToNow } from "date-fns";
+import { AvatarFrame } from "@/components/ui/AvatarFrame";
+import { resolveBadge } from "@/lib/badge";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
 interface PostAuthor {
-  display_name: string | null;
+  display_name:    string | null;
+  avatar_url?:     string | null;
+  badge?:          string | null;
+  membership_tier?: string | null;
 }
 
 interface Post {
@@ -60,7 +65,7 @@ function initials(name: string | null | undefined): string {
     .join("");
 }
 
-function Avatar({ name, size = 40 }: { name: string | null; size?: number }) {
+function Avatar({ name, size = 40, badge, tier }: { name: string | null; size?: number; badge?: string | null; tier?: string | null }) {
   const palette = [
     "rgba(193,120,23,0.25)",
     "rgba(212,160,74,0.25)",
@@ -68,23 +73,26 @@ function Avatar({ name, size = 40 }: { name: string | null; size?: number }) {
     "rgba(138,126,118,0.25)",
   ];
   const bg = palette[(name?.charCodeAt(0) ?? 0) % palette.length];
+  const resolved = resolveBadge(badge, tier);
   return (
-    <div
-      className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold select-none"
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: bg,
-        border: "1px solid var(--border)",
-        color: "var(--foreground)",
-        fontFamily: "var(--font-sans)",
-        fontSize: size <= 30 ? 10 : 13,
-        lineHeight: 1,
-      }}
-      aria-hidden="true"
-    >
-      {initials(name)}
-    </div>
+    <AvatarFrame badge={resolved} size={size}>
+      <div
+        className="flex-shrink-0 rounded-full flex items-center justify-center font-semibold select-none"
+        style={{
+          width: size,
+          height: size,
+          backgroundColor: bg,
+          border: "1px solid var(--border)",
+          color: "var(--foreground)",
+          fontFamily: "var(--font-sans)",
+          fontSize: size <= 30 ? 10 : 13,
+          lineHeight: 1,
+        }}
+        aria-hidden="true"
+      >
+        {initials(name)}
+      </div>
+    </AvatarFrame>
   );
 }
 
@@ -242,7 +250,7 @@ function ComposeBox({ userId, displayName, onPosted }: ComposeProps) {
           cigar_name:  cigarName.trim()  || null,
           cigar_brand: cigarBrand.trim() || null,
         })
-        .select("*, profiles!posts_user_id_fkey(display_name)")
+        .select("*, profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
         .single();
 
       if (error) {
@@ -433,7 +441,7 @@ function CommentThread({ postId, userId, displayName }: CommentThreadProps) {
   useEffect(() => {
     supabase
       .from("post_comments")
-      .select("*, profiles!post_comments_user_id_fkey(display_name)")
+      .select("*, profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
       .eq("post_id", postId)
       .order("created_at", { ascending: true })
       .then(({ data }) => {
@@ -449,7 +457,7 @@ function CommentThread({ postId, userId, displayName }: CommentThreadProps) {
     const { data, error } = await supabase
       .from("post_comments")
       .insert({ post_id: postId, user_id: userId, content: draft.trim() })
-      .select("*, profiles!post_comments_user_id_fkey(display_name)")
+      .select("*, profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
       .single();
     if (!error && data) {
       setComments((prev) => [...prev, data as Comment]);
@@ -487,7 +495,7 @@ function CommentThread({ postId, userId, displayName }: CommentThreadProps) {
           <div className="space-y-3">
             {comments.map((c) => (
               <div key={c.id} className="flex gap-2.5">
-                <Avatar name={c.profiles?.display_name ?? null} size={28} />
+                <Avatar name={c.profiles?.display_name ?? null} size={28} badge={c.profiles?.badge} tier={c.profiles?.membership_tier} />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-xs font-semibold truncate text-foreground">
@@ -580,7 +588,7 @@ function PostCard({ post, userId, displayName, index, onLikeToggle }: PostCardPr
     >
       {/* Author row */}
       <div className="flex items-center gap-3">
-        <Avatar name={authorName} />
+        <Avatar name={authorName} badge={post.profiles?.badge} tier={post.profiles?.membership_tier} />
         <div className="flex-1 min-w-0">
           <span
             className="font-semibold text-sm text-foreground"
@@ -750,7 +758,7 @@ export function LoungeClient({ userId, displayName }: LoungeClientProps) {
     async (offset: number): Promise<Post[]> => {
       const { data } = await supabase
         .from("posts")
-        .select("*, profiles!posts_user_id_fkey(display_name)")
+        .select("*, profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
         .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 
@@ -797,7 +805,7 @@ export function LoungeClient({ userId, displayName }: LoungeClientProps) {
           if (incoming.user_id === userId) return; // already prepended optimistically
           supabase
             .from("profiles")
-            .select("display_name")
+            .select("display_name, avatar_url, badge, membership_tier")
             .eq("id", incoming.user_id)
             .single()
             .then(({ data }) => {

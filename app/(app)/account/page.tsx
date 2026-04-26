@@ -16,6 +16,7 @@ interface ProfileRow {
   membership_tier:        MembershipTier | null;
   stripe_customer_id:     string | null;
   stripe_subscription_id: string | null;
+  badge:                  string | null;
   display_name:           string | null;
   first_name:             string | null;
   last_name:              string | null;
@@ -38,7 +39,7 @@ export default async function AccountPage() {
   const { data: profile } = (await supabase
     .from("profiles")
     .select(
-      "membership_tier, stripe_customer_id, stripe_subscription_id, " +
+      "membership_tier, stripe_customer_id, stripe_subscription_id, badge, " +
       "display_name, first_name, last_name, phone, city, state, zip_code, avatar_url, created_at"
     )
     .eq("id", user.id)
@@ -84,6 +85,7 @@ export default async function AccountPage() {
       userId={user.id}
       email={user.email ?? ""}
       memberSince={profile?.created_at ?? null}
+      badge={profile?.badge ?? null}
       profile={{
         display_name: profile?.display_name ?? null,
         first_name:   profile?.first_name   ?? null,

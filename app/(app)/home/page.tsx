@@ -64,7 +64,7 @@ export default async function HomePage() {
       .from("posts")
       .select(
         `id, content, likes_count, comments_count, created_at,
-         user:profiles!posts_user_id_fkey (display_name, avatar_url)`
+         user:profiles!posts_user_id_fkey (display_name, avatar_url, badge, membership_tier)`
       )
       .gte("created_at", since)
       .order("likes_count",    { ascending: false })
