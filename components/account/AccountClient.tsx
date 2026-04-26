@@ -376,21 +376,19 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast
     if (!file.type.startsWith("image/")) { onToast("Please select an image file."); return; }
     if (file.size > 5 * 1024 * 1024)    { onToast("Image must be under 5 MB."); return; }
 
-    setUploading(true); setPct(10);
-    const supabase = createClient();
-    const ext  = file.name.split(".").pop() ?? "jpg";
-    const path = `${userId}/avatar.${ext}`;
+    setUploading(true); setPct(20);
 
     try {
-      setPct(40);
-      const { error } = await supabase.storage
-        .from("avatars")
-        .upload(path, file, { upsert: true, contentType: file.type });
-      if (error) throw error;
-      setPct(80);
-      const { data } = supabase.storage.from("avatars").getPublicUrl(path);
-      const url = `${data.publicUrl}?t=${Date.now()}`;
-      await supabase.from("profiles").update({ avatar_url: url }).eq("id", userId);
+      const body = new FormData();
+      body.append("file", file);
+
+      setPct(50);
+      const res  = await fetch("/api/avatar", { method: "POST", body });
+      const json = await res.json();
+
+      if (!res.ok) throw new Error(json.error ?? "Upload failed.");
+
+      const url = `${json.url}?t=${Date.now()}`;
       onUpdated(url);
       setPct(100);
       onToast("Profile photo updated.");
@@ -399,7 +397,7 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, onUpdated, onToast
     } finally {
       setUploading(false); setPct(0); e.target.value = "";
     }
-  }, [userId, onUpdated, onToast]);
+  }, [onUpdated, onToast]);
 
   return (
     <>
