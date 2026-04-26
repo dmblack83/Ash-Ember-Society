@@ -8,6 +8,7 @@ import { CategoryCard }                               from "./CategoryCard";
 import { FeedbackCard }                               from "./FeedbackCard";
 import { NewPostSheet }                               from "./NewPostSheet";
 import { PostModal }                                  from "./PostModal";
+import { Toast }                                      from "@/components/ui/toast";
 
 /* ------------------------------------------------------------------ */
 
@@ -304,8 +305,8 @@ export function LoungeForumClient({
   const canPost  = membershipTier !== "free";
 
   function showToast(msg: string) {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3000);
+    setToast(null);                  // reset so re-triggering the same message remounts Toast
+    requestAnimationFrame(() => setToast(msg));
   }
 
   function handleNewPost(categoryId: string) {
@@ -439,20 +440,7 @@ export function LoungeForumClient({
 
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
-      {/* Toast */}
-      {toast && (
-        <div
-          className="fixed left-4 right-4 z-50 rounded-xl px-4 py-3 text-sm text-center font-medium pointer-events-none"
-          style={{
-            bottom:     "calc(80px + env(safe-area-inset-bottom))",
-            background: "rgba(212,160,74,0.15)",
-            border:     "1px solid var(--gold, #D4A04A)",
-            color:      "var(--foreground)",
-          }}
-        >
-          {toast}
-        </div>
-      )}
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
       {/* Fixed header */}
       <div
