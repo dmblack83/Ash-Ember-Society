@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter }                                           from "next/navigation";
 import { createClient }                                       from "@/utils/supabase/client";
-import { formatDistanceToNow }                        from "date-fns";
+import { formatDistanceToNow }                                from "date-fns";
+import { AvatarFrame }                                        from "@/components/ui/AvatarFrame";
+import { resolveBadge }                                       from "@/lib/badge";
 
 /* ------------------------------------------------------------------ */
 
@@ -18,14 +20,16 @@ interface Category {
 }
 
 interface PostRow {
-  id:            string;
-  title:         string;
-  created_at:    string;
-  user_id:       string | null;
-  display_name:  string | null;
-  avatar_url:    string | null;
-  like_count:    number;
-  comment_count: number;
+  id:             string;
+  title:          string;
+  created_at:     string;
+  user_id:        string | null;
+  display_name:   string | null;
+  avatar_url:     string | null;
+  badge:          string | null;
+  membership_tier: string | null;
+  like_count:     number;
+  comment_count:  number;
 }
 
 interface Props {
@@ -82,21 +86,23 @@ function relativeLastPost(iso: string | null): string | null {
 function Avatar({
   name,
   avatarUrl,
+  badge,
+  tier,
   size = 36,
 }: {
   name:      string | null | undefined;
   avatarUrl: string | null | undefined;
+  badge?:    string | null;
+  tier?:     string | null;
   size?:     number;
 }) {
-  if (avatarUrl) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
-  return (
+  const resolved = resolveBadge(badge, tier);
+  const inner = avatarUrl ? (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  ) : (
     <div
       className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
       style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
@@ -104,6 +110,7 @@ function Avatar({
       {initials(name)}
     </div>
   );
+  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 /* ------------------------------------------------------------------ */
@@ -158,26 +165,28 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
         ...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean)),
       ] as string[];
 
-      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profileRows } = await supabase
           .from("profiles")
-          .select("id, display_name, avatar_url")
+          .select("id, display_name, avatar_url, badge, membership_tier")
           .in("id", userIds);
         for (const p of profileRows ?? []) {
-          nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url };
+          nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
         }
       }
 
       const mapped: PostRow[] = (data as any[]).map((row: any) => ({
-        id:            row.id,
-        title:         row.title,
-        created_at:    row.created_at,
-        user_id:       row.user_id ?? null,
-        display_name:  row.user_id ? (nameMap[row.user_id]?.display_name ?? null) : null,
-        avatar_url:    row.user_id ? (nameMap[row.user_id]?.avatar_url  ?? null) : null,
-        like_count:    (row.forum_post_likes as { count: number }[])[0]?.count ?? 0,
-        comment_count: (row.forum_comments  as { count: number }[])[0]?.count ?? 0,
+        id:              row.id,
+        title:           row.title,
+        created_at:      row.created_at,
+        user_id:         row.user_id ?? null,
+        display_name:    row.user_id ? (nameMap[row.user_id]?.display_name   ?? null) : null,
+        avatar_url:      row.user_id ? (nameMap[row.user_id]?.avatar_url     ?? null) : null,
+        badge:           row.user_id ? (nameMap[row.user_id]?.badge          ?? null) : null,
+        membership_tier: row.user_id ? (nameMap[row.user_id]?.membership_tier ?? null) : null,
+        like_count:      (row.forum_post_likes as { count: number }[])[0]?.count ?? 0,
+        comment_count:   (row.forum_comments  as { count: number }[])[0]?.count ?? 0,
       }));
 
       const sorted =
@@ -232,25 +241,32 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
             let display_name: string | null = null;
             let avatar_url:   string | null = null;
 
+            let badge:           string | null = null;
+            let membership_tier: string | null = null;
+
             if (row.user_id) {
               const { data } = await supabase
                 .from("profiles")
-                .select("display_name, avatar_url")
+                .select("display_name, avatar_url, badge, membership_tier")
                 .eq("id", row.user_id)
                 .single();
-              display_name = data?.display_name ?? null;
-              avatar_url   = data?.avatar_url   ?? null;
+              display_name    = data?.display_name    ?? null;
+              avatar_url      = data?.avatar_url      ?? null;
+              badge           = data?.badge           ?? null;
+              membership_tier = data?.membership_tier ?? null;
             }
 
             const newPost: PostRow = {
-              id:            row.id,
-              title:         row.title,
-              created_at:    row.created_at,
-              user_id:       row.user_id,
+              id:              row.id,
+              title:           row.title,
+              created_at:      row.created_at,
+              user_id:         row.user_id,
               display_name,
               avatar_url,
-              like_count:    0,
-              comment_count: 0,
+              badge,
+              membership_tier,
+              like_count:      0,
+              comment_count:   0,
             };
 
             setPosts((prev) => {
@@ -479,7 +495,7 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
                   }}
                 >
                   {/* Avatar */}
-                  <Avatar name={post.display_name} avatarUrl={post.avatar_url} size={36} />
+                  <Avatar name={post.display_name} avatarUrl={post.avatar_url} badge={post.badge} tier={post.membership_tier} size={36} />
 
                   {/* Text */}
                   <div className="flex-1 min-w-0">

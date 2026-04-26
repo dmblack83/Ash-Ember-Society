@@ -5,6 +5,8 @@ import { createPortal }                         from "react-dom";
 import { createClient }                         from "@/utils/supabase/client";
 import { formatDistanceToNow }                  from "date-fns";
 import type { SmokeLogData }                    from "./PostDetailClient";
+import { AvatarFrame }                          from "@/components/ui/AvatarFrame";
+import { resolveBadge }                         from "@/lib/badge";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
@@ -26,7 +28,7 @@ interface PostData {
   is_locked:  boolean;
   user_id:    string | null;
   category:   { name: string; slug: string };
-  author:     { display_name: string | null; avatar_url: string | null } | null;
+  author:     { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null } | null;
   like_count: number;
   image_url:  string | null;
 }
@@ -38,7 +40,7 @@ interface Comment {
   updated_at:        string;
   user_id:           string;
   parent_comment_id: string | null;
-  profiles:          { display_name: string | null; avatar_url: string | null } | null;
+  profiles:          { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null } | null;
 }
 
 interface Props {
@@ -64,21 +66,23 @@ function relativeTime(iso: string): string {
 function Avatar({
   name,
   avatarUrl,
+  badge,
+  tier,
   size = 32,
 }: {
   name:      string | null | undefined;
   avatarUrl: string | null | undefined;
+  badge?:    string | null;
+  tier?:     string | null;
   size?:     number;
 }) {
-  if (avatarUrl) {
-    return (
-      <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-      </div>
-    );
-  }
-  return (
+  const resolved = resolveBadge(badge, tier);
+  const inner = avatarUrl ? (
+    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
+    </div>
+  ) : (
     <div
       className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
       style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
@@ -86,6 +90,7 @@ function Avatar({
       {initials(name)}
     </div>
   );
+  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 function ratingColor(v: number): string {
@@ -297,15 +302,15 @@ const CommentNode = memo(function CommentNode({
       .select("id, content, created_at, updated_at, user_id, parent_comment_id")
       .single();
     if (error || !data) { setSubmitting(false); return; }
-    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single();
-    onReplyCreated({ ...data, profiles: profileData ?? null });
+    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
+    onReplyCreated({ ...data, profiles: profileData ? { ...profileData, badge: profileData.badge ?? null, membership_tier: profileData.membership_tier ?? null } : null });
     setReplyText(""); setReplyMode(false); setSubmitting(false);
   }
 
   return (
     <div style={{ marginLeft: isReply ? 24 : 0, paddingTop: 12, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
       <div className="flex items-center gap-2 mb-2">
-        <Avatar name={comment.profiles?.display_name} avatarUrl={comment.profiles?.avatar_url} size={28} />
+        <Avatar name={comment.profiles?.display_name} avatarUrl={comment.profiles?.avatar_url} badge={comment.profiles?.badge} tier={comment.profiles?.membership_tier} size={28} />
         <div className="flex-1 min-w-0">
           <span className="text-xs font-semibold" style={{ color: "var(--foreground)" }}>{comment.profiles?.display_name ?? "Member"}</span>
           <span className="text-xs ml-2" style={{ color: "var(--muted-foreground)" }}>{relativeTime(comment.created_at)}</span>
@@ -478,10 +483,10 @@ export function PostModal({ postId, userId, onClose }: Props) {
         ...new Set([raw.user_id, ...commentRows.map((c: any) => c.user_id)].filter(Boolean)),
       ] as string[];
 
-      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
       if (allUserIds.length > 0) {
-        const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", allUserIds);
-        for (const p of profileRows ?? []) { nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url }; }
+        const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", allUserIds);
+        for (const p of profileRows ?? []) { nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null }; }
       }
 
       // Smoke log — include cigar_id for wishlist
@@ -513,7 +518,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
         is_locked:  raw.is_locked,
         user_id:    raw.user_id ?? null,
         category:   raw.forum_categories as { name: string; slug: string },
-        author:     raw.user_id ? { display_name: nameMap[raw.user_id]?.display_name ?? null, avatar_url: nameMap[raw.user_id]?.avatar_url ?? null } : null,
+        author:     raw.user_id ? { display_name: nameMap[raw.user_id]?.display_name ?? null, avatar_url: nameMap[raw.user_id]?.avatar_url ?? null, badge: nameMap[raw.user_id]?.badge ?? null, membership_tier: nameMap[raw.user_id]?.membership_tier ?? null } : null,
         like_count: likeCountVal,
         image_url:  raw.image_url ?? null,
       });
@@ -528,7 +533,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
       setLocalComments(
         commentRows.map((c: any) => ({
           ...c,
-          profiles: c.user_id ? { display_name: nameMap[c.user_id]?.display_name ?? null, avatar_url: nameMap[c.user_id]?.avatar_url ?? null } : null,
+          profiles: c.user_id ? { display_name: nameMap[c.user_id]?.display_name ?? null, avatar_url: nameMap[c.user_id]?.avatar_url ?? null, badge: nameMap[c.user_id]?.badge ?? null, membership_tier: nameMap[c.user_id]?.membership_tier ?? null } : null,
         }))
       );
       setHasMoreComments(commentRows.length === COMMENTS_LIMIT);
@@ -562,17 +567,17 @@ export function PostModal({ postId, userId, onClose }: Props) {
     }
 
     const newUserIds = [...new Set(data.map((c: any) => c.user_id).filter(Boolean))] as string[];
-    let newNameMap: Record<string, { display_name: string | null; avatar_url: string | null }> = {};
+    let newNameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
     if (newUserIds.length > 0) {
-      const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", newUserIds);
-      for (const p of profileRows ?? []) { newNameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url }; }
+      const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", newUserIds);
+      for (const p of profileRows ?? []) { newNameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null }; }
     }
 
     setLocalComments((prev) => [
       ...prev,
       ...data.map((c: any) => ({
         ...c,
-        profiles: c.user_id ? { display_name: newNameMap[c.user_id]?.display_name ?? null, avatar_url: newNameMap[c.user_id]?.avatar_url ?? null } : null,
+        profiles: c.user_id ? { display_name: newNameMap[c.user_id]?.display_name ?? null, avatar_url: newNameMap[c.user_id]?.avatar_url ?? null, badge: newNameMap[c.user_id]?.badge ?? null, membership_tier: newNameMap[c.user_id]?.membership_tier ?? null } : null,
       })),
     ]);
     setHasMoreComments(data.length === COMMENTS_LIMIT);
@@ -641,8 +646,8 @@ export function PostModal({ postId, userId, onClose }: Props) {
     setSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
-    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single();
-    setLocalComments((prev) => [...prev, { ...data, profiles: profileData ?? null }]);
+    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
+    setLocalComments((prev) => [...prev, { ...data, profiles: profileData ? { ...profileData, badge: profileData.badge ?? null, membership_tier: profileData.membership_tier ?? null } : null }]);
     setCommentText("");
   }
 
@@ -808,6 +813,8 @@ export function PostModal({ postId, userId, onClose }: Props) {
                 <Avatar
                   name={post.is_system ? "Ash & Ember Society" : post.author?.display_name}
                   avatarUrl={post.is_system ? null : post.author?.avatar_url}
+                  badge={post.is_system ? null : post.author?.badge}
+                  tier={post.is_system ? null : post.author?.membership_tier}
                   size={32}
                 />
                 <div>
