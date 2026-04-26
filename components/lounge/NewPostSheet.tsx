@@ -13,27 +13,32 @@ interface Category {
 }
 
 interface Props {
-  categories:        Category[];
-  userId:            string;
+  categories:         Category[];
+  userId:             string;
   initialCategoryId?: string;
-  onCreated:         (categoryId: string) => void;
-  onClose:           () => void;
+  isFeedback?:        boolean;
+  onCreated:          (categoryId: string) => void;
+  onClose:            () => void;
 }
+
+const FEEDBACK_TYPES = ["Feature Request", "Bug Report", "Improvement", "Other"] as const;
+type FeedbackType = typeof FEEDBACK_TYPES[number];
 
 /* ------------------------------------------------------------------ */
 
-export function NewPostSheet({ categories, userId, initialCategoryId, onCreated, onClose }: Props) {
-  const [mounted,      setMounted]      = useState(false);
-  const [categoryId,   setCategoryId]   = useState(
+export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback, onCreated, onClose }: Props) {
+  const [mounted,        setMounted]        = useState(false);
+  const [categoryId,     setCategoryId]     = useState(
     initialCategoryId ?? categories.find((c) => !c.is_locked)?.id ?? ""
   );
-  const [title,        setTitle]        = useState("");
-  const [content,      setContent]      = useState("");
-  const [imageFile,    setImageFile]    = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploading,    setUploading]    = useState(false);
-  const [submitting,   setSubmitting]   = useState(false);
-  const [error,        setError]        = useState<string | null>(null);
+  const [feedbackType,   setFeedbackType]   = useState<FeedbackType>("Feature Request");
+  const [title,          setTitle]          = useState("");
+  const [content,        setContent]        = useState("");
+  const [imageFile,      setImageFile]      = useState<File | null>(null);
+  const [imagePreview,   setImagePreview]   = useState<string | null>(null);
+  const [uploading,      setUploading]      = useState(false);
+  const [submitting,     setSubmitting]     = useState(false);
+  const [error,          setError]          = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const supabase = useMemo(() => createClient(), []);
@@ -76,13 +81,14 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
   }, [onClose]);
 
   async function handleSubmit() {
-    if (!categoryId || !title.trim() || !content.trim()) return;
+    const targetCategoryId = isFeedback ? (initialCategoryId ?? "") : categoryId;
+    if (!targetCategoryId || !title.trim() || !content.trim()) return;
     setSubmitting(true);
     setError(null);
 
-    // Upload image if selected
+    // Upload image if selected (standard posts only)
     let image_url: string | null = null;
-    if (imageFile) {
+    if (!isFeedback && imageFile) {
       setUploading(true);
       const ext  = imageFile.name.split(".").pop() ?? "jpg";
       const path = `forum-posts/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
@@ -96,10 +102,12 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
       setUploading(false);
     }
 
+    const finalTitle = isFeedback ? `${feedbackType}: ${title.trim()}` : title.trim();
+
     const payload: Record<string, unknown> = {
       user_id:     userId,
-      category_id: categoryId,
-      title:       title.trim(),
+      category_id: targetCategoryId,
+      title:       finalTitle,
       content:     content.trim(),
     };
     if (image_url) payload.image_url = image_url;
@@ -118,9 +126,20 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
     onCreated(data.category_id);
   }
 
-  const canSubmit = categoryId.length > 0 && title.trim().length > 0 && content.trim().length > 0;
+  const canSubmit = title.trim().length > 0 && content.trim().length > 0 &&
+    (isFeedback ? !!(initialCategoryId) : categoryId.length > 0);
 
-  const sheet = (
+  const modalTitle    = isFeedback ? "Share an Idea" : "New Post";
+  const titleLabel    = isFeedback ? "Title" : "Title";
+  const titlePh       = isFeedback ? "Summarize your idea or issue..." : "Give your post a title...";
+  const contentLabel  = isFeedback ? "Details" : "Content";
+  const contentPh     = isFeedback ? "Describe your idea in detail. The more context, the better." : "Share your thoughts...";
+  const submitLabel   = isFeedback ? "Submit Idea" : uploading ? "Uploading photo..." : "Post to Lounge";
+  const submitBg      = isFeedback
+    ? (canSubmit && !submitting ? "#E8642C" : "rgba(232,100,44,0.3)")
+    : (canSubmit && !submitting ? "linear-gradient(135deg, #D4A04A, #C17817)" : "rgba(212,160,74,0.3)");
+
+  const modal = (
     <>
       {/* Backdrop */}
       <div
@@ -129,35 +148,44 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
           position:        "fixed",
           inset:           0,
           zIndex:          9998,
-          backgroundColor: "rgba(0,0,0,0.6)",
+          backgroundColor: "rgba(0,0,0,0.65)",
         }}
       />
 
-      {/* Sheet */}
+      {/* Centered modal */}
       <div
         style={{
           position:        "fixed",
-          bottom:          0,
-          left:            0,
-          right:           0,
+          top:             "50%",
+          left:            "50%",
+          transform:       "translate(-50%, -50%)",
           zIndex:          9999,
+          width:           "calc(100% - 32px)",
+          maxWidth:        560,
+          maxHeight:       "90dvh",
           backgroundColor: "var(--card)",
-          borderRadius:    "16px 16px 0 0",
-          paddingBottom:   "env(safe-area-inset-bottom)",
-          maxHeight:               "90dvh",
-          overflowY:               "auto",
-          overscrollBehavior:      "contain",
-          WebkitOverflowScrolling: "touch",
-        } as React.CSSProperties}
+          borderRadius:    16,
+          border:          "1px solid var(--border)",
+          display:         "flex",
+          flexDirection:   "column",
+          overflow:        "hidden",
+        }}
       >
-        {/* Drag handle */}
-        <div className="flex items-center justify-between px-4" style={{ paddingTop: 20, paddingBottom: 12 }}>
-          <div
-            className="mx-auto rounded-full"
-            style={{ width: 36, height: 4, backgroundColor: "rgba(255,255,255,0.2)", position: "absolute", left: "50%", transform: "translateX(-50%)", top: 10 }}
-          />
-          <h2 className="font-serif font-semibold text-base" style={{ color: "var(--foreground)" }}>
-            New Post
+        {/* Header — fixed, not scrollable */}
+        <div
+          className="flex items-center justify-between px-5"
+          style={{
+            paddingTop:    18,
+            paddingBottom: 14,
+            borderBottom:  "1px solid var(--border)",
+            flexShrink:    0,
+          }}
+        >
+          <h2
+            className="font-serif font-bold text-base"
+            style={{ color: isFeedback ? "var(--ember, #E8642C)" : "var(--foreground)" }}
+          >
+            {modalTitle}
           </h2>
           <button
             type="button"
@@ -172,6 +200,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
               cursor:                  "pointer",
               touchAction:             "manipulation",
               WebkitTapHighlightColor: "transparent",
+              flexShrink:              0,
             }}
             aria-label="Close"
           >
@@ -181,181 +210,227 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
           </button>
         </div>
 
-        <div className="px-4 pb-6 flex flex-col gap-4">
-          {/* Category */}
-          <div>
-            <label
-              className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Category
-            </label>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className="w-full rounded-xl px-4 text-sm"
-              style={{
-                height:          48,
-                backgroundColor: "rgba(255,255,255,0.05)",
-                border:          "1px solid var(--border)",
-                color:           "var(--foreground)",
-                fontSize:        16,
-                outline:         "none",
-              }}
-            >
-              {categories
-                .filter((c) => !c.is_locked)
-                .map((c) => (
-                  <option key={c.id} value={c.id} style={{ backgroundColor: "#241C17" }}>
-                    {c.name}
-                  </option>
-                ))}
-            </select>
-          </div>
+        {/* Scrollable form body */}
+        <div
+          className="overflow-y-auto"
+          style={{
+            flex:                    1,
+            overscrollBehavior:      "contain",
+            WebkitOverflowScrolling: "touch",
+          } as React.CSSProperties}
+        >
+          <div className="px-5 py-5 flex flex-col gap-4">
 
-          {/* Title */}
-          <div>
-            <label
-              className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Title
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              maxLength={200}
-              placeholder="Give your post a title..."
-              className="w-full rounded-xl px-4 text-sm"
-              style={{
-                height:          48,
-                backgroundColor: "rgba(255,255,255,0.05)",
-                border:          "1px solid var(--border)",
-                color:           "var(--foreground)",
-                fontSize:        16,
-                outline:         "none",
-              }}
-            />
-            <p
-              className="text-xs text-right mt-1"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              {title.length}/200
-            </p>
-          </div>
-
-          {/* Content */}
-          <div>
-            <label
-              className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Content
-            </label>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              maxLength={2000}
-              placeholder="Share your thoughts..."
-              className="w-full rounded-xl px-4 py-3 text-sm resize-none"
-              style={{
-                minHeight:       140,
-                backgroundColor: "rgba(255,255,255,0.05)",
-                border:          "1px solid var(--border)",
-                color:           "var(--foreground)",
-                fontSize:        16,
-                outline:         "none",
-              }}
-            />
-            <p
-              className="text-xs text-right mt-1"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              {content.length}/2000
-            </p>
-          </div>
-
-          {/* Image upload */}
-          <div>
-            <label
-              className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Photo (optional)
-            </label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              style={{ display: "none" }}
-            />
-            {imagePreview ? (
-              <div className="relative rounded-xl overflow-hidden" style={{ height: 160 }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <button
-                  type="button"
-                  onClick={removeImage}
-                  className="absolute top-2 right-2 flex items-center justify-center rounded-full"
-                  style={{
-                    width:      28,
-                    height:     28,
-                    background: "rgba(0,0,0,0.6)",
-                    border:     "none",
-                    color:      "#fff",
-                    cursor:     "pointer",
-                  }}
-                  aria-label="Remove image"
+            {/* Type chips — feedback only */}
+            {isFeedback && (
+              <div>
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide block mb-2"
+                  style={{ color: "var(--muted-foreground)" }}
                 >
-                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                    <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                  </svg>
-                </button>
+                  Type
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {FEEDBACK_TYPES.map((t) => {
+                    const active = feedbackType === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setFeedbackType(t)}
+                        className="rounded-full text-xs font-semibold px-3 py-1.5"
+                        style={{
+                          background:              active ? "rgba(232,100,44,0.15)" : "rgba(255,255,255,0.05)",
+                          border:                  active ? "1.5px solid var(--ember, #E8642C)" : "1.5px solid var(--border)",
+                          color:                   active ? "var(--ember, #E8642C)" : "var(--muted-foreground)",
+                          cursor:                  "pointer",
+                          touchAction:             "manipulation",
+                          WebkitTapHighlightColor: "transparent",
+                          transition:              "background 0.15s, border-color 0.15s, color 0.15s",
+                        }}
+                      >
+                        {t}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full rounded-xl flex items-center justify-center gap-2 text-sm"
-                style={{
-                  height:      52,
-                  border:      "1.5px dashed var(--border)",
-                  background:  "transparent",
-                  color:       "var(--muted-foreground)",
-                  cursor:      "pointer",
-                  touchAction: "manipulation",
-                }}
+            )}
+
+            {/* Category selector — standard posts only */}
+            {!isFeedback && (
+              <div>
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  Category
+                </label>
+                <select
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
+                  className="w-full rounded-xl px-4 text-sm"
+                  style={{
+                    height:          48,
+                    backgroundColor: "rgba(255,255,255,0.05)",
+                    border:          "1px solid var(--border)",
+                    color:           "var(--foreground)",
+                    fontSize:        16,
+                    outline:         "none",
+                  }}
+                >
+                  {categories
+                    .filter((c) => !c.is_locked)
+                    .map((c) => (
+                      <option key={c.id} value={c.id} style={{ backgroundColor: "#241C17" }}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+
+            {/* Title */}
+            <div>
+              <label
+                className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
+                style={{ color: "var(--muted-foreground)" }}
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
-                  <path d="M8 3v10M3 8h10" />
-                </svg>
-                Add Photo
-              </button>
+                {titleLabel}
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                maxLength={200}
+                placeholder={titlePh}
+                className="w-full rounded-xl px-4 text-sm"
+                style={{
+                  height:          48,
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  border:          "1px solid var(--border)",
+                  color:           "var(--foreground)",
+                  fontSize:        16,
+                  outline:         "none",
+                }}
+              />
+              <p className="text-xs text-right mt-1" style={{ color: "var(--muted-foreground)" }}>
+                {title.length}/200
+              </p>
+            </div>
+
+            {/* Content */}
+            <div>
+              <label
+                className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                {contentLabel}
+              </label>
+              <textarea
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                maxLength={2000}
+                placeholder={contentPh}
+                className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                style={{
+                  minHeight:       isFeedback ? 120 : 140,
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  border:          "1px solid var(--border)",
+                  color:           "var(--foreground)",
+                  fontSize:        16,
+                  outline:         "none",
+                }}
+              />
+              <p className="text-xs text-right mt-1" style={{ color: "var(--muted-foreground)" }}>
+                {content.length}/2000
+              </p>
+            </div>
+
+            {/* Image upload — standard posts only */}
+            {!isFeedback && (
+              <div>
+                <label
+                  className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  Photo (optional)
+                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  style={{ display: "none" }}
+                />
+                {imagePreview ? (
+                  <div className="relative rounded-xl overflow-hidden" style={{ height: 160 }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <button
+                      type="button"
+                      onClick={removeImage}
+                      className="absolute top-2 right-2 flex items-center justify-center rounded-full"
+                      style={{
+                        width:      28,
+                        height:     28,
+                        background: "rgba(0,0,0,0.6)",
+                        border:     "none",
+                        color:      "#fff",
+                        cursor:     "pointer",
+                      }}
+                      aria-label="Remove image"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                        <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full rounded-xl flex items-center justify-center gap-2 text-sm"
+                    style={{
+                      height:      52,
+                      border:      "1.5px dashed var(--border)",
+                      background:  "transparent",
+                      color:       "var(--muted-foreground)",
+                      cursor:      "pointer",
+                      touchAction: "manipulation",
+                    }}
+                  >
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+                      <path d="M8 3v10M3 8h10" />
+                    </svg>
+                    Add Photo
+                  </button>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <p className="text-xs text-center" style={{ color: "#E8642C" }}>
+                {error}
+              </p>
             )}
           </div>
+        </div>
 
-          {error && (
-            <p className="text-xs text-center" style={{ color: "#E8642C" }}>
-              {error}
-            </p>
-          )}
-
+        {/* Footer — fixed, not scrollable */}
+        <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }}>
           <button
             type="button"
             onClick={handleSubmit}
             disabled={!canSubmit || submitting}
             className="w-full rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
             style={{
-              height:     52,
-              background: canSubmit && !submitting
-                ? "linear-gradient(135deg, #D4A04A, #C17817)"
-                : "rgba(212,160,74,0.3)",
-              color:      "#1A1210",
-              border:     "none",
-              cursor:     canSubmit && !submitting ? "pointer" : "default",
-              touchAction: "manipulation",
+              height:                  52,
+              background:              submitBg,
+              color:                   "#1A1210",
+              border:                  "none",
+              cursor:                  canSubmit && !submitting ? "pointer" : "default",
+              touchAction:             "manipulation",
               WebkitTapHighlightColor: "transparent",
             }}
           >
@@ -364,9 +439,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
                 className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
                 style={{ width: 16, height: 16 }}
               />
-            ) : (
-              uploading ? "Uploading photo..." : "Post to Lounge"
-            )}
+            ) : submitLabel}
           </button>
         </div>
       </div>
@@ -374,5 +447,5 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
   );
 
   if (!mounted) return null;
-  return createPortal(sheet, document.body);
+  return createPortal(modal, document.body);
 }
