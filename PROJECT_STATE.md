@@ -233,7 +233,15 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 
 ## Pending / Next Steps
 
-1. **Performance refactor (Prompt B series)** — B0 dead code done, B1-B5 prompts written, run in order and test each before next
+1. **Performance refactor (Prompt B series)** — B0 dead code done, B1-B5 prompts written, run in order and test each before next. Also address these PWA-specific issues:
+   - Server render more pages (minimize client components)
+   - Add service worker via `next-pwa` for offline caching and instant repeat loads
+   - Convert cigar default images from PNG to WebP
+   - Replace `box-shadow` on scrolling elements with `border` (GPU-friendlier on mobile)
+   - Dynamic imports (`next/dynamic`) for heavy components not needed on initial load
+   - Cache Supabase queries to avoid re-fetching on every navigation
+   - Skeleton screens on data-heavy pages instead of spinners
+   - **Auth call consolidation** — every page calls `supabase.auth.getUser()` independently, each making a live network round-trip to Supabase. With 14 pages doing this, a single browsing session generates ~1 auth call per page load. At scale this is wasteful. Fix: add Next.js middleware that validates auth once per request and forwards the verified user via a header; server components read the header instead of calling `getUser()`. Reduces auth calls by ~80% per page load. Observed at 2,228 auth requests/24hrs with 1 active user.
 2. **Home route fix** — Move `app/(app)/page.tsx` to `app/(app)/home/page.tsx`, update all redirects to `/home`
 3. **Humidor fixed header** — Fixed header: tabs row + title/button row + sort/view toggle row
 4. **Prompt 6.2** — Responsive polish and performance pass
