@@ -44,7 +44,8 @@ export async function POST(request: NextRequest) {
 
   const admin = createServiceClient();
   const ext   = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-  const path  = `${user.id}/avatar.${ext}`;
+  // Unique filename per upload so CDN never serves a stale cached version
+  const path  = `${user.id}/avatar_${Date.now()}.${ext}`;
 
   // 3. Remove all existing avatar files for this user
   const { data: existing } = await admin.storage.from("avatars").list(user.id);
@@ -64,11 +65,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  // 5. Get public URL and update profile
+  // 5. Get public URL and persist to profiles
   const { data: urlData } = admin.storage.from("avatars").getPublicUrl(path);
   const publicUrl = urlData.publicUrl;
 
-  await admin.from("profiles").update({ avatar_url: publicUrl }).eq("id", user.id);
+  const { error: dbError } = await admin
+    .from("profiles")
+    .update({ avatar_url: publicUrl })
+    .eq("id", user.id);
+
+  if (dbError) {
+    return NextResponse.json({ error: dbError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ url: publicUrl });
 }
