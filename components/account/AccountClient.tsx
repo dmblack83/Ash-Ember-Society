@@ -7,7 +7,7 @@ import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
-import { resolveBadge, getBadgeOptions, getActiveBadgeStoreAs } from "@/lib/badge";
+import { resolveBadge, getBadgeOptions } from "@/lib/badge";
 import type { MembershipTier } from "@/lib/stripe";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -675,23 +675,23 @@ interface BadgePickerProps {
 
 function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onToast, onBadgeChange }: BadgePickerProps) {
   const [saving, setSaving] = useState(false);
-  const options       = getBadgeOptions(tier, badgeCol);
-  const activeStoreAs = getActiveBadgeStoreAs(badgeCol, tier);
+  const options         = getBadgeOptions(tier, badgeCol);
+  // Active = the badge type that is currently displayed on this user's avatar
+  const activeBadgeType = resolveBadge(badgeCol, tier);
 
-  // Nothing to pick: free tier with no special role → only "No Badge" option
-  if (options.length <= 1) return null;
-
-  async function select(storeAs: string | null) {
-    if (storeAs === activeStoreAs) return;
+  async function select(opt: typeof options[number]) {
+    if (opt.locked) return;
+    // Already active — opt.type matches what's currently shown
+    if (opt.type === activeBadgeType) return;
     setSaving(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("profiles")
-        .update({ badge: storeAs })
+        .update({ badge: opt.storeAs })
         .eq("id", userId);
       if (error) throw error;
-      onBadgeChange(storeAs);
+      onBadgeChange(opt.storeAs);
       onToast("Badge updated.");
     } catch (err) {
       onToast(err instanceof Error ? err.message : "Save failed.");
@@ -712,23 +712,24 @@ function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onT
         Choose which badge frame appears on your avatar throughout the app.
       </p>
       <div style={{
-        display: "flex",
-        gap: 12,
-        overflowX: "auto",
-        WebkitOverflowScrolling: "touch",
-        scrollbarWidth: "none",
-        msOverflowStyle: "none",
-        paddingBottom: 4,
+        display:                  "flex",
+        gap:                      12,
+        overflowX:                "auto",
+        WebkitOverflowScrolling:  "touch",
+        scrollbarWidth:           "none",
+        msOverflowStyle:          "none",
+        paddingBottom:            4,
       } as React.CSSProperties}>
         {options.map(opt => {
-          const isActive      = opt.storeAs === activeStoreAs;
-          const resolvedBadge = resolveBadge(opt.storeAs, tier);
+          const isActive = opt.type === activeBadgeType;
+          // Show the actual frame design, even for locked options
+          const resolvedBadge = opt.type;
           return (
             <button
               key={opt.type ?? "no-badge"}
               type="button"
-              disabled={saving}
-              onClick={() => select(opt.storeAs)}
+              disabled={saving || opt.locked}
+              onClick={() => select(opt)}
               style={{
                 flexShrink:               0,
                 display:                  "flex",
@@ -739,10 +740,10 @@ function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onT
                 borderRadius:             14,
                 backgroundColor:          isActive ? "rgba(212,160,74,0.1)" : "transparent",
                 border:                   isActive ? "1.5px solid var(--accent, #D4A04A)" : "1.5px solid transparent",
-                cursor:                   saving ? "not-allowed" : "pointer",
+                cursor:                   (saving || opt.locked) ? "default" : "pointer",
                 touchAction:              "manipulation",
                 WebkitTapHighlightColor:  "transparent",
-                opacity:                  saving ? 0.7 : 1,
+                opacity:                  opt.locked ? 0.35 : saving ? 0.7 : 1,
                 minWidth:                 68,
               } as React.CSSProperties}
             >

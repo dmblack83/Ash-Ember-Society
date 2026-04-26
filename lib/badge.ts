@@ -52,51 +52,65 @@ export function resolveBadge(
   return null;
 }
 
-/** Returns the badge options the user can select in their profile settings. */
+/**
+ * Returns all badge options for the picker, in display order.
+ * Locked options are greyed out and unselectable — they show what's
+ * available to earn/unlock. Founder is never included.
+ *
+ * Order: No Badge, Member, Premium, Beta Tester, Top Contributor,
+ *        Moderator, Partner
+ */
 export function getBadgeOptions(
   tier:        string | null | undefined,
   badgeColumn: string | null | undefined,
-): Array<{ type: BadgeType; label: string; storeAs: string | null }> {
-  const options: Array<{ type: BadgeType; label: string; storeAs: string | null }> = [];
+): Array<{ type: BadgeType; label: string; storeAs: string | null; locked: boolean }> {
+  const isPremium = tier === "premium";
+  const isMember  = tier === "member" || isPremium;
 
-  // Special admin-assigned role badge (e.g. beta_tester, moderator)
-  const specialRoles = ["beta_tester", "top_contributor", "moderator", "partner", "founder"];
-  if (badgeColumn && specialRoles.includes(badgeColumn)) {
-    options.push({
-      type:    badgeColumn as BadgeType,
-      label:   BADGE_LABELS[badgeColumn],
-      storeAs: badgeColumn,
-    });
-  }
-
-  // Tier badges
-  if (tier === "premium") {
-    // storeAs null = "let tier decide" = shows premium by default
-    options.push({ type: "premium", label: "Premium", storeAs: null });
-    options.push({ type: "member",  label: "Member",  storeAs: "member" });
-  } else if (tier === "member") {
-    options.push({ type: "member", label: "Member", storeAs: null });
-  }
-
-  // Always offer "no badge"
-  options.push({ type: null, label: "No Badge", storeAs: "none" });
-
-  return options;
-}
-
-/**
- * Returns the storeAs value of the currently active badge option,
- * for use in the badge picker's active-state highlighting.
- */
-export function getActiveBadgeStoreAs(
-  badgeColumn: string | null | undefined,
-  tier:        string | null | undefined,
-): string | null {
-  if (badgeColumn === "none")    return "none";
-  if (badgeColumn === "member")  return "member";
-  if (badgeColumn === "premium") return null; // same as tier default
-  if (badgeColumn)               return badgeColumn; // special role
-  // null column → tier default is active
-  // storeAs for tier-default options is null
-  return null;
+  return [
+    {
+      type:    null,
+      label:   "No Badge",
+      storeAs: "none",
+      locked:  false,
+    },
+    {
+      type:    "member",
+      label:   "Member",
+      // Premium user choosing Member stores "member" explicitly;
+      // Member-tier default is null (tier decides).
+      storeAs: isPremium ? "member" : null,
+      locked:  !isMember,
+    },
+    {
+      type:    "premium",
+      label:   "Premium",
+      storeAs: null,   // null = let premium tier decide
+      locked:  !isPremium,
+    },
+    {
+      type:    "beta_tester",
+      label:   "Beta Tester",
+      storeAs: "beta_tester",
+      locked:  badgeColumn !== "beta_tester",
+    },
+    {
+      type:    "top_contributor",
+      label:   "Top Contributor",
+      storeAs: "top_contributor",
+      locked:  badgeColumn !== "top_contributor",
+    },
+    {
+      type:    "moderator",
+      label:   "Moderator",
+      storeAs: "moderator",
+      locked:  badgeColumn !== "moderator",
+    },
+    {
+      type:    "partner",
+      label:   "Partner",
+      storeAs: "partner",
+      locked:  badgeColumn !== "partner",
+    },
+  ];
 }
