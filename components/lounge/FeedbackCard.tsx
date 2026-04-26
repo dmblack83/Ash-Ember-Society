@@ -140,7 +140,10 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
   const [posts,       setPosts]       = useState<FeedbackPost[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [fetchedOnce, setFetchedOnce] = useState(false);
-  const [voting,      setVoting]      = useState<string | null>(null); // postId currently being voted on
+  const [voting,      setVoting]      = useState<string | null>(null);
+  const [page,        setPage]        = useState(0);
+
+  const PAGE_SIZE = 10;
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -188,6 +191,7 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
     setLoading(false);
     setFetchedOnce(true);
     setPosts(mapped);
+    setPage(0);
   }, [category.id, userId, supabase]);
 
   useEffect(() => {
@@ -326,7 +330,10 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
           )}
 
           {/* Post list */}
-          {(!loading || posts.length > 0) && (
+          {(!loading || posts.length > 0) && (() => {
+            const totalPages  = Math.ceil(posts.length / PAGE_SIZE);
+            const pagePosts   = posts.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+            return (
             <div className="px-4 pb-4">
               {posts.length === 0 && !loading && (
                 <p className="text-xs py-4 text-center" style={{ color: "var(--muted-foreground)" }}>
@@ -334,7 +341,7 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
                 </p>
               )}
 
-              {posts.map((post, i) => (
+              {pagePosts.map((post, i) => (
                 <div
                   key={post.id}
                   style={{
@@ -394,8 +401,58 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
                   </div>
                 </div>
               ))}
+
+              {/* Pagination controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                    style={{
+                      background:              page === 0 ? "transparent" : "rgba(255,255,255,0.05)",
+                      border:                  "1px solid var(--border)",
+                      color:                   page === 0 ? "var(--border)" : "var(--muted-foreground)",
+                      cursor:                  page === 0 ? "default" : "pointer",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                    } as React.CSSProperties}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M7.5 3L4.5 6l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Prev
+                  </button>
+
+                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    {page + 1} / {totalPages}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                    style={{
+                      background:              page >= totalPages - 1 ? "transparent" : "rgba(255,255,255,0.05)",
+                      border:                  "1px solid var(--border)",
+                      color:                   page >= totalPages - 1 ? "var(--border)" : "var(--muted-foreground)",
+                      cursor:                  page >= totalPages - 1 ? "default" : "pointer",
+                      touchAction:             "manipulation",
+                      WebkitTapHighlightColor: "transparent",
+                    } as React.CSSProperties}
+                  >
+                    Next
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M4.5 3L7.5 6l-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
