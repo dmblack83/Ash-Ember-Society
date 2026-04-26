@@ -7,7 +7,7 @@ import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
-import { resolveBadge } from "@/lib/badge";
+import { resolveBadge, getBadgeOptions, getActiveBadgeStoreAs } from "@/lib/badge";
 import type { MembershipTier } from "@/lib/stripe";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -660,67 +660,123 @@ function ProfileCard({
   );
 }
 
-/* ─── Badge Card ─────────────────────────────────────────────────────── */
+/* ─── Badge Picker ───────────────────────────────────────────────────── */
 
-const BADGES = [
-  { id: "beta",        label: "Beta Tester",     icon: "🧪", locked: false },
-  { id: "premium",     label: "Premium Member",  icon: "⭐", locked: false },
-  { id: "contributor", label: "Top Contributor", icon: "🏆", locked: true  },
-  { id: "moderator",   label: "Moderator",       icon: "🛡️", locked: true  },
-  { id: "partner",     label: "Partner",         icon: "🤝", locked: true  },
-];
+interface BadgePickerProps {
+  userId:        string;
+  tier:          MembershipTier;
+  badgeCol:      string | null;
+  initials:      string;
+  bgColor:       string;
+  avatarUrl:     string | null;
+  onToast:       (msg: string) => void;
+  onBadgeChange: (newBadge: string | null) => void;
+}
 
-function BadgeCard() {
+function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onToast, onBadgeChange }: BadgePickerProps) {
+  const [saving, setSaving] = useState(false);
+  const options       = getBadgeOptions(tier, badgeCol);
+  const activeStoreAs = getActiveBadgeStoreAs(badgeCol, tier);
+
+  // Nothing to pick: free tier with no special role → only "No Badge" option
+  if (options.length <= 1) return null;
+
+  async function select(storeAs: string | null) {
+    if (storeAs === activeStoreAs) return;
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("profiles")
+        .update({ badge: storeAs })
+        .eq("id", userId);
+      if (error) throw error;
+      onBadgeChange(storeAs);
+      onToast("Badge updated.");
+    } catch (err) {
+      onToast(err instanceof Error ? err.message : "Save failed.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div style={{
       borderRadius: 20,
       backgroundColor: "var(--card)",
       border: "1px solid var(--border)",
-      overflow: "hidden",
+      padding: "16px 20px 20px",
     }}>
-      <div style={{ padding: "16px 20px 12px" }}>
-        <SectionLabel>Badges</SectionLabel>
-        <p style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-          Earned badges appear on your profile. Scroll to view all.
-        </p>
-      </div>
+      <SectionLabel>Display Badge</SectionLabel>
+      <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginBottom: 16 }}>
+        Choose which badge frame appears on your avatar throughout the app.
+      </p>
       <div style={{
         display: "flex",
         gap: 12,
-        padding: "0 20px 20px",
         overflowX: "auto",
         WebkitOverflowScrolling: "touch",
         scrollbarWidth: "none",
         msOverflowStyle: "none",
+        paddingBottom: 4,
       } as React.CSSProperties}>
-        {BADGES.map(badge => (
-          <div
-            key={badge.id}
-            style={{
-              flexShrink: 0,
-              width: 96,
-              borderRadius: 14,
-              backgroundColor: badge.locked ? "rgba(255,255,255,0.03)" : "rgba(212,160,74,0.08)",
-              border: badge.locked
-                ? "1px solid var(--border)"
-                : "1px solid rgba(212,160,74,0.3)",
-              padding: "14px 10px 12px",
-              textAlign: "center",
-              opacity: badge.locked ? 0.45 : 1,
-            }}
-          >
-            <div style={{ fontSize: 26, marginBottom: 7, lineHeight: 1 }}>{badge.icon}</div>
-            <p style={{
-              fontSize: 11, fontWeight: 600, lineHeight: 1.3,
-              color: badge.locked ? "var(--muted-foreground)" : "var(--gold, #D4A04A)",
-            }}>
-              {badge.label}
-            </p>
-            {badge.locked && (
-              <p style={{ fontSize: 10, color: "var(--muted-foreground)", marginTop: 4 }}>Locked</p>
-            )}
-          </div>
-        ))}
+        {options.map(opt => {
+          const isActive      = opt.storeAs === activeStoreAs;
+          const resolvedBadge = resolveBadge(opt.storeAs, tier);
+          return (
+            <button
+              key={opt.type ?? "no-badge"}
+              type="button"
+              disabled={saving}
+              onClick={() => select(opt.storeAs)}
+              style={{
+                flexShrink:               0,
+                display:                  "flex",
+                flexDirection:            "column",
+                alignItems:               "center",
+                gap:                      8,
+                padding:                  "12px 10px 10px",
+                borderRadius:             14,
+                backgroundColor:          isActive ? "rgba(212,160,74,0.1)" : "transparent",
+                border:                   isActive ? "1.5px solid var(--accent, #D4A04A)" : "1.5px solid transparent",
+                cursor:                   saving ? "not-allowed" : "pointer",
+                touchAction:              "manipulation",
+                WebkitTapHighlightColor:  "transparent",
+                opacity:                  saving ? 0.7 : 1,
+                minWidth:                 68,
+              } as React.CSSProperties}
+            >
+              <AvatarFrame badge={resolvedBadge} size={48}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    <div style={{
+                      width: "100%", height: "100%",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      backgroundColor: bgColor,
+                      fontSize: 18, fontWeight: 600,
+                      fontFamily: "var(--font-serif)",
+                      color: "var(--foreground)",
+                      userSelect: "none",
+                    }}>
+                      {initials}
+                    </div>
+                  )}
+                </div>
+              </AvatarFrame>
+              <span style={{
+                fontSize:   11,
+                fontWeight: isActive ? 600 : 500,
+                color:      isActive ? "var(--accent, #D4A04A)" : "var(--muted-foreground)",
+                textAlign:  "center",
+                lineHeight: 1.3,
+              }}>
+                {opt.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -1196,8 +1252,9 @@ function ScrollCarets() {
 
 export function AccountClient({ userId, email, profile, membership, legal, memberSince, badge }: Props) {
   const router = useRouter();
-  const [toast,       setToast]       = useState<string | null>(null);
-  const [signingOut,  setSigningOut]  = useState(false);
+  const [toast,         setToast]       = useState<string | null>(null);
+  const [signingOut,    setSigningOut]  = useState(false);
+  const [currentBadge,  setCurrentBadge] = useState<string | null>(badge);
 
   const initials = getInitials(profile.display_name, email);
   const bgColor  = hashColor(profile.display_name ?? email);
@@ -1247,7 +1304,7 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
             userId={userId}
             initialName={profile.display_name}
             tier={membership.currentTier}
-            badge={badge}
+            badge={currentBadge}
             memberSince={memberSince}
             initials={initials}
             bgColor={bgColor}
@@ -1255,7 +1312,16 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
             onToast={setToast}
           />
 
-          <BadgeCard />
+          <BadgePicker
+            userId={userId}
+            tier={membership.currentTier}
+            badgeCol={currentBadge}
+            initials={initials}
+            bgColor={bgColor}
+            avatarUrl={profile.avatar_url}
+            onToast={setToast}
+            onBadgeChange={setCurrentBadge}
+          />
 
           <PersonalInfoSection
             userId={userId}
