@@ -165,7 +165,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
   const cigar = log.cigar;
 
   const detailRows = [
-    ["Date",     log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : null],
+    ["Date",     log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null],
     ["Location", log.location],
     ["Occasion", log.occasion],
     ["Drink",    log.pairing_drink],
