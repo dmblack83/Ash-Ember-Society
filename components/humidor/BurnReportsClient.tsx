@@ -25,6 +25,7 @@ export interface BurnReportRow {
   flavor_tag_ids:          string[] | null;
   photo_urls:              string[] | null;
   review_text:             string | null;
+  content_video_id:        string | null;
   cigar: {
     id:        string;
     brand:     string;
@@ -283,8 +284,21 @@ function BurnReportCard({
   const [sharing,       setSharing]       = useState(false);
   const [shared,        setShared]        = useState(false);
   const [shareErr,      setShareErr]      = useState<string | null>(null);
+  const [linkedVideo, setLinkedVideo] = useState<{ ytId: string; title: string; thumb: string | null } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!report.content_video_id) return;
+    createClient()
+      .from("content_videos")
+      .select("youtube_video_id, title, thumbnail_url")
+      .eq("id", report.content_video_id)
+      .single()
+      .then(({ data }) => {
+        if (data) setLinkedVideo({ ytId: data.youtube_video_id, title: data.title, thumb: data.thumbnail_url });
+      });
+  }, [report.content_video_id]);
 
   async function handleShareToLounge() {
     if (sharing || shared) return;
@@ -534,9 +548,49 @@ function BurnReportCard({
               </div>
             )}
 
+            {/* Linked video */}
+            {linkedVideo && (
+              <div className="mt-3">
+                <Link
+                  href={`https://www.youtube.com/watch?v=${linkedVideo.ytId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display:         "flex",
+                    gap:             12,
+                    alignItems:      "flex-start",
+                    padding:         "10px 12px",
+                    borderRadius:    10,
+                    backgroundColor: "var(--card)",
+                    border:          "1px solid rgba(255,255,255,0.06)",
+                    textDecoration:  "none",
+                  }}
+                >
+                  {linkedVideo.thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.2"/>
+                        <path d="M10 8l6 4-6 4V8z" fill="var(--primary)"/>
+                      </svg>
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
+                      {linkedVideo.title}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>Watch on YouTube</p>
+                  </div>
+                </Link>
+              </div>
+            )}
+
             {/* Actions: Share + Delete */}
             <div
-              className="mt-4 pb-3 flex items-center justify-between"
+              className="mt-4 pb-3 flex items-center justify-between gap-3"
               style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}
             >
               {/* Share to Lounge */}
