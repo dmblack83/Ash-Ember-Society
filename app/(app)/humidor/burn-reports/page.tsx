@@ -30,6 +30,7 @@ export default async function BurnReportsPage() {
         flavor_tag_ids,
         photo_urls,
         review_text,
+        content_video_id,
         cigar:cigar_catalog(id, brand, series, format, wrapper, image_url)
       `)
       .eq("user_id", user.id)

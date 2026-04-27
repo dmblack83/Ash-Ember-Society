@@ -25,6 +25,7 @@ export interface BurnReportRow {
   flavor_tag_ids:          string[] | null;
   photo_urls:              string[] | null;
   review_text:             string | null;
+  content_video_id:        string | null;
   cigar: {
     id:        string;
     brand:     string;
@@ -283,8 +284,19 @@ function BurnReportCard({
   const [sharing,       setSharing]       = useState(false);
   const [shared,        setShared]        = useState(false);
   const [shareErr,      setShareErr]      = useState<string | null>(null);
+  const [ytVideoId,     setYtVideoId]     = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (!report.content_video_id) return;
+    createClient()
+      .from("content_videos")
+      .select("youtube_video_id")
+      .eq("id", report.content_video_id)
+      .single()
+      .then(({ data }) => { if (data) setYtVideoId(data.youtube_video_id); });
+  }, [report.content_video_id]);
 
   async function handleShareToLounge() {
     if (sharing || shared) return;
@@ -536,9 +548,30 @@ function BurnReportCard({
 
             {/* Actions: Share + Delete */}
             <div
-              className="mt-4 pb-3 flex items-center justify-between"
+              className="mt-4 pb-3 flex items-center justify-between gap-3"
               style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}
             >
+              {/* YouTube link — only for linked videos */}
+              {ytVideoId && (
+                <Link
+                  href={`https://www.youtube.com/watch?v=${ytVideoId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0"
+                  style={{
+                    border: "1.5px solid rgba(255,0,0,0.4)",
+                    color: "#FF4444",
+                    background: "transparent",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                  </svg>
+                  Watch on YouTube
+                </Link>
+              )}
+
               {/* Share to Lounge */}
               <div className="flex flex-col gap-1">
                 <button
