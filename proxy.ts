@@ -11,6 +11,7 @@ const PUBLIC_PATHS = [
   "/auth/callback",
   "/manifest.webmanifest",
   "/manifest.json",
+  "/api/youtube",   // protected by SYNC_SECRET header, not session
 ];
 
 function isPublicAuthPage(pathname: string): boolean {
