@@ -69,10 +69,11 @@ const STAR_LABELS: Record<number, string> = {
 };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day:   "numeric",
-    year:  "numeric",
+  return new Date(iso).toLocaleDateString("en-US", {
+    month:    "short",
+    day:      "numeric",
+    year:     "numeric",
+    timeZone: "UTC",
   });
 }
 
