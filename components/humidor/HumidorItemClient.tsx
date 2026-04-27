@@ -415,6 +415,8 @@ function SmokeModal({
       smoked_at: smokedAt,
       overall_rating: rating,
       review_text: reviewText.trim() || null,
+      content_video_id: null,
+      content_video: null,
     });
   }
 
@@ -593,13 +595,13 @@ export function HumidorItemClient({
         overall_rating: draft.overall_rating,
         review_text: draft.review_text,
       })
-      .select("id, smoked_at, overall_rating, review_text")
+      .select("id, smoked_at, overall_rating, review_text, content_video_id")
       .single();
 
     if (logError) {
       setToast("Smoke logged, but failed to save.");
     } else if (inserted) {
-      setSmokeLogs((prev) => [inserted as SmokeLog, ...prev]);
+      setSmokeLogs((prev) => [{ ...inserted, content_video: null } as SmokeLog, ...prev]);
       setToast("Smoke logged!");
     }
 
@@ -963,10 +965,30 @@ export function HumidorItemClient({
                   {/* Share to Lounge — only shown when expanded */}
                   {expanded && (
                     <div
-                      className="mt-3 pt-3 flex justify-end"
+                      className="mt-3 pt-3 flex items-center justify-between gap-3"
                       style={{ borderTop: "1px solid var(--border)" }}
                       onClick={(e) => e.stopPropagation()}
                     >
+                      {log.content_video ? (
+                        <Link
+                          href={`https://www.youtube.com/watch?v=${log.content_video.youtube_video_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5"
+                          style={{
+                            border: "1.5px solid rgba(255,0,0,0.4)",
+                            color: "#FF4444",
+                            background: "transparent",
+                          }}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                          </svg>
+                          Watch on YouTube
+                        </Link>
+                      ) : (
+                        <span />
+                      )}
                       <button
                         type="button"
                         onClick={() => handleShareToLounge(log)}
