@@ -1,8 +1,10 @@
-import { createClient }      from "@/utils/supabase/server";
-import { redirect }           from "next/navigation";
-import { getMembershipTier }  from "@/lib/membership";
-import { ShopsPageClient }    from "@/components/shops/ShopsPageClient";
-import type { MembershipTier } from "@/lib/stripe";
+import { unstable_cache }       from "next/cache";
+import { createClient }          from "@/utils/supabase/server";
+import { createServiceClient }   from "@/utils/supabase/service";
+import { redirect }              from "next/navigation";
+import { getMembershipTier }     from "@/lib/membership";
+import { ShopsPageClient }       from "@/components/shops/ShopsPageClient";
+import type { MembershipTier }   from "@/lib/stripe";
 
 export const metadata = { title: "Find a Lounge — Ash & Ember Society" };
 
@@ -44,6 +46,26 @@ export interface Shop {
 }
 
 /* ------------------------------------------------------------------
+   Cached data loader — shops list
+   Revalidates every hour. Uses service role to bypass RLS.
+   ------------------------------------------------------------------ */
+
+const getCachedShops = unstable_cache(
+  async (): Promise<Shop[]> => {
+    const supabase = createServiceClient();
+    const { data: shopsData } = await supabase
+      .from("shops")
+      .select("*")
+      .order("is_founding_partner", { ascending: false })
+      .order("is_partner", { ascending: false })
+      .order("name");
+    return (shopsData ?? []) as Shop[];
+  },
+  ["shops-data"],
+  { revalidate: 3600 }, // 1 hour
+);
+
+/* ------------------------------------------------------------------
    Page
    ------------------------------------------------------------------ */
 
@@ -53,22 +75,16 @@ export default async function ShopsPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profileData }, { data: shopsData }] = await Promise.all([
+  const [{ data: profileData }, shops] = await Promise.all([
     supabase
       .from("profiles")
       .select("membership_tier, display_name, created_at")
       .eq("id", user.id)
       .single(),
-    supabase
-      .from("shops")
-      .select("*")
-      .order("is_founding_partner", { ascending: false })
-      .order("is_partner", { ascending: false })
-      .order("name"),
+    getCachedShops(),
   ]);
 
-  const tier  = getMembershipTier(profileData) as MembershipTier;
-  const shops = (shopsData ?? []) as Shop[];
+  const tier = getMembershipTier(profileData) as MembershipTier;
 
   return (
     <ShopsPageClient
