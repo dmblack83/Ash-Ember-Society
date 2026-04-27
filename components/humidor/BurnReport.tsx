@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
-import type { BurnReportItem, FlavorTag } from "@/app/(app)/humidor/[id]/burn-report/page";
+import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
 import { getCigarImage } from "@/lib/cigar-default-image";
 
 /* ------------------------------------------------------------------
@@ -76,6 +76,7 @@ interface FormData {
   review_text: string;
   photo_files: File[];
   smoke_duration_minutes: string;
+  content_video_id: string | null;
 }
 
 function defaultForm(): FormData {
@@ -94,6 +95,7 @@ function defaultForm(): FormData {
     review_text: "",
     photo_files: [],
     smoke_duration_minutes: "",
+    content_video_id: null,
   };
 }
 
@@ -677,10 +679,14 @@ function SummaryStep({
   form,
   flavorTags,
   item,
+  partnerVideos,
+  update,
 }: {
   form: FormData;
   flavorTags: FlavorTag[];
   item: BurnReportItem;
+  partnerVideos: PartnerVideo[];
+  update: (f: Partial<FormData>) => void;
 }) {
   const c = item.cigar;
   const color = ratingColor(form.overall_rating);
@@ -814,6 +820,73 @@ function SummaryStep({
           </div>
         </div>
       )}
+
+      {/* Partner video picker — only shown for Partner badge holders */}
+      {partnerVideos.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
+              Link a Video
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Attach one of your channel videos to this burn report. Optional.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {partnerVideos.map((v) => {
+              const selected = form.content_video_id === v.id;
+              return (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => update({ content_video_id: selected ? null : v.id })}
+                  style={{
+                    width:           "100%",
+                    display:         "flex",
+                    alignItems:      "center",
+                    gap:             10,
+                    padding:         "8px 10px",
+                    borderRadius:    10,
+                    border:          `1px solid ${selected ? "var(--primary)" : "rgba(255,255,255,0.08)"}`,
+                    backgroundColor: selected ? "rgba(193,120,23,0.1)" : "var(--secondary)",
+                    cursor:          "pointer",
+                    textAlign:       "left",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  {v.thumbnail_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={v.thumbnail_url}
+                      alt=""
+                      style={{ width: 72, height: 41, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+                    />
+                  )}
+                  <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)", lineHeight: 1.4 }}>
+                    {v.title}
+                  </span>
+                  {selected && (
+                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true" style={{ flexShrink: 0 }}>
+                      <circle cx="9" cy="9" r="8" fill="var(--primary)" />
+                      <path d="M5.5 9l2.5 2.5 5-5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {form.content_video_id && (
+            <button
+              type="button"
+              onClick={() => update({ content_video_id: null })}
+              className="text-xs text-muted-foreground"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              Clear selection
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -945,9 +1018,11 @@ function SuccessScreen({
 export function BurnReport({
   item,
   flavorTags,
+  partnerVideos = [],
 }: {
   item: BurnReportItem;
   flavorTags: FlavorTag[];
+  partnerVideos?: PartnerVideo[];
 }) {
   const router = useRouter();
 
@@ -1098,6 +1173,7 @@ export function BurnReport({
       const mins = parseInt(form.smoke_duration_minutes);
       if (!isNaN(mins) && mins > 0) payload.smoke_duration_minutes = mins;
     }
+    if (form.content_video_id) payload.content_video_id = form.content_video_id;
 
     /* Insert smoke log */
     const { data: logData, error: logError } = await supabase
@@ -1158,7 +1234,7 @@ export function BurnReport({
       case 2: return <Step3 form={form} update={update} item={item} />;
       case 3: return <Step4 form={form} update={update} flavorTags={flavorTags} item={item} />;
       case 4: return <Step5 form={form} update={update} item={item} />;
-      case 5: return <SummaryStep form={form} flavorTags={flavorTags} item={item} />;
+      case 5: return <SummaryStep form={form} flavorTags={flavorTags} item={item} partnerVideos={partnerVideos} update={update} />;
     }
   };
 
