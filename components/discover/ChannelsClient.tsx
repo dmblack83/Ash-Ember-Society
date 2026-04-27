@@ -379,7 +379,7 @@ function CommentSheet({
 }
 
 /* ------------------------------------------------------------------
-   Video card
+   Video card — compact horizontal layout
    ------------------------------------------------------------------ */
 
 function VideoCard({
@@ -408,211 +408,198 @@ function VideoCard({
     <div
       style={{
         backgroundColor: "var(--card)",
-        borderRadius:    16,
+        borderRadius:    12,
         border:          "1px solid rgba(255,255,255,0.06)",
         overflow:        "hidden",
+        padding:         "10px 12px",
       }}
     >
-      {/* Thumbnail */}
-      <a
-        href={ytUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ display: "block", position: "relative" }}
-        aria-label={`Watch "${video.title}" on YouTube`}
-      >
-        {video.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={video.thumbnail_url}
-            alt={video.title}
-            style={{ width: "100%", aspectRatio: "16/9", objectFit: "cover", display: "block" }}
-          />
-        ) : (
-          <div
-            style={{
-              width:           "100%",
-              aspectRatio:     "16/9",
-              backgroundColor: "var(--secondary)",
-              display:         "flex",
-              alignItems:      "center",
-              justifyContent:  "center",
-            }}
-          >
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" aria-hidden="true">
-              <circle cx="20" cy="20" r="18" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.5"/>
-              <path d="M16 13l12 7-12 7V13z" fill="var(--primary)"/>
-            </svg>
-          </div>
-        )}
-
-        {/* Duration badge */}
-        {video.duration_seconds && video.duration_seconds > 0 && (
-          <span
-            style={{
-              position:        "absolute",
-              bottom:          8,
-              right:           8,
-              backgroundColor: "rgba(0,0,0,0.75)",
-              color:           "#fff",
-              fontSize:        11,
-              fontWeight:      600,
-              padding:         "2px 6px",
-              borderRadius:    4,
-              letterSpacing:   "0.01em",
-            }}
-          >
-            {formatDuration(video.duration_seconds)}
-          </span>
-        )}
-
-        {/* Play overlay on hover */}
-        <div
-          style={{
-            position:        "absolute",
-            inset:           0,
-            display:         "flex",
-            alignItems:      "center",
-            justifyContent:  "center",
-            backgroundColor: "rgba(0,0,0,0)",
-            transition:      "background-color 0.2s",
-          }}
-          className="yt-play-overlay"
-        />
-      </a>
-
-      {/* Text + actions */}
-      <div style={{ padding: "12px 14px 14px" }}>
-        {/* Title */}
+      {/* Horizontal row: thumbnail left, content right */}
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        {/* Thumbnail */}
         <a
           href={ytUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{
-            display:         "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical",
-            overflow:        "hidden",
-            fontSize:        15,
-            fontWeight:      600,
-            fontFamily:      "var(--font-playfair, 'Playfair Display'), serif",
-            color:           "var(--foreground)",
-            lineHeight:      1.4,
-            textDecoration:  "none",
-          }}
+          style={{ position: "relative", flexShrink: 0, display: "block", borderRadius: 8, overflow: "hidden" }}
+          aria-label={`Watch "${video.title}" on YouTube`}
         >
-          {video.title}
+          {video.thumbnail_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={video.thumbnail_url}
+              alt=""
+              style={{ width: 112, height: 63, objectFit: "cover", display: "block" }}
+            />
+          ) : (
+            <div
+              style={{
+                width:           112,
+                height:          63,
+                backgroundColor: "var(--secondary)",
+                display:         "flex",
+                alignItems:      "center",
+                justifyContent:  "center",
+              }}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.2"/>
+                <path d="M10 8l6 4-6 4V8z" fill="var(--primary)"/>
+              </svg>
+            </div>
+          )}
+          {/* Duration badge */}
+          {video.duration_seconds && video.duration_seconds > 0 && (
+            <span
+              style={{
+                position:        "absolute",
+                bottom:          3,
+                right:           3,
+                backgroundColor: "rgba(0,0,0,0.8)",
+                color:           "#fff",
+                fontSize:        10,
+                fontWeight:      600,
+                padding:         "1px 4px",
+                borderRadius:    3,
+              }}
+            >
+              {formatDuration(video.duration_seconds)}
+            </span>
+          )}
         </a>
 
-        {/* Meta row */}
-        <div
-          style={{
-            display:    "flex",
-            gap:        8,
-            marginTop:  6,
-            fontSize:   12,
-            color:      "var(--muted-foreground)",
-            flexWrap:   "wrap",
-          }}
-        >
-          {video.view_count > 0 && (
-            <span>{formatCount(video.view_count)} views</span>
-          )}
-          {video.view_count > 0 && video.published_at && <span>·</span>}
-          {video.published_at && (
-            <span>{relativeTime(video.published_at)}</span>
-          )}
-        </div>
-
-        {/* Action row */}
-        <div style={{ display: "flex", gap: 16, marginTop: 12, alignItems: "center" }}>
-          {/* Like button */}
-          <button
-            onClick={() => isMember && onToggleLike(video.id)}
-            aria-label={liked ? "Unlike" : "Like"}
-            style={{
-              display:         "flex",
-              alignItems:      "center",
-              gap:             5,
-              background:      "transparent",
-              border:          "none",
-              cursor:          isMember ? "pointer" : "default",
-              color:           liked ? "var(--primary)" : "var(--muted-foreground)",
-              opacity:         isMember ? 1 : 0.45,
-              fontSize:        13,
-              fontWeight:      600,
-              padding:         0,
-              WebkitTapHighlightColor: "transparent",
-              transition:      "color 0.15s",
-            }}
-            title={isMember ? undefined : "Members can like videos"}
-          >
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
-              <path
-                d="M8.5 14.5S2 10.5 2 6.5a3.5 3.5 0 017 0 3.5 3.5 0 017 0c0 4-6.5 8-6.5 8z"
-                fill={liked ? "currentColor" : "none"}
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{likeCount}</span>
-          </button>
-
-          {/* Comment button */}
-          <button
-            onClick={() => onOpenComments(video)}
-            aria-label="Comments"
-            style={{
-              display:         "flex",
-              alignItems:      "center",
-              gap:             5,
-              background:      "transparent",
-              border:          "none",
-              cursor:          "pointer",
-              color:           "var(--muted-foreground)",
-              fontSize:        13,
-              fontWeight:      600,
-              padding:         0,
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
-              <path
-                d="M2.5 3.5h12a1 1 0 011 1v7a1 1 0 01-1 1H5.5l-3 2.5V4.5a1 1 0 011-1z"
-                stroke="currentColor"
-                strokeWidth="1.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-            <span>{commentCount}</span>
-          </button>
-
-          {/* Watch on YouTube */}
+        {/* Right: title + meta */}
+        <div style={{ flex: 1, minWidth: 0 }}>
           <a
             href={ytUrl}
             target="_blank"
             rel="noopener noreferrer"
             style={{
-              marginLeft:     "auto",
-              display:        "flex",
-              alignItems:     "center",
-              gap:            4,
-              fontSize:       11,
-              color:          "var(--muted-foreground)",
-              textDecoration: "none",
-              fontWeight:     500,
+              display:         "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow:        "hidden",
+              fontSize:        13,
+              fontWeight:      600,
+              color:           "var(--foreground)",
+              lineHeight:      1.4,
+              textDecoration:  "none",
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-              <rect x="1" y="3" width="12" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
-              <path d="M5.5 5.5l3 1.5-3 1.5V5.5z" fill="currentColor"/>
-            </svg>
-            YouTube
+            {video.title}
           </a>
+          <div
+            style={{
+              display:   "flex",
+              gap:       6,
+              marginTop: 4,
+              fontSize:  11,
+              color:     "var(--muted-foreground)",
+              flexWrap:  "wrap",
+            }}
+          >
+            {video.view_count > 0 && <span>{formatCount(video.view_count)} views</span>}
+            {video.view_count > 0 && video.published_at && <span>·</span>}
+            {video.published_at && <span>{relativeTime(video.published_at)}</span>}
+          </div>
         </div>
+      </div>
+
+      {/* Action row */}
+      <div style={{ display: "flex", gap: 16, marginTop: 10, alignItems: "center", paddingLeft: 2 }}>
+        {/* Fire like button */}
+        <button
+          onClick={() => isMember && onToggleLike(video.id)}
+          aria-label={liked ? "Unlike" : "Like"}
+          style={{
+            display:    "flex",
+            alignItems: "center",
+            gap:        4,
+            background: "transparent",
+            border:     "none",
+            cursor:     isMember ? "pointer" : "default",
+            color:      liked ? "var(--ember, #E8642C)" : "var(--muted-foreground)",
+            opacity:    isMember ? 1 : 0.45,
+            fontSize:   12,
+            fontWeight: 600,
+            padding:    0,
+            WebkitTapHighlightColor: "transparent",
+            transition: "color 0.15s",
+          }}
+          title={isMember ? undefined : "Members can like videos"}
+        >
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <path
+              d="M7.5 13.5C7.5 13.5 2 10 2 5.8c0-1.4.8-2.5 2-3 .8-.3 1.7-.1 2.3.4.4.3.8.8 1.2 1.4.4-.6.8-1.1 1.2-1.4.6-.5 1.5-.7 2.3-.4 1.2.5 2 1.6 2 3 0 4.2-5.5 7.7-5.5 7.7z"
+              fill={liked ? "currentColor" : "none"}
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M7.5 6C7.5 6 6 4.5 6 3.5c0-.6.5-1 1-1s1 .3 1 .8"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeLinecap="round"
+              opacity={liked ? "0.6" : "0.4"}
+            />
+          </svg>
+          <span>{likeCount}</span>
+        </button>
+
+        {/* Comment button */}
+        <button
+          onClick={() => onOpenComments(video)}
+          aria-label="Comments"
+          style={{
+            display:    "flex",
+            alignItems: "center",
+            gap:        4,
+            background: "transparent",
+            border:     "none",
+            cursor:     "pointer",
+            color:      "var(--muted-foreground)",
+            fontSize:   12,
+            fontWeight: 600,
+            padding:    0,
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+            <path
+              d="M2 2.5h11a.5.5 0 01.5.5v6.5a.5.5 0 01-.5.5H5L2 12.5V3a.5.5 0 010-1z"
+              stroke="currentColor"
+              strokeWidth="1.3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <span>{commentCount}</span>
+        </button>
+
+        {/* Watch on YouTube */}
+        <a
+          href={ytUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            marginLeft:     "auto",
+            display:        "flex",
+            alignItems:     "center",
+            gap:            3,
+            fontSize:       11,
+            color:          "var(--muted-foreground)",
+            textDecoration: "none",
+            fontWeight:     500,
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <rect x="0.5" y="2" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.1"/>
+            <path d="M4.5 4.5l3 1.5-3 1.5V4.5z" fill="currentColor"/>
+          </svg>
+          YouTube
+        </a>
       </div>
     </div>
   );
@@ -639,22 +626,39 @@ function ChannelSection({
   userLikeSet:    Set<string>;
   onToggleLike:   (videoId: string) => void;
 }) {
+  const [open,               setOpen]               = useState(false);
   const [activeCommentVideo, setActiveCommentVideo] = useState<ChannelVideo | null>(null);
   const ytChannelUrl = `https://www.youtube.com/${channel.handle}/videos`;
 
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-      {/* Channel card */}
+      {/* Channel card — tap header to expand/collapse */}
       <div
         style={{
           backgroundColor: "var(--card)",
-          borderRadius:    16,
+          borderRadius:    open ? "16px 16px 0 0" : 16,
           border:          "1px solid rgba(255,255,255,0.06)",
-          padding:         "16px 16px 14px",
-          marginBottom:    10,
+          borderBottom:    open ? "1px solid rgba(255,255,255,0.04)" : "1px solid rgba(255,255,255,0.06)",
+          overflow:        "hidden",
         }}
       >
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+        {/* Tappable header row */}
+        <button
+          onClick={() => setOpen((v) => !v)}
+          style={{
+            width:          "100%",
+            display:        "flex",
+            alignItems:     "center",
+            gap:            12,
+            padding:        "14px 14px 14px 16px",
+            background:     "transparent",
+            border:         "none",
+            cursor:         "pointer",
+            textAlign:      "left",
+            WebkitTapHighlightColor: "transparent",
+          }}
+          aria-expanded={open}
+        >
           {/* Channel thumbnail */}
           {channel.thumbnail_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -662,8 +666,8 @@ function ChannelSection({
               src={channel.thumbnail_url}
               alt={channel.name}
               style={{
-                width:        56,
-                height:       56,
+                width:        48,
+                height:       48,
                 borderRadius: "50%",
                 objectFit:    "cover",
                 flexShrink:   0,
@@ -673,15 +677,15 @@ function ChannelSection({
           ) : (
             <div
               style={{
-                width:           56,
-                height:          56,
+                width:           48,
+                height:          48,
                 borderRadius:    "50%",
                 backgroundColor: "var(--secondary)",
                 display:         "flex",
                 alignItems:      "center",
                 justifyContent:  "center",
                 flexShrink:      0,
-                fontSize:        20,
+                fontSize:        18,
                 fontWeight:      700,
                 color:           "var(--primary)",
               }}
@@ -691,97 +695,129 @@ function ChannelSection({
           )}
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2
+            <div
               style={{
-                margin:     0,
-                fontSize:   18,
+                fontSize:   16,
                 fontWeight: 700,
                 fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
                 color:      "var(--foreground)",
+                whiteSpace: "nowrap",
+                overflow:   "hidden",
+                textOverflow: "ellipsis",
               }}
             >
               {channel.name}
-            </h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 2 }}>
               <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
                 {channel.handle}
               </span>
               {channel.subscriber_count != null && channel.subscriber_count > 0 && (
                 <>
-                  <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>·</span>
+                  <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>·</span>
                   <span style={{ fontSize: 12, color: "var(--muted-foreground)" }}>
-                    {formatCount(channel.subscriber_count)} subscribers
+                    {formatCount(channel.subscriber_count)} subs
                   </span>
                 </>
               )}
             </div>
           </div>
-        </div>
 
-        {channel.description && (
-          <p
+          {/* Chevron */}
+          <svg
+            width="18" height="18" viewBox="0 0 18 18" fill="none"
+            aria-hidden="true"
             style={{
-              margin:          "10px 0 0",
-              fontSize:        13,
-              color:           "var(--muted-foreground)",
-              lineHeight:      1.55,
-              display:         "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow:        "hidden",
+              flexShrink: 0,
+              color:      "var(--muted-foreground)",
+              transform:  open ? "rotate(180deg)" : "rotate(0deg)",
+              transition: "transform 0.22s ease",
             }}
           >
-            {channel.description}
-          </p>
-        )}
-
-        <a
-          href={ytChannelUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display:        "inline-flex",
-            alignItems:     "center",
-            gap:            4,
-            marginTop:      10,
-            fontSize:       12,
-            color:          "var(--muted-foreground)",
-            textDecoration: "none",
-            fontWeight:     500,
-          }}
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-            <rect x="0.5" y="2" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.1"/>
-            <path d="M4.5 4.5l3 1.5-3 1.5V4.5z" fill="currentColor"/>
+            <path d="M4.5 6.75L9 11.25L13.5 6.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          Watch on YouTube
-        </a>
+        </button>
+
+        {/* Expanded body */}
+        {open && (
+          <div style={{ padding: "0 16px 14px" }}>
+            {channel.description && (
+              <p
+                style={{
+                  margin:          "0 0 10px",
+                  fontSize:        13,
+                  color:           "var(--muted-foreground)",
+                  lineHeight:      1.55,
+                  display:         "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow:        "hidden",
+                }}
+              >
+                {channel.description}
+              </p>
+            )}
+            <a
+              href={ytChannelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display:        "inline-flex",
+                alignItems:     "center",
+                gap:            4,
+                fontSize:       12,
+                color:          "var(--muted-foreground)",
+                textDecoration: "none",
+                fontWeight:     500,
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <rect x="0.5" y="2" width="11" height="8" rx="1.5" stroke="currentColor" strokeWidth="1.1"/>
+                <path d="M4.5 4.5l3 1.5-3 1.5V4.5z" fill="currentColor"/>
+              </svg>
+              Watch on YouTube
+            </a>
+          </div>
+        )}
       </div>
 
-      {/* Video list */}
-      {channel.videos.length === 0 ? (
-        <p style={{ fontSize: 14, color: "var(--muted-foreground)", textAlign: "center", padding: "16px 0" }}>
-          No videos yet.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {channel.videos.map((v) => (
-            <VideoCard
-              key={v.id}
-              video={v}
-              userId={userId}
-              tier={tier}
-              likeCount={likeCountMap[v.id] ?? v.like_count}
-              commentCount={commentCountMap[v.id] ?? v.comment_count}
-              liked={userLikeSet.has(v.id)}
-              onToggleLike={onToggleLike}
-              onOpenComments={setActiveCommentVideo}
-            />
-          ))}
+      {/* Video list — only when expanded */}
+      {open && (
+        <div
+          style={{
+            border:          "1px solid rgba(255,255,255,0.06)",
+            borderTop:       "none",
+            borderRadius:    "0 0 16px 16px",
+            overflow:        "hidden",
+            backgroundColor: "var(--background)",
+          }}
+        >
+          {channel.videos.length === 0 ? (
+            <p style={{ fontSize: 14, color: "var(--muted-foreground)", textAlign: "center", padding: "16px 0" }}>
+              No videos yet.
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 1, padding: "8px" }}>
+              {channel.videos.map((v) => (
+                <VideoCard
+                  key={v.id}
+                  video={v}
+                  userId={userId}
+                  tier={tier}
+                  likeCount={likeCountMap[v.id] ?? v.like_count}
+                  commentCount={commentCountMap[v.id] ?? v.comment_count}
+                  liked={userLikeSet.has(v.id)}
+                  onToggleLike={onToggleLike}
+                  onOpenComments={setActiveCommentVideo}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Comment sheet for this channel's videos */}
+      {/* Comment sheet */}
       {activeCommentVideo && (
         <CommentSheet
           video={activeCommentVideo}
