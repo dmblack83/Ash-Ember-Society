@@ -146,9 +146,13 @@ export async function POST(req: NextRequest) {
 }
 
 async function handler(req: NextRequest) {
-  // Require sync secret
-  const secret = req.headers.get("x-sync-secret");
-  if (!secret || secret !== process.env.SYNC_SECRET) {
+  // Accept our manual sync secret OR Vercel cron bearer token
+  const syncSecret = req.headers.get("x-sync-secret");
+  const cronAuth   = req.headers.get("authorization");
+  const validSync  = syncSecret && syncSecret === process.env.SYNC_SECRET;
+  const validCron  = cronAuth   && cronAuth   === `Bearer ${process.env.CRON_SECRET}`;
+
+  if (!validSync && !validCron) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
