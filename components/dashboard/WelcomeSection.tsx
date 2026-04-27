@@ -122,6 +122,7 @@ function WelcomeContent({ data }: { data: WelcomeData }) {
       <p
         className="leading-tight text-foreground"
         style={{ fontFamily: "var(--font-serif)", fontSize: 20, fontWeight: 700 }}
+        suppressHydrationWarning
       >
         {getGreeting()}, {data.displayName}
       </p>

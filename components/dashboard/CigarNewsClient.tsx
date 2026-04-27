@@ -738,7 +738,7 @@ function PostSheet({
             via <span className="font-semibold">{post.source_name}</span>
             {post.published_at && (
               <span style={{ color: "var(--muted-foreground)", fontWeight: 400 }}>
-                {" "}· {new Date(post.published_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                {" "}· {new Date(post.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}
               </span>
             )}
           </p>
