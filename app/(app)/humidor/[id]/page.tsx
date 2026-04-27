@@ -73,26 +73,31 @@ export default async function HumidorItemPage({
 
   const { data: smokeLogs } = await supabase
     .from("smoke_logs")
-    .select("id, smoked_at, overall_rating, review_text, content_video_id, content_video:content_videos!content_video_id(youtube_video_id, title)")
+    .select("id, smoked_at, overall_rating, review_text, content_video_id")
     .eq("user_id", user.id)
     .eq("cigar_id", item.cigar_id)
     .order("smoked_at", { ascending: false });
 
-  // Normalize: Supabase returns joined rows as arrays; flatten content_video to object|null
-  const normalizedLogs: SmokeLog[] = (smokeLogs ?? []).map((log) => {
-    const raw = log as unknown as {
-      id: string;
-      smoked_at: string;
-      overall_rating: number | null;
-      review_text: string | null;
-      content_video_id: string | null;
-      content_video: { youtube_video_id: string; title: string }[] | null;
-    };
-    return {
-      ...raw,
-      content_video: Array.isArray(raw.content_video) ? (raw.content_video[0] ?? null) : raw.content_video,
-    };
-  });
+  // Fetch video data for any logs that have a linked video
+  const videoIds = (smokeLogs ?? [])
+    .map((l) => l.content_video_id)
+    .filter((v): v is string => v != null);
+
+  const videoMap = new Map<string, { youtube_video_id: string; title: string }>();
+  if (videoIds.length > 0) {
+    const { data: videos } = await supabase
+      .from("content_videos")
+      .select("id, youtube_video_id, title")
+      .in("id", videoIds);
+    for (const v of videos ?? []) {
+      videoMap.set(v.id, { youtube_video_id: v.youtube_video_id, title: v.title });
+    }
+  }
+
+  const normalizedLogs: SmokeLog[] = (smokeLogs ?? []).map((log) => ({
+    ...log,
+    content_video: log.content_video_id ? (videoMap.get(log.content_video_id) ?? null) : null,
+  }));
 
   return (
     <HumidorItemClient
