@@ -528,22 +528,14 @@ function VideoCard({
           }}
           title={isMember ? undefined : "Members can like videos"}
         >
-          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-            <path
-              d="M7.5 13.5C7.5 13.5 2 10 2 5.8c0-1.4.8-2.5 2-3 .8-.3 1.7-.1 2.3.4.4.3.8.8 1.2 1.4.4-.6.8-1.1 1.2-1.4.6-.5 1.5-.7 2.3-.4 1.2.5 2 1.6 2 3 0 4.2-5.5 7.7-5.5 7.7z"
-              fill={liked ? "currentColor" : "none"}
-              stroke="currentColor"
-              strokeWidth="1.3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M7.5 6C7.5 6 6 4.5 6 3.5c0-.6.5-1 1-1s1 .3 1 .8"
-              stroke="currentColor"
-              strokeWidth="1"
-              strokeLinecap="round"
-              opacity={liked ? "0.6" : "0.4"}
-            />
+          <svg
+            width="15" height="15" viewBox="0 0 24 24"
+            fill={liked ? "currentColor" : "none"}
+            stroke="currentColor" strokeWidth="1.8"
+            strokeLinecap="round" strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
           </svg>
           <span>{likeCount}</span>
         </button>
@@ -943,7 +935,7 @@ export function ChannelsClient({ channels, userId, tier }: Props) {
             lineHeight: 1.5,
           }}
         >
-          Videos curated from our partner creators.
+          Our partner creators put out great content for aficionados like you. Show them some love and subscribe to their channels and keep the community growing.
         </p>
       </div>
 
