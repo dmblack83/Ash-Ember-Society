@@ -233,7 +233,8 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 
 ## Pending / Next Steps
 
-1. **Performance refactor (Prompt B series)** — B0 dead code done, B1-B5 prompts written, run in order and test each before next. Also address these PWA-specific issues:
+1. **BEFORE performance refactor — upgrade Vercel to Pro.** Hobby plan limits cron jobs to once per day. The hourly YouTube sync cron (PR #165, closed/deferred) requires Pro. Upgrade first, then reopen that PR.
+2. **Performance refactor (Prompt B series)** — B0 dead code done, B1-B5 prompts written, run in order and test each before next. Also address these PWA-specific issues:
    - Server render more pages (minimize client components)
    - Add service worker via `next-pwa` for offline caching and instant repeat loads
    - Convert cigar default images from PNG to WebP
