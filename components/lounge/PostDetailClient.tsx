@@ -27,6 +27,7 @@ export interface SmokeLogData {
   smoke_duration_minutes: number | null;
   review_text:            string | null;
   photo_urls:             string[] | null;
+  content_video_id:       string | null;
   cigar: {
     brand:  string | null;
     series: string | null;

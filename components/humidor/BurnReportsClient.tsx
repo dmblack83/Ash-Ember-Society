@@ -284,7 +284,7 @@ function BurnReportCard({
   const [sharing,       setSharing]       = useState(false);
   const [shared,        setShared]        = useState(false);
   const [shareErr,      setShareErr]      = useState<string | null>(null);
-  const [ytVideoId,     setYtVideoId]     = useState<string | null>(null);
+  const [linkedVideo, setLinkedVideo] = useState<{ ytId: string; title: string; thumb: string | null } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -292,10 +292,12 @@ function BurnReportCard({
     if (!report.content_video_id) return;
     createClient()
       .from("content_videos")
-      .select("youtube_video_id")
+      .select("youtube_video_id, title, thumbnail_url")
       .eq("id", report.content_video_id)
       .single()
-      .then(({ data }) => { if (data) setYtVideoId(data.youtube_video_id); });
+      .then(({ data }) => {
+        if (data) setLinkedVideo({ ytId: data.youtube_video_id, title: data.title, thumb: data.thumbnail_url });
+      });
   }, [report.content_video_id]);
 
   async function handleShareToLounge() {
@@ -546,32 +548,51 @@ function BurnReportCard({
               </div>
             )}
 
+            {/* Linked video */}
+            {linkedVideo && (
+              <div className="mt-3">
+                <Link
+                  href={`https://www.youtube.com/watch?v=${linkedVideo.ytId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    display:         "flex",
+                    gap:             12,
+                    alignItems:      "flex-start",
+                    padding:         "10px 12px",
+                    borderRadius:    10,
+                    backgroundColor: "var(--card)",
+                    border:          "1px solid rgba(255,255,255,0.06)",
+                    textDecoration:  "none",
+                  }}
+                >
+                  {linkedVideo.thumb ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.2"/>
+                        <path d="M10 8l6 4-6 4V8z" fill="var(--primary)"/>
+                      </svg>
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
+                      {linkedVideo.title}
+                    </p>
+                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>Watch on YouTube</p>
+                  </div>
+                </Link>
+              </div>
+            )}
+
             {/* Actions: Share + Delete */}
             <div
               className="mt-4 pb-3 flex items-center justify-between gap-3"
               style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}
             >
-              {/* YouTube link — only for linked videos */}
-              {ytVideoId && (
-                <Link
-                  href={`https://www.youtube.com/watch?v=${ytVideoId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full flex-shrink-0"
-                  style={{
-                    border: "1.5px solid rgba(255,0,0,0.4)",
-                    color: "#FF4444",
-                    background: "transparent",
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                  </svg>
-                  Watch on YouTube
-                </Link>
-              )}
-
               {/* Share to Lounge */}
               <div className="flex flex-col gap-1">
                 <button
