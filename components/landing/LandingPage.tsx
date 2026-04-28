@@ -861,7 +861,7 @@ export function CallToAction() {
               lineHeight:   1.15,
             }}
           >
-            Your Place at the Table{" "}
+            Your Seat at the Table{" "}
             <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>Awaits</em>
           </h2>
           <p style={{ color: "var(--muted-foreground)", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 300, margin: "0 auto 40px", maxWidth: 480 }}>
