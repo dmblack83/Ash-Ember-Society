@@ -3,10 +3,74 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { GoogleMap, useJsApiLoader, MarkerF }                 from "@react-google-maps/api";
 import Link                                                    from "next/link";
+import { createClient }                                        from "@/utils/supabase/client";
 import type { Shop }                                           from "@/app/(app)/discover/shops/page";
 import type { MembershipTier }                                 from "@/lib/stripe";
 import { distanceMiles, formatDistance }                       from "@/lib/geo";
 import type { LatLng }                                         from "@/lib/geo";
+
+/* ------------------------------------------------------------------
+   Module-level SWR cache for shops — shared across navigations.
+   Shops change rarely; 1-hour TTL is appropriate.
+   ------------------------------------------------------------------ */
+
+interface ShopsCache { shops: Shop[]; ts: number; }
+
+let _shopsCache: ShopsCache | null = null;
+let _shopsFetch: Promise<Shop[]>   | null = null;
+
+const SHOPS_TTL = 60 * 60 * 1000; // 1 hour
+
+function isShopsCacheFresh() {
+  return _shopsCache !== null && Date.now() - _shopsCache.ts < SHOPS_TTL;
+}
+
+function getShops(): Promise<Shop[]> {
+  if (isShopsCacheFresh()) return Promise.resolve(_shopsCache!.shops);
+  if (!_shopsFetch) {
+    _shopsFetch = Promise.resolve(
+      createClient()
+        .from("shops")
+        .select("*")
+        .order("is_founding_partner", { ascending: false })
+        .order("is_partner",          { ascending: false })
+        .order("name")
+    ).then(({ data }) => {
+      const shops = (data ?? []) as Shop[];
+      _shopsCache = { shops, ts: Date.now() };
+      _shopsFetch = null;
+      return shops;
+    }).catch((e: unknown) => { _shopsFetch = null; throw e; });
+  }
+  return _shopsFetch;
+}
+
+/* ------------------------------------------------------------------
+   Skeleton — shown on first visit before cache is warm
+   ------------------------------------------------------------------ */
+
+function ShopsSkeleton() {
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-3">
+      {[1, 2, 3, 4].map((i) => (
+        <div
+          key={i}
+          className="rounded-2xl p-4 animate-pulse"
+          style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <div className="flex items-start gap-3">
+            <div className="flex-1 space-y-2">
+              <div className="h-4 rounded-full w-40" style={{ backgroundColor: "var(--secondary)" }} />
+              <div className="h-3 rounded-full w-56" style={{ backgroundColor: "var(--secondary)" }} />
+              <div className="h-3 rounded-full w-24" style={{ backgroundColor: "var(--secondary)" }} />
+            </div>
+            <div className="w-16 h-16 rounded-xl flex-shrink-0" style={{ backgroundColor: "var(--secondary)" }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ------------------------------------------------------------------
    Constants
@@ -259,7 +323,7 @@ function PinSheet({ shop, userLoc, onClose }: PinSheetProps) {
    Main component
    ------------------------------------------------------------------ */
 
-interface ShopsPageClientProps {
+interface ShopsRendererProps {
   shops:    Shop[];
   userTier: MembershipTier;
   userId:   string;
@@ -267,7 +331,7 @@ interface ShopsPageClientProps {
 
 type ViewMode = "split" | "map" | "list";
 
-export function ShopsPageClient({ shops, userTier, userId: _userId }: ShopsPageClientProps) {
+function ShopsRenderer({ shops, userTier, userId: _userId }: ShopsRendererProps) {
   const [view,         setView]         = useState<ViewMode>("split");
   const [userLoc,      setUserLoc]      = useState<LatLng | null>(null);
   const [locDenied,    setLocDenied]    = useState(false);
@@ -529,4 +593,29 @@ export function ShopsPageClient({ shops, userTier, userId: _userId }: ShopsPageC
       />
     </>
   );
+}
+
+/* ------------------------------------------------------------------
+   Exported component — fetches shops client-side with a module-level
+   SWR cache. First visit shows a skeleton; return visits within the
+   1-hour TTL render immediately from cache with no loading flash.
+   ------------------------------------------------------------------ */
+
+export function ShopsPageClient({ userTier, userId }: { userTier: MembershipTier; userId: string }) {
+  const [shops,       setShops]       = useState<Shop[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getShops()
+      .then((shops) => { if (!cancelled) { setShops(shops); setDataLoading(false); } })
+      .catch(()     => { if (!cancelled) setDataLoading(false); });
+
+    return () => { cancelled = true; };
+  }, []);
+
+  if (dataLoading) return <ShopsSkeleton />;
+
+  return <ShopsRenderer shops={shops} userTier={userTier} userId={userId} />;
 }

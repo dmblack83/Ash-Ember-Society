@@ -8,6 +8,169 @@ import { resolveBadge }        from "@/lib/badge";
 import type { Channel, ChannelVideo } from "@/app/(app)/discover/channels/page";
 
 /* ------------------------------------------------------------------
+   Module-level SWR cache — persists across client-side navigations.
+   Base data (channels + videos + aggregate counts) is shared for all
+   users. User likes are cached per-user ID.
+   ------------------------------------------------------------------ */
+
+interface RawChannel {
+  id: string; name: string; handle: string; description: string | null;
+  thumbnail_url: string | null; subscriber_count: number | null; last_synced_at: string | null;
+}
+interface RawVideo {
+  id: string; channel_id: string; youtube_video_id: string; title: string;
+  thumbnail_url: string | null; published_at: string | null; view_count: number;
+  duration_seconds: number | null; position: number;
+}
+interface BaseCache {
+  rawChannels:    RawChannel[];
+  rawVideos:      RawVideo[];
+  likeCountMap:   Record<string, number>;
+  commentCountMap: Record<string, number>;
+  ts:             number;
+}
+interface LikesCache { userId: string; likeSet: Set<string>; ts: number; }
+
+let _baseCache:  BaseCache  | null = null;
+let _baseFetch:  Promise<BaseCache> | null = null;
+let _likesCache: LikesCache | null = null;
+
+const BASE_TTL  = 5 * 60 * 1000; // 5 min
+const LIKES_TTL = 60 * 1000;     // 1 min
+
+function isFresh(ts: number, ttl: number) { return Date.now() - ts < ttl; }
+
+async function fetchBase(): Promise<BaseCache> {
+  const sb = createClient();
+
+  const { data: rawChannels } = await sb
+    .from("content_channels")
+    .select("id, name, handle, description, thumbnail_url, subscriber_count, last_synced_at")
+    .eq("is_active", true)
+    .order("created_at", { ascending: true });
+
+  const channels   = rawChannels ?? [];
+  const channelIds = channels.map((c) => c.id);
+
+  if (channelIds.length === 0) {
+    return { rawChannels: [], rawVideos: [], likeCountMap: {}, commentCountMap: {}, ts: Date.now() };
+  }
+
+  const { data: rawVideos } = await sb
+    .from("content_videos")
+    .select("id, channel_id, youtube_video_id, title, thumbnail_url, published_at, view_count, duration_seconds, position")
+    .in("channel_id", channelIds)
+    .eq("is_active", true)
+    .order("position", { ascending: true });
+
+  const videos   = rawVideos ?? [];
+  const videoIds = videos.map((v) => v.id);
+
+  const [{ data: likesData }, { data: commentsData }] = await Promise.all([
+    videoIds.length ? sb.from("content_video_likes").select("video_id").in("video_id", videoIds)
+                    : Promise.resolve({ data: [] as { video_id: string }[] }),
+    videoIds.length ? sb.from("content_video_comments").select("video_id").in("video_id", videoIds)
+                    : Promise.resolve({ data: [] as { video_id: string }[] }),
+  ]);
+
+  const likeCountMap: Record<string, number> = {};
+  for (const l of likesData ?? []) {
+    likeCountMap[l.video_id] = (likeCountMap[l.video_id] ?? 0) + 1;
+  }
+  const commentCountMap: Record<string, number> = {};
+  for (const c of commentsData ?? []) {
+    commentCountMap[c.video_id] = (commentCountMap[c.video_id] ?? 0) + 1;
+  }
+
+  return { rawChannels: channels, rawVideos: videos, likeCountMap, commentCountMap, ts: Date.now() };
+}
+
+function getBase(): Promise<BaseCache> {
+  if (_baseCache && isFresh(_baseCache.ts, BASE_TTL)) return Promise.resolve(_baseCache);
+  if (!_baseFetch) {
+    _baseFetch = fetchBase()
+      .then((d) => { _baseCache = d; _baseFetch = null; return d; })
+      .catch((e) => { _baseFetch = null; throw e; });
+  }
+  return _baseFetch;
+}
+
+function getLikes(userId: string, videoIds: string[]): Promise<Set<string>> {
+  if (_likesCache && _likesCache.userId === userId && isFresh(_likesCache.ts, LIKES_TTL)) {
+    return Promise.resolve(_likesCache.likeSet);
+  }
+  if (!videoIds.length) return Promise.resolve(new Set<string>());
+  return Promise.resolve(
+    createClient()
+      .from("content_video_likes")
+      .select("video_id")
+      .eq("user_id", userId)
+      .in("video_id", videoIds)
+  ).then(({ data }) => {
+    const likeSet = new Set<string>((data ?? []).map((l: { video_id: string }) => l.video_id));
+    _likesCache = { userId, likeSet, ts: Date.now() };
+    return likeSet;
+  });
+}
+
+function buildChannels(base: BaseCache, userLikeSet: Set<string>): Channel[] {
+  const byChannel: Record<string, ChannelVideo[]> = {};
+  for (const v of base.rawVideos) {
+    if (!byChannel[v.channel_id]) byChannel[v.channel_id] = [];
+    byChannel[v.channel_id].push({
+      id:               v.id,
+      youtube_video_id: v.youtube_video_id,
+      title:            v.title,
+      thumbnail_url:    v.thumbnail_url,
+      published_at:     v.published_at,
+      view_count:       v.view_count ?? 0,
+      duration_seconds: v.duration_seconds,
+      position:         v.position,
+      like_count:       base.likeCountMap[v.id] ?? 0,
+      comment_count:    base.commentCountMap[v.id] ?? 0,
+      user_has_liked:   userLikeSet.has(v.id),
+    });
+  }
+  return base.rawChannels.map((ch) => ({ ...ch, videos: byChannel[ch.id] ?? [] }));
+}
+
+/* ------------------------------------------------------------------
+   Skeleton — shown on first visit before cache is warm
+   ------------------------------------------------------------------ */
+
+function ChannelsSkeleton() {
+  return (
+    <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      {[1, 2].map((i) => (
+        <div
+          key={i}
+          className="rounded-2xl overflow-hidden animate-pulse"
+          style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <div className="flex items-center gap-3 p-4">
+            <div className="w-12 h-12 rounded-full flex-shrink-0" style={{ backgroundColor: "var(--secondary)" }} />
+            <div className="flex-1 space-y-2">
+              <div className="h-3.5 rounded-full w-32" style={{ backgroundColor: "var(--secondary)" }} />
+              <div className="h-2.5 rounded-full w-20" style={{ backgroundColor: "var(--secondary)" }} />
+            </div>
+          </div>
+          {[1, 2, 3].map((j) => (
+            <div key={j} className="flex items-start gap-3 px-4 py-3" style={{ borderTop: "1px solid var(--border)" }}>
+              <div className="flex-shrink-0 rounded-lg" style={{ width: 112, height: 63, backgroundColor: "var(--secondary)" }} />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className="h-3 rounded-full w-full"  style={{ backgroundColor: "var(--secondary)" }} />
+                <div className="h-3 rounded-full w-3/4"   style={{ backgroundColor: "var(--secondary)" }} />
+                <div className="h-2.5 rounded-full w-1/3" style={{ backgroundColor: "var(--secondary)" }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
 
@@ -22,7 +185,7 @@ interface Comment {
   membership_tier: string | null;
 }
 
-interface Props {
+interface RendererProps {
   channels: Channel[];
   userId:   string;
   tier:     string;
@@ -825,7 +988,7 @@ function ChannelSection({
    Main client component
    ------------------------------------------------------------------ */
 
-export function ChannelsClient({ channels, userId, tier }: Props) {
+function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
   const supabase = createClient();
 
   // Local like state (optimistic)
@@ -970,4 +1133,52 @@ export function ChannelsClient({ channels, userId, tier }: Props) {
       )}
     </div>
   );
+}
+
+/* ------------------------------------------------------------------
+   Exported component — fetches data client-side with a module-level
+   SWR cache. First visit shows a skeleton; return visits within the
+   TTL render immediately from cache with no loading flash.
+   ------------------------------------------------------------------ */
+
+export function ChannelsClient({ userId, tier }: { userId: string; tier: string }) {
+  const [channels,    setChannels]    = useState<Channel[]>([]);
+  const [dataLoading, setDataLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // If both base and likes are cached, apply synchronously and skip loading.
+    if (_baseCache && isFresh(_baseCache.ts, BASE_TTL)) {
+      const base     = _baseCache;
+      const videoIds = base.rawVideos.map((v) => v.id);
+
+      getLikes(userId, videoIds).then((likes) => {
+        if (cancelled) return;
+        setChannels(buildChannels(base, likes));
+        setDataLoading(false);
+      }).catch(() => { if (!cancelled) setDataLoading(false); });
+
+      return () => { cancelled = true; };
+    }
+
+    // Cache is empty or stale — fetch fresh.
+    getBase()
+      .then((base) => {
+        if (cancelled) return;
+        const videoIds = base.rawVideos.map((v) => v.id);
+        return getLikes(userId, videoIds).then((likes) => {
+          if (cancelled) return;
+          setChannels(buildChannels(base, likes));
+          setDataLoading(false);
+        });
+      })
+      .catch(() => { if (!cancelled) setDataLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  if (dataLoading) return <ChannelsSkeleton />;
+
+  return <ChannelsRenderer channels={channels} userId={userId} tier={tier} />;
 }
