@@ -1102,20 +1102,20 @@ export function BurnReport({
   }
 
   /* Upload photos → return public URLs */
-  async function uploadPhotos(supabase: ReturnType<typeof createClient>): Promise<string[]> {
+  async function uploadPhotos(): Promise<string[]> {
     if (form.photo_files.length === 0) return [];
-    const { data: { user } } = await supabase.auth.getUser();
     const urls: string[] = [];
     for (const file of form.photo_files) {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `burn-reports/${user?.id ?? "anon"}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("post-images").upload(path, file, {
-        contentType: file.type,
-        upsert: false,
-      });
-      if (!error) {
-        const { data: { publicUrl } } = supabase.storage.from("post-images").getPublicUrl(path);
-        urls.push(publicUrl);
+      const fd = new FormData();
+      fd.append("file",   file);
+      fd.append("folder", "burn-reports");
+      const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+      if (res.ok) {
+        const { url } = await res.json();
+        urls.push(url);
+      } else {
+        const { error } = await res.json().catch(() => ({ error: "Upload failed." }));
+        throw new Error(error ?? "Upload failed.");
       }
     }
     return urls;
@@ -1137,9 +1137,12 @@ export function BurnReport({
     /* Upload photos first */
     let photoUrls: string[] = [];
     try {
-      photoUrls = await uploadPhotos(supabase);
-    } catch {
-      // non-fatal — continue without photos
+      photoUrls = await uploadPhotos();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : null;
+      setSubmitError(msg ?? "Photo upload failed. Please try again.");
+      setSubmitting(false);
+      return;
     }
 
     /* Guard: cigar_id must be a valid catalog reference */

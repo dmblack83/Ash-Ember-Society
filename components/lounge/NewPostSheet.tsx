@@ -90,14 +90,19 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
     let image_url: string | null = null;
     if (!isFeedback && imageFile) {
       setUploading(true);
-      const ext  = imageFile.name.split(".").pop() ?? "jpg";
-      const path = `forum-posts/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: uploadErr } = await supabase.storage
-        .from("post-images")
-        .upload(path, imageFile, { contentType: imageFile.type, upsert: false });
-      if (!uploadErr) {
-        const { data: urlData } = supabase.storage.from("post-images").getPublicUrl(path);
-        image_url = urlData.publicUrl;
+      const fd = new FormData();
+      fd.append("file",   imageFile);
+      fd.append("folder", "forum-posts");
+      const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+      if (res.ok) {
+        const { url } = await res.json();
+        image_url = url;
+      } else {
+        const { error } = await res.json().catch(() => ({ error: "Upload failed." }));
+        setError(error ?? "Upload failed.");
+        setUploading(false);
+        setSubmitting(false);
+        return;
       }
       setUploading(false);
     }
