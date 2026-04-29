@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Vol01Content } from "@/components/field-guide/content/Vol01Content";
 import { Vol02Content } from "@/components/field-guide/content/Vol02Content";
 import { Vol03Content } from "@/components/field-guide/content/Vol03Content";
@@ -18,36 +19,36 @@ const S = {
 
 const VOLS = [
   {
-    num:       "01",
-    kicker:    "The Origin",
-    title:     "A Brief History of the Cigar",
-    goldWord:  "History",
-    deck:      "Five centuries of cultivation, colonialism, and craft, told through the leaf, the lector, and the long road from Guanahani to your humidor.",
-    readTime:  "8 min read",
+    num:      "01",
+    kicker:   "The Origin",
+    title:    "A Brief History of the Cigar",
+    goldWord: "History",
+    deck:     "Five centuries of cultivation, colonialism, and craft, told through the leaf, the lector, and the long road from Guanahani to your humidor.",
+    readTime: "8 min read",
   },
   {
-    num:       "02",
-    kicker:    "The Leaf",
-    title:     "The Tobaccos & Their Lands",
-    goldWord:  "Their Lands",
-    deck:      "From the volcanic soil of Nicaragua to the shade-grown fields of Connecticut, the leaf is the cigar. An atlas of what grows where, and why it matters.",
-    readTime:  "11 min read",
+    num:      "02",
+    kicker:   "The Leaf",
+    title:    "The Tobaccos & Their Lands",
+    goldWord: "Their Lands",
+    deck:     "From the volcanic soil of Nicaragua to the shade-grown fields of Connecticut, the leaf is the cigar. An atlas of what grows where, and why it matters.",
+    readTime: "11 min read",
   },
   {
-    num:       "03",
-    kicker:    "The Vitola",
-    title:     "Shapes, Sizes & The Vitolas",
-    goldWord:  "The Vitolas",
-    deck:      "A primer on ring gauge, length, and the named formats that every serious smoker eventually learns to order by heart.",
-    readTime:  "9 min read",
+    num:      "03",
+    kicker:   "The Vitola",
+    title:    "Shapes, Sizes & The Vitolas",
+    goldWord: "The Vitolas",
+    deck:     "A primer on ring gauge, length, and the named formats that every serious smoker eventually learns to order by heart.",
+    readTime: "9 min read",
   },
   {
-    num:       "04",
-    kicker:    "The Cut",
-    title:     "The Three Cuts",
-    goldWord:  "Cuts",
-    deck:      "A study of the only three openings worth making at the head of a fine cigar, and what each one does to the smoke that follows.",
-    readTime:  "4 min read",
+    num:      "04",
+    kicker:   "The Cut",
+    title:    "The Three Cuts",
+    goldWord: "Cuts",
+    deck:     "A study of the only three openings worth making at the head of a fine cigar, and what each one does to the smoke that follows.",
+    readTime: "4 min read",
   },
 ] as const;
 
@@ -72,17 +73,26 @@ export function FieldGuideModal({
   volNumber: number;
   onClose: () => void;
 }) {
+  const scrollRef       = useRef<HTMLDivElement>(null);
+  const [caret, setCaret] = useState(true);
+
+  /* Lock body scroll */
   useEffect(() => {
     document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = "";
-    };
+    return () => { document.body.style.overflow = ""; };
   }, []);
+
+  /* Show/hide scroll caret based on scroll position */
+  function handleScroll() {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 80);
+  }
 
   const vol     = VOLS[volNumber - 1];
   const Content = CONTENTS[volNumber - 1];
 
-  return (
+  const modal = (
     <>
       <style>{`
         @keyframes fg-slide-up {
@@ -97,13 +107,13 @@ export function FieldGuideModal({
       <div
         className="fg-modal-enter"
         style={{
-          position:        "fixed",
-          inset:           0,
-          zIndex:          100,
-          background:      "var(--background)",
-          display:         "flex",
-          flexDirection:   "column",
-          overflowY:       "hidden",
+          position:      "fixed",
+          inset:         0,
+          zIndex:        200,
+          background:    "var(--background)",
+          display:       "flex",
+          flexDirection: "column",
+          overflow:      "hidden",
         }}
       >
         {/* ── Fixed header ── */}
@@ -113,7 +123,8 @@ export function FieldGuideModal({
             alignItems:     "center",
             justifyContent: "space-between",
             padding:        "0 16px",
-            height:         52,
+            paddingTop:     "env(safe-area-inset-top)",
+            height:         "calc(52px + env(safe-area-inset-top))",
             flexShrink:     0,
             borderBottom:   "1px solid rgba(212,160,74,0.15)",
             background:     "var(--background)",
@@ -133,6 +144,7 @@ export function FieldGuideModal({
               fontStyle:  "italic",
               fontSize:   15,
               color:      S.gold,
+              outline:    "none",
             }}
           >
             &#8592; The Field Guide
@@ -151,96 +163,135 @@ export function FieldGuideModal({
           </span>
         </div>
 
-        {/* ── Scrollable body ── */}
-        <div
-          style={{
-            flex:      1,
-            overflowY: "auto",
-          }}
-        >
-          {/* Masthead */}
+        {/* ── Scroll area + caret overlay wrapper ── */}
+        <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
+
+          {/* Scrollable content */}
           <div
+            ref={scrollRef}
+            onScroll={handleScroll}
             style={{
-              padding:      "36px 20px 28px",
-              borderBottom: "1px solid rgba(212,160,74,0.12)",
+              position:  "absolute",
+              inset:     0,
+              overflowY: "auto",
+              overflowX: "hidden",
+              WebkitOverflowScrolling: "touch" as React.CSSProperties["WebkitOverflowScrolling"],
             }}
           >
-            {/* Eyebrow */}
+            {/* Masthead */}
             <div
               style={{
-                fontFamily:    S.sans,
-                fontSize:      10,
-                fontWeight:    600,
-                letterSpacing: "0.32em",
-                textTransform: "uppercase",
-                color:         S.ember,
-                marginBottom:  10,
+                padding:      "36px 20px 28px",
+                borderBottom: "1px solid rgba(212,160,74,0.12)",
               }}
             >
-              {vol.kicker}
+              <div
+                style={{
+                  fontFamily:    S.sans,
+                  fontSize:      10,
+                  fontWeight:    600,
+                  letterSpacing: "0.32em",
+                  textTransform: "uppercase",
+                  color:         S.ember,
+                  marginBottom:  10,
+                }}
+              >
+                {vol.kicker}
+              </div>
+
+              <h1
+                style={{
+                  fontFamily:    S.serif,
+                  fontSize:      34,
+                  fontWeight:    700,
+                  lineHeight:    1.1,
+                  letterSpacing: "-0.015em",
+                  margin:        "0 0 14px",
+                  color:         S.fg1,
+                }}
+              >
+                <TitleNode title={vol.title} goldWord={vol.goldWord} />
+              </h1>
+
+              <p
+                style={{
+                  fontFamily: S.serif,
+                  fontStyle:  "italic",
+                  fontSize:   15,
+                  lineHeight: 1.65,
+                  color:      S.fg2,
+                  margin:     "0 0 18px",
+                }}
+              >
+                {vol.deck}
+              </p>
+
+              <div
+                style={{
+                  display:       "flex",
+                  alignItems:    "center",
+                  gap:           8,
+                  fontFamily:    S.sans,
+                  fontSize:      10,
+                  letterSpacing: "0.2em",
+                  textTransform: "uppercase",
+                  color:         S.fg3,
+                }}
+              >
+                <span>Ash &amp; Ember Society</span>
+                <span style={{ color: S.ember }}>·</span>
+                <span>Field Guide</span>
+                <span style={{ color: S.ember }}>·</span>
+                <span>{vol.readTime}</span>
+              </div>
             </div>
 
-            {/* Title */}
-            <h1
-              style={{
-                fontFamily:    S.serif,
-                fontSize:      34,
-                fontWeight:    700,
-                lineHeight:    1.1,
-                letterSpacing: "-0.015em",
-                margin:        "0 0 14px",
-                color:         S.fg1,
-              }}
-            >
-              <TitleNode title={vol.title} goldWord={vol.goldWord} />
-            </h1>
-
-            {/* Deck */}
-            <p
-              style={{
-                fontFamily: S.serif,
-                fontStyle:  "italic",
-                fontSize:   15,
-                lineHeight: 1.65,
-                color:      S.fg2,
-                margin:     "0 0 18px",
-              }}
-            >
-              {vol.deck}
-            </p>
-
-            {/* Meta */}
+            {/* Article content */}
             <div
               style={{
-                display:       "flex",
-                alignItems:    "center",
-                gap:           8,
-                fontFamily:    S.sans,
-                fontSize:      10,
-                letterSpacing: "0.2em",
-                textTransform: "uppercase",
-                color:         S.fg3,
+                padding:       "32px 20px",
+                paddingBottom: "max(80px, calc(env(safe-area-inset-bottom) + 60px))",
               }}
             >
-              <span>Ash &amp; Ember Society</span>
-              <span style={{ color: S.ember }}>·</span>
-              <span>Field Guide</span>
-              <span style={{ color: S.ember }}>·</span>
-              <span>{vol.readTime}</span>
+              <Content />
             </div>
           </div>
 
-          {/* Article content */}
+          {/* Scroll caret overlay — fades out near bottom */}
           <div
             style={{
-              padding:       "32px 20px",
-              paddingBottom: "max(40px, env(safe-area-inset-bottom, 40px))",
+              position:       "absolute",
+              bottom:         0,
+              left:           0,
+              right:          0,
+              height:         80,
+              background:     "linear-gradient(to bottom, transparent, var(--background) 85%)",
+              display:        "flex",
+              alignItems:     "flex-end",
+              justifyContent: "center",
+              paddingBottom:  "max(14px, env(safe-area-inset-bottom))",
+              pointerEvents:  "none",
+              transition:     "opacity 0.25s ease",
+              opacity:        caret ? 1 : 0,
+              zIndex:         1,
             }}
           >
-            <Content />
+            <span
+              style={{
+                fontFamily: S.serif,
+                fontSize:   20,
+                color:      S.gold,
+                opacity:    0.7,
+                lineHeight: 1,
+              }}
+            >
+              &#8595;
+            </span>
           </div>
         </div>
       </div>
     </>
   );
+
+  return createPortal(modal, document.body);
 }
