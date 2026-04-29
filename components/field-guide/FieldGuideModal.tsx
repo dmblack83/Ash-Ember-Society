@@ -6,6 +6,7 @@ import { Vol01Content } from "@/components/field-guide/content/Vol01Content";
 import { Vol02Content } from "@/components/field-guide/content/Vol02Content";
 import { Vol03Content } from "@/components/field-guide/content/Vol03Content";
 import { Vol04Content } from "@/components/field-guide/content/Vol04Content";
+import { FieldGuideComments } from "@/components/field-guide/FieldGuideComments";
 
 const S = {
   serif: "'Playfair Display', Georgia, serif",
@@ -54,6 +55,27 @@ const VOLS = [
 
 const CONTENTS = [Vol01Content, Vol02Content, Vol03Content, Vol04Content];
 
+/* ------------------------------------------------------------------
+   Caret — matches AddCigarSheet.tsx exactly
+   ------------------------------------------------------------------ */
+
+function Caret({ dir }: { dir: "up" | "down" }) {
+  return (
+    <svg
+      width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"
+      style={{ color: "var(--muted-foreground)", opacity: 0.65 }}
+    >
+      {dir === "up"
+        ? <path d="M4.5 11.5L9 7L13.5 11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        : <path d="M4.5 6.5L9 11L13.5 6.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------
+   TitleNode — gold-coloured italic word within the article title
+   ------------------------------------------------------------------ */
+
 function TitleNode({ title, goldWord }: { title: string; goldWord: string }) {
   const idx = title.indexOf(goldWord);
   if (idx === -1) return <>{title}</>;
@@ -66,34 +88,48 @@ function TitleNode({ title, goldWord }: { title: string; goldWord: string }) {
   );
 }
 
-/* ── Heart icon ──────────────────────────────────────────────────── */
+/* ------------------------------------------------------------------
+   HeartIcon / ChatIcon
+   ------------------------------------------------------------------ */
+
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill={filled ? "var(--gold)" : "none"} stroke={filled ? "var(--gold)" : "currentColor"} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="19" height="19" viewBox="0 0 24 24"
+      fill={filled ? "var(--gold)" : "none"}
+      stroke={filled ? "var(--gold)" : "currentColor"}
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    >
       <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
     </svg>
   );
 }
 
-/* ── Chat icon ───────────────────────────────────────────────────── */
 function ChatIcon() {
   return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="19" height="19" viewBox="0 0 24 24"
+      fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+    >
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
     </svg>
   );
 }
+
+/* ------------------------------------------------------------------
+   FieldGuideModal
+   ------------------------------------------------------------------ */
 
 export function FieldGuideModal({
   volNumber,
   onClose,
 }: {
   volNumber: number;
-  onClose: () => void;
+  onClose:   () => void;
 }) {
-  const scrollRef         = useRef<HTMLDivElement>(null);
-  const [caret, setCaret] = useState(true);
-  const [liked, setLiked] = useState(false);
+  const scrollRef           = useRef<HTMLDivElement>(null);
+  const [showTopCaret,    setShowTopCaret]    = useState(false);
+  const [showBottomCaret, setShowBottomCaret] = useState(true);
+  const [liked,           setLiked]           = useState(false);
 
   /* Lock body scroll */
   useEffect(() => {
@@ -101,11 +137,23 @@ export function FieldGuideModal({
     return () => { document.body.style.overflow = ""; };
   }, []);
 
-  /* Show/hide scroll caret based on position */
-  function handleScroll() {
+  /* Caret visibility — matches AddCigarSheet.tsx pattern */
+  function updateCarets() {
     const el = scrollRef.current;
     if (!el) return;
-    setCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 80);
+    setShowTopCaret(el.scrollTop > 4);
+    setShowBottomCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
+  }
+
+  /* Scroll comment button to #fg-comments section */
+  function scrollToComments() {
+    const el = scrollRef.current;
+    if (!el) return;
+    const target = el.querySelector("#fg-comments") as HTMLElement | null;
+    if (!target) return;
+    const containerRect = el.getBoundingClientRect();
+    const targetRect    = target.getBoundingClientRect();
+    el.scrollBy({ top: targetRect.top - containerRect.top - 16, behavior: "smooth" });
   }
 
   const vol     = VOLS[volNumber - 1];
@@ -142,33 +190,32 @@ export function FieldGuideModal({
             paddingTop:   "env(safe-area-inset-top)",
           }}
         >
-          {/* Three-column grid: [back] [VOL. ##] [icons] */}
           <div
             style={{
               display:             "grid",
               gridTemplateColumns: "1fr auto 1fr",
-              alignItems:         "center",
+              alignItems:          "center",
               height:              52,
-              paddingLeft:        16,
-              paddingRight:       16,
+              paddingLeft:         16,
+              paddingRight:        16,
             }}
           >
             {/* Left — back */}
             <button
               onClick={onClose}
               style={{
-                display:    "flex",
-                alignItems: "center",
-                gap:        6,
-                background: "none",
-                border:     "none",
-                padding:    "8px 0",
-                cursor:     "pointer",
-                fontFamily: S.serif,
-                fontStyle:  "italic",
-                fontSize:   15,
-                color:      S.gold,
-                outline:    "none",
+                display:     "flex",
+                alignItems:  "center",
+                gap:         6,
+                background:  "none",
+                border:      "none",
+                padding:     "8px 0",
+                cursor:      "pointer",
+                fontFamily:  S.serif,
+                fontStyle:   "italic",
+                fontSize:    15,
+                color:       S.gold,
+                outline:     "none",
                 justifySelf: "start",
               }}
             >
@@ -184,7 +231,7 @@ export function FieldGuideModal({
                 letterSpacing: "0.3em",
                 textTransform: "uppercase",
                 color:         S.fg3,
-                justifySelf:  "center",
+                justifySelf:   "center",
               }}
             >
               VOL. {vol.num}
@@ -193,33 +240,32 @@ export function FieldGuideModal({
             {/* Right — like + comment */}
             <div
               style={{
-                display:        "flex",
-                alignItems:     "center",
-                gap:            18,
-                justifySelf:   "end",
+                display:     "flex",
+                alignItems:  "center",
+                gap:         18,
+                justifySelf: "end",
               }}
             >
-              {/* Like — toggles locally; wire to DB once table is in place */}
               <button
                 onClick={() => setLiked((x) => !x)}
                 aria-label={liked ? "Unlike" : "Like"}
                 style={{
-                  background:  "none",
-                  border:      "none",
-                  padding:     4,
-                  cursor:      "pointer",
-                  color:       liked ? S.gold : S.fg3,
-                  outline:     "none",
-                  lineHeight:  0,
-                  transition:  "color 0.15s ease",
+                  background: "none",
+                  border:     "none",
+                  padding:    4,
+                  cursor:     "pointer",
+                  color:      liked ? S.gold : S.fg3,
+                  outline:    "none",
+                  lineHeight: 0,
+                  transition: "color 0.15s ease",
                 }}
               >
                 <HeartIcon filled={liked} />
               </button>
 
-              {/* Comment — placeholder; see options discussion */}
               <button
-                aria-label="Comments"
+                onClick={scrollToComments}
+                aria-label="Jump to comments"
                 style={{
                   background: "none",
                   border:     "none",
@@ -236,13 +282,13 @@ export function FieldGuideModal({
           </div>
         </div>
 
-        {/* ── Scroll area + caret overlay ────────────────────────── */}
+        {/* ── Scroll area ────────────────────────────────────────── */}
         <div style={{ flex: 1, position: "relative", overflow: "hidden" }}>
 
           {/* Scrollable content */}
           <div
             ref={scrollRef}
-            onScroll={handleScroll}
+            onScroll={updateCarets}
             style={{
               position:  "absolute",
               inset:     0,
@@ -250,7 +296,7 @@ export function FieldGuideModal({
               overflowX: "hidden",
             }}
           >
-            {/* Width-constrained inner wrapper — matches home page max-w-2xl */}
+            {/* Width-constrained wrapper — matches home page max-w-2xl */}
             <div style={{ maxWidth: "42rem", margin: "0 auto", width: "100%" }}>
 
               {/* Masthead */}
@@ -321,49 +367,68 @@ export function FieldGuideModal({
                 </div>
               </div>
 
-              {/* Article content */}
+              {/* Article body */}
+              <div style={{ padding: "32px 16px 0" }}>
+                <Content />
+              </div>
+
+              {/* Comments — inline at article bottom (Option A) */}
               <div
                 style={{
-                  padding:       "32px 16px",
+                  padding:       "0 16px",
                   paddingBottom: "max(80px, calc(env(safe-area-inset-bottom) + 60px))",
                 }}
               >
-                <Content />
+                <FieldGuideComments volNumber={volNumber} />
               </div>
+
             </div>
           </div>
 
-          {/* Scroll caret — fades when near bottom */}
-          <div
-            style={{
-              position:       "absolute",
-              bottom:         0,
-              left:           0,
-              right:          0,
-              height:         80,
-              background:     "linear-gradient(to bottom, transparent, var(--background) 85%)",
-              display:        "flex",
-              alignItems:     "flex-end",
-              justifyContent: "center",
-              paddingBottom:  "max(14px, env(safe-area-inset-bottom))",
-              pointerEvents:  "none",
-              transition:     "opacity 0.25s ease",
-              opacity:        caret ? 1 : 0,
-              zIndex:         1,
-            }}
-          >
-            <span
+          {/* Top caret — matches AddCigarSheet.tsx */}
+          {showTopCaret && (
+            <div
+              aria-hidden="true"
               style={{
-                fontFamily: S.serif,
-                fontSize:   20,
-                color:      S.gold,
-                opacity:    0.7,
-                lineHeight: 1,
+                position:       "absolute",
+                top:            0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-start",
+                justifyContent: "center",
+                paddingTop:     8,
+                pointerEvents:  "none",
               }}
             >
-              &#8595;
-            </span>
-          </div>
+              <Caret dir="up" />
+            </div>
+          )}
+
+          {/* Bottom caret — matches AddCigarSheet.tsx */}
+          {showBottomCaret && (
+            <div
+              aria-hidden="true"
+              style={{
+                position:       "absolute",
+                bottom:         0,
+                left:           0,
+                right:          0,
+                height:         44,
+                background:     "linear-gradient(to top, var(--background) 30%, transparent)",
+                display:        "flex",
+                alignItems:     "flex-end",
+                justifyContent: "center",
+                paddingBottom:  8,
+                pointerEvents:  "none",
+              }}
+            >
+              <Caret dir="down" />
+            </div>
+          )}
+
         </div>
       </div>
     </>
