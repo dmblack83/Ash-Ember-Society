@@ -58,7 +58,7 @@ export interface SafetyResult {
 /**
  * Runs SAFE_SEARCH_DETECTION on a base64-encoded image.
  *
- * strict   — profile images: adult/violence LIKELY+, racy VERY_LIKELY+
+ * strict   — profile images: adult/racy/violence POSSIBLE+
  * moderate — other content:  adult/violence/racy VERY_LIKELY+
  */
 export async function checkImageSafety(
@@ -90,9 +90,9 @@ export async function checkImageSafety(
 
   if (policy === "strict") {
     if (
-      rank(scores.adult)    >= rank("LIKELY")      ||
-      rank(scores.violence) >= rank("LIKELY")      ||
-      rank(scores.racy)     >= rank("VERY_LIKELY")
+      rank(scores.adult)    >= rank("POSSIBLE") ||
+      rank(scores.racy)     >= rank("POSSIBLE") ||
+      rank(scores.violence) >= rank("POSSIBLE")
     ) {
       passed = false;
       reason = "Image did not pass content moderation.";
