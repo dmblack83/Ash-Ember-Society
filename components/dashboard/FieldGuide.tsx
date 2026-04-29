@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createClient }    from "@/utils/supabase/client";
 import { FieldGuideModal } from "@/components/field-guide/FieldGuideModal";
+
+type VolCounts = { likes: number; comments: number };
 
 const S = {
   serif: "'Playfair Display', Georgia, serif",
@@ -21,8 +24,34 @@ const VOLUMES = [
 ] as const;
 
 export function FieldGuide() {
+  const supabase = useMemo(() => createClient(), []);
+
   const [expanded,  setExpanded]  = useState(false);
   const [activeVol, setActiveVol] = useState<number | null>(null);
+  const [counts,    setCounts]    = useState<Record<number, VolCounts>>({});
+
+  /* Fetch like + comment counts for all volumes on mount */
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchCounts() {
+      const [likesRes, commentsRes] = await Promise.all([
+        supabase.from("field_guide_likes").select("vol_number"),
+        supabase.from("field_guide_comments").select("vol_number").is("parent_comment_id", null),
+      ]);
+      if (cancelled) return;
+
+      const lc: Record<number, number> = {};
+      for (const r of likesRes.data ?? [])    { lc[r.vol_number] = (lc[r.vol_number] ?? 0) + 1; }
+      const cc: Record<number, number> = {};
+      for (const r of commentsRes.data ?? []) { cc[r.vol_number] = (cc[r.vol_number] ?? 0) + 1; }
+
+      const merged: Record<number, VolCounts> = {};
+      for (let v = 1; v <= 4; v++) { merged[v] = { likes: lc[v] ?? 0, comments: cc[v] ?? 0 }; }
+      setCounts(merged);
+    }
+    fetchCounts();
+    return () => { cancelled = true; };
+  }, [supabase]);
 
   return (
     <section
@@ -269,6 +298,7 @@ export function FieldGuide() {
                         lineHeight:    1.1,
                         letterSpacing: "-0.01em",
                         color:         S.fg1,
+                        marginBottom:  6,
                       }}
                     >
                       {vol.before}
@@ -277,6 +307,27 @@ export function FieldGuide() {
                       </em>
                       {vol.after}
                     </div>
+                    {/* Like + comment counts */}
+                    {counts[i + 1] && (counts[i + 1].likes > 0 || counts[i + 1].comments > 0) && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        {counts[i + 1].likes > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: S.sans, fontSize: 10, color: S.fg3 }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" />
+                            </svg>
+                            {counts[i + 1].likes}
+                          </span>
+                        )}
+                        {counts[i + 1].comments > 0 && (
+                          <span style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: S.sans, fontSize: 10, color: S.fg3 }}>
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                            {counts[i + 1].comments}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Read time + arrow */}
