@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ImageAnnotatorClient } from "@google-cloud/vision";
-import { createClient }         from "@/utils/supabase/server";
-import { createServiceClient }  from "@/utils/supabase/service";
+import { ImageAnnotatorClient }      from "@google-cloud/vision";
+import { createClient }              from "@/utils/supabase/server";
+import { createServiceClient }       from "@/utils/supabase/service";
 
 /* ------------------------------------------------------------------
    Types
@@ -23,9 +23,7 @@ interface SafetyScores {
 }
 
 /* ------------------------------------------------------------------
-   Vision client — lazy singleton to avoid build-time crash.
-   Next.js runs module-level code during static analysis before env
-   vars are available, so we initialize only on first request.
+   Vision client — lazy singleton
    ------------------------------------------------------------------ */
 
 let _visionClient: ImageAnnotatorClient | null = null;
@@ -57,10 +55,6 @@ const LIKELIHOOD_RANK: Record<string, number> = Object.fromEntries(
   LIKELIHOOD_NAMES.map((n, i) => [n, i])
 );
 
-/**
- * The Vision SDK can return Likelihood as either a string ("LIKELY") or a
- * numeric enum value (4). Normalise both to a plain string.
- */
 function likelihoodToString(val: string | number | null | undefined): string {
   if (val == null) return "UNKNOWN";
   if (typeof val === "number") return LIKELIHOOD_NAMES[val] ?? "UNKNOWN";
@@ -80,7 +74,7 @@ function failsStrict(s: SafetyScores): boolean {
   );
 }
 
-/** moderate — blog images and cigar band photos */
+/** moderate — blog images */
 function failsModerate(s: SafetyScores): boolean {
   return (
     rank(s.adult)    >= rank("VERY_LIKELY") ||
@@ -120,9 +114,11 @@ export async function POST(req: NextRequest) {
   }
 
   /* ── Call Vision API ──────────────────────────────────────────── */
+  // cigar_band: OCR only — no safety scan (camera captures of cigar bands, not user-chosen content)
+  // profile_image / blog_image: safety scan only
   const features =
     type === "cigar_band"
-      ? [{ type: "TEXT_DETECTION" as const }, { type: "SAFE_SEARCH_DETECTION" as const }]
+      ? [{ type: "TEXT_DETECTION" as const }]
       : [{ type: "SAFE_SEARCH_DETECTION" as const }];
 
   let visionResult;
@@ -136,7 +132,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Vision API call failed" }, { status: 502 });
   }
 
-  /* ── Extract safety scores ────────────────────────────────────── */
+  /* ── OCR text (cigar_band only) ───────────────────────────────── */
+  if (type === "cigar_band") {
+    const ocrText = visionResult.textAnnotations?.[0]?.description ?? "";
+    return NextResponse.json({ ocrText });
+  }
+
+  /* ── Safety scores (profile_image / blog_image) ───────────────── */
   const ss = visionResult.safeSearchAnnotation ?? {};
   const safety: SafetyScores = {
     adult:    likelihoodToString(ss.adult),
@@ -146,25 +148,18 @@ export async function POST(req: NextRequest) {
     medical:  likelihoodToString(ss.medical),
   };
 
-  /* ── OCR text (cigar_band only) ───────────────────────────────── */
-  const ocrText =
-    type === "cigar_band"
-      ? (visionResult.textAnnotations?.[0]?.description ?? "")
-      : undefined;
-
-  /* ── Apply safety policy ──────────────────────────────────────── */
   let passed = true;
   let reason: string | undefined;
 
   if (type === "profile_image" && failsStrict(safety)) {
     passed = false;
-    reason = "Image did not pass safety check (strict policy).";
-  } else if ((type === "blog_image" || type === "cigar_band") && failsModerate(safety)) {
+    reason = "Image did not pass content moderation.";
+  } else if (type === "blog_image" && failsModerate(safety)) {
     passed = false;
-    reason = "Image did not pass safety check (moderate policy).";
+    reason = "Image did not pass content moderation.";
   }
 
-  /* ── Log to moderation_log (service role — bypasses RLS) ─────── */
+  /* ── Log to moderation_log ────────────────────────────────────── */
   try {
     const service = createServiceClient();
     await service.from("moderation_log").insert({
@@ -175,14 +170,11 @@ export async function POST(req: NextRequest) {
       reason:        reason ?? null,
     });
   } catch (err) {
-    // Non-fatal — don't fail the request if logging fails
     console.error("[vision/analyze] Failed to write moderation_log:", err);
   }
 
-  /* ── Response ─────────────────────────────────────────────────── */
   return NextResponse.json({
     passed,
-    ...(ocrText !== undefined && { ocrText }),
     safety,
     ...(reason && { reason }),
   });
