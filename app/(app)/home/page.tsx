@@ -4,6 +4,7 @@ import { WelcomeSection, QuickActions } from "@/components/dashboard/WelcomeSect
 import { SmokingConditions }            from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }                  from "@/components/dashboard/AgingAlerts";
 import { CigarNews }                    from "@/components/dashboard/CigarNews";
+import { FieldGuide }                   from "@/components/dashboard/FieldGuide";
 import { TrendingLounge }               from "@/components/dashboard/TrendingLounge";
 import type { AgingItem }               from "@/components/dashboard/AgingAlerts";
 import type { LoungePost }              from "@/components/dashboard/TrendingLounge";
@@ -130,7 +131,10 @@ export default async function HomePage() {
         userName={userName}
       />
 
-      {/* ── 4. Trending in The Lounge ─────────────────────────────── */}
+      {/* ── 4. Field Guide — editorial reference library ──────────── */}
+      <FieldGuide />
+
+      {/* ── 5. Trending in The Lounge ─────────────────────────────── */}
       <TrendingLounge initialPosts={trendingPosts} />
 
     </div>
