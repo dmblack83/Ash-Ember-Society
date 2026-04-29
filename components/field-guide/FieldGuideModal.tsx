@@ -147,7 +147,7 @@ export function FieldGuideModal({ volNumber, onClose }: { volNumber: number; onC
     } else {
       setLiked(true);
       setLikeCount((n) => n + 1);
-      await supabase.from("field_guide_likes").insert({ vol_number: volNumber, user_id: userId });
+      await supabase.from("field_guide_likes").upsert({ vol_number: volNumber, user_id: userId }, { onConflict: "vol_number,user_id", ignoreDuplicates: true });
     }
     setLiking(false);
   }
