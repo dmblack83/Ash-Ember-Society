@@ -97,7 +97,9 @@ export function FieldGuide() {
             marginBottom:  10,
           }}
         >
-          The Field Guide
+          The{" "}
+          <span style={{ color: "#d4a04a" }}>Field</span>
+          {" "}Guide
         </div>
 
         {/* Subtitle */}
