@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag }             from "next/cache";
 import { createClient }             from "@/utils/supabase/server";
 import { getServerUser }            from "@/lib/auth/server-user";
 import { createServiceClient }      from "@/utils/supabase/service";
@@ -136,6 +137,10 @@ export async function PATCH(
       .from("cigar-photos-pending")
       .remove([submission.storage_path]),
   ]);
+
+  // Approving an image mutates cigar_catalog; mark the cached catalog reads
+  // stale so the next visit picks up the new image_url.
+  revalidateTag("cigar-catalog", "max");
 
   return NextResponse.json({ ok: true, imageUrl: publicUrl });
 }

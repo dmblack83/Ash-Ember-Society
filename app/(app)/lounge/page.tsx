@@ -3,6 +3,10 @@ import { getServerUser }        from "@/lib/auth/server-user";
 import { redirect }             from "next/navigation";
 import { LoungeForumClient }    from "@/components/lounge/LoungeForumClient";
 import { getMembershipTier }    from "@/lib/membership";
+import {
+  getAllForumCategories,
+  getForumCategoryStats,
+} from "@/lib/data/forum";
 
 export const dynamic  = "force-dynamic";
 export const metadata = { title: "The Lounge — Ash & Ember Society" };
@@ -14,9 +18,9 @@ export default async function LoungePage() {
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [categoriesRes, statsRes, profileRes, rulesPostRes, todayRes] = await Promise.all([
-    supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback").order("sort_order"),
-    supabase.rpc("get_forum_category_stats"),
+  const [categories, stats, profileRes, rulesPostRes, todayRes] = await Promise.all([
+    getAllForumCategories(),
+    getForumCategoryStats(),
     supabase.from("profiles").select("display_name, membership_tier, badge").eq("id", user.id).single(),
     supabase
       .from("forum_posts")
@@ -31,13 +35,11 @@ export default async function LoungePage() {
       .gte("created_at", since24h),
   ]);
 
-  const categories = categoriesRes.data ?? [];
-  const stats      = statsRes.data ?? [];
-  const rulesPost  = rulesPostRes.data;
+  const rulesPost = rulesPostRes.data;
 
   const statsMap: Record<string, { post_count: number; last_post_at: string | null }> = {};
-  for (const s of stats as { category_id: string; post_count: number; last_post_at: string | null }[]) {
-    statsMap[s.category_id] = { post_count: Number(s.post_count), last_post_at: s.last_post_at };
+  for (const s of stats) {
+    statsMap[s.category_id] = { post_count: s.post_count, last_post_at: s.last_post_at };
   }
 
   const todayCounts: Record<string, number> = {};

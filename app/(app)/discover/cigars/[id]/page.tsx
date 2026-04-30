@@ -1,5 +1,6 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient }  from "@/utils/supabase/server";
 import { getServerUser } from "@/lib/auth/server-user";
+import { getCigarById }  from "@/lib/data/cigar-catalog";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
@@ -55,19 +56,15 @@ export default async function CigarDetailPage({
 
   const supabase = await createClient();
 
-  // Fetch cigar data and current user in parallel
-  const [{ data, error }, user] = await Promise.all([
-    supabase
-      .from("cigar_catalog")
-      .select("id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
-      .eq("id", id)
-      .single(),
+  // Cached catalog read + auth header read run in parallel.
+  const [cigarData, user] = await Promise.all([
+    getCigarById(id),
     getServerUser(),
   ]);
 
-  if (error || !data) notFound();
+  if (!cigarData) notFound();
 
-  const c = data as CigarDetail;
+  const c = cigarData as CigarDetail;
 
   /* Check if the current user has this cigar on their wishlist */
   let isWishlisted = false;

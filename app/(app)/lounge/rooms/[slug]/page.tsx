@@ -5,6 +5,7 @@ import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
 import type { PostItem }     from "@/components/lounge/InlinePost";
 import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
 import { getMembershipTier } from "@/lib/membership";
+import { getAllForumCategories } from "@/lib/data/forum";
 
 export const dynamic = "force-dynamic";
 
@@ -37,20 +38,11 @@ export default async function LoungeCategoryPage({ params }: Props) {
     if ((count ?? 0) === 0) redirect("/lounge");
   }
 
-  /* ---- Category ---- */
-  const { data: category } = await supabase
-    .from("forum_categories")
-    .select("id, name, slug, description, is_locked, is_feedback")
-    .eq("slug", slug)
-    .single();
+  /* ---- Categories: cached fetch + slug lookup in one shot ---- */
+  const allCategories = await getAllForumCategories();
+  const category      = allCategories.find((c) => c.slug === slug) ?? null;
 
   if (!category) notFound();
-
-  /* ---- All categories (for NewPostSheet) ---- */
-  const { data: allCategories } = await supabase
-    .from("forum_categories")
-    .select("id, name, is_locked, is_gate, is_feedback")
-    .order("sort_order");
 
   /* ---- First page of posts ---- */
   const { data: rawPosts } = await supabase
@@ -163,7 +155,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
         is_locked:   category.is_locked,
         is_feedback: category.is_feedback,
       }}
-      allCategories={allCategories ?? []}
+      allCategories={allCategories}
       initialPosts={initialPosts}
       initialLikedIds={[...likedSet]}
       userId={user.id}
