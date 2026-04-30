@@ -60,6 +60,8 @@ export default async function HumidorItemPage({
   const user     = await getServerUser();
   if (!user) redirect("/login");
 
+  // Step 1: fetch the item (ownership-checked). Need cigar_id before the
+  // next batch can run.
   const { data: item, error } = await supabase
     .from("humidor_items")
     .select("*, cigar:cigar_catalog(*)")
@@ -69,21 +71,24 @@ export default async function HumidorItemPage({
 
   if (error || !item) notFound();
 
-  const { data: submission } = await supabase
-    .from("cigar_image_submissions")
-    .select("status")
-    .eq("cigar_id", item.cigar_id)
-    .in("status", ["pending", "approved"])
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: smokeLogs } = await supabase
-    .from("smoke_logs")
-    .select("id, smoked_at, overall_rating, review_text, content_video_id")
-    .eq("user_id", user.id)
-    .eq("cigar_id", item.cigar_id)
-    .order("smoked_at", { ascending: false });
+  // Step 2: image-submission status and the user's smoke logs for this
+  // cigar are independent — fetch in parallel.
+  const [{ data: submission }, { data: smokeLogs }] = await Promise.all([
+    supabase
+      .from("cigar_image_submissions")
+      .select("status")
+      .eq("cigar_id", item.cigar_id)
+      .in("status", ["pending", "approved"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("smoke_logs")
+      .select("id, smoked_at, overall_rating, review_text, content_video_id")
+      .eq("user_id", user.id)
+      .eq("cigar_id", item.cigar_id)
+      .order("smoked_at", { ascending: false }),
+  ]);
 
   // Fetch video data for any logs that have a linked video
   const videoIds = (smokeLogs ?? [])
