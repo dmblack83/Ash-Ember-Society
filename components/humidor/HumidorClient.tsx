@@ -180,7 +180,10 @@ function GridCard({ item }: { item: HumidorItem }) {
   const displayName = c.series ?? c.format;
 
   return (
-    <Link href={`/humidor/${item.id}`} className="block">
+    // prefetch={false} — humidor grids can contain 50+ cards. Auto-prefetch
+    // would fire an RSC fetch for every visible card on render, burning
+    // edge requests + bandwidth on items the user may never tap.
+    <Link href={`/humidor/${item.id}`} prefetch={false} className="block">
       <div className="card card-interactive relative flex flex-col gap-2 h-full p-0 overflow-hidden">
         {/* Quantity badge */}
         {item.quantity > 1 && (
@@ -242,7 +245,7 @@ function ListRow({ item }: { item: HumidorItem }) {
   const displayName = c.series ?? c.format;
 
   return (
-    <Link href={`/humidor/${item.id}`} className="block">
+    <Link href={`/humidor/${item.id}`} prefetch={false} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">

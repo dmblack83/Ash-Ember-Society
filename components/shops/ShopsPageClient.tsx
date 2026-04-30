@@ -239,6 +239,7 @@ function ShopCard({ shop, userLoc, index, onSelect, selected }: ShopCardProps) {
       <div className="px-4 pb-3">
         <Link
           href={`/discover/shops/${shop.slug}`}
+          prefetch={false}
           className="btn btn-secondary w-full text-xs py-2 text-center"
           style={{ minHeight: 44 }}
         >

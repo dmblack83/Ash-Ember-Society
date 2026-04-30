@@ -224,7 +224,7 @@ export default async function Vol02Page() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/field-guide/tobacco-plant.png"
+            src="/field-guide/tobacco-plant.webp"
             alt="A tobacco plant showing the four priming positions"
             style={{
               maxWidth:   360,
