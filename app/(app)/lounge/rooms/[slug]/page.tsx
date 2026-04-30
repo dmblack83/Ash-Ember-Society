@@ -1,4 +1,5 @@
 import { createClient }      from "@/utils/supabase/server";
+import { getServerUser }     from "@/lib/auth/server-user";
 import { redirect, notFound } from "next/navigation";
 import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
 import type { PostItem }     from "@/components/lounge/InlinePost";
@@ -15,9 +16,8 @@ interface Props {
 
 export default async function LoungeCategoryPage({ params }: Props) {
   const { slug } = await params;
-  const supabase  = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabase = await createClient();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   /* ---- Guard: user must have agreed to rules ---- */

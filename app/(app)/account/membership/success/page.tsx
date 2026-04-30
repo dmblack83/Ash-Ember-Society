@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient }  from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMembershipTier, TIER_DISPLAY } from "@/lib/membership";
@@ -30,10 +31,7 @@ const UNLOCKED: Record<string, string[]> = {
 
 export default async function MembershipSuccessPage() {
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase

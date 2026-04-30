@@ -1,5 +1,6 @@
-import { redirect }          from "next/navigation";
-import { createClient }      from "@/utils/supabase/server";
+import { redirect }            from "next/navigation";
+import { createClient }        from "@/utils/supabase/server";
+import { getServerUser }       from "@/lib/auth/server-user";
 import { createServiceClient } from "@/utils/supabase/service";
 import { AdminTasksWidget }  from "@/components/admin/AdminTasksWidget";
 import type { PendingSubmission } from "@/components/admin/AdminTasksWidget";
@@ -8,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   /* ── Admin gate ───────────────────────────────────────────────── */

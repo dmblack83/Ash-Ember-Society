@@ -1,4 +1,5 @@
 import { createClient }       from "@/utils/supabase/server";
+import { getServerUser }      from "@/lib/auth/server-user";
 import { BurnReportsClient }  from "@/components/humidor/BurnReportsClient";
 import type { BurnReportRow, FlavorTag } from "@/components/humidor/BurnReportsClient";
 
@@ -6,9 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function BurnReportsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
 
   if (!user) return null;
 

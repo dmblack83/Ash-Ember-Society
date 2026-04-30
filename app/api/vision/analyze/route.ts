@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ImageAnnotatorClient }      from "@google-cloud/vision";
 import { createClient }              from "@/utils/supabase/server";
+import { getServerUser }             from "@/lib/auth/server-user";
 import { createServiceClient }       from "@/utils/supabase/service";
 
 /* ------------------------------------------------------------------
@@ -90,7 +91,7 @@ function failsModerate(s: SafetyScores): boolean {
 export async function POST(req: NextRequest) {
   /* ── Auth ─────────────────────────────────────────────────────── */
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

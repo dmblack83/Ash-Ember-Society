@@ -1,4 +1,5 @@
 import { createClient }      from "@/utils/supabase/server";
+import { getServerUser }     from "@/lib/auth/server-user";
 import { redirect }          from "next/navigation";
 import { PostDetailClient }  from "@/components/lounge/PostDetailClient";
 import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
@@ -12,8 +13,7 @@ interface Props {
 export default async function PostDetailPage({ params }: Props) {
   const { postId } = await params;
   const supabase   = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user       = await getServerUser();
   if (!user) redirect("/login");
 
   const [postRes, commentsRes, likeRes] = await Promise.all([

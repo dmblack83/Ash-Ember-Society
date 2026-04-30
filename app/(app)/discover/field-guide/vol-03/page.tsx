@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import {
   ArticleShell,
   Em,
@@ -22,8 +22,7 @@ const S = {
 } as const;
 
 export default async function Vol03Page() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerUser();
   if (!user) redirect("/login");
 
   return (

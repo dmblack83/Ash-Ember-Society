@@ -1,4 +1,5 @@
 import { createClient }       from "@/utils/supabase/server";
+import { getServerUser }      from "@/lib/auth/server-user";
 import { redirect }           from "next/navigation";
 import { getMembershipTier }  from "@/lib/membership";
 import { ChannelsClient }     from "@/components/discover/ChannelsClient";
@@ -40,8 +41,7 @@ export interface Channel {
 
 export default async function ChannelsPage() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   const { data: profileData } = await supabase

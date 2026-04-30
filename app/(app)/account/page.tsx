@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient }  from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import { redirect } from "next/navigation";
 import { getMembershipTier } from "@/lib/membership";
 import { stripe } from "@/lib/stripe";
@@ -30,8 +31,7 @@ interface ProfileRow {
 
 export default async function AccountPage() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   /* Cast through unknown so TypeScript accepts columns not yet in the

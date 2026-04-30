@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
@@ -55,13 +56,13 @@ export default async function CigarDetailPage({
   const supabase = await createClient();
 
   // Fetch cigar data and current user in parallel
-  const [{ data, error }, { data: { user } }] = await Promise.all([
+  const [{ data, error }, user] = await Promise.all([
     supabase
       .from("cigar_catalog")
       .select("id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
       .eq("id", id)
       .single(),
-    supabase.auth.getUser(),
+    getServerUser(),
   ]);
 
   if (error || !data) notFound();

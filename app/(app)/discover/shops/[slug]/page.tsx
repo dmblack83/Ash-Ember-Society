@@ -1,4 +1,5 @@
 import { createClient }           from "@/utils/supabase/server";
+import { getServerUser }          from "@/lib/auth/server-user";
 import { redirect, notFound }    from "next/navigation";
 import { getMembershipTier }     from "@/lib/membership";
 import { ShopDetailPageClient }  from "@/components/shops/ShopDetailPageClient";
@@ -57,9 +58,8 @@ function isOpenNow(shop: Shop): boolean {
 
 export default async function ShopDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const supabase  = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const supabase = await createClient();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   // Phase 1: fetch shop + profile in parallel (avoids duplicate shop query)

@@ -1,4 +1,5 @@
 import { createClient }      from "@/utils/supabase/server";
+import { getServerUser }     from "@/lib/auth/server-user";
 import { redirect }          from "next/navigation";
 import { getMembershipTier } from "@/lib/membership";
 import { ShopsPageClient }   from "@/components/shops/ShopsPageClient";
@@ -49,8 +50,7 @@ export interface Shop {
 
 export default async function ShopsPage() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   const { data: profileData } = await supabase
