@@ -11,7 +11,9 @@ export default async function LoungePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [categoriesRes, statsRes, profileRes, rulesPostRes] = await Promise.all([
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+  const [categoriesRes, statsRes, profileRes, rulesPostRes, todayRes] = await Promise.all([
     supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback").order("sort_order"),
     supabase.rpc("get_forum_category_stats"),
     supabase.from("profiles").select("display_name, membership_tier").eq("id", user.id).single(),
@@ -21,6 +23,11 @@ export default async function LoungePage() {
       .eq("is_system", true)
       .eq("is_pinned", true)
       .single(),
+    supabase
+      .from("forum_posts")
+      .select("category_id")
+      .eq("is_system", false)
+      .gte("created_at", since24h),
   ]);
 
   const categories = categoriesRes.data ?? [];
@@ -32,10 +39,16 @@ export default async function LoungePage() {
     statsMap[s.category_id] = { post_count: Number(s.post_count), last_post_at: s.last_post_at };
   }
 
+  const todayCounts: Record<string, number> = {};
+  for (const row of todayRes.data ?? []) {
+    todayCounts[row.category_id] = (todayCounts[row.category_id] ?? 0) + 1;
+  }
+
   const categoriesWithCount = categories.map((c) => ({
     ...c,
     post_count:   statsMap[c.id]?.post_count   ?? 0,
     last_post_at: statsMap[c.id]?.last_post_at ?? null,
+    today_count:  todayCounts[c.id]            ?? 0,
   }));
 
   // Check if user has unlocked + total agreement count
