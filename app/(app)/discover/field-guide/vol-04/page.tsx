@@ -191,7 +191,7 @@ export default async function Vol04Page() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/field-guide/maduro-cigar.png"
+            src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
             style={{
               height:     140,
@@ -203,7 +203,7 @@ export default async function Vol04Page() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/field-guide/guillotine-cutter.png"
+              src="/field-guide/guillotine-cutter.webp"
               alt="Guillotine cutter"
               style={{
                 width:   88,
@@ -385,14 +385,14 @@ export default async function Vol04Page() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/field-guide/maduro-cigar.png"
+            src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/field-guide/punch-cutter.png"
+              src="/field-guide/punch-cutter.webp"
               alt="Bullet punch cutter"
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
@@ -512,14 +512,14 @@ export default async function Vol04Page() {
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/field-guide/maduro-cigar.png"
+            src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/field-guide/v-cutter.png"
+              src="/field-guide/v-cutter.webp"
               alt="V-cutter"
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
