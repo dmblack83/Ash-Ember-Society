@@ -8,6 +8,7 @@ import type { PostItem }     from "./InlinePost";
 import type { SmokeLogData } from "./PostDetailClient";
 import { NewPostSheet }      from "./NewPostSheet";
 import { Toast }             from "@/components/ui/toast";
+import { ScrollCarets }      from "@/components/ui/ScrollCarets";
 
 /* ------------------------------------------------------------------ */
 
@@ -181,6 +182,7 @@ export function CategoryFeed({
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      <ScrollCarets />
 
       {/* Fixed header */}
       <div style={{
@@ -196,52 +198,51 @@ export function CategoryFeed({
         borderBottom:      "1px solid var(--border)",
         display:           "flex",
         alignItems:        "center",
-        paddingLeft:       16,
-        paddingRight:      16,
-        gap:               12,
       }}>
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="flex items-center gap-1 text-sm"
-          style={{
-            color:                   "var(--gold,#D4A04A)",
-            background:              "none",
-            border:                  "none",
-            cursor:                  "pointer",
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-            minHeight:               44,
-            padding:                 "0 4px",
-            flexShrink:              0,
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-            <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Back
-        </button>
+        <div className="flex items-center w-full px-4 md:max-w-[50%] md:mx-auto" style={{ gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="flex items-center gap-1 text-sm"
+            style={{
+              color:                   "var(--gold,#D4A04A)",
+              background:              "none",
+              border:                  "none",
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              minHeight:               44,
+              padding:                 "0 4px",
+              flexShrink:              0,
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Back
+          </button>
 
-        <h1 className="font-serif text-base font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>
-          {category.name}
-        </h1>
+          <h1 className="font-serif text-base font-semibold flex-1 truncate" style={{ color: "var(--foreground)" }}>
+            {category.name}
+          </h1>
 
-        <button
-          type="button"
-          onClick={handleNewPost}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-          style={{
-            background:              "linear-gradient(135deg,#D4A04A,#C17817)",
-            color:                   "#1A1210",
-            border:                  "none",
-            cursor:                  "pointer",
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-            flexShrink:              0,
-          }}
-        >
-          + New Post
-        </button>
+          <button
+            type="button"
+            onClick={handleNewPost}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+            style={{
+              background:              "linear-gradient(135deg,#D4A04A,#C17817)",
+              color:                   "#1A1210",
+              border:                  "none",
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              flexShrink:              0,
+            }}
+          >
+            + New Post
+          </button>
+        </div>
       </div>
 
       {/* Content */}

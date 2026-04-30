@@ -648,7 +648,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
         )}
 
         {/* Action bar */}
-        <div className="flex items-center gap-4 mt-4">
+        <div className="flex items-center justify-end gap-4 mt-4">
           {isFeedback ? (
             <>
               {/* Upvote */}
