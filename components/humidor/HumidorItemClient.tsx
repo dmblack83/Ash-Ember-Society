@@ -10,7 +10,8 @@ import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { getCigarImage } from "@/lib/cigar-default-image";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
-import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
+import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
+import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -521,9 +522,11 @@ function SmokeModal({
 export function HumidorItemClient({
   item: initialItem,
   initialSmokeLogs,
+  hasPending = false,
 }: {
   item: HumidorItemDetail;
   initialSmokeLogs: SmokeLog[];
+  hasPending?: boolean;
 }) {
   const router = useRouter();
 
@@ -702,8 +705,15 @@ export function HumidorItemClient({
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
-        <div className="w-full sm:w-64 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+        <div className="w-full sm:w-64 flex-shrink-0 flex flex-col gap-2">
+          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+            <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+          </div>
+          <CigarPhotoSubmitButton
+            cigarId={item.cigar_id}
+            cigarName={[c.brand, c.series ?? c.format].filter(Boolean).join(" ")}
+            hasPending={hasPending}
+          />
         </div>
 
         {/* Info */}
