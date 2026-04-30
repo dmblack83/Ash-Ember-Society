@@ -49,8 +49,10 @@ interface HumidorRow {
   quantity:          number;
   purchase_quantity: number | null;
   price_paid_cents:  number | null;
-  cigar:             { id: string; brand: string } | null;
+  cigar:             { id: string; brand: string; strength: string | null } | null;
 }
+
+const STRENGTH_ORDER: readonly string[] = ["mild", "mild_medium", "medium", "medium_full", "full"];
 interface FlavorTag {
   id:       string;
   name:     string;
@@ -77,13 +79,22 @@ function buildMonthlyBars(logs: SmokeLog[]): MonthlyBar[] {
 }
 
 function buildStrengthDist(
-  _logs: SmokeLog[],
-  _strengthByCigar: Record<string, string>
+  logs:            SmokeLog[],
+  strengthByCigar: Record<string, string>
 ): StrengthSlice[] {
-  // cigar_catalog does not have a strength column; reserved for future data
-  void STRENGTH_COLORS;
-  void STRENGTH_LABELS;
-  return [];
+  const counts: Record<string, number> = {};
+  for (const log of logs) {
+    const s = strengthByCigar[log.cigar_id];
+    if (!s) continue;
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+  return STRENGTH_ORDER
+    .filter((s) => (counts[s] ?? 0) > 0)
+    .map((s) => ({
+      name:  STRENGTH_LABELS[s] ?? s,
+      value: counts[s],
+      color: STRENGTH_COLORS[s] ?? "#888888",
+    }));
 }
 
 function buildRatingBuckets(logs: SmokeLog[]): RatingBucket[] {
@@ -151,7 +162,7 @@ export default async function StatsPage() {
       .order("smoked_at", { ascending: true }),
     supabase
       .from("humidor_items")
-      .select("quantity, purchase_quantity, price_paid_cents, cigar:cigar_catalog(id, brand)")
+      .select("quantity, purchase_quantity, price_paid_cents, cigar:cigar_catalog(id, brand, strength)")
       .eq("user_id", user.id)
       .eq("is_wishlist", false),
     supabase.from("flavor_tags").select("id, name, category"),
@@ -161,11 +172,12 @@ export default async function StatsPage() {
   const hRows = (humidorRes.data ?? []) as unknown as HumidorRow[];
   const tags  = (tagsRes.data   ?? []) as FlavorTag[];
 
-  const brandsByCigar: Record<string, string> = {};
+  const brandsByCigar:   Record<string, string> = {};
+  const strengthByCigar: Record<string, string> = {};
   for (const row of hRows) {
-    if (row.cigar) {
-      brandsByCigar[row.cigar.id] = row.cigar.brand;
-    }
+    if (!row.cigar) continue;
+    brandsByCigar[row.cigar.id] = row.cigar.brand;
+    if (row.cigar.strength) strengthByCigar[row.cigar.id] = row.cigar.strength;
   }
 
   // Cigars currently in humidor (sum of quantities)
@@ -200,7 +212,7 @@ export default async function StatsPage() {
     collectionValueCents,
     hasEnough,
     monthlyBars:   buildMonthlyBars(logs),
-    strengthDist:  buildStrengthDist(logs, {}),
+    strengthDist:  buildStrengthDist(logs, strengthByCigar),
     ratingBuckets: buildRatingBuckets(logs),
     flavorFreq:    buildFlavorFreq(logs, tags),
     topBrands:     buildTopBrands(logs, brandsByCigar),
