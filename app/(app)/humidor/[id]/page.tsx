@@ -71,11 +71,13 @@ export default async function HumidorItemPage({
 
   if (error || !item) notFound();
 
-  const { data: pendingSubmission } = await supabase
+  const { data: submission } = await supabase
     .from("cigar_image_submissions")
-    .select("id")
+    .select("status")
     .eq("cigar_id", item.cigar_id)
-    .eq("status", "pending")
+    .in("status", ["pending", "approved"])
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   const { data: smokeLogs } = await supabase
@@ -110,7 +112,8 @@ export default async function HumidorItemPage({
     <HumidorItemClient
       item={item as HumidorItemDetail}
       initialSmokeLogs={normalizedLogs}
-      hasPending={!!pendingSubmission}
+      hasPending={submission?.status === "pending"}
+      hasApproved={submission?.status === "approved"}
     />
   );
 }
