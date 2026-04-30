@@ -8,6 +8,8 @@ import { CigarActions } from "@/components/cigars/CigarActions";
 import { getCigarImage } from "@/lib/cigar-default-image";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 
+export const runtime = "edge";
+
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */

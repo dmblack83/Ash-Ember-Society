@@ -6,6 +6,7 @@ import { ShopDetailPageClient }  from "@/components/shops/ShopDetailPageClient";
 import type { MembershipTier }   from "@/lib/stripe";
 import type { Shop }             from "@/app/(app)/discover/shops/page";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {

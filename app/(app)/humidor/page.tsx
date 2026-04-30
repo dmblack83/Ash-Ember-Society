@@ -4,6 +4,7 @@ import { HumidorClient } from "@/components/humidor/HumidorClient";
 import type { HumidorItem } from "@/components/humidor/HumidorClient";
 
 // User-specific data — opt out of static rendering
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function HumidorPage() {

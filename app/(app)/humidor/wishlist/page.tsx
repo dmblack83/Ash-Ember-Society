@@ -4,6 +4,7 @@ import { WishlistClient } from "@/components/humidor/WishlistClient";
 import type { WishlistItem } from "@/components/humidor/WishlistClient";
 
 // User-specific data -- opt out of static rendering
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function WishlistPage() {

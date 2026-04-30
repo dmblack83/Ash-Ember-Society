@@ -3,6 +3,7 @@ import { getServerUser }      from "@/lib/auth/server-user";
 import { BurnReportsClient }  from "@/components/humidor/BurnReportsClient";
 import type { BurnReportRow, FlavorTag } from "@/components/humidor/BurnReportsClient";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function BurnReportsPage() {
