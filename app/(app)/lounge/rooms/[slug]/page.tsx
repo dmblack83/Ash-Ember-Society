@@ -7,6 +7,10 @@ import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
 import { getMembershipTier } from "@/lib/membership";
 import { getAllForumCategories } from "@/lib/data/forum";
 
+// Run on the Edge runtime: ~50ms cold start vs ~1–3s on Node serverless.
+// Compatible deps: @supabase/ssr, @supabase/supabase-js, next/cache,
+// next/headers, date-fns. No Stripe / Google Vision / fs / sharp here.
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 15;

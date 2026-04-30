@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/server-user";
 import LandingPage from "@/components/landing/LandingPage";
 
+export const runtime = "edge";
+
 export const metadata = {
   title: "Ash & Ember Society",
   description:

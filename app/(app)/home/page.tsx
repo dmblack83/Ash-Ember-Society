@@ -12,6 +12,7 @@ import type { LoungePost }              from "@/components/dashboard/TrendingLou
 import type { BlogPost }                from "@/components/dashboard/CigarNews";
 
 // User-specific data — opt out of static rendering
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {

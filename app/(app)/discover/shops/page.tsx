@@ -5,6 +5,7 @@ import { getMembershipTier } from "@/lib/membership";
 import { ShopsPageClient }   from "@/components/shops/ShopsPageClient";
 import type { MembershipTier } from "@/lib/stripe";
 
+export const runtime  = "edge";
 export const metadata = { title: "Find a Lounge — Ash & Ember Society" };
 
 /* ------------------------------------------------------------------

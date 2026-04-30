@@ -11,6 +11,7 @@ import type {
 } from "@/components/humidor/StatsClient";
 
 // User-specific data -- opt out of static rendering
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /* ------------------------------------------------------------------

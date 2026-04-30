@@ -5,6 +5,7 @@ import { createServiceClient } from "@/utils/supabase/service";
 import { AdminTasksWidget }  from "@/components/admin/AdminTasksWidget";
 import type { PendingSubmission } from "@/components/admin/AdminTasksWidget";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {

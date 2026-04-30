@@ -4,6 +4,7 @@ import { redirect }           from "next/navigation";
 import { getMembershipTier }  from "@/lib/membership";
 import { ChannelsClient }     from "@/components/discover/ChannelsClient";
 
+export const runtime  = "edge";
 export const metadata = { title: "Partner Channels — Ash & Ember Society" };
 
 /* ------------------------------------------------------------------

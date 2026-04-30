@@ -4,6 +4,7 @@ import { redirect }          from "next/navigation";
 import { PostDetailClient }  from "@/components/lounge/PostDetailClient";
 import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 interface Props {

@@ -3,6 +3,8 @@ import { getServerUser } from "@/lib/auth/server-user";
 import { notFound, redirect } from "next/navigation";
 import { BurnReport } from "@/components/humidor/BurnReport";
 
+export const runtime = "edge";
+
 /* ------------------------------------------------------------------
    Shared types (imported by client component)
    ------------------------------------------------------------------ */

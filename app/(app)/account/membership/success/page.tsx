@@ -5,6 +5,8 @@ import Link from "next/link";
 import { getMembershipTier, TIER_DISPLAY } from "@/lib/membership";
 import { SuccessConfetti } from "@/components/membership/SuccessConfetti";
 
+export const runtime = "edge";
+
 export const metadata = {
   title: "Welcome — Ash & Ember Society",
 };

@@ -3,6 +3,7 @@ import { getServerUser } from "@/lib/auth/server-user";
 import { notFound, redirect } from "next/navigation";
 import { HumidorItemClient } from "@/components/humidor/HumidorItemClient";
 
+export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 /* ------------------------------------------------------------------
