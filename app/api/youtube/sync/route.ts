@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient }       from "@/utils/supabase/service";
 
+export const runtime = "edge";
+
 /* ------------------------------------------------------------------
    ISO 8601 duration parser  e.g. "PT1H2M3S" -> 3723 seconds
    ------------------------------------------------------------------ */
