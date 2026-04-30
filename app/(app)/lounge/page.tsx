@@ -1,6 +1,7 @@
 import { createClient }        from "@/utils/supabase/server";
 import { redirect }             from "next/navigation";
 import { LoungeForumClient }    from "@/components/lounge/LoungeForumClient";
+import { getMembershipTier }    from "@/lib/membership";
 
 export const dynamic  = "force-dynamic";
 export const metadata = { title: "The Lounge — Ash & Ember Society" };
@@ -16,7 +17,7 @@ export default async function LoungePage() {
   const [categoriesRes, statsRes, profileRes, rulesPostRes, todayRes] = await Promise.all([
     supabase.from("forum_categories").select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback").order("sort_order"),
     supabase.rpc("get_forum_category_stats"),
-    supabase.from("profiles").select("display_name, membership_tier").eq("id", user.id).single(),
+    supabase.from("profiles").select("display_name, membership_tier, badge").eq("id", user.id).single(),
     supabase
       .from("forum_posts")
       .select("id, title, content")
@@ -66,7 +67,7 @@ export default async function LoungePage() {
   }
 
   const displayName    = profileRes.data?.display_name ?? user.email?.split("@")[0] ?? "Member";
-  const membershipTier = profileRes.data?.membership_tier ?? "free";
+  const membershipTier = getMembershipTier(profileRes.data);
 
   return (
     <LoungeForumClient

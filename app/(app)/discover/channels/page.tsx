@@ -46,7 +46,7 @@ export default async function ChannelsPage() {
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("membership_tier")
+    .select("membership_tier, badge")
     .eq("id", user.id)
     .single();
 

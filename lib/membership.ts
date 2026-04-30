@@ -18,6 +18,7 @@ import type { MembershipTier } from "@/lib/stripe";
 
 export interface MembershipProfile {
   membership_tier: MembershipTier | null;
+  badge?:          string | null;
 }
 
 /* ------------------------------------------------------------------
@@ -59,6 +60,7 @@ const TIER_RANK: Record<MembershipTier, number> = {
  * if the profile has no tier set (e.g. brand-new sign-up).
  */
 export function getMembershipTier(profile: MembershipProfile | null): MembershipTier {
+  if (profile?.badge === "founder") return "premium";
   return profile?.membership_tier ?? "free";
 }
 

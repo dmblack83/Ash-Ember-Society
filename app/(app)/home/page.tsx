@@ -23,7 +23,7 @@ export default async function HomePage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("display_name, membership_tier, created_at, city, is_admin")
+        .select("display_name, membership_tier, badge, created_at, city, is_admin")
         .eq("id", user.id)
         .single()
     : { data: null };

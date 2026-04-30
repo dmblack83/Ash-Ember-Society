@@ -38,7 +38,7 @@ export default async function MembershipSuccessPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("membership_tier, display_name")
+    .select("membership_tier, badge, display_name")
     .eq("id", user.id)
     .single();
 
