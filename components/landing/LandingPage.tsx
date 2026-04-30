@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Archive, BookOpen, Compass, Users, Check } from "lucide-react";
@@ -203,11 +204,13 @@ export function Hero() {
     >
       {/* Background image */}
       <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1528459105426-b9548367069b?auto=format&fit=crop&q=80&w=1920"
           alt="Cigars resting on aged wood"
-          style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+          fill
+          priority
+          sizes="100vw"
+          style={{ objectFit: "cover", objectPosition: "center" }}
         />
         <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(18,18,18,0.80)", mixBlendMode: "multiply" }} />
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, #121212 0%, rgba(18,18,18,0.6) 50%, transparent 100%)" }} />
@@ -413,11 +416,12 @@ export function Philosophy() {
           >
             <div style={{ aspectRatio: "4/5", position: "relative", overflow: "hidden", borderRadius: 2 }}>
               <div style={{ position: "absolute", inset: 0, backgroundColor: "rgba(26,18,16,0.2)", zIndex: 1, mixBlendMode: "multiply" }} />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+              <Image
                 src="https://media.istockphoto.com/id/1468287900/photo/close-up-of-dried-tobacco-leaves-and-fresh-hand-rolled-premium-cuban-cigars-in-the-factory.jpg?s=612x612&w=0&k=20&c=MT7eYnFF68ZPU6G07Algj8das_KEOWB75srf3bF7TNI="
                 alt="Dried tobacco leaves and hand-rolled premium cigars"
-                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "center" }}
+                fill
+                sizes="(min-width: 768px) 50vw, 100vw"
+                style={{ objectFit: "cover", objectPosition: "center" }}
               />
             </div>
             {/* Decorative border */}

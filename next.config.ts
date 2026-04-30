@@ -16,6 +16,17 @@ const nextConfig: NextConfig = {
         // burn-report linked videos.
         hostname: "i.ytimg.com",
       },
+      {
+        protocol: "https",
+        // Landing-page hero image. Served through next/image so the
+        // optimizer picks viewport-appropriate variants in WebP/AVIF.
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        // Landing-page philosophy section image. Same reason as Unsplash.
+        hostname: "media.istockphoto.com",
+      },
     ],
   },
   async redirects() {
