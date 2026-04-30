@@ -4,13 +4,17 @@ import { useState } from "react";
 import { SubmitCigarPhotoSheet } from "./SubmitCigarPhotoSheet";
 
 interface Props {
-  cigarId:    string;
-  cigarName:  string;
-  hasPending: boolean;
+  cigarId:     string;
+  cigarName:   string;
+  hasPending:  boolean;
+  hasApproved: boolean;
 }
 
-export function CigarPhotoSubmitButton({ cigarId, cigarName, hasPending }: Props) {
+export function CigarPhotoSubmitButton({ cigarId, cigarName, hasPending, hasApproved }: Props) {
   const [open, setOpen] = useState(false);
+
+  // A community photo has already been approved — no need for more submissions
+  if (hasApproved) return null;
 
   if (hasPending) {
     return (
@@ -34,7 +38,7 @@ export function CigarPhotoSubmitButton({ cigarId, cigarName, hasPending }: Props
           touchAction: "manipulation",
         }}
       >
-        Submit a photo
+        Contribute a Photo
       </button>
 
       {open && (

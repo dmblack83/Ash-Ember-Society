@@ -522,11 +522,13 @@ function SmokeModal({
 export function HumidorItemClient({
   item: initialItem,
   initialSmokeLogs,
-  hasPending = false,
+  hasPending  = false,
+  hasApproved = false,
 }: {
   item: HumidorItemDetail;
   initialSmokeLogs: SmokeLog[];
-  hasPending?: boolean;
+  hasPending?:  boolean;
+  hasApproved?: boolean;
 }) {
   const router = useRouter();
 
@@ -713,6 +715,7 @@ export function HumidorItemClient({
             cigarId={item.cigar_id}
             cigarName={[c.brand, c.series ?? c.format].filter(Boolean).join(" ")}
             hasPending={hasPending}
+            hasApproved={hasApproved}
           />
         </div>
 
