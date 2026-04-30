@@ -163,10 +163,10 @@ Vercel env vars: all set to Production + Preview.
 
 ## Cigar Images — Current Status
 
-**Default images:** 5 PNG files in `public/Cigar Default Images/` — Connecticut.png, Colorado Claro.png, Colorado.png, Maduro.png, Oscuro.png.
+**Default images:** 5 WebP files in `public/Cigar Default Images/` — Connecticut.webp, Colorado Claro.webp, Colorado.webp, Maduro.webp, Oscuro.webp. Converted from PNG (588 KB → 99 KB total, ~83% smaller).
 
 **Utility function:** `lib/cigar-default-image.ts` — implemented and applied across all cigar image display locations.
-- `getCigarDefaultImage(wrapper)` — maps wrapper string to default PNG path via lowercase includes matching
+- `getCigarDefaultImage(wrapper)` — maps wrapper string to default WebP path via lowercase includes matching
 - `getCigarImage(imageUrl, wrapper)` — returns `imageUrl` if set, falls back to default
 
 Applied to:
