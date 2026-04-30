@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                        from "react-dom";
-import Link                                    from "next/link";
 import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
+import type { SmokeLogData }                   from "./PostDetailClient";
 
 /* ------------------------------------------------------------------ */
 /* Exported types                                                        */
@@ -29,7 +29,10 @@ export interface PostItem {
   image_url:     string | null;
   is_locked:     boolean;
   is_system:     boolean;
-  has_smoke_log: boolean;
+  smoke_log:     SmokeLogData | null;
+  upvotes:       number;
+  downvotes:     number;
+  user_vote:     0 | 1 | -1;
 }
 
 interface Comment {
@@ -51,6 +54,7 @@ interface Props {
   post:         PostItem;
   initialLiked: boolean;
   userId:       string;
+  isFeedback:   boolean;
   onDelete:     (postId: string) => void;
 }
 
@@ -94,6 +98,152 @@ function FlameIcon({ size = 18, filled = false }: { size?: number; filled?: bool
     </svg>
   );
 }
+
+function ratingColor(v: number): string {
+  if (v <= 40) return "#C44536";
+  if (v <= 60) return "#8B6020";
+  if (v <= 80) return "#3A6B45";
+  return "#D4A04A";
+}
+
+function ratingLabel(v: number): string {
+  if (v <= 20) return "Poor";
+  if (v <= 40) return "Below Average";
+  if (v <= 60) return "Average";
+  if (v <= 80) return "Good";
+  return "Outstanding";
+}
+
+function StarDisplay({ value }: { value: number | null }) {
+  if (!value) return <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>N/A</span>;
+  return (
+    <span className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill={s <= value ? "var(--primary)" : "none"}
+            stroke={s <= value ? "var(--primary)" : "var(--border)"}
+            strokeWidth="1.5"
+          />
+        </svg>
+      ))}
+    </span>
+  );
+}
+
+const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [mounted,     setMounted]     = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  const color = log.overall_rating != null ? ratingColor(log.overall_rating) : "var(--muted-foreground)";
+  const cigar = log.cigar;
+
+  const detailRows = [
+    ["Date",     log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null],
+    ["Location", log.location],
+    ["Occasion", log.occasion],
+    ["Drink",    log.pairing_drink],
+    ["Food",     log.pairing_food],
+    ["Duration", log.smoke_duration_minutes ? `${log.smoke_duration_minutes} min` : null],
+  ].filter(([, v]) => v != null) as [string, string][];
+
+  const starRows = [
+    ["Draw",         log.draw_rating],
+    ["Burn",         log.burn_rating],
+    ["Construction", log.construction_rating],
+    ["Flavor",       log.flavor_rating],
+  ].filter(([, v]) => v != null) as [string, number][];
+
+  const lightbox = mounted && lightboxSrc
+    ? createPortal(
+        <>
+          <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 10991, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightboxSrc} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+            <button type="button" onClick={() => setLightboxSrc(null)} aria-label="Close"
+              style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
+                background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+        </>,
+        document.body
+      )
+    : null;
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div className="rounded-2xl p-4 text-center mb-4" style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}>
+        {cigar && (
+          <>
+            <p className="text-xs uppercase tracking-widest font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{cigar.brand}</p>
+            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>{cigar.series ?? cigar.format}</p>
+            {cigar.format && <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>}
+          </>
+        )}
+        {log.overall_rating != null && (
+          <>
+            <p className="text-6xl font-bold leading-none mt-2" style={{ fontFamily: "var(--font-serif)", color }}>{log.overall_rating}</p>
+            <p className="text-sm font-medium mt-1" style={{ color }}>{ratingLabel(log.overall_rating)}</p>
+          </>
+        )}
+      </div>
+
+      {(detailRows.length > 0 || starRows.length > 0) && (
+        <div className="rounded-xl px-4 mb-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
+          {detailRows.map(([label, value], i) => (
+            <div key={label} className="flex items-center justify-between gap-4 py-2.5"
+              style={{ borderBottom: (i < detailRows.length - 1 || starRows.length > 0) ? "1px solid var(--border)" : "none" }}>
+              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+              <span className="text-sm text-right" style={{ color: "var(--foreground)" }}>{value}</span>
+            </div>
+          ))}
+          {starRows.map(([label, value], i) => (
+            <div key={label} className="flex items-center justify-between gap-4 py-2.5"
+              style={{ borderBottom: i < starRows.length - 1 ? "1px solid var(--border)" : "none" }}>
+              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>{label}</span>
+              <StarDisplay value={value} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {log.review_text && (
+        <div className="mb-4">
+          <p className="text-xs uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Review</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>{log.review_text}</p>
+        </div>
+      )}
+
+      {log.photo_urls && log.photo_urls.length > 0 && (
+        <div className="mb-2">
+          <p className="text-xs uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Photos</p>
+          <div className="flex gap-2 flex-wrap">
+            {log.photo_urls.map((url, i) => (
+              <button key={i} type="button" onClick={() => setLightboxSrc(url)}
+                className="rounded-xl overflow-hidden"
+                style={{ width: 80, height: 80, flexShrink: 0, border: "1px solid var(--border)", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
+                aria-label={`View photo ${i + 1}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lightbox}
+    </div>
+  );
+});
 
 /* ------------------------------------------------------------------ */
 /* CommentNode                                                           */
@@ -232,12 +382,16 @@ const CommentNode = memo(function CommentNode({
 /* InlinePost                                                            */
 /* ------------------------------------------------------------------ */
 
-export function InlinePost({ post, initialLiked, userId, onDelete }: Props) {
+export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }: Props) {
   const supabase = useMemo(() => createClient(), []);
 
   const [liked,              setLiked]              = useState(initialLiked);
   const [likeCount,          setLikeCount]          = useState(post.like_count);
   const [liking,             setLiking]             = useState(false);
+  const [upvotes,            setUpvotes]            = useState(post.upvotes);
+  const [downvotes,          setDownvotes]          = useState(post.downvotes);
+  const [userVote,           setUserVote]           = useState<0 | 1 | -1>(post.user_vote);
+  const [voting,             setVoting]             = useState(false);
   const [commentsOpen,       setCommentsOpen]       = useState(false);
   const [comments,           setComments]           = useState<Comment[] | null>(null);
   const [commentsLoading,    setCommentsLoading]    = useState(false);
@@ -303,6 +457,34 @@ export function InlinePost({ post, initialLiked, userId, onDelete }: Props) {
       }
     }
     setLiking(false);
+  }
+
+  /* Vote (feedback posts) */
+  async function handleVote(direction: 1 | -1) {
+    if (voting) return;
+    setVoting(true);
+
+    const prev    = userVote;
+    const newVote = (prev === direction ? 0 : direction) as 0 | 1 | -1;
+
+    let up   = upvotes;
+    let down = downvotes;
+    if (prev === 1)  up   -= 1;
+    if (prev === -1) down -= 1;
+    if (newVote === 1)  up   += 1;
+    if (newVote === -1) down += 1;
+    setUpvotes(up);
+    setDownvotes(down);
+    setUserVote(newVote);
+
+    if (newVote === 0) {
+      await supabase.from("forum_post_votes").delete().eq("user_id", userId).eq("post_id", post.id);
+    } else if (prev === 0) {
+      await supabase.from("forum_post_votes").insert({ user_id: userId, post_id: post.id, value: newVote });
+    } else {
+      await supabase.from("forum_post_votes").update({ value: newVote }).eq("user_id", userId).eq("post_id", post.id);
+    }
+    setVoting(false);
   }
 
   /* Add comment */
@@ -419,7 +601,7 @@ export function InlinePost({ post, initialLiked, userId, onDelete }: Props) {
             <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{relativeTime(post.created_at)}</p>
           </div>
           <div className="flex items-center gap-2">
-            {post.has_smoke_log && (
+            {post.smoke_log && (
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                 style={{ background: "rgba(193,120,23,0.15)", color: "var(--primary)", border: "1px solid rgba(193,120,23,0.25)" }}>
                 Burn Report
@@ -443,38 +625,89 @@ export function InlinePost({ post, initialLiked, userId, onDelete }: Props) {
           {post.title}
         </h2>
 
-        {/* Content */}
-        <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line", opacity: 0.9 }}>
-          {post.content}
-        </p>
+        {/* Body — burn report card OR text + optional image */}
+        {post.smoke_log ? (
+          <BurnReportCard log={post.smoke_log} />
+        ) : (
+          <>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line", opacity: 0.9 }}>
+              {post.content}
+            </p>
 
-        {/* Image */}
-        {post.image_url && (
-          <button type="button" onClick={() => setLightboxOpen(true)}
-            className="mt-3 rounded-xl overflow-hidden block"
-            style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
-            aria-label="View image">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={post.image_url} alt=""
-              style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
-          </button>
+            {post.image_url && (
+              <button type="button" onClick={() => setLightboxOpen(true)}
+                className="mt-3 rounded-xl overflow-hidden block"
+                style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
+                aria-label="View image">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={post.image_url} alt=""
+                  style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
+              </button>
+            )}
+          </>
         )}
 
         {/* Action bar */}
         <div className="flex items-center gap-4 mt-4">
-          {/* Like */}
-          <button type="button" onClick={handleLike} disabled={liking}
-            className="flex items-center gap-1.5"
-            style={{
-              background: "none", border: "none",
-              cursor: liking ? "default" : "pointer",
-              touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
-              color: liked ? "var(--gold,#D4A04A)" : "var(--muted-foreground)",
-              minHeight: 36, padding: 0,
-            }}>
-            <FlameIcon size={18} filled={liked} />
-            <span className="text-xs font-medium">{likeCount}</span>
-          </button>
+          {isFeedback ? (
+            <>
+              {/* Upvote */}
+              <button type="button" onClick={() => handleVote(1)} disabled={voting}
+                aria-label="Upvote"
+                className="flex items-center gap-1"
+                style={{
+                  background:              userVote === 1 ? "rgba(74,222,128,0.12)" : "rgba(255,255,255,0.04)",
+                  border:                  userVote === 1 ? "1px solid rgba(74,222,128,0.35)" : "1px solid var(--border)",
+                  borderRadius:            8,
+                  padding:                 "4px 8px",
+                  color:                   userVote === 1 ? "#4ade80" : "var(--muted-foreground)",
+                  cursor:                  voting ? "default" : "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  minHeight:               32,
+                } as React.CSSProperties}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M6 2L10 8H2L6 2Z" fill={userVote === 1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                </svg>
+                <span className="text-xs font-semibold">{upvotes}</span>
+              </button>
+
+              {/* Downvote */}
+              <button type="button" onClick={() => handleVote(-1)} disabled={voting}
+                aria-label="Downvote"
+                className="flex items-center gap-1"
+                style={{
+                  background:              userVote === -1 ? "rgba(248,113,113,0.12)" : "rgba(255,255,255,0.04)",
+                  border:                  userVote === -1 ? "1px solid rgba(248,113,113,0.35)" : "1px solid var(--border)",
+                  borderRadius:            8,
+                  padding:                 "4px 8px",
+                  color:                   userVote === -1 ? "#f87171" : "var(--muted-foreground)",
+                  cursor:                  voting ? "default" : "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  minHeight:               32,
+                } as React.CSSProperties}>
+                <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true" style={{ transform: "rotate(180deg)" }}>
+                  <path d="M6 2L10 8H2L6 2Z" fill={userVote === -1 ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+                </svg>
+                <span className="text-xs font-semibold">{downvotes}</span>
+              </button>
+            </>
+          ) : (
+            /* Like */
+            <button type="button" onClick={handleLike} disabled={liking}
+              className="flex items-center gap-1.5"
+              style={{
+                background: "none", border: "none",
+                cursor: liking ? "default" : "pointer",
+                touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
+                color: liked ? "var(--gold,#D4A04A)" : "var(--muted-foreground)",
+                minHeight: 36, padding: 0,
+              }}>
+              <FlameIcon size={18} filled={liked} />
+              <span className="text-xs font-medium">{likeCount}</span>
+            </button>
+          )}
 
           {/* Comments */}
           <button type="button" onClick={() => setCommentsOpen((v) => !v)}
@@ -492,18 +725,6 @@ export function InlinePost({ post, initialLiked, userId, onDelete }: Props) {
             </svg>
             <span className="text-xs font-medium">{commentCount}</span>
           </button>
-
-          {/* Permalink */}
-          <Link href={`/lounge/${post.id}`}
-            className="flex items-center gap-1 text-xs ml-auto"
-            style={{ color: "var(--muted-foreground)", textDecoration: "none", minHeight: 36 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71" />
-              <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71" />
-            </svg>
-            View full post
-          </Link>
         </div>
       </div>
 
