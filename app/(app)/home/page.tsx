@@ -23,7 +23,7 @@ export default async function HomePage() {
   const { data: profile } = user
     ? await supabase
         .from("profiles")
-        .select("display_name, membership_tier, created_at, city")
+        .select("display_name, membership_tier, created_at, city, is_admin")
         .eq("id", user.id)
         .single()
     : { data: null };
@@ -115,7 +115,7 @@ export default async function HomePage() {
       />
 
       {/* ── 0b. Quick actions row ─────────────────────────────────── */}
-      <QuickActions />
+      <QuickActions isAdmin={!!profile?.is_admin} />
 
       {/* ── 1. Smoking conditions (weather) ───────────────────────── */}
       <SmokingConditions city={city} />

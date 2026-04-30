@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
+import { CigarPhotoSubmitButton } from "@/components/cigars/CigarPhotoSubmitButton";
 import { getCigarImage } from "@/lib/cigar-default-image";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 
@@ -68,17 +69,27 @@ export default async function CigarDetailPage({
 
   const c = data as CigarDetail;
 
-  /* Check if the current user has this cigar on their wishlist */
-  let isWishlisted = false;
+  /* Check wishlist + pending submission in parallel */
+  let isWishlisted  = false;
+  let hasPending    = false;
   if (user) {
-    const { data: wishlistRow } = await supabase
-      .from("humidor_items")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("cigar_id", id)
-      .eq("is_wishlist", true)
-      .maybeSingle();
+    const [{ data: wishlistRow }, { data: pendingRow }] = await Promise.all([
+      supabase
+        .from("humidor_items")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("cigar_id", id)
+        .eq("is_wishlist", true)
+        .maybeSingle(),
+      supabase
+        .from("cigar_image_submissions")
+        .select("id")
+        .eq("cigar_id", id)
+        .eq("status", "pending")
+        .maybeSingle(),
+    ]);
     isWishlisted = !!wishlistRow;
+    hasPending   = !!pendingRow;
   }
   /* Build details list — omit null/undefined fields */
   const details: { label: string; value: string }[] = [
@@ -123,8 +134,17 @@ export default async function CigarDetailPage({
       {/* ── Hero ────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
-        <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+        <div className="w-full sm:w-72 flex-shrink-0 flex flex-col gap-2">
+          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+            <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+          </div>
+          {user && (
+            <CigarPhotoSubmitButton
+              cigarId={c.id}
+              cigarName={[c.brand, c.series ?? c.format].filter(Boolean).join(" ")}
+              hasPending={hasPending}
+            />
+          )}
         </div>
 
         {/* Info */}

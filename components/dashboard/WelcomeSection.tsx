@@ -135,12 +135,15 @@ function WelcomeContent({ data }: { data: WelcomeData }) {
    QuickActions — single horizontal row, lives in the scrollable page
    ------------------------------------------------------------------ */
 
-export function QuickActions() {
+export function QuickActions({ isAdmin = false }: { isAdmin?: boolean }) {
   return (
     <div className="flex gap-2">
       <QuickAction label="+ Burn Report" href="/humidor"          />
       <QuickAction label="+ Cigar"       href="/humidor?add=true" />
       <QuickAction label="Local Shops"   href="/discover/shops"   />
+      {isAdmin && (
+        <QuickAction label="Admin" href="/admin" />
+      )}
     </div>
   );
 }
