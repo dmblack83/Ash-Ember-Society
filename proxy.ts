@@ -14,6 +14,17 @@ const PUBLIC_PATHS = [
   "/api/youtube",   // protected by SYNC_SECRET header, not session
 ];
 
+/*
+ * Headers the proxy uses to forward the verified user identity to downstream
+ * route handlers and server components. Always stripped from incoming requests
+ * to prevent client spoofing.
+ */
+const FORWARDED_USER_HEADERS = [
+  "x-ae-user-id",
+  "x-ae-user-email",
+  "x-ae-onboarding-completed",
+] as const;
+
 function isPublicAuthPage(pathname: string): boolean {
   return pathname === "/login" || pathname === "/signup";
 }
@@ -26,11 +37,19 @@ function isPublic(pathname: string): boolean {
 
 export async function proxy(request: NextRequest) {
   /*
+   * Strip any client-supplied x-ae-* headers immediately. We re-add the
+   * verified values below if (and only if) Supabase confirms the session.
+   */
+  const forwardHeaders = new Headers(request.headers);
+  for (const h of FORWARDED_USER_HEADERS) forwardHeaders.delete(h);
+
+  /*
    * supabaseResponse must be the object we return so that any Set-Cookie
    * headers written by the Supabase client (session refresh) are forwarded.
-   * Never discard or replace it after setAll has run.
+   * Never discard or replace it after setAll has run — copy its cookies onto
+   * a new response if you need to attach more request headers afterward.
    */
-  let supabaseResponse = NextResponse.next({ request });
+  let supabaseResponse = NextResponse.next({ request: { headers: forwardHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -44,7 +63,7 @@ export async function proxy(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
-          supabaseResponse = NextResponse.next({ request });
+          supabaseResponse = NextResponse.next({ request: { headers: forwardHeaders } });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );
@@ -65,7 +84,6 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── 1. Unauthenticated → protected route ──────────────────────────────
-  // Preserve the intended destination so the login page can redirect back.
   if (!user && !isPublic(pathname)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -79,7 +97,6 @@ export async function proxy(request: NextRequest) {
     );
 
     // ── 2. Authenticated on a public auth page ─────────────────────────
-    // Send to onboarding or dashboard depending on whether they've completed it.
     if (isPublicAuthPage(pathname)) {
       const url = request.nextUrl.clone();
       url.pathname = onboardingComplete ? "/home" : "/onboarding";
@@ -88,8 +105,6 @@ export async function proxy(request: NextRequest) {
     }
 
     // ── 3. Authenticated but onboarding incomplete ─────────────────────
-    // Gate every app route behind /onboarding. The /onboarding page itself
-    // (and /auth/callback) must be excluded to avoid redirect loops.
     if (
       !onboardingComplete &&
       pathname !== "/onboarding" &&
@@ -100,6 +115,20 @@ export async function proxy(request: NextRequest) {
       url.search = "";
       return NextResponse.redirect(url);
     }
+
+    /*
+     * Forward the verified identity. Server components and route handlers
+     * read these via getServerUser() instead of calling auth.getUser()
+     * themselves — eliminating ~30 redundant Supabase round-trips per
+     * authenticated page load.
+     */
+    forwardHeaders.set("x-ae-user-id", user.id);
+    if (user.email) forwardHeaders.set("x-ae-user-email", user.email);
+    forwardHeaders.set("x-ae-onboarding-completed", onboardingComplete ? "1" : "0");
+
+    const enriched = NextResponse.next({ request: { headers: forwardHeaders } });
+    for (const c of supabaseResponse.cookies.getAll()) enriched.cookies.set(c);
+    return enriched;
   }
 
   return supabaseResponse;

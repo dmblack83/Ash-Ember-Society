@@ -1,4 +1,5 @@
 import { createClient }    from "@/utils/supabase/server";
+import { getServerUser }   from "@/lib/auth/server-user";
 import { getMembershipTier } from "@/lib/membership";
 import { WelcomeSection, QuickActions } from "@/components/dashboard/WelcomeSection";
 import { SmokingConditions }            from "@/components/dashboard/SmokingConditions";
@@ -15,9 +16,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
 
   /* ── Profile ──────────────────────────────────────────────────── */
   const { data: profile } = user

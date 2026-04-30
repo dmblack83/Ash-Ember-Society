@@ -1,5 +1,6 @@
-import { createClient } from "@/utils/supabase/server";
-import { StatsClient }  from "@/components/humidor/StatsClient";
+import { createClient }  from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
+import { StatsClient }   from "@/components/humidor/StatsClient";
 import type {
   StatsClientData,
   MonthlyBar,
@@ -138,9 +139,7 @@ function buildTopBrands(
    ------------------------------------------------------------------ */
 export default async function StatsPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
 
   if (!user) return null;
 

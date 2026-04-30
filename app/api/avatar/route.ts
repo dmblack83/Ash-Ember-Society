@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient }             from "@/utils/supabase/server";
+import { getServerUser }            from "@/lib/auth/server-user";
 import { createServiceClient }      from "@/utils/supabase/service";
 import { checkImageSafety }         from "@/lib/vision-safety";
 
@@ -19,8 +19,7 @@ import { checkImageSafety }         from "@/lib/vision-safety";
  */
 export async function POST(request: NextRequest) {
   // 1. Auth check
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,4 +1,5 @@
-import { createClient } from "@/utils/supabase/server";
+import { createClient }  from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import { notFound, redirect } from "next/navigation";
 import { BurnReport } from "@/components/humidor/BurnReport";
 
@@ -47,10 +48,7 @@ export default async function BurnReportPage({
 }) {
   const { id } = await params;
   const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   const [{ data: item, error }, { data: profile }, { data: flavorTagData }] =

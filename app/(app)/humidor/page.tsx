@@ -1,4 +1,5 @@
 import { createClient }  from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 import { HumidorClient } from "@/components/humidor/HumidorClient";
 import type { HumidorItem } from "@/components/humidor/HumidorClient";
 
@@ -7,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HumidorPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
 
   // Middleware handles unauthenticated redirects; defensive null guard
   if (!user) return null;

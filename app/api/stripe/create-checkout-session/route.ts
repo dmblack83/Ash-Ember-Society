@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { createClient } from "@/utils/supabase/server";
+import { getServerUser } from "@/lib/auth/server-user";
 
 /**
  * POST /api/stripe/create-checkout-session
@@ -18,9 +19,7 @@ export async function POST(req: NextRequest) {
   try {
     /* ── Auth ──────────────────────────────────────────────────── */
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user     = await getServerUser();
 
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -57,7 +56,7 @@ export async function POST(req: NextRequest) {
       // Pre-fill the customer if they've checked out before
       ...(existingCustomerId
         ? { customer: existingCustomerId }
-        : { customer_email: user.email }),
+        : { customer_email: user.email ?? undefined }),
 
       // Link session back to our Supabase user — used in the webhook
       client_reference_id: user.id,

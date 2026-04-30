@@ -1,4 +1,5 @@
 import { createClient }        from "@/utils/supabase/server";
+import { getServerUser }        from "@/lib/auth/server-user";
 import { redirect }             from "next/navigation";
 import { LoungeForumClient }    from "@/components/lounge/LoungeForumClient";
 import { getMembershipTier }    from "@/lib/membership";
@@ -8,8 +9,7 @@ export const metadata = { title: "The Lounge — Ash & Ember Society" };
 
 export default async function LoungePage() {
   const supabase = await createClient();
-
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) redirect("/login");
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();

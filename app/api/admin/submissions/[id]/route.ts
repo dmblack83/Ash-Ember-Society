@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient }             from "@/utils/supabase/server";
+import { getServerUser }            from "@/lib/auth/server-user";
 import { createServiceClient }      from "@/utils/supabase/service";
 
 /**
@@ -29,7 +30,7 @@ export async function PATCH(
 
   // 1. Auth + admin check
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const user     = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

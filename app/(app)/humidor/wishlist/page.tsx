@@ -1,4 +1,5 @@
 import { createClient }   from "@/utils/supabase/server";
+import { getServerUser }  from "@/lib/auth/server-user";
 import { WishlistClient } from "@/components/humidor/WishlistClient";
 import type { WishlistItem } from "@/components/humidor/WishlistClient";
 
@@ -7,9 +8,7 @@ export const dynamic = "force-dynamic";
 
 export default async function WishlistPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user     = await getServerUser();
 
   // Middleware handles unauthenticated redirects; defensive null guard
   if (!user) return null;
