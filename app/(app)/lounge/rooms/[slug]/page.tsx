@@ -2,6 +2,7 @@ import { createClient }      from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
 import type { PostItem }     from "@/components/lounge/InlinePost";
+import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
 import { getMembershipTier } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
@@ -94,6 +95,35 @@ export default async function LoungeCategoryPage({ params }: Props) {
     for (const l of likes ?? []) likedSet.add(l.post_id);
   }
 
+  /* ---- Smoke logs (full burn report data) ---- */
+  const smokeLogIds = posts.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+  const smokeLogMap: Record<string, SmokeLogData> = {};
+  if (smokeLogIds.length > 0) {
+    const { data: logs } = await supabase
+      .from("smoke_logs")
+      .select("id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, content_video_id, cigar:cigar_catalog(brand, series, format)")
+      .in("id", smokeLogIds);
+    for (const log of (logs ?? []) as any[]) {
+      smokeLogMap[log.id] = log as SmokeLogData;
+    }
+  }
+
+  /* ---- Vote tallies (only meaningful for feedback category) ---- */
+  const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
+  if (category.is_feedback && postIds.length > 0) {
+    const { data: votes } = await supabase
+      .from("forum_post_votes")
+      .select("post_id, user_id, value")
+      .in("post_id", postIds);
+    for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
+      const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+      if (v.value === 1)  cur.upvotes   += 1;
+      if (v.value === -1) cur.downvotes += 1;
+      if (v.user_id === user.id) cur.userVote = v.value as 1 | -1;
+      voteMap[v.post_id] = cur;
+    }
+  }
+
   /* ---- User membership tier ---- */
   const { data: profile } = await supabase
     .from("profiles")
@@ -102,20 +132,26 @@ export default async function LoungeCategoryPage({ params }: Props) {
     .single();
 
   /* ---- Normalize posts ---- */
-  const initialPosts: PostItem[] = posts.map((p) => ({
-    id:            p.id,
-    title:         p.title,
-    content:       p.content,
-    created_at:    p.created_at,
-    user_id:       p.user_id      ?? null,
-    author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
-    like_count:    (p.forum_post_likes as { count: number }[])[0]?.count ?? 0,
-    comment_count: (p.forum_comments  as { count: number }[])[0]?.count ?? 0,
-    image_url:     p.image_url    ?? null,
-    is_locked:     p.is_locked,
-    is_system:     p.is_system,
-    has_smoke_log: !!p.smoke_log_id,
-  }));
+  const initialPosts: PostItem[] = posts.map((p) => {
+    const v = voteMap[p.id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+    return {
+      id:            p.id,
+      title:         p.title,
+      content:       p.content,
+      created_at:    p.created_at,
+      user_id:       p.user_id      ?? null,
+      author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
+      like_count:    (p.forum_post_likes as { count: number }[])[0]?.count ?? 0,
+      comment_count: (p.forum_comments  as { count: number }[])[0]?.count ?? 0,
+      image_url:     p.image_url    ?? null,
+      is_locked:     p.is_locked,
+      is_system:     p.is_system,
+      smoke_log:     p.smoke_log_id ? (smokeLogMap[p.smoke_log_id] ?? null) : null,
+      upvotes:       v.upvotes,
+      downvotes:     v.downvotes,
+      user_vote:     v.userVote,
+    };
+  });
 
   return (
     <CategoryFeed

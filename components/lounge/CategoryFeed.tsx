@@ -5,6 +5,7 @@ import { useRouter }         from "next/navigation";
 import { createClient }      from "@/utils/supabase/client";
 import { InlinePost }        from "./InlinePost";
 import type { PostItem }     from "./InlinePost";
+import type { SmokeLogData } from "./PostDetailClient";
 import { NewPostSheet }      from "./NewPostSheet";
 import { Toast }             from "@/components/ui/toast";
 
@@ -119,20 +120,55 @@ export function CategoryFeed({
       for (const l of likes ?? []) newLikedSet.add(l.post_id);
     }
 
-    const normalized: PostItem[] = batch.map((p) => ({
-      id:            p.id,
-      title:         p.title,
-      content:       p.content,
-      created_at:    p.created_at,
-      user_id:       p.user_id,
-      author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
-      like_count:    (p.forum_post_likes as { count: number }[])[0]?.count ?? 0,
-      comment_count: (p.forum_comments  as { count: number }[])[0]?.count ?? 0,
-      image_url:     p.image_url ?? null,
-      is_locked:     p.is_locked,
-      is_system:     p.is_system,
-      has_smoke_log: !!p.smoke_log_id,
-    }));
+    /* Fetch smoke logs for posts that have them */
+    const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+    const smokeLogMap: Record<string, SmokeLogData> = {};
+    if (smokeLogIds.length > 0) {
+      const { data: logs } = await supabase
+        .from("smoke_logs")
+        .select("id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, content_video_id, cigar:cigar_catalog(brand, series, format)")
+        .in("id", smokeLogIds);
+      for (const log of (logs ?? []) as any[]) {
+        smokeLogMap[log.id] = log as SmokeLogData;
+      }
+    }
+
+    /* Fetch votes for feedback category */
+    const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
+    if (category.is_feedback && newPostIds.length > 0) {
+      const { data: votes } = await supabase
+        .from("forum_post_votes")
+        .select("post_id, user_id, value")
+        .in("post_id", newPostIds);
+      for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
+        const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+        if (v.value === 1)  cur.upvotes   += 1;
+        if (v.value === -1) cur.downvotes += 1;
+        if (v.user_id === userId) cur.userVote = v.value as 1 | -1;
+        voteMap[v.post_id] = cur;
+      }
+    }
+
+    const normalized: PostItem[] = batch.map((p) => {
+      const v = voteMap[p.id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+      return {
+        id:            p.id,
+        title:         p.title,
+        content:       p.content,
+        created_at:    p.created_at,
+        user_id:       p.user_id,
+        author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
+        like_count:    (p.forum_post_likes as { count: number }[])[0]?.count ?? 0,
+        comment_count: (p.forum_comments  as { count: number }[])[0]?.count ?? 0,
+        image_url:     p.image_url ?? null,
+        is_locked:     p.is_locked,
+        is_system:     p.is_system,
+        smoke_log:     p.smoke_log_id ? (smokeLogMap[p.smoke_log_id] ?? null) : null,
+        upvotes:       v.upvotes,
+        downvotes:     v.downvotes,
+        user_vote:     v.userVote,
+      };
+    });
 
     setPosts((prev) => [...prev, ...normalized]);
     setLikedIds((prev) => { const next = new Set(prev); for (const id of newLikedSet) next.add(id); return next; });
@@ -234,6 +270,7 @@ export function CategoryFeed({
               post={post}
               initialLiked={likedIds.has(post.id)}
               userId={userId}
+              isFeedback={category.is_feedback}
               onDelete={handleDeletePost}
             />
           ))}
