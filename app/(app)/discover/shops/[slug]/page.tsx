@@ -67,7 +67,7 @@ export default async function ShopDetailPage({ params }: { params: Promise<{ slu
     supabase.from("shops").select("*").eq("slug", slug).single(),
     supabase
       .from("profiles")
-      .select("membership_tier, display_name, created_at")
+      .select("membership_tier, badge, display_name, created_at")
       .eq("id", user.id)
       .single(),
   ]);

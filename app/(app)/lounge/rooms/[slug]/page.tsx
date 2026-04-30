@@ -1,7 +1,8 @@
-import { createClient }   from "@/utils/supabase/server";
+import { createClient }      from "@/utils/supabase/server";
 import { redirect, notFound } from "next/navigation";
-import { CategoryFeed }   from "@/components/lounge/CategoryFeed";
-import type { PostItem }  from "@/components/lounge/InlinePost";
+import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
+import type { PostItem }     from "@/components/lounge/InlinePost";
+import { getMembershipTier } from "@/lib/membership";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
   /* ---- User membership tier ---- */
   const { data: profile } = await supabase
     .from("profiles")
-    .select("membership_tier")
+    .select("membership_tier, badge")
     .eq("id", user.id)
     .single();
 
@@ -130,7 +131,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
       initialPosts={initialPosts}
       initialLikedIds={[...likedSet]}
       userId={user.id}
-      membershipTier={profile?.membership_tier ?? "free"}
+      membershipTier={getMembershipTier(profile)}
       hasMore={posts.length >= PAGE_SIZE}
     />
   );

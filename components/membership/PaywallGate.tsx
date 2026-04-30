@@ -54,7 +54,7 @@ export async function PaywallGate({ requiredTier, children, fallback }: PaywallG
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("membership_tier")
+      .select("membership_tier, badge")
       .eq("id", user.id)
       .single();
     userTier = getMembershipTier(profile) as MembershipTier;

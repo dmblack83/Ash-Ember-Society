@@ -55,7 +55,7 @@ export default async function ShopsPage() {
 
   const { data: profileData } = await supabase
     .from("profiles")
-    .select("membership_tier, display_name, created_at")
+    .select("membership_tier, badge, display_name, created_at")
     .eq("id", user.id)
     .single();
 
