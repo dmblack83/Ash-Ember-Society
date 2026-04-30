@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
@@ -195,8 +196,14 @@ function GridCard({ item }: { item: HumidorItem }) {
         )}
 
         {/* Cigar image */}
-        <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" loading="lazy" />
+        <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
+          <Image
+            src={getCigarImage(c.image_url, c.wrapper)}
+            alt={c.series ?? c.format ?? ""}
+            fill
+            sizes="(min-width: 768px) 25vw, 50vw"
+            className="object-contain"
+          />
         </div>
 
         {/* Info */}
@@ -238,8 +245,14 @@ function ListRow({ item }: { item: HumidorItem }) {
     <Link href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" loading="lazy" />
+        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
+          <Image
+            src={getCigarImage(c.image_url, c.wrapper)}
+            alt={c.series ?? c.format ?? ""}
+            fill
+            sizes="48px"
+            className="object-contain"
+          />
         </div>
 
         {/* Brand + name */}

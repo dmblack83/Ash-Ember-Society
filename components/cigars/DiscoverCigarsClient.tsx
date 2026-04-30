@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
@@ -66,12 +67,13 @@ function CatalogGridCard({
   return (
     <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
       {/* Cigar image */}
-      <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 flex items-center justify-center">
-        <img
+      <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
+        <Image
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
           alt={cigar.series ?? cigar.format ?? ""}
-          className="w-full h-full object-contain"
-          loading="lazy"
+          fill
+          sizes="(min-width: 768px) 25vw, 50vw"
+          className="object-contain"
         />
       </div>
 
@@ -158,12 +160,13 @@ function CatalogListRow({
   return (
     <div className="card flex items-center gap-3 p-3">
       {/* Thumbnail */}
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-        <img
+      <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
+        <Image
           src={getCigarImage(cigar.image_url, cigar.wrapper)}
           alt={cigar.series ?? cigar.format ?? ""}
-          className="w-full h-full object-contain"
-          loading="lazy"
+          fill
+          sizes="48px"
+          className="object-contain"
         />
       </div>
 
