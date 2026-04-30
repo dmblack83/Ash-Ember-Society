@@ -6,6 +6,7 @@ import { useRouter }                    from "next/navigation";
 import { createClient }                 from "@/utils/supabase/client";
 import { NewPostSheet }                 from "./NewPostSheet";
 import { Toast }                        from "@/components/ui/toast";
+import { ScrollCarets }                 from "@/components/ui/ScrollCarets";
 
 /* ------------------------------------------------------------------ */
 
@@ -262,32 +263,35 @@ export function LoungeForumClient({
   return (
     <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)", paddingBottom: "calc(72px + env(safe-area-inset-bottom))" }}>
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
+      <ScrollCarets />
 
       {/* Fixed header */}
       <div style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, height: HEADER_H,
         backgroundColor: "rgba(26,18,16,0.97)", backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)",
-        display: "flex", alignItems: "center", paddingLeft: 16, paddingRight: 16,
+        display: "flex", alignItems: "center",
       }}>
-        <h1 className="font-serif text-xl font-semibold flex-1" style={{ color: "var(--foreground)" }}>
-          The Lounge
-        </h1>
-        <button
-          type="button"
-          onClick={() => handleNewPost()}
-          className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-          style={{
-            background:              "linear-gradient(135deg, #D4A04A, #C17817)",
-            color:                   "#1A1210",
-            border:                  "none",
-            cursor:                  "pointer",
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          + New Post
-        </button>
+        <div className="flex items-center w-full px-4 md:max-w-[50%] md:mx-auto">
+          <h1 className="font-serif text-xl font-semibold flex-1" style={{ color: "var(--foreground)" }}>
+            The Lounge
+          </h1>
+          <button
+            type="button"
+            onClick={() => handleNewPost()}
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
+            style={{
+              background:              "linear-gradient(135deg, #D4A04A, #C17817)",
+              color:                   "#1A1210",
+              border:                  "none",
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            + New Post
+          </button>
+        </div>
       </div>
 
       {/* Content */}

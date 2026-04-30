@@ -546,8 +546,6 @@ export function HumidorItemClient({
   /* Smoke logs */
   const [smokeLogs, setSmokeLogs] = useState<SmokeLog[]>(initialSmokeLogs);
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
-  const [sharingLogId,  setSharingLogId]  = useState<string | null>(null);
-  const [sharedLogIds,  setSharedLogIds]  = useState<Set<string>>(new Set());
 
   /* UI state */
   const [qtyLoading, setQtyLoading] = useState(false);
@@ -639,42 +637,6 @@ export function HumidorItemClient({
     }
 
     router.push("/humidor");
-  }
-
-  /* ── Share smoke log to Lounge ───────────────────────────────── */
-
-  async function handleShareToLounge(log: SmokeLog) {
-    if (sharingLogId || sharedLogIds.has(log.id)) return;
-    setSharingLogId(log.id);
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setSharingLogId(null); return; }
-
-    const { data: category } = await supabase
-      .from("forum_categories")
-      .select("id")
-      .eq("slug", "burn-reports")
-      .single();
-
-    if (!category) { setSharingLogId(null); setToast("Could not find Burn Reports category."); return; }
-
-    const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
-    const title      = `${cigarLabel} — ${log.overall_rating ?? "N/A"}`;
-    const content    = log.review_text?.trim() || `Rating: ${log.overall_rating ?? "N/A"}`;
-
-    const { error } = await supabase.from("forum_posts").insert({
-      user_id:      user.id,
-      category_id:  category.id,
-      title,
-      content,
-      smoke_log_id: log.id,
-    });
-
-    setSharingLogId(null);
-    if (error) { setToast("Failed to share."); return; }
-    setSharedLogIds((prev) => new Set([...prev, log.id]));
-    setToast("Shared to Lounge!");
   }
 
   /* ── Derived stats ────────────────────────────────────────── */
@@ -916,8 +878,6 @@ export function HumidorItemClient({
           <div className="space-y-3">
             {smokeLogs.map((log) => {
               const expanded = expandedLogId === log.id;
-              const isSharing = sharingLogId === log.id;
-              const isShared  = sharedLogIds.has(log.id);
               return (
                 <div
                   key={log.id}
@@ -976,49 +936,29 @@ export function HumidorItemClient({
                     </svg>
                   </div>
 
-                  {/* Share to Lounge — only shown when expanded */}
-                  {expanded && (
+                  {/* YouTube link — only shown when expanded */}
+                  {expanded && log.content_video && (
                     <div
-                      className="mt-3 pt-3 flex items-center justify-between gap-3"
+                      className="mt-3 pt-3 flex items-center"
                       style={{ borderTop: "1px solid var(--border)" }}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      {log.content_video ? (
-                        <Link
-                          href={`https://www.youtube.com/watch?v=${log.content_video.youtube_video_id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5"
-                          style={{
-                            border: "1.5px solid rgba(255,0,0,0.4)",
-                            color: "#FF4444",
-                            background: "transparent",
-                          }}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                            <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
-                          </svg>
-                          Watch on YouTube
-                        </Link>
-                      ) : (
-                        <span />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => handleShareToLounge(log)}
-                        disabled={isSharing || isShared}
+                      <Link
+                        href={`https://www.youtube.com/watch?v=${log.content_video.youtube_video_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5"
                         style={{
-                          border:      `1.5px solid ${isShared ? "var(--border)" : "var(--gold, #D4A04A)"}`,
-                          color:       isShared ? "var(--muted-foreground)" : "var(--gold, #D4A04A)",
-                          background:  "transparent",
-                          cursor:      isSharing || isShared ? "default" : "pointer",
-                          touchAction: "manipulation",
-                          WebkitTapHighlightColor: "transparent",
+                          border: "1.5px solid rgba(255,0,0,0.4)",
+                          color: "#FF4444",
+                          background: "transparent",
                         }}
                       >
-                        {isShared ? "Shared to Lounge" : isSharing ? "Sharing..." : "Share to Lounge"}
-                      </button>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                          <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+                        </svg>
+                        Watch on YouTube
+                      </Link>
                     </div>
                   )}
                 </div>

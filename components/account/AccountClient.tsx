@@ -7,6 +7,7 @@ import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
+import { ScrollCarets } from "@/components/ui/ScrollCarets";
 import { resolveBadge, getBadgeOptions } from "@/lib/badge";
 import type { MembershipTier } from "@/lib/stripe";
 
@@ -1191,61 +1192,6 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
   );
 }
 
-/* ─── Scroll Carets (mobile only) ────────────────────────────────────── */
-
-function ScrollCarets() {
-  const [showUp,   setShowUp]   = useState(false);
-  const [showDown, setShowDown] = useState(false);
-
-  useEffect(() => {
-    function update() {
-      const scrollY    = window.scrollY;
-      const maxScroll  = document.documentElement.scrollHeight - window.innerHeight;
-      setShowUp(scrollY > 60);
-      setShowDown(maxScroll > 60 && scrollY < maxScroll - 60);
-    }
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", update);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
-
-  const base: React.CSSProperties = {
-    position: "fixed",
-    right: 14,
-    zIndex: 20,
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
-    backgroundColor: "rgba(26,18,16,0.88)",
-    border: "1px solid var(--border)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    pointerEvents: "none",
-    backdropFilter: "blur(6px)",
-    transition: "opacity 0.25s ease",
-  };
-
-  return (
-    <div className="md:hidden">
-      <div style={{ ...base, top: 64, opacity: showUp ? 1 : 0 }}>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M2 8L6 4L10 8" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
-      <div style={{ ...base, bottom: 88, opacity: showDown ? 1 : 0 }}>
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-          <path d="M2 4L6 8L10 4" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main ───────────────────────────────────────────────────────────── */
 
 export function AccountClient({ userId, email, profile, membership, legal, memberSince, badge }: Props) {
@@ -1275,20 +1221,21 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
           backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",
           borderBottom: "1px solid var(--border)",
-          padding: "0 20px",
           minHeight: 56,
           display: "flex",
           alignItems: "center",
         }}
       >
-        <h1 style={{
-          fontSize: 18,
-          fontWeight: 700,
-          fontFamily: "var(--font-serif)",
-          color: "var(--foreground)",
-        }}>
-          Account
-        </h1>
+        <div style={{ width: "100%", maxWidth: 640, margin: "0 auto", padding: "0 20px" }}>
+          <h1 style={{
+            fontSize: 18,
+            fontWeight: 700,
+            fontFamily: "var(--font-serif)",
+            color: "var(--foreground)",
+          }}>
+            Account
+          </h1>
+        </div>
       </div>
 
       {/* Scroll carets — mobile only */}
