@@ -3,8 +3,9 @@
 /* ------------------------------------------------------------------
    Masthead
 
-   Newspaper-style greeting at the top of the home dashboard. In-flow
-   (not fixed) — replaces the previous WelcomeSection sticky header.
+   Newspaper-style greeting at the top of the home dashboard. Sticks
+   to the top of the viewport while scrolling; backdrop-blur lets the
+   content slide under it cleanly.
 
    - Top hairline gold rule.
    - Time-of-day greeting (Date().getHours()) with italic gold name.
@@ -40,12 +41,19 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
     <header
       className="animate-fade-in"
       style={{
-        position:     "relative",
-        padding:      "16px 4px 22px",
-        borderBottom: "1px solid var(--line)",
+        position:             "sticky",
+        top:                  0,
+        zIndex:               30,
+        paddingTop:           "calc(env(safe-area-inset-top) + 14px)",
+        paddingBottom:        18,
+        background:           "rgba(26,18,16,0.88)",
+        backdropFilter:       "blur(14px) saturate(140%)",
+        WebkitBackdropFilter: "blur(14px) saturate(140%)",
+        borderBottom:         "1px solid var(--line)",
       }}
       aria-label="Welcome"
     >
+    <div className="px-4 sm:px-6 max-w-2xl mx-auto" style={{ position: "relative" }}>
       {/* Top hairline rule (gold @ 50% opacity) */}
       <div
         aria-hidden="true"
@@ -64,8 +72,8 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           prefetch={false}
           style={{
             position:      "absolute",
-            top:           18,
-            right:         4,
+            top:           4,
+            right:         16,
             fontFamily:    "var(--font-mono)",
             fontSize:      10,
             letterSpacing: "0.22em",
@@ -118,6 +126,7 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           {c.sub}
         </span>
       </h1>
+    </div>
     </header>
   );
 }

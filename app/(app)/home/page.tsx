@@ -64,29 +64,31 @@ export default async function HomePage() {
   const shopCount  = shopCountRes.count ?? 0;
 
   return (
-    <div className="px-4 sm:px-6 pt-4 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
-
-      {/* ── 0. Masthead (in-flow greeting) ───────────────────────── */}
+    <>
+      {/* ── 0. Masthead (sticky, full-width) ─────────────────────── */}
       <Masthead displayName={displayName} isAdmin={!!profile?.is_admin} />
 
-      {/* ── 1. Tonight's Pairing — primary CTAs ───────────────────── */}
-      <TonightsPairing />
+      <div className="px-4 sm:px-6 pt-6 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
-      {/* ── 2. Smoking conditions strip ───────────────────────────── */}
-      <SmokingConditions city={city} />
+        {/* ── 1. Tonight's Pairing — primary CTAs ───────────────────── */}
+        <TonightsPairing />
 
-      {/* ── 3. Aging Shelf ────────────────────────────────────────── */}
-      <AgingAlerts initialItems={agingItems} />
+        {/* ── 2. Smoking conditions strip ───────────────────────────── */}
+        <SmokingConditions city={city} />
 
-      {/* ── 4. The Wire (RSS-driven news) ─────────────────────────── */}
-      <News items={newsItems} />
+        {/* ── 3. Aging Shelf ────────────────────────────────────────── */}
+        <AgingAlerts initialItems={agingItems} />
 
-      {/* ── 5. Field Guide — editorial reference library ──────────── */}
-      <FieldGuide />
+        {/* ── 4. The Wire (RSS-driven news) ─────────────────────────── */}
+        <News items={newsItems} />
 
-      {/* ── 6. Local Shops ────────────────────────────────────────── */}
-      <LocalShops shopCount={shopCount} />
+        {/* ── 5. Field Guide — editorial reference library ──────────── */}
+        <FieldGuide />
 
-    </div>
+        {/* ── 6. Local Shops ────────────────────────────────────────── */}
+        <LocalShops shopCount={shopCount} />
+
+      </div>
+    </>
   );
 }
