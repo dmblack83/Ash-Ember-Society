@@ -85,9 +85,13 @@ export function ColdOpenSmoke() {
 
   useEffect(() => {
     // Only play when launched from the installed PWA on a mobile device.
-    // display-mode: standalone is true only when running as an installed
-    // home-screen app (iOS Safari "Add to Home Screen" or Android PWA).
-    const isPWA    = window.matchMedia("(display-mode: standalone)").matches;
+    // navigator.standalone is the iOS-specific API for detecting home-
+    // screen launch; display-mode: standalone covers Android / Chrome PWA.
+    // iOS Safari does not reliably fire the media query, so both have to
+    // be checked or the loader silently never plays on iOS — which was
+    // the symptom of "the cold-smoke loader got removed".
+    const isPWA    = (navigator as Navigator & { standalone?: boolean }).standalone === true ||
+                     window.matchMedia("(display-mode: standalone)").matches;
     const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
     if (!isPWA || !isMobile) return;
