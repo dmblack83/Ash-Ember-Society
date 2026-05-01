@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
+import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
 import { ColdOpenSmoke } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import "./globals.css";
 
@@ -77,6 +78,8 @@ export default function RootLayout({
         </ThemeProvider>
         {/* Patches viewport meta on desktop; resets scroll on iOS focusout */}
         <ViewportMeta />
+        {/* Registers /sw.js (production only) so the app is PWA-installable */}
+        <RegisterServiceWorker />
       </body>
     </html>
   );

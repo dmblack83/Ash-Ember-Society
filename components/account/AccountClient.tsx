@@ -6,8 +6,10 @@ import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
+import { InstallSheet } from "@/components/account/InstallSheet";
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
 import { ScrollCarets } from "@/components/ui/ScrollCarets";
+import { getInstallState, useBeforeInstallPrompt, type InstallState } from "@/lib/install-prompt";
 import { resolveBadge, getBadgeOptions } from "@/lib/badge";
 import type { MembershipTier } from "@/lib/stripe";
 
@@ -1071,6 +1073,15 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
   const [confirmPw, setConfirmPw] = useState("");
   const [savingPw,  setSavingPw]  = useState(false);
 
+  /* ── Install affordance ────────────────────────────────────── */
+  // Runtime detection (window/navigator only available client-side).
+  // Hidden on Android, desktop, and when running standalone.
+  const [installState,    setInstallState]    = useState<InstallState | null>(null);
+  const [showInstallSheet, setShowInstallSheet] = useState(false);
+  const { available: androidPromptAvailable, trigger: triggerAndroidPrompt } =
+    useBeforeInstallPrompt();
+  useEffect(() => { setInstallState(getInstallState()); }, []);
+
   async function handlePasswordChange() {
     if (!currentPw) { onToast("Enter your current password."); return; }
     if (newPw.length < 8) { onToast("New password must be at least 8 characters."); return; }
@@ -1174,8 +1185,61 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
             <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>Privacy</p>
             <ChevronRight />
           </button>
+
+          {/* Pin to Home Screen — iOS + Android, hidden when standalone or unsupported */}
+          {installState?.supported && (
+            <>
+              <RowDivider />
+              <div
+                style={{
+                  ...rowBase,
+                  cursor: "default",
+                  alignItems: "center",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>
+                    Pin Ash &amp; Ember to your home screen
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                    Mobile app experience.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowInstallSheet(true)}
+                  className="rounded-full"
+                  style={{
+                    flexShrink:              0,
+                    marginLeft:              12,
+                    padding:                 "8px 16px",
+                    background:              "var(--secondary)",
+                    color:                   "var(--foreground)",
+                    border:                  "1px solid var(--border)",
+                    fontSize:                13,
+                    fontWeight:              600,
+                    minHeight:               36,
+                    cursor:                  "pointer",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  Install
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
+
+      {showInstallSheet && installState && (
+        <InstallSheet
+          platform={installState.platform}
+          onClose={() => setShowInstallSheet(false)}
+          androidPromptAvailable={androidPromptAvailable}
+          onPromptInstall={triggerAndroidPrompt}
+        />
+      )}
 
       {sheet === "membership" && (
         <BottomSheet title="Membership" onClose={() => setSheet(null)}>
