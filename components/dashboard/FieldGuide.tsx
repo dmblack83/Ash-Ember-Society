@@ -18,17 +18,17 @@ import { FieldGuideModal } from "@/components/field-guide/FieldGuideModal";
 const VOLUMES = [1, 2, 3, 4] as const;
 
 const buttonStyle: React.CSSProperties = {
-  flex:                    "1 1 auto",
-  minWidth:                70,
+  flex:                    "1 1 0",
+  minWidth:                0,
   display:                 "inline-flex",
   alignItems:              "center",
   justifyContent:          "center",
   fontFamily:              "var(--font-mono)",
-  fontSize:                11,
+  fontSize:                10,
   fontWeight:              600,
-  letterSpacing:           "0.2em",
+  letterSpacing:           "0.14em",
   textTransform:           "uppercase",
-  padding:                 "11px 14px",
+  padding:                 "11px 6px",
   borderRadius:            3,
   background:              "transparent",
   color:                   "var(--foreground)",
@@ -38,6 +38,7 @@ const buttonStyle: React.CSSProperties = {
   WebkitTapHighlightColor: "transparent",
   transition:              "background 200ms ease, border-color 200ms ease",
   minHeight:               44,
+  whiteSpace:              "nowrap",
 };
 
 export function FieldGuide() {
@@ -123,7 +124,7 @@ export function FieldGuide() {
       </p>
 
       {/* Volume buttons */}
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
         {VOLUMES.map((v) => (
           <button
             key={v}
