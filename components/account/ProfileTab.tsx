@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient }                  from "@/utils/supabase/client";
 import { Toast }                         from "@/components/ui/toast";
+import { InstallSheet }                  from "@/components/account/InstallSheet";
+import { getInstallState, type InstallState } from "@/lib/install-prompt";
 import type { ProfileData } from "@/components/account/AccountClient";
 
 /* ------------------------------------------------------------------
@@ -99,6 +101,13 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
   const [saving,     setSaving]   = useState(false);
   const [toast,      setToast]    = useState<string | null>(null);
   const [saveError,  setSaveError] = useState<string | null>(null);
+
+  /* ── Install affordance ──────────────────────────────────────── */
+  const [installState,    setInstallState]    = useState<InstallState | null>(null);
+  const [showInstallSheet, setShowInstallSheet] = useState(false);
+
+  // Detect on mount only — runtime checks need window/navigator.
+  useEffect(() => { setInstallState(getInstallState()); }, []);
 
   /* ── Avatar upload handler ───────────────────────────────────── */
   const handleAvatarChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,6 +372,37 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
         </div>
       </section>
 
+      {/* ── Install affordance (iOS only; hidden on Android,
+              desktop, and when already running standalone) ────── */}
+      {installState?.supported && (
+        <section
+          className="rounded-2xl p-5 space-y-3"
+          style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+        >
+          <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">
+            Install
+          </p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Pin Ash &amp; Ember to your home screen
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Mobile app experience.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowInstallSheet(true)}
+              className="btn btn-ghost text-sm flex-shrink-0"
+              style={{ minHeight: 44, touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}
+            >
+              Install
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* ── Save error ─────────────────────────────────────────── */}
       {saveError && (
         <p className="text-sm text-destructive animate-slide-up">{saveError}</p>
@@ -386,6 +426,14 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
       >
         {saving ? "Saving…" : "Save Changes"}
       </button>
+
+      {/* ── Install sheet ──────────────────────────────────────── */}
+      {showInstallSheet && installState && (
+        <InstallSheet
+          platform={installState.platform}
+          onClose={() => setShowInstallSheet(false)}
+        />
+      )}
 
       {/* ── Toast ──────────────────────────────────────────────── */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
