@@ -1,15 +1,15 @@
 import { createClient }    from "@/utils/supabase/server";
 import { getServerUser }   from "@/lib/auth/server-user";
 import { getMembershipTier } from "@/lib/membership";
+import { getLatestNews }   from "@/lib/data/news";
 import { WelcomeSection, QuickActions } from "@/components/dashboard/WelcomeSection";
 import { SmokingConditions }            from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }                  from "@/components/dashboard/AgingAlerts";
-import { CigarNews }                    from "@/components/dashboard/CigarNews";
+import { News }                         from "@/components/dashboard/News";
 import { FieldGuide }                   from "@/components/dashboard/FieldGuide";
 import { TrendingLounge }               from "@/components/dashboard/TrendingLounge";
 import type { AgingItem }               from "@/components/dashboard/AgingAlerts";
 import type { LoungePost }              from "@/components/dashboard/TrendingLounge";
-import type { BlogPost }                from "@/components/dashboard/CigarNews";
 
 // User-specific data — opt out of static rendering
 export const runtime = "edge";
@@ -34,7 +34,6 @@ export default async function HomePage() {
     ? new Date(profile.created_at).getFullYear().toString()
     : "—";
   const city           = profile?.city?.trim() || null;
-  const userName       = profile?.display_name ?? "Member";
 
   /* ── Cutoffs ───────────────────────────────────────────────────── */
   const cutoff    = new Date();
@@ -46,7 +45,7 @@ export default async function HomePage() {
   const since     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   /* ── Run all data queries in parallel ─────────────────────────── */
-  const [agingRes, postsRes, newsRes] = await Promise.all([
+  const [agingRes, postsRes, newsItems] = await Promise.all([
     user
       ? supabase
           .from("humidor_items")
@@ -71,15 +70,7 @@ export default async function HomePage() {
       .order("likes_count",    { ascending: false })
       .order("comments_count", { ascending: false })
       .limit(5),
-    supabase
-      .from("blog_posts")
-      .select(
-        "id, type, title, cover_image_url, excerpt, body, synopsis, source_name, source_url, published_at"
-      )
-      .not("published_at", "is", null)
-      .lte("published_at", new Date().toISOString())
-      .order("published_at", { ascending: false })
-      .limit(6),
+    getLatestNews(5),
   ]);
 
   const agingItems = (agingRes.data ?? []) as unknown as AgingItem[];
@@ -102,8 +93,6 @@ export default async function HomePage() {
         (a.likes_count + a.comments_count)
     );
 
-  const initialNews = (newsRes.data ?? []) as BlogPost[];
-
   return (
     <div className="px-4 sm:px-6 pt-4 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
@@ -123,13 +112,8 @@ export default async function HomePage() {
       {/* ── 2. Aging alerts ───────────────────────────────────────── */}
       <AgingAlerts initialItems={agingItems} />
 
-      {/* ── 3. Cigar news & editorial feed ────────────────────────── */}
-      <CigarNews
-        initialPosts={initialNews}
-        membershipTier={membershipTier}
-        userId={user?.id ?? null}
-        userName={userName}
-      />
+      {/* ── 3. News (RSS-driven) ──────────────────────────────────── */}
+      <News items={newsItems} />
 
       {/* ── 4. Field Guide — editorial reference library ──────────── */}
       <FieldGuide />

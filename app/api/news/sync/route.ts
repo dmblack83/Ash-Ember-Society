@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag }              from "next/cache";
 import { XMLParser }                  from "fast-xml-parser";
 import { createServiceClient }        from "@/utils/supabase/service";
 import { NEWS_FEEDS, type NewsFeed }  from "@/lib/news-feeds";
@@ -226,6 +227,10 @@ async function handle(req: NextRequest) {
       });
     }
   }
+
+  // Mark cached news reads stale so the home + Discover surfaces pick
+  // up the new items on next visit (stale-while-revalidate).
+  if (totalUpserted > 0) revalidateTag("news-items", "max");
 
   return NextResponse.json({ ok: true, totalUpserted, perFeed });
 }
