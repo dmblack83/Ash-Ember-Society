@@ -3,7 +3,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
-import { ColdOpenSmoke } from "@/components/cold-open-smoke/ColdOpenSmoke";
+import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import "./globals.css";
 
 /*
@@ -70,6 +70,10 @@ export default function RootLayout({
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        {/* Cold-smoke init — runs synchronously at parse time so the
+            overlay (rendered server-side below) is visible from the
+            very first frame on cold PWA launch. No flash of dashboard. */}
+        <script dangerouslySetInnerHTML={{ __html: COLD_SMOKE_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
