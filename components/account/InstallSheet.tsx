@@ -8,7 +8,6 @@ import type { InstallPlatform } from "@/lib/install-prompt";
    InstallSheet
 
    Bottom sheet with platform-specific install instructions.
-   Two variants today (v1 = iOS only):
 
      ios-safari → 3-step Add-to-Home-Screen guide pointing at the
                    Share button at the bottom of the screen.
@@ -16,14 +15,23 @@ import type { InstallPlatform } from "@/lib/install-prompt";
                    (We don't try to programmatically open Safari —
                    x-safari-https:// only works in some non-Safari
                    browsers and silently fails in others.)
+     android    → captures BeforeInstallPromptEvent on parent and
+                   fires it via onPromptInstall when the user taps
+                   "Install on Android". Falls back to manual
+                   instructions when the event isn't available
+                   (e.g., user previously dismissed it).
 
    Renders into document.body via portal so it overlays nav and
    sticky headers cleanly.
    ------------------------------------------------------------------ */
 
 interface Props {
-  platform: InstallPlatform;
-  onClose:  () => void;
+  platform:        InstallPlatform;
+  onClose:         () => void;
+  /** Android only: true when a BeforeInstallPromptEvent was captured. */
+  androidPromptAvailable?: boolean;
+  /** Android only: fires the captured prompt; resolves to outcome. */
+  onPromptInstall?: () => Promise<"accepted" | "dismissed" | "unavailable">;
 }
 
 const STEPS_SAFARI = [
@@ -36,6 +44,15 @@ const STEPS_NON_SAFARI = [
   { num: "1", text: "Open ashember.vip in Safari." },
   { num: "2", text: "Tap the Share button at the bottom of the screen." },
   { num: "3", text: 'Tap "Add to Home Screen", then "Add".' },
+] as const;
+
+/* Manual fallback for Android when the deferred prompt isn't
+   available (event already fired and dismissed, or browser doesn't
+   surface one). */
+const STEPS_ANDROID_MANUAL = [
+  { num: "1", text: "Tap the ⋮ menu in the top right of Chrome." },
+  { num: "2", text: 'Tap "Install app" or "Add to Home screen".' },
+  { num: "3", text: 'Tap "Install" to confirm.' },
 ] as const;
 
 function ShareIcon({ size = 20 }: { size?: number }) {
@@ -66,8 +83,14 @@ function DownArrow() {
   );
 }
 
-export function InstallSheet({ platform, onClose }: Props) {
+export function InstallSheet({
+  platform,
+  onClose,
+  androidPromptAvailable = false,
+  onPromptInstall,
+}: Props) {
   const [mounted, setMounted] = useState(false);
+  const [installing, setInstalling] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -87,16 +110,45 @@ export function InstallSheet({ platform, onClose }: Props) {
 
   if (!mounted) return null;
 
-  const isSafari = platform === "ios-safari";
-  const steps    = isSafari ? STEPS_SAFARI : STEPS_NON_SAFARI;
+  const isSafari  = platform === "ios-safari";
+  const isAndroid = platform === "android";
+  // Android with a captured deferred prompt has its own flow (no
+  // step list — the OS modal handles it). Without a captured prompt
+  // we show manual menu instructions.
+  const showAndroidPrompt = isAndroid && androidPromptAvailable;
+  const steps = isSafari
+    ? STEPS_SAFARI
+    : isAndroid
+      ? STEPS_ANDROID_MANUAL
+      : STEPS_NON_SAFARI;
 
   const heading = isSafari
     ? "Add Ash & Ember to your Home Screen"
-    : "Open in Safari to install";
+    : isAndroid
+      ? "Install Ash & Ember"
+      : "Open in Safari to install";
 
   const subheading = isSafari
     ? "Get a faster, app-like experience in one tap."
-    : "Adding to the Home Screen is only available from Safari on iOS.";
+    : isAndroid
+      ? showAndroidPrompt
+        ? "One tap to install. Get a faster, app-like experience."
+        : "Install from Chrome's menu — it's only a few taps."
+      : "Adding to the Home Screen is only available from Safari on iOS.";
+
+  async function handleAndroidInstall() {
+    if (!onPromptInstall || installing) return;
+    setInstalling(true);
+    const outcome = await onPromptInstall();
+    setInstalling(false);
+    if (outcome === "accepted" || outcome === "dismissed") {
+      // Either way, the captured event is consumed — close the sheet.
+      onClose();
+    }
+    // "unavailable" leaves the sheet open so the user can read the
+    // manual fallback instructions, which the parent will now show
+    // since androidPromptAvailable flipped to false.
+  }
 
   return createPortal(
     <>
@@ -179,7 +231,34 @@ export function InstallSheet({ platform, onClose }: Props) {
           </p>
         </div>
 
-        {/* Steps */}
+        {/* Android with a captured prompt: single Install button.
+            Skip the steps entirely — Chrome's modal IS the flow. */}
+        {showAndroidPrompt && (
+          <div className="px-6 pt-4 pb-2">
+            <button
+              type="button"
+              onClick={handleAndroidInstall}
+              disabled={installing}
+              className="w-full rounded-full"
+              style={{
+                minHeight:               48,
+                background:              installing ? "rgba(212,160,74,0.5)" : "linear-gradient(135deg, #D4A04A, #C17817)",
+                color:                   "#1A1210",
+                border:                  "none",
+                fontWeight:              600,
+                fontSize:                14,
+                cursor:                  installing ? "default" : "pointer",
+                touchAction:             "manipulation",
+                WebkitTapHighlightColor: "transparent",
+              }}
+            >
+              {installing ? "Opening prompt…" : "Install Ash & Ember"}
+            </button>
+          </div>
+        )}
+
+        {/* Steps — shown for both iOS variants and Android-manual */}
+        {!showAndroidPrompt && (
         <ol
           className="px-6 pt-4 pb-2"
           style={{
@@ -225,6 +304,7 @@ export function InstallSheet({ platform, onClose }: Props) {
             </li>
           ))}
         </ol>
+        )}
 
         {/* Visual hint — only on iOS Safari, where the Share button
             actually lives at the bottom of the screen */}
