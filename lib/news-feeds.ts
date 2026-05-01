@@ -24,11 +24,9 @@ export const NEWS_FEEDS: readonly NewsFeed[] = [
     name: "Halfwheel",
     url:  "https://halfwheel.com/feed/",
   },
-  {
-    slug: "jr-cigars",
-    name: "JR Cigars",
-    url:  "https://jrcigars.com/blending-room/feed",
-  },
+  // jr-cigars is behind Imperva and serves a JS challenge to all
+  // non-browser clients — re-enable if jrcigars.com whitelists our UA
+  // or we move the fetch to a headless-browser fallback.
   {
     slug: "cigar-dojo",
     name: "Cigar Dojo",
