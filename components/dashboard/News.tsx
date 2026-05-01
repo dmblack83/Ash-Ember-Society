@@ -3,24 +3,21 @@ import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";
 
 /* ------------------------------------------------------------------
-   News
-   ------------------------------------------------------------------
-   Server component. Renders the "From The World" card on the home
-   dashboard: a card with eyebrow + title + a 5-row list of latest
-   articles + "View More" link to /discover/partners.
-   Each row links out to the source article in a new tab. No in-app
-   reading sheet — that's the whole point of the RSS rebuild.
+   News — "The Wire" column
+
+   Server component. Renders the editorial newswire on the home
+   dashboard: italic-serif column header with leading rule, a stack
+   of source/headline/meta rows, and a quiet "View More →" CTA.
+   No thumbnails — text-only per the design.
    ------------------------------------------------------------------ */
 
 function relativeTime(iso: string): string {
   try {
     return formatDistanceToNow(new Date(iso), { addSuffix: false })
-      // strip "about ", "less than ", "almost " etc.
       .replace(/^about\s+/, "")
       .replace(/^less than\s+/, "<")
       .replace(/^almost\s+/, "")
       .replace(/^over\s+/, "")
-      // shorten units: "hours" -> "h", "minutes" -> "m", etc.
       .replace(/\s*hours?$/, "h")
       .replace(/\s*minutes?$/, "m")
       .replace(/\s*days?$/, "d")
@@ -31,47 +28,57 @@ function relativeTime(iso: string): string {
   }
 }
 
+/* ------------------------------------------------------------------
+   Column header — "The *Wire*" with leading gold rule
+   ------------------------------------------------------------------ */
+
+function WireHeader() {
+  return (
+    <div
+      style={{
+        display:      "flex",
+        alignItems:   "baseline",
+        gap:          12,
+        marginBottom: 14,
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          width:      18,
+          height:     1,
+          background: "var(--gold)",
+          alignSelf:  "center",
+        }}
+      />
+      <h2
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontWeight: 500,
+          fontSize:   22,
+          lineHeight: 1.1,
+          color:      "var(--foreground)",
+          margin:     0,
+        }}
+      >
+        The{" "}
+        <em style={{ fontStyle: "italic", color: "var(--gold)" }}>Wire</em>
+      </h2>
+    </div>
+  );
+}
+
 export function News({ items }: { items: NewsItem[] }) {
   if (items.length === 0) {
     return (
-      <section
-        className="rounded-2xl"
-        style={{
-          backgroundColor: "var(--card)",
-          border:          "1px solid rgba(255,255,255,0.06)",
-          padding:         "20px 22px",
-        }}
-      >
-        <p
-          style={{
-            fontFamily:    "Inter, system-ui, sans-serif",
-            fontSize:      11,
-            fontWeight:    600,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color:         "var(--muted-foreground)",
-            marginBottom:  6,
-          }}
-        >
-          From The World
-        </p>
-        <h2
-          style={{
-            fontFamily: "var(--font-serif)",
-            fontSize:   28,
-            fontWeight: 700,
-            color:      "var(--gold, #D4A04A)",
-            margin:     "0 0 16px",
-            lineHeight: 1,
-          }}
-        >
-          News
-        </h2>
+      <section aria-label="The Wire">
+        <WireHeader />
         <p
           style={{
             fontSize:   13,
-            color:      "var(--muted-foreground)",
+            color:      "var(--paper-mute)",
             lineHeight: 1.5,
+            margin:     0,
           }}
         >
           No articles yet. Check back soon.
@@ -81,76 +88,76 @@ export function News({ items }: { items: NewsItem[] }) {
   }
 
   return (
-    <section
-      className="rounded-2xl"
-      style={{
-        backgroundColor: "var(--card)",
-        border:          "1px solid rgba(255,255,255,0.06)",
-        padding:         "20px 22px",
-      }}
-    >
-      {/* Eyebrow */}
-      <p
-        style={{
-          fontFamily:    "Inter, system-ui, sans-serif",
-          fontSize:      11,
-          fontWeight:    600,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color:         "var(--muted-foreground)",
-          marginBottom:  6,
-        }}
-      >
-        From The World
-      </p>
-
-      {/* Title */}
-      <h2
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontSize:   28,
-          fontWeight: 700,
-          color:      "var(--gold, #D4A04A)",
-          margin:     "0 0 18px",
-          lineHeight: 1,
-        }}
-      >
-        News
-      </h2>
+    <section aria-label="The Wire">
+      <WireHeader />
 
       {/* Item list */}
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 18 }}>
+      <ul
+        style={{
+          listStyle:     "none",
+          padding:       0,
+          margin:        0,
+          borderTop:     "1px solid var(--line)",
+        }}
+      >
         {items.map((item) => (
-          <li key={item.id}>
+          <li
+            key={item.id}
+            style={{ borderBottom: "1px solid var(--line-soft)" }}
+          >
             <a
               href={item.link}
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                display:        "block",
-                textDecoration: "none",
+                display:                 "block",
+                padding:                 "14px 0",
+                textDecoration:          "none",
+                touchAction:             "manipulation",
+                WebkitTapHighlightColor: "transparent",
               }}
             >
+              {/* Source eyebrow */}
+              <p
+                style={{
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      9,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color:         "var(--gold)",
+                  margin:        "0 0 6px",
+                }}
+              >
+                {item.source_name}
+              </p>
+
+              {/* Headline */}
               <h3
                 style={{
                   fontFamily:    "var(--font-serif)",
-                  fontSize:      17,
-                  fontWeight:    600,
-                  color:         "var(--gold, #D4A04A)",
-                  lineHeight:    1.3,
-                  margin:        "0 0 4px",
+                  fontSize:      16,
+                  fontWeight:    500,
+                  color:         "var(--foreground)",
+                  lineHeight:    1.35,
+                  margin:        "0 0 6px",
+                  letterSpacing: "-0.005em",
                 }}
               >
                 {item.title}
               </h3>
+
+              {/* Meta row */}
               <p
                 style={{
-                  fontSize:   12,
-                  color:      "var(--muted-foreground)",
-                  margin:     0,
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color:         "var(--paper-dim)",
+                  margin:        0,
                 }}
               >
-                {item.source_name} &middot; {relativeTime(item.published_at)}
+                {relativeTime(item.published_at)}
               </p>
             </a>
           </li>
@@ -161,20 +168,24 @@ export function News({ items }: { items: NewsItem[] }) {
       <Link
         href="/discover/partners"
         prefetch={false}
-        className="block w-full rounded-full text-center"
         style={{
-          marginTop:               20,
-          padding:                 "12px 16px",
-          background:              "linear-gradient(135deg, #D4A04A, #C17817)",
-          color:                   "#1A1210",
+          display:                 "inline-flex",
+          alignItems:              "center",
+          gap:                     8,
+          marginTop:               14,
+          fontFamily:              "var(--font-mono)",
+          fontSize:                10,
           fontWeight:              600,
-          fontSize:                14,
+          letterSpacing:           "0.22em",
+          textTransform:           "uppercase",
+          color:                   "var(--gold)",
           textDecoration:          "none",
           touchAction:             "manipulation",
           WebkitTapHighlightColor: "transparent",
         }}
       >
         View More
+        <span aria-hidden="true">→</span>
       </Link>
     </section>
   );
