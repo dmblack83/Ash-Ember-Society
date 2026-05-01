@@ -39,7 +39,14 @@ export function getInstallState(): InstallState {
     window.matchMedia("(display-mode: standalone)").matches ||
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-  const isIOS = /iPhone|iPad|iPod/i.test(ua);
+  // iPad on iPadOS 13+ defaults to a Mac-like UA ("Macintosh; Intel
+  // Mac OS X …") with no "iPad" token, and iPhone Safari's
+  // "Request Desktop Site" toggle does the same thing. In both
+  // cases the UA looks like a desktop Mac. Real Macs report
+  // navigator.maxTouchPoints === 0; iOS devices report ≥ 1.
+  const isIOS =
+    /iPhone|iPad|iPod/i.test(ua) ||
+    (/Macintosh/i.test(ua) && (navigator.maxTouchPoints ?? 0) > 1);
 
   if (isIOS) {
     const isCriOS  = /CriOS/i.test(ua);                       // Chrome iOS
