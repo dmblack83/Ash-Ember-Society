@@ -36,13 +36,15 @@ const VERDICT: Record<
 /* ------------------------------------------------------------------
    ConditionsStrip — the data ribbon
 
-   Hairline borders top + bottom, faint gold gradient. Eyebrow rule
-   on the left + city/verdict header row, then a 3-column metric grid
-   (Temp · Humidity · Wind).
+   Hairline borders top + bottom, faint gold gradient. City and
+   verdict pill sit on a single row that doubles as a collapse toggle.
+   The 3-column metric grid (Temp · Humidity · Wind) is hidden by
+   default and animates in when expanded.
    ------------------------------------------------------------------ */
 
 function ConditionsStrip({ weather }: { weather: WeatherApiResponse }) {
   const v = VERDICT[weather.suitability];
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <section
@@ -51,7 +53,7 @@ function ConditionsStrip({ weather }: { weather: WeatherApiResponse }) {
         borderBottom: "1px solid var(--line)",
         background:
           "linear-gradient(180deg, rgba(212,160,74,0.04), transparent 60%)",
-        padding:      "16px 0 14px",
+        padding:      "14px 14px 12px",
       }}
       aria-label="Smoking conditions"
     >
@@ -73,14 +75,26 @@ function ConditionsStrip({ weather }: { weather: WeatherApiResponse }) {
         Smoking Conditions
       </div>
 
-      {/* City + verdict header */}
-      <div
+      {/* City + verdict header — also toggles expansion */}
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        aria-expanded={expanded}
+        aria-controls="smoking-conditions-metrics"
         style={{
-          display:        "flex",
-          justifyContent: "space-between",
-          alignItems:     "baseline",
-          gap:            12,
-          marginBottom:   12,
+          width:                   "100%",
+          display:                 "flex",
+          justifyContent:          "space-between",
+          alignItems:              "baseline",
+          gap:                     12,
+          background:              "none",
+          border:                  "none",
+          padding:                 "4px 0",
+          cursor:                  "pointer",
+          textAlign:               "left",
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+          minHeight:               44,
         }}
       >
         <span
@@ -122,21 +136,47 @@ function ConditionsStrip({ weather }: { weather: WeatherApiResponse }) {
             }}
           />
           {v.label}
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            aria-hidden="true"
+            style={{
+              marginLeft: 2,
+              transition: "transform 0.25s ease",
+              transform:  expanded ? "rotate(0deg)" : "rotate(-90deg)",
+              color:      "var(--gold)",
+            }}
+          >
+            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </span>
-      </div>
+      </button>
 
-      {/* 3-column metric grid */}
+      {/* 3-column metric grid (collapsible) */}
       <div
+        id="smoking-conditions-metrics"
         style={{
-          display:             "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          borderTop:           "1px dashed var(--line-soft)",
-          paddingTop:          14,
+          maxHeight:  expanded ? 200 : 0,
+          opacity:    expanded ? 1 : 0,
+          overflow:   "hidden",
+          transition: "max-height 280ms ease, opacity 200ms ease, margin-top 200ms ease, padding-top 200ms ease",
+          marginTop:  expanded ? 12 : 0,
+          paddingTop: expanded ? 14 : 0,
+          borderTop:  expanded ? "1px dashed var(--line-soft)" : "1px dashed transparent",
         }}
       >
-        <Metric label="Temp"     value={weather.temp}     unit="°"   />
-        <Metric label="Humidity" value={weather.humidity} unit="%"   border />
-        <Metric label="Wind"     value={weather.wind}     unit="mph" />
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+          }}
+        >
+          <Metric label="Temp"     value={weather.temp}     unit="°"   />
+          <Metric label="Humidity" value={weather.humidity} unit="%"   border />
+          <Metric label="Wind"     value={weather.wind}     unit="mph" />
+        </div>
       </div>
     </section>
   );
@@ -158,11 +198,13 @@ function Metric({
       style={{
         display:        "flex",
         flexDirection:  "column",
+        alignItems:     "center",
+        justifyContent: "center",
         gap:            4,
         padding:        "0 10px",
         borderLeft:     border ? "1px solid var(--line-soft)" : undefined,
         borderRight:    border ? "1px solid var(--line-soft)" : undefined,
-        textAlign:      "left",
+        textAlign:      "center",
       }}
     >
       <span
@@ -214,7 +256,7 @@ function StripSkeleton() {
       style={{
         borderTop:    "1px solid var(--line)",
         borderBottom: "1px solid var(--line)",
-        height:       96,
+        height:       72,
         opacity:      0.5,
       }}
     />
@@ -231,7 +273,7 @@ function NoLocation() {
       style={{
         borderTop:    "1px solid var(--line)",
         borderBottom: "1px solid var(--line)",
-        padding:      "18px 0",
+        padding:      "18px 14px",
       }}
     >
       <p
