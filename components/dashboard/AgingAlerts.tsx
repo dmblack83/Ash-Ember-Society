@@ -137,23 +137,70 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
   return (
     <section
       className="animate-fade-in"
-      style={{ animationDelay: "160ms" }}
+      style={{
+        animationDelay: "160ms",
+        position:       "relative",
+        border:         "1px solid var(--line)",
+        borderRadius:   6,
+        background:     "linear-gradient(165deg, #2a1f15 0%, #1a130c 100%)",
+        padding:        "18px 20px 16px",
+        overflow:       "hidden",
+      }}
       aria-label="Aging shelf"
     >
-      {/* ── Header row ─────────────────────────────────────────── */}
+      {/* Radial highlight in top-right */}
+      <div
+        aria-hidden="true"
+        style={{
+          position:      "absolute",
+          top:           0,
+          right:         0,
+          width:         140,
+          height:        140,
+          background:    "radial-gradient(ellipse at top right, rgba(212,160,74,0.16), transparent 70%)",
+          pointerEvents: "none",
+        }}
+      />
+
+      {/* Eyebrow with trailing rule */}
+      <div
+        style={{
+          fontFamily:    "var(--font-mono)",
+          fontSize:      10,
+          letterSpacing: "0.28em",
+          textTransform: "uppercase",
+          color:         "var(--gold)",
+          display:       "flex",
+          alignItems:    "center",
+          gap:           10,
+          marginBottom:  10,
+          position:      "relative",
+          zIndex:        1,
+        }}
+      >
+        Aging Shelf
+        <span
+          aria-hidden="true"
+          style={{ flex: 1, height: 1, background: "var(--line)" }}
+        />
+      </div>
+
+      {/* Header row — italic title + count toggle */}
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-baseline justify-between"
         style={{
           minHeight:               44,
-          padding:                 "4px 0",
+          padding:                 "0",
           touchAction:             "manipulation",
           WebkitTapHighlightColor: "transparent",
           background:              "none",
           border:                  "none",
           cursor:                  "pointer",
           textAlign:               "left",
+          position:                "relative",
+          zIndex:                  1,
         } as React.CSSProperties}
         aria-expanded={expanded}
         aria-controls="aging-shelf-list"
@@ -161,15 +208,15 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
         <h2
           style={{
             fontFamily: "var(--font-serif)",
+            fontStyle:  "italic",
             fontWeight: 500,
-            fontSize:   22,
+            fontSize:   "clamp(20px, 5vw, 24px)",
             lineHeight: 1.1,
             color:      "var(--foreground)",
             margin:     0,
           }}
         >
-          Aging{" "}
-          <em style={{ fontStyle: "italic", color: "var(--gold)" }}>Shelf</em>
+          {count} {count === 1 ? "cigar" : "cigars"} ready soon.
         </h2>
 
         <span
@@ -185,7 +232,7 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
             flexShrink:     0,
           }}
         >
-          {count} {count === 1 ? "Alert" : "Alerts"}
+          {expanded ? "Hide" : "View"}
           <svg
             width="10"
             height="10"
@@ -210,9 +257,12 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
           maxHeight:  expanded ? 1000 : 0,
           opacity:    expanded ? 1 : 0,
           overflow:   "hidden",
-          transition: "max-height 320ms ease, opacity 220ms ease",
+          transition: "max-height 320ms ease, opacity 220ms ease, margin-top 200ms ease, padding-top 200ms ease",
           borderTop:  expanded ? "1px solid var(--line)" : "1px solid transparent",
-          marginTop:  expanded ? 8 : 0,
+          marginTop:  expanded ? 12 : 0,
+          paddingTop: expanded ? 4 : 0,
+          position:   "relative",
+          zIndex:     1,
         }}
       >
         <div className="divide-y" style={{ borderColor: "var(--line-soft)" }}>

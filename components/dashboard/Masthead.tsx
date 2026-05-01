@@ -91,12 +91,14 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           textWrap:      "pretty" as React.CSSProperties["textWrap"],
         }}
       >
-        {c.hi},{" "}
+        {c.hi},
         <em
           style={{
-            fontStyle: "italic",
-            color:     "var(--gold)",
+            display:    "block",
+            fontStyle:  "italic",
+            color:      "var(--gold)",
             fontWeight: 500,
+            marginTop:  4,
           }}
         >
           {displayName}.
@@ -109,7 +111,7 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
             fontStyle:  "italic",
             color:      "var(--paper-mute)",
             fontWeight: 400,
-            marginTop:  10,
+            marginTop:  12,
             letterSpacing: 0,
           }}
         >
