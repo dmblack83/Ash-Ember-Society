@@ -48,44 +48,20 @@ function agingDuration(startDate: string | null): string | null {
 }
 
 /* ------------------------------------------------------------------
-   Chevron icon
-   ------------------------------------------------------------------ */
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 16 16"
-      fill="none"
-      aria-hidden="true"
-      style={{
-        transition: "transform 0.25s ease",
-        transform:  open ? "rotate(180deg)" : "rotate(0deg)",
-        flexShrink: 0,
-        color:      "var(--muted-foreground)",
-      }}
-    >
-      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------
    Status label
    ------------------------------------------------------------------ */
 
 function StatusLabel({ days }: { days: number }) {
   if (days < 0) {
     return (
-      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "#4ade80" }}>
+      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "var(--moss)" }}>
         Ready
       </span>
     );
   }
   if (days === 0) {
     return (
-      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "#4ade80" }}>
+      <span className="text-xs font-semibold flex-shrink-0" style={{ color: "var(--moss)" }}>
         Ready Today
       </span>
     );
@@ -145,7 +121,9 @@ function AgingRow({ item }: { item: AgingItem }) {
    AgingAlerts — main export
 
    Receives initial items as a prop (server-fetched in home/page.tsx).
-   Keeps "use client" for accordion expand/collapse and useRouter.
+   Editorial chrome: italic-serif "Aging Shelf" header with a mono
+   "N ALERTS ▾" toggle. List format inside the card is unchanged from
+   the original — only the surrounding chrome moved to the new design.
    ------------------------------------------------------------------ */
 
 export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
@@ -157,112 +135,90 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
   const count = initialItems.length;
 
   return (
-    <section className="flex flex-col gap-3 animate-fade-in" style={{ animationDelay: "160ms" }}>
-      <div
-        className="glass rounded-xl overflow-hidden"
-        aria-label="Aging alerts"
+    <section
+      className="animate-fade-in"
+      style={{ animationDelay: "160ms" }}
+      aria-label="Aging shelf"
+    >
+      {/* ── Header row ─────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full flex items-baseline justify-between"
+        style={{
+          minHeight:               44,
+          padding:                 "4px 0",
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+          background:              "none",
+          border:                  "none",
+          cursor:                  "pointer",
+          textAlign:               "left",
+        } as React.CSSProperties}
+        aria-expanded={expanded}
+        aria-controls="aging-shelf-list"
       >
-        {/* ── Always-visible collapsed header ────────────────────── */}
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="w-full flex items-center justify-between gap-2 px-4"
+        <h2
           style={{
-            minHeight:               44,
-            paddingTop:              10,
-            paddingBottom:           10,
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-            background:              "none",
-            border:                  "none",
-            cursor:                  "pointer",
-          } as React.CSSProperties}
-          aria-expanded={expanded}
-          aria-controls="aging-alerts-list"
+            fontFamily: "var(--font-serif)",
+            fontWeight: 500,
+            fontSize:   22,
+            lineHeight: 1.1,
+            color:      "var(--foreground)",
+            margin:     0,
+          }}
         >
-          {/* Left: section title */}
-          <span
-            className="font-semibold leading-none"
+          Aging{" "}
+          <em style={{ fontStyle: "italic", color: "var(--gold)" }}>Shelf</em>
+        </h2>
+
+        <span
+          style={{
+            display:        "inline-flex",
+            alignItems:     "center",
+            gap:            6,
+            fontFamily:     "var(--font-mono)",
+            fontSize:       9,
+            letterSpacing:  "0.22em",
+            textTransform:  "uppercase",
+            color:          "var(--paper-mute)",
+            flexShrink:     0,
+          }}
+        >
+          {count} {count === 1 ? "Alert" : "Alerts"}
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            aria-hidden="true"
             style={{
-              fontFamily: "var(--font-serif)",
-              fontSize:   14,
+              transition: "transform 0.25s ease",
+              transform:  expanded ? "rotate(0deg)" : "rotate(-90deg)",
               color:      "var(--gold)",
             }}
           >
-            Aging Alerts
-          </span>
+            <path d="M2 4l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </button>
 
-          {/* Right: bell + count + chevron */}
-          <div className="flex items-center gap-2">
-            {/* Bell icon */}
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 14 14"
-              fill="none"
-              aria-hidden="true"
-              style={{ color: "var(--muted-foreground)", flexShrink: 0 }}
-            >
-              <path
-                d="M7 1.5a4 4 0 00-4 4v2.5l-1 1.5h10l-1-1.5V5.5a4 4 0 00-4-4z"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M5.5 11.5a1.5 1.5 0 003 0"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                strokeLinecap="round"
-              />
-            </svg>
-
-            {/* Count badge */}
-            <span
-              className="flex items-center justify-center rounded-full text-[10px] font-bold"
-              style={{
-                minWidth:        18,
-                height:          18,
-                padding:         "0 5px",
-                background:      "var(--primary)",
-                color:           "#fff",
-              }}
-            >
-              {count}
-            </span>
-
-            <Chevron open={expanded} />
-          </div>
-        </button>
-
-        {/* ── Expandable list ───────────────────────────────────── */}
-        <div
-          id="aging-alerts-list"
-          style={{
-            maxHeight:  expanded ? count * 80 + 32 : 0,
-            overflow:   "hidden",
-            transition: "max-height 0.3s ease",
-          }}
-        >
-          {/* Divider */}
-          <div style={{ height: 1, backgroundColor: "var(--border)", marginInline: 16 }} />
-
-          {/* Sub-label */}
-          <div className="px-4 pt-2.5 pb-0.5">
-            <p
-              className="text-[11px] font-bold tracking-widest uppercase"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              Ready to Smoke
-            </p>
-          </div>
-
-          {/* Rows */}
-          <div className="px-4 divide-y" style={{ borderColor: "var(--border)" }}>
-            {initialItems.map((item) => (
-              <AgingRow key={item.id} item={item} />
-            ))}
-          </div>
+      {/* ── Expandable list ───────────────────────────────────── */}
+      <div
+        id="aging-shelf-list"
+        style={{
+          maxHeight:  expanded ? 1000 : 0,
+          opacity:    expanded ? 1 : 0,
+          overflow:   "hidden",
+          transition: "max-height 320ms ease, opacity 220ms ease",
+          borderTop:  expanded ? "1px solid var(--line)" : "1px solid transparent",
+          marginTop:  expanded ? 8 : 0,
+        }}
+      >
+        <div className="divide-y" style={{ borderColor: "var(--line-soft)" }}>
+          {initialItems.map((item) => (
+            <AgingRow key={item.id} item={item} />
+          ))}
         </div>
       </div>
     </section>

@@ -37,7 +37,25 @@
   --ash: #8A7E76;
   --smoke: rgba(245, 230, 211, 0.06);
   --gold: #D4A04A;
+  --gold-deep: #A78843;
+  --moss: #8A9A5F;
   --lounge-gradient: linear-gradient(180deg, #1A1210 0%, #241C17 50%, #1A1210 100%);
+
+  /* Editorial hairlines — gold-tinted, used by the home masthead /
+     conditions strip / shelf rows. Distinct from --border, which is
+     a solid card chrome. */
+  --line:        rgba(212,160,74,0.16);
+  --line-strong: rgba(212,160,74,0.30);
+  --line-soft:   rgba(245,230,211,0.06);
+
+  /* Translucent tiers of foreground — for muted/dim text without
+     pulling in a separate gray. */
+  --paper-mute: rgba(245,230,211,0.62);
+  --paper-dim:  rgba(245,230,211,0.38);
+
+  /* Mono stack for eyebrow / meta labels. System fonts only — keeps
+     payload zero. */
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
 }
 
 /* -------------------------------------------------------------------
