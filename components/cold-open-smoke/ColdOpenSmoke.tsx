@@ -1,14 +1,45 @@
-"use client";
+/* eslint-disable @next/next/no-img-element */
 
-import { useState, useEffect } from "react";
+import { ColdOpenSmokeTimer } from "./ColdOpenSmokeTimer";
 
 /* ------------------------------------------------------------------
-   Flash prevention — module-level flag so the overlay is visible
-   from the very first render on cold open, eliminating any flash
-   of the home screen between SSR and hydration.
+   ColdOpenSmoke — cold-launch loader.
+
+   Architecture: the overlay markup is server-rendered every request,
+   but is hidden by default via CSS (`.cold-smoke-overlay { display:
+   none }`). A synchronous inline init script — placed in <head> by
+   the root layout — checks that the user is in a mobile PWA and
+   hasn't seen the loader recently, then adds `cold-smoke-active` to
+   <html>. Because the script runs at parse time before the body
+   paints, the overlay is visible from the very first frame. No flash
+   of dashboard, no React-render gap.
+
+   The 30-minute "recently seen" threshold uses localStorage so it
+   survives iOS killing the PWA when the user taps an external link
+   and returns. Without that, every external-link round-trip would
+   replay the loader.
    ------------------------------------------------------------------ */
 
-let _hasShown = false;
+/** Minimum gap between cold-smoke shows. iOS aggressively kills PWAs
+    when external links are tapped; without this, the loader replays
+    every time the user returns from a news/video link. */
+const COLD_SMOKE_THROTTLE_MS = 30 * 60 * 1000;
+
+/** Inline script — runs synchronously in <head> before the body paints.
+    Adds `cold-smoke-active` to <html> when conditions are met, which
+    triggers the CSS rule that displays the server-rendered overlay
+    below. */
+export const COLD_SMOKE_INIT_SCRIPT = `(function(){try{
+var d=document,t=Date.now();
+var pwa=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;
+var mob=matchMedia('(max-width: 768px)').matches;
+if(!pwa||!mob)return;
+if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+var last=parseInt(localStorage.getItem('coldSmokeLastShown')||'0',10);
+if(t-last<${COLD_SMOKE_THROTTLE_MS})return;
+localStorage.setItem('coldSmokeLastShown',t.toString());
+d.documentElement.classList.add('cold-smoke-active');
+}catch(e){}})();`;
 
 /* ------------------------------------------------------------------
    Wisp configuration
@@ -49,152 +80,38 @@ const WISPS: Wisp[] = [
   { x:  30, size: 60, blur: 15, delay: 0.9, dur: 4.1, anim: "co-smoke-r" },
 ];
 
-/* ------------------------------------------------------------------
-   Keyframes — wisps spawn 12vh below the viewport and rise into view.
-   Opacity peaks at 20-22% when wisps enter the visible area.
-   ------------------------------------------------------------------ */
-
-const KEYFRAMES = `
-  @keyframes co-smoke-l {
-    0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
-    20%  { opacity: 0.21; }
-    100% { opacity: 0;    transform: translateY(-95vh) translateX(-52px) scale(4); }
-  }
-  @keyframes co-smoke-r {
-    0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
-    22%  { opacity: 0.20; }
-    100% { opacity: 0;    transform: translateY(-95vh) translateX(56px) scale(4); }
-  }
-  @keyframes co-smoke-c {
-    0%   { opacity: 0;    transform: translateY(0) scale(0.4); }
-    20%  { opacity: 0.22; }
-    100% { opacity: 0;    transform: translateY(-105vh) translateX(10px) scale(4.8); }
-  }
-`;
-
-/* ------------------------------------------------------------------
-   ColdOpenSmoke
-   ------------------------------------------------------------------ */
-
 export function ColdOpenSmoke() {
-  // Start hidden — shown only after confirming PWA + mobile in useEffect.
-  // This avoids rendering the overlay at all in a browser context.
-  const [visible,    setVisible]    = useState(false);
-  const [fading,     setFading]     = useState(false);
-  const [useWillChg, setUseWillChg] = useState(true);
-
-  useEffect(() => {
-    // Only play when launched from the installed PWA on a mobile device.
-    // navigator.standalone is the iOS-specific API for detecting home-
-    // screen launch; display-mode: standalone covers Android / Chrome PWA.
-    // iOS Safari does not reliably fire the media query, so both have to
-    // be checked or the loader silently never plays on iOS — which was
-    // the symptom of "the cold-smoke loader got removed".
-    const isPWA    = (navigator as Navigator & { standalone?: boolean }).standalone === true ||
-                     window.matchMedia("(display-mode: standalone)").matches;
-    const isMobile = window.matchMedia("(max-width: 768px)").matches;
-
-    if (!isPWA || !isMobile) return;
-
-    // Respect reduced-motion preference
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    // Show once per JS session (module-level flag survives client-side nav)
-    if (_hasShown) return;
-    _hasShown = true;
-
-    setVisible(true);
-
-    // Fade out at 4 s, drop will-change at the same time
-    const tFade    = setTimeout(() => { setFading(true); setUseWillChg(false); }, 4000);
-    // Unmount at 5 s — animation complete
-    const tUnmount = setTimeout(() => setVisible(false), 5000);
-
-    return () => {
-      clearTimeout(tFade);
-      clearTimeout(tUnmount);
-    };
-  }, []);
-
-  if (!visible) return null;
-
   return (
     <>
-      <style>{KEYFRAMES}</style>
-
-      <div
-        aria-hidden="true"
-        style={{
-          position:        "fixed",
-          inset:           0,
-          zIndex:          99999,
-          backgroundColor: "var(--background)",
-          overflow:        "hidden",
-          // Blocks all interaction during the active phase
-          pointerEvents:   fading ? "none" : "auto",
-          opacity:         fading ? 0 : 1,
-          transition:      "opacity 1s ease-out",
-        }}
-      >
-        {/* ── Logo — absolutely centered, unaffected by layout ─────── */}
-        <div
-          style={{
-            position:  "absolute",
-            top:       "50%",
-            left:      "50%",
-            transform: "translate(-50%, -50%)",
-            zIndex:    1,
-          }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+      <div className="cold-smoke-overlay" aria-hidden="true">
+        <div className="cold-smoke-logo">
           <img
             src="/Circle%20Logo.png"
             alt=""
             width={288}
             height={288}
-            style={{ objectFit: "contain", display: "block" }}
           />
-          {/* 50% scrim over the logo */}
-          <div
-            style={{
-              position:        "absolute",
-              inset:           0,
-              backgroundColor: "rgba(0,0,0,0.50)",
-              borderRadius:    "50%",
-            }}
-          />
+          <div className="cold-smoke-scrim" />
         </div>
 
-        {/* ── Smoke column — anchor is 12vh below the bottom edge ───── */}
-        <div
-          style={{
-            position: "absolute",
-            bottom:   "-12vh",
-            left:     "50%",
-            width:    0,
-            height:   0,
-            zIndex:   3,
-          }}
-        >
+        <div className="cold-smoke-column">
           {WISPS.map((w, i) => (
             <div
               key={i}
+              className="cold-smoke-wisp"
               style={{
-                position:        "absolute",
-                bottom:          0,
-                left:            w.x - w.size / 2,
-                width:           w.size,
-                height:          w.size,
-                borderRadius:    "50%",
-                backgroundColor: "var(--foreground)",
-                filter:          `blur(${w.blur}px)`,
-                animation:       `${w.anim} ${w.dur}s ease-out ${w.delay}s infinite`,
-                willChange:      useWillChg ? "transform, opacity" : "auto",
+                left:      w.x - w.size / 2,
+                width:     w.size,
+                height:    w.size,
+                filter:    `blur(${w.blur}px)`,
+                animation: `${w.anim} ${w.dur}s ease-out ${w.delay}s infinite`,
               }}
             />
           ))}
         </div>
       </div>
+
+      <ColdOpenSmokeTimer />
     </>
   );
 }

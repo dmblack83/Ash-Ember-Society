@@ -274,6 +274,9 @@ select {
     background-attachment: fixed;
     min-height: 100%;
     color-scheme: dark;
+    /* Disable iOS rubber-band overscroll so the sticky home masthead
+       doesn't drift when the user pulls down past the top of the page. */
+    overscroll-behavior: none;
   }
 
   body {
@@ -282,6 +285,7 @@ select {
     min-height: 100vh;
     position: relative;
     isolation: isolate;
+    overscroll-behavior: none;
   }
 
 
@@ -565,4 +569,86 @@ select {
       0 10px 30px -5px rgba(0, 0, 0, 0.5),
       0 0 0 1px rgba(193, 120, 23, 0.08);
   }
+}
+
+/* -------------------------------------------------------------------
+   COLD-SMOKE LOADER
+   Server-rendered overlay, hidden by default. The inline init script
+   in <head> adds `cold-smoke-active` to <html> on cold PWA launch,
+   making the overlay visible from the very first paint (no flash).
+   ColdOpenSmokeTimer adds `cold-smoke-fading` after 3s and removes
+   both classes after 4s.
+   ------------------------------------------------------------------- */
+
+.cold-smoke-overlay {
+  display: none;
+}
+
+html.cold-smoke-active .cold-smoke-overlay {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background-color: var(--background);
+  overflow: hidden;
+  opacity: 1;
+}
+
+html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1s ease-out;
+}
+
+.cold-smoke-logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+.cold-smoke-logo img {
+  display: block;
+  object-fit: contain;
+}
+
+.cold-smoke-scrim {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+}
+
+.cold-smoke-column {
+  position: absolute;
+  bottom: -12vh;
+  left: 50%;
+  width: 0;
+  height: 0;
+  z-index: 3;
+}
+
+.cold-smoke-wisp {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  background-color: var(--foreground);
+  will-change: transform, opacity;
+}
+
+@keyframes co-smoke-l {
+  0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
+  20%  { opacity: 0.21; }
+  100% { opacity: 0;    transform: translateY(-95vh) translateX(-52px) scale(4); }
+}
+@keyframes co-smoke-r {
+  0%   { opacity: 0;    transform: translateY(0) scale(0.35); }
+  22%  { opacity: 0.20; }
+  100% { opacity: 0;    transform: translateY(-95vh) translateX(56px) scale(4); }
+}
+@keyframes co-smoke-c {
+  0%   { opacity: 0;    transform: translateY(0) scale(0.4); }
+  20%  { opacity: 0.22; }
+  100% { opacity: 0;    transform: translateY(-105vh) translateX(10px) scale(4.8); }
 }

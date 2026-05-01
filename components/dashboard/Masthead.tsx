@@ -3,9 +3,13 @@
 /* ------------------------------------------------------------------
    Masthead
 
-   Newspaper-style greeting at the top of the home dashboard. Sticks
-   to the top of the viewport while scrolling; backdrop-blur lets the
-   content slide under it cleanly.
+   Newspaper-style greeting at the top of the home dashboard.
+
+   Implementation: a `position: fixed` overlay layered over an
+   invisible spacer that occupies the same layout space. This is
+   stricter than `position: sticky`, which on iOS drifts during the
+   rubber-band overscroll bounce when the user pulls down past the
+   top of the page.
 
    - Top hairline gold rule.
    - Time-of-day greeting (Date().getHours()) with italic gold name.
@@ -33,34 +37,28 @@ const COPY = {
   evening:   { hi: "Good evening",   sub: "A quiet night for a slow burn." },
 } as const;
 
-export function Masthead({ displayName, isAdmin = false }: Props) {
-  const part = partOfDay();
-  const c    = COPY[part];
-
+/* Inner content shared by the spacer (in-flow, invisible) and the
+   fixed overlay (visible, positioned at viewport top). Rendering the
+   identical tree in both keeps the spacer's height in sync with the
+   visible header without manual measurement. */
+function MastheadContent({
+  displayName,
+  isAdmin,
+  copy,
+}: {
+  displayName: string;
+  isAdmin:     boolean;
+  copy:        (typeof COPY)[keyof typeof COPY];
+}) {
   return (
-    <header
-      className="animate-fade-in"
-      style={{
-        position:             "sticky",
-        top:                  0,
-        zIndex:               30,
-        paddingTop:           "calc(env(safe-area-inset-top) + 14px)",
-        paddingBottom:        18,
-        background:           "rgba(26,18,16,0.88)",
-        backdropFilter:       "blur(14px) saturate(140%)",
-        WebkitBackdropFilter: "blur(14px) saturate(140%)",
-        borderBottom:         "1px solid var(--line)",
-      }}
-      aria-label="Welcome"
-    >
     <div className="px-4 sm:px-6 max-w-2xl mx-auto" style={{ position: "relative" }}>
       {/* Top hairline rule (gold @ 50% opacity) */}
       <div
         aria-hidden="true"
         style={{
-          height:     1,
-          background: "var(--gold)",
-          opacity:    0.5,
+          height:       1,
+          background:   "var(--gold)",
+          opacity:      0.5,
           marginBottom: 14,
         }}
       />
@@ -71,14 +69,14 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           href="/admin"
           prefetch={false}
           style={{
-            position:      "absolute",
-            top:           4,
-            right:         16,
-            fontFamily:    "var(--font-mono)",
-            fontSize:      10,
-            letterSpacing: "0.22em",
-            textTransform: "uppercase",
-            color:         "var(--gold)",
+            position:       "absolute",
+            top:            4,
+            right:          16,
+            fontFamily:     "var(--font-mono)",
+            fontSize:       10,
+            letterSpacing:  "0.22em",
+            textTransform:  "uppercase",
+            color:          "var(--gold)",
             textDecoration: "none",
           }}
         >
@@ -99,7 +97,7 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           textWrap:      "pretty" as React.CSSProperties["textWrap"],
         }}
       >
-        {c.hi},
+        {copy.hi},
         <em
           style={{
             display:    "block",
@@ -114,19 +112,60 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
         <span
           suppressHydrationWarning
           style={{
-            display:    "block",
-            fontSize:   "clamp(15px, 4vw, 18px)",
-            fontStyle:  "italic",
-            color:      "var(--paper-mute)",
-            fontWeight: 400,
-            marginTop:  12,
+            display:       "block",
+            fontSize:      "clamp(15px, 4vw, 18px)",
+            fontStyle:     "italic",
+            color:         "var(--paper-mute)",
+            fontWeight:    400,
+            marginTop:     12,
             letterSpacing: 0,
           }}
         >
-          {c.sub}
+          {copy.sub}
         </span>
       </h1>
     </div>
+  );
+}
+
+export function Masthead({ displayName, isAdmin = false }: Props) {
+  const part = partOfDay();
+  const c    = COPY[part];
+
+  const sharedPad: React.CSSProperties = {
+    paddingTop:    "calc(env(safe-area-inset-top) + 14px)",
+    paddingBottom: 18,
+  };
+
+  return (
+    <header
+      className="animate-fade-in"
+      style={{ position: "relative" }}
+      aria-label="Welcome"
+    >
+      {/* Spacer — in-flow, invisible. Reserves the same vertical space
+          as the fixed overlay below so page content starts beneath it. */}
+      <div aria-hidden="true" style={{ ...sharedPad, visibility: "hidden", pointerEvents: "none" }}>
+        <MastheadContent displayName={displayName} isAdmin={isAdmin} copy={c} />
+      </div>
+
+      {/* Fixed overlay — pinned to viewport top, immune to overscroll. */}
+      <div
+        style={{
+          ...sharedPad,
+          position:             "fixed",
+          top:                  0,
+          left:                 0,
+          right:                0,
+          zIndex:               30,
+          background:           "rgba(26,18,16,0.88)",
+          backdropFilter:       "blur(14px) saturate(140%)",
+          WebkitBackdropFilter: "blur(14px) saturate(140%)",
+          borderBottom:         "1px solid var(--line)",
+        }}
+      >
+        <MastheadContent displayName={displayName} isAdmin={isAdmin} copy={c} />
+      </div>
     </header>
   );
 }
