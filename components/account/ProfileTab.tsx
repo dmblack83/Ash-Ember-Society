@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { createClient }                  from "@/utils/supabase/client";
 import { Toast }                         from "@/components/ui/toast";
 import { InstallSheet }                  from "@/components/account/InstallSheet";
-import { getInstallState, useBeforeInstallPrompt, type InstallState } from "@/lib/install-prompt";
+import { getInstallState, type InstallState } from "@/lib/install-prompt";
 import type { ProfileData } from "@/components/account/AccountClient";
 
 /* ------------------------------------------------------------------
@@ -105,11 +105,6 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
   /* ── Install affordance ──────────────────────────────────────── */
   const [installState,    setInstallState]    = useState<InstallState | null>(null);
   const [showInstallSheet, setShowInstallSheet] = useState(false);
-  // Captures Chromium's BeforeInstallPromptEvent so the bottom sheet's
-  // "Install" button can fire it directly. iOS never dispatches this
-  // event, so the hook is a no-op there.
-  const { available: androidPromptAvailable, trigger: triggerAndroidPrompt } =
-    useBeforeInstallPrompt();
 
   // Detect on mount only — runtime checks need window/navigator.
   useEffect(() => { setInstallState(getInstallState()); }, []);
@@ -437,8 +432,6 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
         <InstallSheet
           platform={installState.platform}
           onClose={() => setShowInstallSheet(false)}
-          androidPromptAvailable={androidPromptAvailable}
-          onPromptInstall={triggerAndroidPrompt}
         />
       )}
 
