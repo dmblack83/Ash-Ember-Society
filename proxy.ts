@@ -12,6 +12,7 @@ const PUBLIC_PATHS = [
   "/manifest.webmanifest",
   "/manifest.json",
   "/api/youtube",   // protected by SYNC_SECRET header, not session
+  "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
 ];
 
 /*
