@@ -5,10 +5,21 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { getCigarImage } from "@/lib/cigar-default-image";
+import { VerdictCard } from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------
    Types
    ------------------------------------------------------------------ */
+
+/* Thirds joined from the burn_reports child table. PostgREST returns
+   the child as an array even though the FK is UNIQUE (1:1) — we read
+   index 0 at the boundary. */
+export interface BurnReportThirds {
+  thirds_enabled:  boolean;
+  third_beginning: string | null;
+  third_middle:    string | null;
+  third_end:       string | null;
+}
 
 export interface BurnReportRow {
   id:                      string;
@@ -34,6 +45,7 @@ export interface BurnReportRow {
     wrapper:   string | null;
     image_url: string | null;
   } | null;
+  burn_report:             BurnReportThirds[] | null;
 }
 
 export interface FlavorTag {
@@ -52,22 +64,6 @@ function ratingColor(v: number): string {
   return "#D4A04A";
 }
 
-function ratingLabel(v: number): string {
-  if (v <= 20) return "Poor";
-  if (v <= 40) return "Below Average";
-  if (v <= 60) return "Average";
-  if (v <= 80) return "Good";
-  return "Outstanding";
-}
-
-const STAR_LABELS: Record<number, string> = {
-  1: "Poor",
-  2: "Fair",
-  3: "Good",
-  4: "Very Good",
-  5: "Excellent",
-};
-
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {
     month:    "short",
@@ -75,64 +71,6 @@ function formatDate(iso: string): string {
     year:     "numeric",
     timeZone: "UTC",
   });
-}
-
-/* ------------------------------------------------------------------
-   StarsSummary
-   ------------------------------------------------------------------ */
-
-function StarsSummary({ val }: { val: number }) {
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            fill={s <= val ? "var(--primary)" : "none"}
-            stroke={s <= val ? "var(--primary)" : "var(--border)"}
-            strokeWidth="1.5"
-          />
-        </svg>
-      ))}
-      <span className="text-xs text-muted-foreground ml-1">{STAR_LABELS[val] ?? ""}</span>
-    </span>
-  );
-}
-
-/* ------------------------------------------------------------------
-   SummaryRow
-   ------------------------------------------------------------------ */
-
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-      style={{ borderColor: "var(--border)" }}
-    >
-      <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium flex-shrink-0">
-        {label}
-      </span>
-      <span className="text-sm text-foreground text-right">{value}</span>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   StarRow — reusable star rating row for expanded detail
-   ------------------------------------------------------------------ */
-
-function StarRow({ label, val }: { label: string; val: number }) {
-  return (
-    <div
-      className="flex items-center justify-between gap-4 py-2.5 border-b last:border-0"
-      style={{ borderColor: "var(--border)" }}
-    >
-      <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{label}</span>
-      {val > 0
-        ? <StarsSummary val={val} />
-        : <span className="text-sm text-muted-foreground">N/A</span>}
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -272,10 +210,16 @@ function BurnReportCard({
   report,
   flavorTags,
   onDelete,
+  displayName,
+  city,
+  reportNumber,
 }: {
-  report:     BurnReportRow;
-  flavorTags: FlavorTag[];
-  onDelete:   (id: string) => void;
+  report:       BurnReportRow;
+  flavorTags:   FlavorTag[];
+  onDelete:     (id: string) => void;
+  displayName:  string | null;
+  city:         string | null;
+  reportNumber: number;
 }) {
   const [open,          setOpen]          = useState(false);
   const [deleting,      setDeleting]      = useState(false);
@@ -343,13 +287,14 @@ function BurnReportCard({
   const c      = report.cigar;
   const rating = report.overall_rating ?? 0;
   const color  = ratingColor(rating);
-  const label  = ratingLabel(rating);
 
   const tagNames = (report.flavor_tag_ids ?? [])
     .map((tid) => flavorTags.find((t) => t.id === tid)?.name)
     .filter(Boolean) as string[];
 
   const photos = (report.photo_urls ?? []).filter(Boolean);
+  // PostgREST returns the 1:1 burn_reports child as an array; take [0].
+  const thirds = report.burn_report?.[0] ?? null;
 
   const hasDetails =
     report.smoke_duration_minutes != null ||
@@ -468,86 +413,34 @@ function BurnReportCard({
         >
           <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
 
-            {/* Rating hero */}
-            <div className="flex items-center gap-3 py-4">
-              <span
-                className="font-bold"
-                style={{ fontFamily: "var(--font-serif)", fontSize: 40, color, lineHeight: 1 }}
-              >
-                {rating}
-              </span>
-              <p className="text-sm font-semibold" style={{ color }}>{label}</p>
+            {/* Verdict Card — the canonical render of a saved
+                Burn Report. Replaces the previous rows + chips +
+                review + photos blocks. */}
+            <div className="pt-4">
+              <VerdictCard
+                cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
+                reportNumber={reportNumber}
+                smokedAt={report.smoked_at}
+                overallRating={report.overall_rating}
+                drawRating={report.draw_rating}
+                burnRating={report.burn_rating}
+                constructionRating={report.construction_rating}
+                flavorRating={report.flavor_rating}
+                reviewText={report.review_text}
+                smokeDurationMinutes={report.smoke_duration_minutes}
+                pairingDrink={report.pairing_drink}
+                occasion={report.occasion}
+                flavorTagNames={tagNames}
+                photoUrls={photos}
+                thirdsEnabled={thirds?.thirds_enabled ?? false}
+                thirdBeginning={thirds?.third_beginning ?? null}
+                thirdMiddle={thirds?.third_middle ?? null}
+                thirdEnd={thirds?.third_end ?? null}
+                displayName={displayName}
+                city={city}
+                onPhotoClick={(url) => setPhotoUrl(url)}
+              />
             </div>
-
-            {/* Detail rows */}
-            <div style={{ borderTop: "1px solid var(--border)" }}>
-              <SummaryRow label="Duration" value={report.smoke_duration_minutes != null ? `${report.smoke_duration_minutes} min` : "N/A"} />
-              <SummaryRow label="Drink"    value={report.pairing_drink || "N/A"} />
-              <SummaryRow label="Location" value={report.location || "N/A"} />
-              <SummaryRow label="Occasion" value={report.occasion || "N/A"} />
-              <StarRow label="Draw"         val={report.draw_rating ?? 0} />
-              <StarRow label="Burn"         val={report.burn_rating ?? 0} />
-              <StarRow label="Construction" val={report.construction_rating ?? 0} />
-              <StarRow label="Flavor"       val={report.flavor_rating ?? 0} />
-            </div>
-
-            {/* Flavor profile chips */}
-            <div className="mt-3 space-y-2">
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                Flavor Profile
-              </p>
-              {tagNames.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {tagNames.map((name) => (
-                    <span
-                      key={name}
-                      className="rounded-full px-2.5 py-1 text-xs font-medium"
-                      style={{
-                        background: "rgba(193,120,23,0.15)",
-                        border:     "1px solid rgba(193,120,23,0.35)",
-                        color:      "var(--gold, #D4A04A)",
-                      }}
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">N/A</p>
-              )}
-            </div>
-
-            {/* Review text */}
-            <div className="mt-3 space-y-1">
-              <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
-              <p className="text-sm text-foreground leading-relaxed">{report.review_text || "N/A"}</p>
-            </div>
-
-            {/* Photos */}
-            {photos.length > 0 && (
-              <div className="mt-3 space-y-2">
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Photos</p>
-                <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: "none" } as React.CSSProperties}>
-                  {photos.map((url, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setPhotoUrl(url)}
-                      className="flex-shrink-0 rounded-lg overflow-hidden transition-opacity active:opacity-70"
-                      style={{ width: 88, height: 88, padding: 0, border: "none", cursor: "pointer", touchAction: "manipulation" } as React.CSSProperties}
-                      aria-label={`View photo ${i + 1}`}
-                    >
-                      <img
-                        src={url}
-                        alt={`Photo ${i + 1}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Linked video */}
             {linkedVideo && (
@@ -665,11 +558,18 @@ function BurnReportCard({
    ------------------------------------------------------------------ */
 
 interface BurnReportsClientProps {
-  reports:    BurnReportRow[];
-  flavorTags: FlavorTag[];
+  reports:     BurnReportRow[];
+  flavorTags:  FlavorTag[];
+  displayName: string | null;
+  city:        string | null;
 }
 
-export function BurnReportsClient({ reports: initialReports, flavorTags }: BurnReportsClientProps) {
+export function BurnReportsClient({
+  reports: initialReports,
+  flavorTags,
+  displayName,
+  city,
+}: BurnReportsClientProps) {
   const headerRef                       = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [reports,      setReports]      = useState<BurnReportRow[]>(initialReports);
@@ -776,12 +676,17 @@ export function BurnReportsClient({ reports: initialReports, flavorTags }: BurnR
           </div>
         ) : (
           <div className="flex flex-col gap-2">
-            {reports.map((report) => (
+            {reports.map((report, i) => (
+              /* Reports are sorted newest-first, so the first row is
+                 the user's most recent (highest report number). */
               <BurnReportCard
                 key={report.id}
                 report={report}
                 flavorTags={flavorTags}
                 onDelete={handleDelete}
+                displayName={displayName}
+                city={city}
+                reportNumber={reports.length - i}
               />
             ))}
           </div>

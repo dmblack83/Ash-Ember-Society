@@ -7,6 +7,7 @@ import { formatDistanceToNow }                  from "date-fns";
 import type { SmokeLogData }                    from "./PostDetailClient";
 import { AvatarFrame }                          from "@/components/ui/AvatarFrame";
 import { resolveBadge }                         from "@/lib/badge";
+import { VerdictCard }                          from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
@@ -93,21 +94,6 @@ function Avatar({
   return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
-function ratingColor(v: number): string {
-  if (v <= 40) return "#C44536";
-  if (v <= 60) return "#8B6020";
-  if (v <= 80) return "#3A6B45";
-  return "#D4A04A";
-}
-
-function ratingLabel(v: number): string {
-  if (v <= 20) return "Poor";
-  if (v <= 40) return "Below Average";
-  if (v <= 60) return "Average";
-  if (v <= 80) return "Good";
-  return "Outstanding";
-}
-
 function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: boolean }) {
   return (
     <svg
@@ -120,26 +106,9 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
   );
 }
 
-function StarDisplay({ value }: { value: number | null }) {
-  if (!value) return <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>N/A</span>;
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            fill={s <= value ? "var(--primary)" : "none"}
-            stroke={s <= value ? "var(--primary)" : "var(--border)"}
-            strokeWidth="1.5"
-          />
-        </svg>
-      ))}
-    </span>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/* BurnReportCard                                                        */
+/* BurnReportCard — wraps the shared <VerdictCard /> + photo lightbox   */
+/* + an optional partner-channel video link below the card.             */
 /* ------------------------------------------------------------------ */
 
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
@@ -160,25 +129,6 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         if (data) setLinkedVideo({ ytId: data.youtube_video_id, title: data.title, thumb: data.thumbnail_url });
       });
   }, [log.content_video_id]);
-
-  const color = log.overall_rating != null ? ratingColor(log.overall_rating) : "var(--muted-foreground)";
-  const cigar = log.cigar;
-
-  const detailRows = [
-    ["Date",     log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null],
-    ["Location", log.location],
-    ["Occasion", log.occasion],
-    ["Drink",    log.pairing_drink],
-    ["Food",     log.pairing_food],
-    ["Duration", log.smoke_duration_minutes ? `${log.smoke_duration_minutes} min` : null],
-  ].filter(([, v]) => v != null) as [string, string][];
-
-  const starRows = [
-    ["Draw",         log.draw_rating],
-    ["Burn",         log.burn_rating],
-    ["Construction", log.construction_rating],
-    ["Flavor",       log.flavor_rating],
-  ].filter(([, v]) => v != null) as [string, number][];
 
   const lightbox = mounted && lightboxSrc
     ? createPortal(
@@ -203,77 +153,40 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
 
   return (
     <div style={{ marginTop: 12 }}>
-      <div className="rounded-2xl p-4 text-center mb-4" style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}>
-        {cigar && (
-          <>
-            <p className="text-xs uppercase tracking-widest font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>{cigar.brand}</p>
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>{cigar.series ?? cigar.format}</p>
-            {cigar.format && <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>}
-          </>
-        )}
-        {log.overall_rating != null && (
-          <>
-            <p className="text-6xl font-bold leading-none mt-2" style={{ fontFamily: "var(--font-serif)", color }}>{log.overall_rating}</p>
-            <p className="text-sm font-medium mt-1" style={{ color }}>{ratingLabel(log.overall_rating)}</p>
-          </>
-        )}
-      </div>
-
-      {(detailRows.length > 0 || starRows.length > 0) && (
-        <div className="rounded-xl px-4 mb-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
-          {detailRows.map(([label, value], i) => (
-            <div key={label} className="flex items-center justify-between gap-4 py-2.5"
-              style={{ borderBottom: (i < detailRows.length - 1 || starRows.length > 0) ? "1px solid var(--border)" : "none" }}>
-              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>{label}</span>
-              <span className="text-sm text-right" style={{ color: "var(--foreground)" }}>{value}</span>
-            </div>
-          ))}
-          {starRows.map(([label, value], i) => (
-            <div key={label} className="flex items-center justify-between gap-4 py-2.5"
-              style={{ borderBottom: i < starRows.length - 1 ? "1px solid var(--border)" : "none" }}>
-              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>{label}</span>
-              <StarDisplay value={value} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {log.review_text && (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Review</p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>{log.review_text}</p>
-        </div>
-      )}
-
-      {log.photo_urls && log.photo_urls.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Photos</p>
-          <div className="flex gap-2 flex-wrap">
-            {log.photo_urls.map((url, i) => (
-              <button key={i} type="button" onClick={() => setLightboxSrc(url)}
-                className="rounded-xl overflow-hidden"
-                style={{ width: 80, height: 80, flexShrink: 0, border: "1px solid var(--border)", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
-                aria-label={`View photo ${i + 1}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      <VerdictCard
+        cigar={log.cigar}
+        smokedAt={log.smoked_at}
+        overallRating={log.overall_rating}
+        drawRating={log.draw_rating}
+        burnRating={log.burn_rating}
+        constructionRating={log.construction_rating}
+        flavorRating={log.flavor_rating}
+        reviewText={log.review_text}
+        smokeDurationMinutes={log.smoke_duration_minutes}
+        pairingDrink={log.pairing_drink}
+        occasion={log.occasion}
+        flavorTagNames={log.flavor_tag_names ?? []}
+        photoUrls={(log.photo_urls ?? []).filter(Boolean)}
+        thirdsEnabled={log.burn_report?.thirds_enabled ?? false}
+        thirdBeginning={log.burn_report?.third_beginning ?? null}
+        thirdMiddle={log.burn_report?.third_middle ?? null}
+        thirdEnd={log.burn_report?.third_end ?? null}
+        displayName={log.author_display_name ?? null}
+        city={log.author_city ?? null}
+        onPhotoClick={(url) => setLightboxSrc(url)}
+      />
 
       {linkedVideo && (
         <a
           href={`https://www.youtube.com/watch?v=${linkedVideo.ytId}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="mb-4"
           style={{
             display:         "flex",
             gap:             12,
             alignItems:      "flex-start",
             padding:         "10px 12px",
+            marginTop:       16,
             borderRadius:    10,
             backgroundColor: "var(--card)",
             border:          "1px solid rgba(255,255,255,0.06)",
@@ -536,25 +449,64 @@ export function PostModal({ postId, userId, onClose }: Props) {
         ...new Set([raw.user_id, ...commentRows.map((c: any) => c.user_id)].filter(Boolean)),
       ] as string[];
 
-      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
+      // Profiles include `city` so the verdict-card byline on burn-
+      // report posts uses the post author's city.
+      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
       if (allUserIds.length > 0) {
-        const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", allUserIds);
-        for (const p of profileRows ?? []) { nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null }; }
+        const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier, city").in("id", allUserIds);
+        for (const p of profileRows ?? []) {
+          nameMap[p.id] = {
+            display_name:    p.display_name,
+            avatar_url:      p.avatar_url,
+            badge:           p.badge           ?? null,
+            membership_tier: p.membership_tier ?? null,
+            city:            p.city            ?? null,
+          };
+        }
       }
 
-      // Smoke log — include cigar_id for wishlist
+      // Smoke log — include cigar_id for wishlist, plus the burn_reports
+      // join (thirds) and resolved flavor names for the verdict card.
       let sl: SmokeLogData | null = null;
       let cigarId: string | null  = null;
       if (raw.smoke_log_id) {
         const { data: logData } = await supabase
           .from("smoke_logs")
-          .select("id, cigar_id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, content_video_id, cigar:cigar_catalog(brand, series, format)")
+          .select(`
+            id, cigar_id, smoked_at, overall_rating, draw_rating, burn_rating,
+            construction_rating, flavor_rating, pairing_drink, pairing_food,
+            location, occasion, smoke_duration_minutes, review_text, photo_urls,
+            content_video_id, flavor_tag_ids, user_id,
+            cigar:cigar_catalog(brand, series, format),
+            burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+          `)
           .eq("id", raw.smoke_log_id as string)
           .single();
         if (logData) {
-          const { cigar_id: cid, ...rest } = logData as any;
-          sl      = rest as SmokeLogData;
+          const { cigar_id: cid, flavor_tag_ids, burn_report, user_id: logAuthorId, ...rest } = logData as any;
           cigarId = cid ?? null;
+
+          // Resolve flavor tag IDs → names.
+          let flavor_tag_names: string[] = [];
+          if (flavor_tag_ids && flavor_tag_ids.length > 0) {
+            const { data: tags } = await supabase
+              .from("flavor_tags")
+              .select("id, name")
+              .in("id", flavor_tag_ids);
+            const tagMap = Object.fromEntries((tags ?? []).map((t: { id: string; name: string }) => [t.id, t.name]));
+            flavor_tag_names = (flavor_tag_ids as string[]).map((id) => tagMap[id]).filter(Boolean);
+          }
+
+          const author = logAuthorId ? nameMap[logAuthorId] : null;
+          sl = {
+            ...(rest as SmokeLogData),
+            burn_report: Array.isArray(burn_report) && burn_report[0]
+              ? (burn_report[0] as SmokeLogData["burn_report"])
+              : null,
+            flavor_tag_names,
+            author_display_name: author?.display_name ?? null,
+            author_city:         author?.city         ?? null,
+          };
         }
       }
 

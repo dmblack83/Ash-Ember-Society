@@ -7,6 +7,7 @@ import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
+import { VerdictCard }                         from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------ */
 /* Exported type — consumed by the server page                          */
@@ -28,11 +29,27 @@ export interface SmokeLogData {
   review_text:            string | null;
   photo_urls:             string[] | null;
   content_video_id:       string | null;
+  /* Resolved flavor names (from flavor_tag_ids ⨝ flavor_tags). The
+     verdict-card flavor sentence renders these directly. Lounge call
+     sites populate this after fetching the smoke log + tags. */
+  flavor_tag_names?:      string[];
   cigar: {
     brand:  string | null;
     series: string | null;
     format: string | null;
   } | null;
+  /* Thirds joined from the burn_reports table (1:1, optional). */
+  burn_report?: {
+    thirds_enabled:  boolean;
+    third_beginning: string | null;
+    third_middle:    string | null;
+    third_end:       string | null;
+  } | null;
+  /* The post author's display name + city, used for the verdict-card
+     byline ("DAVE · SALT LAKE CITY"). On lounge surfaces these come
+     from the post author's profile, NOT the viewer's. */
+  author_display_name?: string | null;
+  author_city?:         string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -118,21 +135,6 @@ function Avatar({
   return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
-function ratingColor(v: number): string {
-  if (v <= 40) return "#C44536";
-  if (v <= 60) return "#8B6020";
-  if (v <= 80) return "#3A6B45";
-  return "#D4A04A";
-}
-
-function ratingLabel(v: number): string {
-  if (v <= 20) return "Poor";
-  if (v <= 40) return "Below Average";
-  if (v <= 60) return "Average";
-  if (v <= 80) return "Good";
-  return "Outstanding";
-}
-
 function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: boolean }) {
   return (
     <svg
@@ -151,26 +153,8 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
   );
 }
 
-function StarDisplay({ value }: { value: number | null }) {
-  if (!value) return <span className="text-sm" style={{ color: "var(--muted-foreground)" }}>N/A</span>;
-  return (
-    <span className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            fill={s <= value ? "var(--primary)" : "none"}
-            stroke={s <= value ? "var(--primary)" : "var(--border)"}
-            strokeWidth="1.5"
-          />
-        </svg>
-      ))}
-    </span>
-  );
-}
-
 /* ------------------------------------------------------------------ */
-/* BurnReportCard — module-level so it never remounts                   */
+/* BurnReportCard — wraps the shared <VerdictCard /> + a photo lightbox */
 /* ------------------------------------------------------------------ */
 
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
@@ -178,25 +162,6 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
   const [mounted,     setMounted]     = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
-
-  const color  = log.overall_rating != null ? ratingColor(log.overall_rating) : "var(--muted-foreground)";
-  const cigar  = log.cigar;
-
-  const detailRows = [
-    ["Date", log.smoked_at ? new Date(log.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }) : null],
-    ["Location", log.location],
-    ["Occasion", log.occasion],
-    ["Drink",    log.pairing_drink],
-    ["Food",     log.pairing_food],
-    ["Duration", log.smoke_duration_minutes ? `${log.smoke_duration_minutes} min` : null],
-  ].filter(([, v]) => v != null) as [string, string][];
-
-  const starRows = [
-    ["Draw",         log.draw_rating],
-    ["Burn",         log.burn_rating],
-    ["Construction", log.construction_rating],
-    ["Flavor",       log.flavor_rating],
-  ].filter(([, v]) => v != null) as [string, number][];
 
   const lightbox = mounted && lightboxSrc
     ? createPortal(
@@ -232,97 +197,28 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
 
   return (
     <div style={{ marginTop: 12 }}>
-      {/* Score hero */}
-      <div className="rounded-2xl p-4 text-center mb-4" style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}>
-        {cigar && (
-          <>
-            <p className="text-xs uppercase tracking-widest font-medium mb-1" style={{ color: "var(--muted-foreground)" }}>
-              {cigar.brand}
-            </p>
-            <p className="text-base font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-              {cigar.series ?? cigar.format}
-            </p>
-            {cigar.format && (
-              <p className="text-xs mb-2" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>
-            )}
-          </>
-        )}
-        {log.overall_rating != null && (
-          <>
-            <p className="text-6xl font-bold leading-none mt-2" style={{ fontFamily: "var(--font-serif)", color }}>
-              {log.overall_rating}
-            </p>
-            <p className="text-sm font-medium mt-1" style={{ color }}>{ratingLabel(log.overall_rating)}</p>
-          </>
-        )}
-      </div>
-
-      {/* Detail rows */}
-      {(detailRows.length > 0 || starRows.length > 0) && (
-        <div className="rounded-xl px-4 mb-4" style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}>
-          {detailRows.map(([label, value], i) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-4 py-2.5"
-              style={{ borderBottom: (i < detailRows.length - 1 || starRows.length > 0) ? "1px solid var(--border)" : "none" }}
-            >
-              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>
-                {label}
-              </span>
-              <span className="text-sm text-right" style={{ color: "var(--foreground)" }}>{value}</span>
-            </div>
-          ))}
-          {starRows.map(([label, value], i) => (
-            <div
-              key={label}
-              className="flex items-center justify-between gap-4 py-2.5"
-              style={{ borderBottom: i < starRows.length - 1 ? "1px solid var(--border)" : "none" }}
-            >
-              <span className="text-xs uppercase tracking-widest font-medium flex-shrink-0" style={{ color: "var(--muted-foreground)" }}>
-                {label}
-              </span>
-              <StarDisplay value={value} />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Review */}
-      {log.review_text && (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Review</p>
-          <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
-            {log.review_text}
-          </p>
-        </div>
-      )}
-
-      {/* Photos */}
-      {log.photo_urls && log.photo_urls.length > 0 && (
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted-foreground)" }}>Photos</p>
-          <div className="flex gap-2 flex-wrap">
-            {log.photo_urls.map((url, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setLightboxSrc(url)}
-                className="rounded-xl overflow-hidden"
-                style={{
-                  width: 80, height: 80, flexShrink: 0,
-                  border: "none", padding: 0, cursor: "pointer",
-                  touchAction: "manipulation",
-                }}
-                aria-label={`View photo ${i + 1}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
+      <VerdictCard
+        cigar={log.cigar}
+        smokedAt={log.smoked_at}
+        overallRating={log.overall_rating}
+        drawRating={log.draw_rating}
+        burnRating={log.burn_rating}
+        constructionRating={log.construction_rating}
+        flavorRating={log.flavor_rating}
+        reviewText={log.review_text}
+        smokeDurationMinutes={log.smoke_duration_minutes}
+        pairingDrink={log.pairing_drink}
+        occasion={log.occasion}
+        flavorTagNames={log.flavor_tag_names ?? []}
+        photoUrls={(log.photo_urls ?? []).filter(Boolean)}
+        thirdsEnabled={log.burn_report?.thirds_enabled ?? false}
+        thirdBeginning={log.burn_report?.third_beginning ?? null}
+        thirdMiddle={log.burn_report?.third_middle ?? null}
+        thirdEnd={log.burn_report?.third_end ?? null}
+        displayName={log.author_display_name ?? null}
+        city={log.author_city ?? null}
+        onPhotoClick={(url) => setLightboxSrc(url)}
+      />
       {lightbox}
     </div>
   );

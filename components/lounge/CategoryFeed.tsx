@@ -101,16 +101,24 @@ export function CategoryFeed({
       return;
     }
 
-    /* Fetch author profiles */
+    /* Fetch author profiles. We pull `city` here too so the verdict-card
+       byline ("DAVE · SALT LAKE CITY") can render on shared burn-report
+       posts using the post author's city, not the viewer's. */
     const authorIds = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
-    const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
+    const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
     if (authorIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, display_name, avatar_url, badge, membership_tier")
+        .select("id, display_name, avatar_url, badge, membership_tier, city")
         .in("id", authorIds);
       for (const p of profiles ?? []) {
-        nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
+        nameMap[p.id] = {
+          display_name:    p.display_name,
+          avatar_url:      p.avatar_url,
+          badge:           p.badge ?? null,
+          membership_tier: p.membership_tier ?? null,
+          city:            p.city ?? null,
+        };
       }
     }
 
@@ -126,16 +134,53 @@ export function CategoryFeed({
       for (const l of likes ?? []) newLikedSet.add(l.post_id);
     }
 
-    /* Fetch smoke logs for posts that have them */
+    /* Fetch smoke logs for posts that have them, plus their joined
+       burn_reports row (1:1, optional — old logs predate the table)
+       and the resolved flavor tag names. The verdict card needs all
+       three. */
     const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
     const smokeLogMap: Record<string, SmokeLogData> = {};
     if (smokeLogIds.length > 0) {
       const { data: logs } = await supabase
         .from("smoke_logs")
-        .select("id, smoked_at, overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating, pairing_drink, pairing_food, location, occasion, smoke_duration_minutes, review_text, photo_urls, content_video_id, cigar:cigar_catalog(brand, series, format)")
+        .select(`
+          id, smoked_at, overall_rating, draw_rating, burn_rating,
+          construction_rating, flavor_rating, pairing_drink, pairing_food,
+          location, occasion, smoke_duration_minutes, review_text, photo_urls,
+          content_video_id, flavor_tag_ids, user_id,
+          cigar:cigar_catalog(brand, series, format),
+          burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+        `)
         .in("id", smokeLogIds);
-      for (const log of (logs ?? []) as any[]) {
-        smokeLogMap[log.id] = log as SmokeLogData;
+
+      const rawLogs = (logs ?? []) as Array<Record<string, unknown> & { id: string; flavor_tag_ids: string[] | null; user_id: string | null; burn_report: Array<Record<string, unknown>> | null }>;
+
+      // Resolve flavor tag IDs → names in one query.
+      const allTagIds = [...new Set(rawLogs.flatMap((l) => l.flavor_tag_ids ?? []))];
+      const tagNameMap: Record<string, string> = {};
+      if (allTagIds.length > 0) {
+        const { data: tags } = await supabase
+          .from("flavor_tags")
+          .select("id, name")
+          .in("id", allTagIds);
+        for (const t of (tags ?? []) as { id: string; name: string }[]) tagNameMap[t.id] = t.name;
+      }
+
+      for (const log of rawLogs) {
+        const author = log.user_id ? nameMap[log.user_id as string] : null;
+        smokeLogMap[log.id] = {
+          ...(log as unknown as SmokeLogData),
+          // PostgREST returns the 1:1 child as an array; flatten to the
+          // shape the SmokeLogData type expects.
+          burn_report: log.burn_report?.[0]
+            ? (log.burn_report[0] as SmokeLogData["burn_report"])
+            : null,
+          flavor_tag_names: (log.flavor_tag_ids ?? [])
+            .map((id) => tagNameMap[id])
+            .filter(Boolean) as string[],
+          author_display_name: author?.display_name ?? null,
+          author_city:         author?.city         ?? null,
+        };
       }
     }
 
