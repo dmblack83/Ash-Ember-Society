@@ -192,6 +192,7 @@ Applied to:
 - **Grid view default** — Discover Cigars defaults to grid, preference saved to localStorage.
 - **Aging alerts** — Uses preset dropdown instead of date picker. Options: Ready Now, 2 Weeks (default), 1 Month, 3 Months, 6 Months, 1 Year, Custom.
 - **Partner shops** — No real partner shops yet. Seed data is placeholder.
+- **PWA freeze on resume** — When the PWA or browser tab is suspended (iOS Safari especially), Supabase's JWT refresh timer pauses and in-flight queries can hang. On resume the next request uses a stale token and the UI freezes until hard refresh. Mitigated in PR #218 by `components/system/ResumeHandler.tsx`, mounted in `app/(app)/layout.tsx`. It listens for `visibilitychange` (visible) and `pageshow` (bfcache) and on resume calls `supabase.auth.refreshSession()` + `router.refresh()`, throttled to 2s. **Improved but not fully proven at scale.** If freezes return as user count grows, next escalations: (1) per-fetch timeouts on Supabase reads, (2) recreate the supabase browser client on resume instead of just refreshing the session, (3) consider TanStack Query / SWR for built-in `refetchOnWindowFocus`.
 - **Blog posts** — 'blog' type opens full markdown in bottom sheet; 'news_link' shows synopsis + "Read Full Article" button. Content managed via SQL inserts in Supabase. CMS is a future phase.
 
 **Blog post SQL format (always use this exact template):**
