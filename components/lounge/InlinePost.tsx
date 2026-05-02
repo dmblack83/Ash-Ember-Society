@@ -7,6 +7,7 @@ import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
+import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
 
 /* ------------------------------------------------------------------ */
@@ -134,6 +135,7 @@ function useLightbox() {
 
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
   const lightbox = useLightbox();
+  const thirds   = unwrapBurnReport(log.burn_report);
 
   return (
     <div style={{ marginTop: 4 }}>
@@ -151,10 +153,10 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         occasion={log.occasion}
         flavorTagNames={log.flavor_tag_names ?? []}
         photoUrls={(log.photo_urls ?? []).filter(Boolean)}
-        thirdsEnabled={log.burn_report?.thirds_enabled ?? false}
-        thirdBeginning={log.burn_report?.third_beginning ?? null}
-        thirdMiddle={log.burn_report?.third_middle ?? null}
-        thirdEnd={log.burn_report?.third_end ?? null}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
         onPhotoClick={lightbox.open}

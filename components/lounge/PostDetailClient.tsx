@@ -13,6 +13,22 @@ import { VerdictCard }                         from "@/components/humidor/Verdic
 /* Exported type — consumed by the server page                          */
 /* ------------------------------------------------------------------ */
 
+export interface BurnReportThirds {
+  thirds_enabled:  boolean;
+  third_beginning: string | null;
+  third_middle:    string | null;
+  third_end:       string | null;
+}
+
+/* Normalize the join shape — PostgREST may return the 1:1 child as
+   an array OR an object depending on metadata; flatten to an object. */
+export function unwrapBurnReport(
+  raw: BurnReportThirds | BurnReportThirds[] | null | undefined
+): BurnReportThirds | null {
+  if (!raw) return null;
+  return Array.isArray(raw) ? (raw[0] ?? null) : raw;
+}
+
 export interface SmokeLogData {
   id:                     string;
   smoked_at:              string;
@@ -38,13 +54,12 @@ export interface SmokeLogData {
     series: string | null;
     format: string | null;
   } | null;
-  /* Thirds joined from the burn_reports table (1:1, optional). */
-  burn_report?: {
-    thirds_enabled:  boolean;
-    third_beginning: string | null;
-    third_middle:    string | null;
-    third_end:       string | null;
-  } | null;
+  /* Thirds joined from the burn_reports table (1:1, optional).
+     PostgREST returns embedded relations as arrays even when the FK
+     is UNIQUE — callers should use a helper like `unwrapBurnReport`
+     to flatten before passing to <VerdictCard />. We accept both
+     shapes here so legacy callers don't break. */
+  burn_report?: BurnReportThirds | BurnReportThirds[] | null;
   /* The post author's display name + city, used for the verdict-card
      byline ("DAVE · SALT LAKE CITY"). On lounge surfaces these come
      from the post author's profile, NOT the viewer's. */
@@ -160,6 +175,7 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [mounted,     setMounted]     = useState(false);
+  const thirds = unwrapBurnReport(log.burn_report);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -211,10 +227,10 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         occasion={log.occasion}
         flavorTagNames={log.flavor_tag_names ?? []}
         photoUrls={(log.photo_urls ?? []).filter(Boolean)}
-        thirdsEnabled={log.burn_report?.thirds_enabled ?? false}
-        thirdBeginning={log.burn_report?.third_beginning ?? null}
-        thirdMiddle={log.burn_report?.third_middle ?? null}
-        thirdEnd={log.burn_report?.third_end ?? null}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
         onPhotoClick={(url) => setLightboxSrc(url)}
