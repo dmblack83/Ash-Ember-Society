@@ -1046,14 +1046,16 @@ export function PostModal({ postId, userId, onClose }: Props) {
                     onClick={handleComment}
                     onMouseDown={(e) => e.preventDefault()}
                     disabled={commentText.trim().length < 3 || submitting}
-                    className="mt-2 px-5 rounded-xl font-semibold text-xs flex items-center gap-1.5"
+                    className="mt-3 w-full px-5 rounded-xl font-semibold text-xs flex items-center justify-center gap-1.5"
                     style={{
-                      height:      40,
+                      height:      44,
                       background:  commentText.trim().length >= 3 ? "linear-gradient(135deg, #D4A04A, #C17817)" : "rgba(212,160,74,0.3)",
                       color:       "#1A1210",
                       border:      "none",
                       cursor:      commentText.trim().length >= 3 ? "pointer" : "default",
                       touchAction: "manipulation",
+                      position:    "relative",
+                      zIndex:      1,
                     }}
                   >
                     {submitting ? "Posting..." : "Post Comment"}
