@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { useRouter }         from "next/navigation";
 import { createClient }      from "@/utils/supabase/client";
 import { InlinePost }        from "./InlinePost";
+import { PinnedPostCard }    from "./PinnedPostCard";
 import type { PostItem }     from "./InlinePost";
 import type { SmokeLogData } from "./PostDetailClient";
 import { NewPostSheet }      from "./NewPostSheet";
@@ -32,24 +33,26 @@ interface SheetCategory {
 }
 
 interface Props {
-  category:       CategoryInfo;
-  allCategories:  SheetCategory[];
-  initialPosts:   PostItem[];
-  initialLikedIds: string[];
-  userId:         string;
-  membershipTier: string;
-  hasMore:        boolean;
+  category:           CategoryInfo;
+  allCategories:      SheetCategory[];
+  initialPosts:       PostItem[];
+  initialPinnedPosts?: PostItem[];
+  initialLikedIds:    string[];
+  userId:             string;
+  membershipTier:     string;
+  hasMore:            boolean;
 }
 
 /* ------------------------------------------------------------------ */
 
 export function CategoryFeed({
-  category, allCategories, initialPosts, initialLikedIds,
+  category, allCategories, initialPosts, initialPinnedPosts, initialLikedIds,
   userId, membershipTier, hasMore: initialHasMore,
 }: Props) {
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
+  const [pinnedPosts,  setPinnedPosts]  = useState<PostItem[]>(initialPinnedPosts ?? []);
   const [posts,        setPosts]        = useState<PostItem[]>(initialPosts);
   const [likedIds,     setLikedIds]     = useState<Set<string>>(new Set(initialLikedIds));
   const [loading,      setLoading]      = useState(false);
@@ -72,6 +75,7 @@ export function CategoryFeed({
 
   function handleDeletePost(postId: string) {
     setPosts((prev) => prev.filter((p) => p.id !== postId));
+    setPinnedPosts((prev) => prev.filter((p) => p.id !== postId));
   }
 
   async function loadMore() {
@@ -85,6 +89,7 @@ export function CategoryFeed({
       .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
       .eq("category_id", category.id)
       .eq("is_system", false)
+      .neq("is_pinned", true)
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1);
 
@@ -259,7 +264,18 @@ export function CategoryFeed({
 
         {/* Posts */}
         <div className="px-4 pt-3 flex flex-col gap-3 pb-4 w-full md:max-w-[50%] md:mx-auto">
-          {posts.length === 0 && (
+          {pinnedPosts.map((post) => (
+            <PinnedPostCard
+              key={post.id}
+              post={post}
+              initialLiked={likedIds.has(post.id)}
+              userId={userId}
+              isFeedback={category.is_feedback}
+              onDelete={handleDeletePost}
+            />
+          ))}
+
+          {posts.length === 0 && pinnedPosts.length === 0 && (
             <div className="text-center py-16">
               <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>No posts yet. Be the first.</p>
             </div>
