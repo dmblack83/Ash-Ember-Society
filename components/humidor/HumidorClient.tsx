@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
@@ -417,7 +418,11 @@ export function HumidorClient({
   initialHasWishlist,
   userId,
 }: HumidorClientProps) {
+  const router = useRouter();
   const [items,        setItems]        = useState<HumidorItem[]>(initialItems);
+
+  /* Keep local state in sync when server initialItems revalidate (e.g. router.refresh after add) */
+  useEffect(() => { setItems(initialItems); }, [initialItems]);
   const [loading,      setLoading]      = useState(false);   // no skeleton on initial render
   const [error,        setError]        = useState<string | null>(null);
   const [hasWishlist,  setHasWishlist]  = useState(initialHasWishlist);
@@ -686,7 +691,7 @@ export function HumidorClient({
       {showScanner && (
         <CigarBandScanner
           onClose={() => setShowScanner(false)}
-          onAdded={() => { setShowScanner(false); fetchItems(); }}
+          onAdded={() => { setShowScanner(false); fetchItems(); router.refresh(); }}
           onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
         />
       )}
@@ -694,7 +699,7 @@ export function HumidorClient({
       <AddCigarSheet
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
-        onAdded={fetchItems}
+        onAdded={() => { fetchItems(); router.refresh(); }}
       />
     </>
   );
