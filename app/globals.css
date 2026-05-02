@@ -569,6 +569,73 @@ select {
       0 10px 30px -5px rgba(0, 0, 0, 0.5),
       0 0 0 1px rgba(193, 120, 23, 0.08);
   }
+
+  /* ---- Burn Report score slider ---------------------------------- */
+  /* Editorial range slider: gold-fill track up to thumb position
+     (driven by --p custom property set inline), 22px paper-cream
+     thumb with a 2px gold border. Track height 3px. Used on Step 5
+     of the Burn Report flow. */
+
+  .burn-report-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 22px;       /* tap-target height; visible track is 3px */
+    background: transparent;
+    cursor: pointer;
+    outline: none;
+  }
+
+  .burn-report-slider::-webkit-slider-runnable-track {
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(
+      to right,
+      var(--gold) 0%,
+      var(--gold) var(--p, 0%),
+      var(--line) var(--p, 0%),
+      var(--line) 100%
+    );
+  }
+
+  .burn-report-slider::-moz-range-track {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--line);
+  }
+
+  .burn-report-slider::-moz-range-progress {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--gold);
+  }
+
+  .burn-report-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--foreground);
+    border: 2px solid var(--gold);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    /* Pull thumb up so it centers on the 3px track */
+    margin-top: -10px;
+    cursor: pointer;
+  }
+
+  .burn-report-slider::-moz-range-thumb {
+    width: 22px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--foreground);
+    border: 2px solid var(--gold);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    cursor: pointer;
+  }
+
+  .burn-report-slider:focus-visible::-webkit-slider-thumb {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.5), 0 0 0 4px rgba(212,160,74,0.25);
+  }
 }
 
 /* -------------------------------------------------------------------

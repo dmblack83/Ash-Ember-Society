@@ -63,7 +63,7 @@ export default async function BurnReportPage({
         .single(),
       supabase
         .from("profiles")
-        .select("badge")
+        .select("badge, display_name, city")
         .eq("id", user.id)
         .single(),
       supabase
@@ -74,6 +74,16 @@ export default async function BurnReportPage({
     ]);
 
   if (error || !item || !item.cigar_id) notFound();
+
+  // Fetch the next sequential burn-report number for this user. Used
+  // by the Verdict Card masthead ("NO. 12") so the in-flight preview
+  // shows the same number that will be assigned on submit.
+  const { count: priorReportCount } = await supabase
+    .from("smoke_logs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
+  const nextReportNumber = (priorReportCount ?? 0) + 1;
 
   // Fetch partner videos only if the user has the Partner badge
   let partnerVideos: PartnerVideo[] = [];
@@ -102,6 +112,9 @@ export default async function BurnReportPage({
       item={item as unknown as BurnReportItem}
       flavorTags={(flavorTagData ?? []) as FlavorTag[]}
       partnerVideos={partnerVideos}
+      displayName={profile?.display_name ?? null}
+      city={profile?.city ?? null}
+      reportNumber={nextReportNumber}
     />
   );
 }
