@@ -8,6 +8,7 @@ import type { SmokeLogData }                    from "./PostDetailClient";
 import { AvatarFrame }                          from "@/components/ui/AvatarFrame";
 import { resolveBadge }                         from "@/lib/badge";
 import { VerdictCard }                          from "@/components/humidor/VerdictCard";
+import { unwrapBurnReport }                     from "./PostDetailClient";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
@@ -115,6 +116,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [mounted,     setMounted]     = useState(false);
   const [linkedVideo, setLinkedVideo] = useState<{ ytId: string; title: string; thumb: string | null } | null>(null);
+  const thirds = unwrapBurnReport(log.burn_report);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -167,10 +169,10 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         occasion={log.occasion}
         flavorTagNames={log.flavor_tag_names ?? []}
         photoUrls={(log.photo_urls ?? []).filter(Boolean)}
-        thirdsEnabled={log.burn_report?.thirds_enabled ?? false}
-        thirdBeginning={log.burn_report?.third_beginning ?? null}
-        thirdMiddle={log.burn_report?.third_middle ?? null}
-        thirdEnd={log.burn_report?.third_end ?? null}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
         onPhotoClick={(url) => setLightboxSrc(url)}
@@ -498,11 +500,12 @@ export function PostModal({ postId, userId, onClose }: Props) {
           }
 
           const author = logAuthorId ? nameMap[logAuthorId] : null;
+          // Pass burn_report through as-is (array OR object); the
+          // SmokeLogData type accepts both shapes and the render side
+          // calls unwrapBurnReport() to flatten.
           sl = {
             ...(rest as SmokeLogData),
-            burn_report: Array.isArray(burn_report) && burn_report[0]
-              ? (burn_report[0] as SmokeLogData["burn_report"])
-              : null,
+            burn_report,
             flavor_tag_names,
             author_display_name: author?.display_name ?? null,
             author_city:         author?.city         ?? null,

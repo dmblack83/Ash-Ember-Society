@@ -138,11 +138,11 @@ export default async function LoungeCategoryPage({ params }: Props) {
 
     for (const log of rawLogs) {
       const author = log.user_id ? nameMap[log.user_id as string] : null;
+      // burn_report is passed through as-is (array OR object — the
+      // SmokeLogData type accepts both, and render sites use
+      // unwrapBurnReport() to flatten before reading fields).
       smokeLogMap[log.id] = {
         ...(log as unknown as SmokeLogData),
-        burn_report: log.burn_report?.[0]
-          ? (log.burn_report[0] as SmokeLogData["burn_report"])
-          : null,
         flavor_tag_names: (log.flavor_tag_ids ?? [])
           .map((id) => tagNameMap[id])
           .filter(Boolean) as string[],

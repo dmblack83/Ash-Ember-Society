@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { getCigarImage } from "@/lib/cigar-default-image";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------
@@ -56,22 +55,6 @@ export interface FlavorTag {
 /* ------------------------------------------------------------------
    Helpers
    ------------------------------------------------------------------ */
-
-function ratingColor(v: number): string {
-  if (v <= 40) return "#C44536";
-  if (v <= 60) return "#8B6020";
-  if (v <= 80) return "#3A6B45";
-  return "#D4A04A";
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
-    month:    "short",
-    day:      "numeric",
-    year:     "numeric",
-    timeZone: "UTC",
-  });
-}
 
 /* ------------------------------------------------------------------
    Photo modal
@@ -221,7 +204,6 @@ function BurnReportCard({
   city:         string | null;
   reportNumber: number;
 }) {
-  const [open,          setOpen]          = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [photoUrl,      setPhotoUrl]      = useState<string | null>(null);
@@ -284,30 +266,18 @@ function BurnReportCard({
     setShared(true);
   }
 
-  const c      = report.cigar;
-  const rating = report.overall_rating ?? 0;
-  const color  = ratingColor(rating);
+  const c = report.cigar;
 
   const tagNames = (report.flavor_tag_ids ?? [])
     .map((tid) => flavorTags.find((t) => t.id === tid)?.name)
     .filter(Boolean) as string[];
 
   const photos = (report.photo_urls ?? []).filter(Boolean);
-  // PostgREST returns the 1:1 burn_reports child as an array; take [0].
-  const thirds = report.burn_report?.[0] ?? null;
-
-  const hasDetails =
-    report.smoke_duration_minutes != null ||
-    report.pairing_drink ||
-    report.location ||
-    report.occasion ||
-    (report.draw_rating ?? 0) > 0 ||
-    (report.burn_rating ?? 0) > 0 ||
-    (report.construction_rating ?? 0) > 0 ||
-    (report.flavor_rating ?? 0) > 0 ||
-    tagNames.length > 0 ||
-    photos.length > 0 ||
-    report.review_text;
+  // PostgREST returns the 1:1 burn_reports child as an array (the
+  // UNIQUE constraint isn't reflected in the embed metadata), but
+  // can sometimes return the object directly — handle both shapes.
+  const thirdsRaw = report.burn_report;
+  const thirds    = Array.isArray(thirdsRaw) ? (thirdsRaw[0] ?? null) : (thirdsRaw ?? null);
 
   async function handleDelete() {
     if (deleting) return;
@@ -317,237 +287,134 @@ function BurnReportCard({
     onDelete(report.id);
   }
 
-  function handleDeleteClick() {
-    setConfirmDelete(true);
-  }
-
   return (
-    <div className="card overflow-hidden">
-      {/* ── Collapsed row ─────────────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center gap-3 p-3 text-left transition-opacity active:opacity-70"
-        style={{
-          background:              "none",
-          border:                  "none",
-          cursor:                  "pointer",
-          touchAction:             "manipulation",
-          WebkitTapHighlightColor: "transparent",
-        } as React.CSSProperties}
-        aria-expanded={open}
-      >
-        {/* Thumbnail */}
-        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-          <img
-            src={getCigarImage(c?.image_url, c?.wrapper)}
-            alt={c?.series ?? c?.format ?? "Cigar"}
-            className="w-full h-full object-contain"
-            loading="lazy"
-          />
-        </div>
+    <div>
+      {/* The verdict card itself owns its border + background — no
+          outer wrapper here, otherwise we get a doubled border around
+          the card edge. Saved-report actions (share / delete / linked
+          video) live below the card. */}
+      <VerdictCard
+        cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
+        reportNumber={reportNumber}
+        smokedAt={report.smoked_at}
+        overallRating={report.overall_rating}
+        drawRating={report.draw_rating}
+        burnRating={report.burn_rating}
+        constructionRating={report.construction_rating}
+        flavorRating={report.flavor_rating}
+        reviewText={report.review_text}
+        smokeDurationMinutes={report.smoke_duration_minutes}
+        pairingDrink={report.pairing_drink}
+        occasion={report.occasion}
+        flavorTagNames={tagNames}
+        photoUrls={photos}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
+        displayName={displayName}
+        city={city}
+        onPhotoClick={(url) => setPhotoUrl(url)}
+      />
 
-        {/* Cigar info */}
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium truncate">
-            {c?.brand ?? "Unknown Brand"}
-          </p>
-          <p className="text-sm font-semibold text-foreground truncate">
-            {c?.series ?? c?.format ?? "Unknown Cigar"}
-          </p>
-          {(c?.format || c?.wrapper) && (
-            <p className="text-xs text-muted-foreground truncate">
-              {[c?.format, c?.wrapper].filter(Boolean).join(" · ")}
-            </p>
-          )}
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {formatDate(report.smoked_at)}
-          </p>
-        </div>
-
-        {/* Rating badge + chevron */}
-        <div className="flex flex-col items-end gap-1 flex-shrink-0">
-          <div
-            className="rounded-lg flex items-center justify-center"
+      {linkedVideo && (
+        <div style={{ marginTop: 16 }}>
+          <Link
+            href={`https://www.youtube.com/watch?v=${linkedVideo.ytId}`}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
-              width:      44,
-              height:     44,
-              background: `${color}22`,
-              border:     `1px solid ${color}55`,
+              display:         "flex",
+              gap:             12,
+              alignItems:      "flex-start",
+              padding:         "10px 12px",
+              borderRadius:    10,
+              backgroundColor: "var(--card)",
+              border:          "1px solid var(--line)",
+              textDecoration:  "none",
             }}
           >
-            <span
-              className="font-bold"
-              style={{ fontFamily: "var(--font-serif)", fontSize: 20, color, lineHeight: 1 }}
-            >
-              {rating}
-            </span>
-          </div>
-          {hasDetails && (
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              style={{
-                transform:  open ? "rotate(180deg)" : "rotate(0deg)",
-                transition: "transform 0.2s ease",
-                color:      "var(--muted-foreground)",
-              }}
-            >
-              <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+            {linkedVideo.thumb ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.2"/>
+                  <path d="M10 8l6 4-6 4V8z" fill="var(--primary)"/>
+                </svg>
+              </div>
+            )}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
+                {linkedVideo.title}
+              </p>
+              <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>Watch on YouTube</p>
+            </div>
+          </Link>
+        </div>
+      )}
+
+      {/* Action row — Share to Lounge + Delete */}
+      <div
+        className="flex items-center justify-between gap-3"
+        style={{ marginTop: 16 }}
+      >
+        <div className="flex flex-col gap-1">
+          <button
+            type="button"
+            onClick={handleShareToLounge}
+            disabled={sharing || shared}
+            className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full transition-opacity active:opacity-70"
+            style={{
+              border:      `1.5px solid ${shared ? "var(--line)" : "var(--gold, #D4A04A)"}`,
+              color:       shared ? "var(--paper-mute)" : "var(--gold, #D4A04A)",
+              background:  "transparent",
+              cursor:      sharing || shared ? "default" : "pointer",
+              touchAction: "manipulation",
+              WebkitTapHighlightColor: "transparent",
+            } as React.CSSProperties}
+          >
+            {shared ? "Shared to Lounge" : sharing ? "Sharing..." : "Share to Lounge"}
+          </button>
+          {shareErr && (
+            <p className="text-xs" style={{ color: "#E8642C" }}>{shareErr}</p>
           )}
         </div>
-      </button>
 
-      {/* ── Expanded summary ──────────────────────────────────────── */}
-      {hasDetails && (
-        <div
+        <button
+          type="button"
+          onClick={() => setConfirmDelete(true)}
+          disabled={deleting}
+          className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
           style={{
-            overflow:   "hidden",
-            maxHeight:  open ? 1200 : 0,
-            transition: "max-height 0.3s ease",
-          }}
+            color:       "var(--destructive, #C44536)",
+            background:  "none",
+            border:      "none",
+            cursor:      "pointer",
+            padding:     0,
+            touchAction: "manipulation",
+          } as React.CSSProperties}
+          aria-label="Delete report"
         >
-          <div className="px-4 pb-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          Delete
+        </button>
+      </div>
 
-            {/* Verdict Card — the canonical render of a saved
-                Burn Report. Replaces the previous rows + chips +
-                review + photos blocks. */}
-            <div className="pt-4">
-              <VerdictCard
-                cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
-                reportNumber={reportNumber}
-                smokedAt={report.smoked_at}
-                overallRating={report.overall_rating}
-                drawRating={report.draw_rating}
-                burnRating={report.burn_rating}
-                constructionRating={report.construction_rating}
-                flavorRating={report.flavor_rating}
-                reviewText={report.review_text}
-                smokeDurationMinutes={report.smoke_duration_minutes}
-                pairingDrink={report.pairing_drink}
-                occasion={report.occasion}
-                flavorTagNames={tagNames}
-                photoUrls={photos}
-                thirdsEnabled={thirds?.thirds_enabled ?? false}
-                thirdBeginning={thirds?.third_beginning ?? null}
-                thirdMiddle={thirds?.third_middle ?? null}
-                thirdEnd={thirds?.third_end ?? null}
-                displayName={displayName}
-                city={city}
-                onPhotoClick={(url) => setPhotoUrl(url)}
-              />
-            </div>
-
-            {/* Linked video */}
-            {linkedVideo && (
-              <div className="mt-3">
-                <Link
-                  href={`https://www.youtube.com/watch?v=${linkedVideo.ytId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  style={{
-                    display:         "flex",
-                    gap:             12,
-                    alignItems:      "flex-start",
-                    padding:         "10px 12px",
-                    borderRadius:    10,
-                    backgroundColor: "var(--card)",
-                    border:          "1px solid rgba(255,255,255,0.06)",
-                    textDecoration:  "none",
-                  }}
-                >
-                  {linkedVideo.thumb ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10" fill="rgba(193,120,23,0.15)" stroke="rgba(193,120,23,0.3)" strokeWidth="1.2"/>
-                        <path d="M10 8l6 4-6 4V8z" fill="var(--primary)"/>
-                      </svg>
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } as React.CSSProperties}>
-                      {linkedVideo.title}
-                    </p>
-                    <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 3 }}>Watch on YouTube</p>
-                  </div>
-                </Link>
-              </div>
-            )}
-
-            {/* Actions: Share + Delete */}
-            <div
-              className="mt-4 pb-3 flex items-center justify-between gap-3"
-              style={{ borderTop: "1px solid var(--border)", paddingTop: 12 }}
-            >
-              {/* Share to Lounge */}
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={handleShareToLounge}
-                  disabled={sharing || shared}
-                  className="flex items-center gap-2 text-sm font-semibold px-3 py-1.5 rounded-full transition-opacity active:opacity-70"
-                  style={{
-                    border:      `1.5px solid ${shared ? "var(--border)" : "var(--gold, #D4A04A)"}`,
-                    color:       shared ? "var(--muted-foreground)" : "var(--gold, #D4A04A)",
-                    background:  "transparent",
-                    cursor:      sharing || shared ? "default" : "pointer",
-                    touchAction: "manipulation",
-                    WebkitTapHighlightColor: "transparent",
-                  } as React.CSSProperties}
-                >
-                  {shared ? "Shared to Lounge" : sharing ? "Sharing..." : "Share to Lounge"}
-                </button>
-                {shareErr && (
-                  <p className="text-xs" style={{ color: "#E8642C" }}>{shareErr}</p>
-                )}
-              </div>
-
-              {/* Delete */}
-              <button
-                type="button"
-                onClick={handleDeleteClick}
-                disabled={deleting}
-                className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
-                style={{
-                  color:       "var(--destructive, #C44536)",
-                  background:  "none",
-                  border:      "none",
-                  cursor:      "pointer",
-                  padding:     0,
-                  touchAction: "manipulation",
-                } as React.CSSProperties}
-                aria-label="Delete report"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
-                Delete
-              </button>
-            </div>
-
-            {/* Portals */}
-            {mounted && photoUrl && (
-              <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
-            )}
-            {mounted && confirmDelete && (
-              <ConfirmDeleteModal
-                busy={deleting}
-                onConfirm={handleDelete}
-                onCancel={() => setConfirmDelete(false)}
-              />
-            )}
-
-          </div>
-        </div>
+      {/* Portals */}
+      {mounted && photoUrl && (
+        <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
+      )}
+      {mounted && confirmDelete && (
+        <ConfirmDeleteModal
+          busy={deleting}
+          onConfirm={handleDelete}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );
@@ -675,7 +542,7 @@ export function BurnReportsClient({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-10">
             {reports.map((report, i) => (
               /* Reports are sorted newest-first, so the first row is
                  the user's most recent (highest report number). */
