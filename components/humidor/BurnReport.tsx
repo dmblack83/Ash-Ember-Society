@@ -1486,25 +1486,34 @@ function SummaryStep({
         </div>
       </article>
 
-      {/* Flavor profile italic line — gold middots */}
+      {/* Flavor profile italic line — gold middots. Text whitespace
+          (the spaces around each middot) is what gives the browser
+          wrap opportunities; CSS margins on inline elements don't.
+          overflowWrap is a safety net for any future tag whose name
+          itself is wider than the container. */}
       {selectedTagNames.length > 0 && (
         <p
           style={{
-            fontFamily: "var(--font-serif)",
-            fontStyle:  "italic",
-            fontSize:   17,
-            lineHeight: 1.5,
-            color:      "var(--paper-mute)",
-            textAlign:  "center",
-            margin:     "22px 0 0",
-            padding:    "0 12px",
+            fontFamily:   "var(--font-serif)",
+            fontStyle:    "italic",
+            fontSize:     17,
+            lineHeight:   1.5,
+            color:        "var(--paper-mute)",
+            textAlign:    "center",
+            margin:       "22px 0 0",
+            padding:      "0 12px",
+            overflowWrap: "anywhere",
           }}
         >
           {selectedTagNames.map((name, i) => (
             <span key={name}>
               {name.toLowerCase()}
               {i < selectedTagNames.length - 1 && (
-                <span style={{ color: "var(--gold)", margin: "0 8px" }}>·</span>
+                <>
+                  {" "}
+                  <span style={{ color: "var(--gold)" }}>·</span>
+                  {" "}
+                </>
               )}
             </span>
           ))}
