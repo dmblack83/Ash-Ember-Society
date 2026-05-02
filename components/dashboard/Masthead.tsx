@@ -150,9 +150,11 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
       </div>
 
       {/* Fixed overlay — pinned to viewport top, immune to overscroll.
-          Background is fully opaque so the warm gradients on the cards
-          underneath (Tonight's Pairing, Aging Shelf) don't bleed
-          through and read as floating above the header. */}
+          The translate3d + isolation + high z-index combo is defensive
+          against iOS PWA WebKit compositing quirks: without forcing the
+          masthead onto its own GPU layer with its own stacking context,
+          the cards' large gradient backgrounds were occasionally
+          painting above the fixed overlay during scroll. */}
       <div
         style={{
           ...sharedPad,
@@ -160,9 +162,12 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           top:          0,
           left:         0,
           right:        0,
-          zIndex:       40,
+          zIndex:       100,
           background:   "var(--background)",
           borderBottom: "1px solid var(--line)",
+          transform:    "translate3d(0, 0, 0)",
+          willChange:   "transform",
+          isolation:    "isolate",
         }}
       >
         <MastheadContent displayName={displayName} isAdmin={isAdmin} copy={c} />
