@@ -579,6 +579,7 @@ const CommentNode = memo(function CommentNode({
             <button
               type="button"
               onClick={handleReply}
+              onMouseDown={(e) => e.preventDefault()}
               disabled={replyText.trim().length < 3 || submitting}
               className="text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{
@@ -922,6 +923,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
               <button
                 type="button"
                 onClick={handleComment}
+                onMouseDown={(e) => e.preventDefault()}
                 disabled={commentText.trim().length < 3 || submitting}
                 className="mt-2 px-5 rounded-xl font-semibold text-xs flex items-center gap-1.5"
                 style={{
