@@ -12,7 +12,7 @@ export default async function BurnReportsPage() {
 
   if (!user) return null;
 
-  const [logsRes, tagsRes] = await Promise.all([
+  const [logsRes, tagsRes, profileRes] = await Promise.all([
     supabase
       .from("smoke_logs")
       .select(`
@@ -31,15 +31,28 @@ export default async function BurnReportsPage() {
         photo_urls,
         review_text,
         content_video_id,
-        cigar:cigar_catalog(id, brand, series, format, wrapper, image_url)
+        cigar:cigar_catalog(id, brand, series, format, wrapper, image_url),
+        burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
       `)
       .eq("user_id", user.id)
       .order("smoked_at", { ascending: false }),
     supabase.from("flavor_tags").select("id, name"),
+    supabase
+      .from("profiles")
+      .select("display_name, city")
+      .eq("id", user.id)
+      .single(),
   ]);
 
   const reports    = (logsRes.data ?? []) as unknown as BurnReportRow[];
   const flavorTags = (tagsRes.data ?? []) as FlavorTag[];
 
-  return <BurnReportsClient reports={reports} flavorTags={flavorTags} />;
+  return (
+    <BurnReportsClient
+      reports={reports}
+      flavorTags={flavorTags}
+      displayName={profileRes.data?.display_name ?? null}
+      city={profileRes.data?.city ?? null}
+    />
+  );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
 import { getCigarImage } from "@/lib/cigar-default-image";
+import { VerdictCard } from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------
    Constants
@@ -1009,159 +1010,9 @@ function Step5({
 }
 
 /* ------------------------------------------------------------------
-   Verdict Card sub-components (Step 6) — hoisted to module level so
-   React doesn't recreate them on every parent render.
-   ------------------------------------------------------------------ */
-
-function VerdictStarRow({ val }: { val: number }) {
-  return (
-    <div className="flex" style={{ gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            fill={s <= val ? "var(--gold)" : "rgba(245,230,211,0.18)"}
-          />
-        </svg>
-      ))}
-    </div>
-  );
-}
-
-function SubRatingCell({ label, val }: { label: string; val: number }) {
-  return (
-    <div style={{ textAlign: "center" }}>
-      <p
-        style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      9,
-          fontWeight:    500,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color:         "var(--paper-mute)",
-          margin:        0,
-        }}
-      >
-        {label}
-      </p>
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-        <VerdictStarRow val={val} />
-      </div>
-      <p
-        style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      9,
-          fontWeight:    500,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color:         "var(--gold-deep)",
-          margin:        "6px 0 0",
-          minHeight:     11,
-        }}
-      >
-        {val > 0 ? STAR_LABELS[val] : "—"}
-      </p>
-    </div>
-  );
-}
-
-function SpecCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{ textAlign: "center" }}>
-      <p
-        style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      9,
-          fontWeight:    500,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color:         "var(--paper-mute)",
-          margin:        0,
-        }}
-      >
-        {label}
-      </p>
-      <p
-        style={{
-          fontFamily: "var(--font-serif)",
-          fontStyle:  "italic",
-          fontSize:   16,
-          fontWeight: 500,
-          color:      "var(--foreground)",
-          margin:     "4px 0 0",
-          lineHeight: 1.2,
-        }}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function VerdictPhotoStrip({ files }: { files: File[] }) {
-  if (files.length === 0) return null;
-  if (files.length === 1) {
-    return (
-      <div style={{ marginTop: 22 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={URL.createObjectURL(files[0])}
-          alt=""
-          style={{ width: "100%", aspectRatio: "16 / 10", objectFit: "cover", borderRadius: 3 }}
-        />
-      </div>
-    );
-  }
-  if (files.length === 2) {
-    return (
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 22 }}>
-        {files.map((f, i) => (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            key={i}
-            src={URL.createObjectURL(f)}
-            alt=""
-            style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 3 }}
-          />
-        ))}
-      </div>
-    );
-  }
-  // 3 photos — asymmetric: large left + 2 stacked right
-  return (
-    <div
-      style={{
-        display:             "grid",
-        gridTemplateColumns: "2fr 1fr",
-        gridTemplateRows:    "1fr 1fr",
-        gap:                 6,
-        marginTop:           22,
-      }}
-    >
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={URL.createObjectURL(files[0])}
-        alt=""
-        style={{ gridRow: "1 / span 2", width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={URL.createObjectURL(files[1])}
-        alt=""
-        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
-      />
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={URL.createObjectURL(files[2])}
-        alt=""
-        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
-      />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
    Step 6 — Summary (Verdict Card)
+   The card itself is the shared <VerdictCard /> component; this
+   step adds the in-flight Edit / Share-to-Lounge action row below.
    ------------------------------------------------------------------ */
 
 function SummaryStep({
@@ -1185,340 +1036,40 @@ function SummaryStep({
   reportNumber: number;
   onEdit: () => void;
 }) {
-  const c = item.cigar;
-  const grade = ratingLabel(form.overall_rating);
   const selectedTagNames = flavorTags
     .filter((t) => form.flavor_tag_ids.includes(t.id))
     .map((t) => t.name);
 
-  // Editorial byline: first name (or fallback) and city, both uppercase.
-  const firstName = (displayName?.trim().split(/\s+/)[0] ?? "").toUpperCase() || null;
-  const cityUpper = city?.trim().toUpperCase() || null;
-
-  // Masthead date: "MAY 02 2026" — uppercase, mono, no commas.
-  const smokedDate = form.smoked_at ? new Date(form.smoked_at + "T00:00:00") : new Date();
-  const mastheadDate = smokedDate
-    .toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })
-    .toUpperCase()
-    .replace(",", "");
+  // In-flight callers carry photos as File objects (no URL yet);
+  // VerdictCard expects URL strings. Convert at the boundary so the
+  // shared component stays simple. Blob URLs are fine for the
+  // preview lifetime — they're discarded once the user navigates.
+  const photoUrls = form.photo_files.map((f) => URL.createObjectURL(f));
 
   return (
     <div>
-      {/* ────────── Verdict Card ────────── */}
-      <article
-        style={{
-          background:    "var(--card)",
-          border:        "1px solid var(--line)",
-          borderRadius:  4,
-          padding:       22,
-        }}
-      >
-        {/* Masthead row — two hairlines bracketing a mono uppercase line */}
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ height: 1, background: "var(--line)" }} aria-hidden="true" />
-          <p
-            style={{
-              fontFamily:    "var(--font-mono)",
-              fontSize:      10,
-              fontWeight:    500,
-              letterSpacing: "0.32em",
-              textTransform: "uppercase",
-              color:         "var(--paper-mute)",
-              textAlign:     "center",
-              margin:        "6px 0",
-            }}
-          >
-            Burn Report · No. {reportNumber} · {mastheadDate}
-          </p>
-          <div style={{ height: 1, background: "var(--line)" }} aria-hidden="true" />
-        </div>
-
-        {/* Centered identity */}
-        <div style={{ textAlign: "center" }}>
-          {c.brand && (
-            <p
-              style={{
-                fontFamily:    "var(--font-mono)",
-                fontSize:      10,
-                fontWeight:    500,
-                letterSpacing: "0.32em",
-                textTransform: "uppercase",
-                color:         "var(--gold)",
-                margin:        0,
-              }}
-            >
-              {c.brand}
-            </p>
-          )}
-          <p
-            style={{
-              fontFamily: "var(--font-serif)",
-              fontStyle:  "italic",
-              fontSize:   28,
-              fontWeight: 500,
-              color:      "var(--foreground)",
-              margin:     "8px 0 0",
-              lineHeight: 1.1,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {c.series ?? c.format}
-          </p>
-          {c.format && c.series && (
-            <p
-              style={{
-                fontFamily: "var(--font-serif)",
-                fontStyle:  "italic",
-                fontSize:   15,
-                color:      "var(--paper-mute)",
-                margin:     "4px 0 0",
-              }}
-            >
-              {c.format}
-            </p>
-          )}
-        </div>
-
-        {/* Score block — auto/1fr grid with vertical rule */}
-        <div
-          style={{
-            display:             "grid",
-            gridTemplateColumns: "auto 1fr",
-            gap:                 18,
-            alignItems:          "center",
-            padding:             "22px 0",
-            margin:              "22px 0",
-            borderTop:           "1px solid var(--line-soft)",
-            borderBottom:        "1px solid var(--line-soft)",
-          }}
-        >
-          <p
-            style={{
-              fontFamily:    "var(--font-serif)",
-              fontStyle:     "italic",
-              fontSize:      76,
-              fontWeight:    500,
-              lineHeight:    0.9,
-              letterSpacing: "-0.02em",
-              color:         "var(--gold)",
-              margin:        0,
-              paddingRight:  18,
-              borderRight:   "1px solid var(--line-soft)",
-            }}
-          >
-            {form.overall_rating}
-          </p>
-          <div>
-            <p
-              style={{
-                fontFamily: "var(--font-serif)",
-                fontStyle:  "italic",
-                fontSize:   22,
-                fontWeight: 500,
-                color:      "var(--foreground)",
-                lineHeight: 1.05,
-                margin:     0,
-              }}
-            >
-              {grade}
-            </p>
-            <p
-              style={{
-                fontFamily:    "var(--font-mono)",
-                fontSize:      10,
-                fontWeight:    500,
-                letterSpacing: "0.22em",
-                textTransform: "uppercase",
-                color:         "var(--paper-mute)",
-                margin:        "4px 0 0",
-              }}
-            >
-              {firstName ? `${firstName}'s Verdict` : "The Verdict"}
-            </p>
-          </div>
-        </div>
-
-        {/* Sub-ratings stripe — 4 columns */}
-        <div
-          style={{
-            display:             "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
-            gap:                 8,
-          }}
-        >
-          <SubRatingCell label="Draw"   val={form.draw_rating} />
-          <SubRatingCell label="Burn"   val={form.burn_rating} />
-          <SubRatingCell label="Build"  val={form.construction_rating} />
-          <SubRatingCell label="Flavor" val={form.flavor_rating} />
-        </div>
-
-        {/* Photo strip */}
-        <VerdictPhotoStrip files={form.photo_files} />
-
-        {/* Thirds section — rendered above the pull-quote when the
-            user enabled Thirds AND at least one phase has content.
-            Empty thirds within an enabled set render as an em dash so
-            the structure stays visible. */}
-        {form.thirds_enabled
-          && (form.third_beginning.trim() || form.third_middle.trim() || form.third_end.trim()) && (
-          <div
-            style={{
-              marginTop:  28,
-              paddingTop: 22,
-              borderTop:  "1px dashed var(--line-soft)",
-            }}
-          >
-            {([
-              ["First Third · Beginning", form.third_beginning],
-              ["Second Third · Middle",   form.third_middle],
-              ["Final Third · End",       form.third_end],
-            ] as const).map(([tag, text]) => (
-              <div key={tag} style={{ marginBottom: 14 }}>
-                <p
-                  style={{
-                    fontFamily:    "var(--font-mono)",
-                    fontSize:      9,
-                    fontWeight:    500,
-                    letterSpacing: "0.28em",
-                    textTransform: "uppercase",
-                    color:         "var(--gold)",
-                    margin:        0,
-                  }}
-                >
-                  {tag}
-                </p>
-                <p
-                  style={{
-                    fontFamily: "var(--font-serif)",
-                    fontStyle:  "italic",
-                    fontSize:   17,
-                    lineHeight: 1.4,
-                    color:      text.trim() ? "var(--foreground)" : "var(--paper-dim)",
-                    margin:     "4px 0 0",
-                  }}
-                >
-                  {text.trim() || "—"}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Pull-quote review */}
-        {form.review_text.trim() && (
-          <div style={{ position: "relative", marginTop: 28, paddingTop: 12 }}>
-            <span
-              aria-hidden="true"
-              style={{
-                position:   "absolute",
-                top:        -6,
-                left:       -2,
-                fontFamily: "var(--font-serif)",
-                fontStyle:  "italic",
-                fontSize:   "3em",
-                lineHeight: 1,
-                color:      "var(--gold)",
-                opacity:    0.85,
-                pointerEvents: "none",
-              }}
-            >
-              &ldquo;
-            </span>
-            <p
-              style={{
-                fontFamily: "var(--font-serif)",
-                fontStyle:  "italic",
-                fontSize:   17,
-                lineHeight: 1.5,
-                color:      "var(--foreground)",
-                margin:     "0 0 0 24px",
-              }}
-            >
-              {form.review_text.trim()}
-            </p>
-            {(firstName || cityUpper) && (
-              <div style={{ marginTop: 14, marginLeft: 24, display: "flex", alignItems: "center", gap: 10 }}>
-                <span
-                  aria-hidden="true"
-                  style={{ width: 20, height: 1, background: "var(--gold-deep)", flexShrink: 0 }}
-                />
-                <p
-                  style={{
-                    fontFamily:    "var(--font-mono)",
-                    fontSize:      10,
-                    fontWeight:    500,
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color:         "var(--paper-mute)",
-                    margin:        0,
-                  }}
-                >
-                  {[firstName, cityUpper].filter(Boolean).join(" · ")}
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Specs strip */}
-        <div
-          style={{
-            display:             "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap:                 8,
-            marginTop:           28,
-            paddingTop:          18,
-            borderTop:           "1px solid var(--line-soft)",
-          }}
-        >
-          <SpecCell
-            label="Duration"
-            value={form.smoke_duration_minutes.trim() ? `${form.smoke_duration_minutes} min` : "—"}
-          />
-          <SpecCell
-            label="Pairing"
-            value={form.pairing_drink.trim() || "—"}
-          />
-          <SpecCell
-            label="Occasion"
-            value={form.occasion || "—"}
-          />
-        </div>
-      </article>
-
-      {/* Flavor profile italic line — gold middots. Text whitespace
-          (the spaces around each middot) is what gives the browser
-          wrap opportunities; CSS margins on inline elements don't.
-          overflowWrap is a safety net for any future tag whose name
-          itself is wider than the container. */}
-      {selectedTagNames.length > 0 && (
-        <p
-          style={{
-            fontFamily:   "var(--font-serif)",
-            fontStyle:    "italic",
-            fontSize:     17,
-            lineHeight:   1.5,
-            color:        "var(--paper-mute)",
-            textAlign:    "center",
-            margin:       "22px 0 0",
-            padding:      "0 12px",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {selectedTagNames.map((name, i) => (
-            <span key={name}>
-              {name.toLowerCase()}
-              {i < selectedTagNames.length - 1 && (
-                <>
-                  {" "}
-                  <span style={{ color: "var(--gold)" }}>·</span>
-                  {" "}
-                </>
-              )}
-            </span>
-          ))}
-        </p>
-      )}
+      <VerdictCard
+        cigar={item.cigar}
+        reportNumber={reportNumber}
+        smokedAt={form.smoked_at}
+        overallRating={form.overall_rating}
+        drawRating={form.draw_rating}
+        burnRating={form.burn_rating}
+        constructionRating={form.construction_rating}
+        flavorRating={form.flavor_rating}
+        reviewText={form.review_text}
+        smokeDurationMinutes={form.smoke_duration_minutes}
+        pairingDrink={form.pairing_drink}
+        occasion={form.occasion}
+        flavorTagNames={selectedTagNames}
+        photoUrls={photoUrls}
+        thirdsEnabled={form.thirds_enabled}
+        thirdBeginning={form.third_beginning}
+        thirdMiddle={form.third_middle}
+        thirdEnd={form.third_end}
+        displayName={displayName}
+        city={city}
+      />
 
       {/* Action row — Edit pill (functional) + Share to Lounge (placeholder) */}
       <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "center" }}>
