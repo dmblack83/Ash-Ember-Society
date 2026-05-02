@@ -1921,15 +1921,9 @@ export function BurnReport({
     }
     if (form.content_video_id) payload.content_video_id = form.content_video_id;
 
-    /* Thirds — persist toggle state, plus any third_* text the user
-       entered. Text is sent even when the toggle is currently off so
-       a future toggle-on render shows the previously typed notes. */
-    payload.thirds_enabled = form.thirds_enabled;
-    if (form.third_beginning.trim()) payload.third_beginning = form.third_beginning.trim();
-    if (form.third_middle.trim())    payload.third_middle    = form.third_middle.trim();
-    if (form.third_end.trim())       payload.third_end       = form.third_end.trim();
-
-    /* Insert smoke log */
+    /* Insert smoke log. smoke_logs is the broad descriptive log;
+       burn-report-only fields (Thirds) live on the burn_reports
+       child table inserted below, NOT on smoke_logs. */
     const { data: logData, error: logError } = await supabase
       .from("smoke_logs")
       .insert(payload)
@@ -1942,6 +1936,33 @@ export function BurnReport({
     }
 
     setSmokeLogId(logData?.id ?? null);
+
+    /* Insert the matching burn_reports row. Always created (1:1 with
+       smoke_logs from this flow) so future burn-report-only fields
+       have somewhere to live. third_* text is written even when the
+       toggle is off so re-opening with the toggle on shows prior
+       notes. We deliberately do NOT roll back the smoke_logs insert
+       on failure here — the smoke_log itself is still a valid
+       descriptive record; we just lose the thirds metadata. */
+    if (logData?.id) {
+      const burnPayload: Record<string, unknown> = {
+        smoke_log_id:   logData.id,
+        user_id:        user.id,
+        thirds_enabled: form.thirds_enabled,
+      };
+      if (form.third_beginning.trim()) burnPayload.third_beginning = form.third_beginning.trim();
+      if (form.third_middle.trim())    burnPayload.third_middle    = form.third_middle.trim();
+      if (form.third_end.trim())       burnPayload.third_end       = form.third_end.trim();
+
+      const { error: brError } = await supabase
+        .from("burn_reports")
+        .insert(burnPayload);
+      if (brError) {
+        // Log to console so it surfaces in dev; don't block the
+        // success flow over a child-row failure.
+        console.error("burn_reports insert failed:", brError.message);
+      }
+    }
 
     /* Decrement quantity */
     const newQty = Math.max(0, item.quantity - 1);
