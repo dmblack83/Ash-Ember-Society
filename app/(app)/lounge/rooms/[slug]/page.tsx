@@ -48,19 +48,31 @@ export default async function LoungeCategoryPage({ params }: Props) {
 
   if (!category) notFound();
 
-  /* ---- First page of posts ---- */
-  const { data: rawPosts } = await supabase
-    .from("forum_posts")
-    .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
-    .eq("category_id", category.id)
-    .eq("is_system", false)
-    .order("created_at", { ascending: false })
-    .limit(PAGE_SIZE);
+  /* ---- First page of posts (excluding pinned, fetched separately) ---- */
+  const [{ data: rawPosts }, { data: rawPinned }] = await Promise.all([
+    supabase
+      .from("forum_posts")
+      .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
+      .eq("category_id", category.id)
+      .eq("is_system", false)
+      .neq("is_pinned", true)
+      .order("created_at", { ascending: false })
+      .limit(PAGE_SIZE),
+    supabase
+      .from("forum_posts")
+      .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
+      .eq("category_id", category.id)
+      .eq("is_system", false)
+      .eq("is_pinned", true)
+      .order("created_at", { ascending: false }),
+  ]);
 
-  const posts = (rawPosts ?? []) as any[];
+  const posts        = (rawPosts  ?? []) as any[];
+  const pinnedPosts  = (rawPinned ?? []) as any[];
+  const allFetched   = [...pinnedPosts, ...posts];
 
   /* ---- Author profiles ---- */
-  const authorIds = [...new Set(posts.map((p) => p.user_id).filter(Boolean) as string[])];
+  const authorIds = [...new Set(allFetched.map((p) => p.user_id).filter(Boolean) as string[])];
   const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
 
   if (authorIds.length > 0) {
@@ -79,7 +91,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
   }
 
   /* ---- Liked post IDs ---- */
-  const postIds   = posts.map((p) => p.id) as string[];
+  const postIds   = allFetched.map((p) => p.id) as string[];
   const likedSet  = new Set<string>();
 
   if (postIds.length > 0) {
@@ -92,7 +104,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
   }
 
   /* ---- Smoke logs (full burn report data) ---- */
-  const smokeLogIds = posts.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+  const smokeLogIds = allFetched.map((p) => p.smoke_log_id).filter(Boolean) as string[];
   const smokeLogMap: Record<string, SmokeLogData> = {};
   if (smokeLogIds.length > 0) {
     const { data: logs } = await supabase
@@ -128,7 +140,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
     .single();
 
   /* ---- Normalize posts ---- */
-  const initialPosts: PostItem[] = posts.map((p) => {
+  function normalize(p: any): PostItem {
     const v = voteMap[p.id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
     return {
       id:            p.id,
@@ -147,7 +159,10 @@ export default async function LoungeCategoryPage({ params }: Props) {
       downvotes:     v.downvotes,
       user_vote:     v.userVote,
     };
-  });
+  }
+
+  const initialPosts:       PostItem[] = posts.map(normalize);
+  const initialPinnedPosts: PostItem[] = pinnedPosts.map(normalize);
 
   return (
     <CategoryFeed
@@ -161,6 +176,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
       }}
       allCategories={allCategories}
       initialPosts={initialPosts}
+      initialPinnedPosts={initialPinnedPosts}
       initialLikedIds={[...likedSet]}
       userId={user.id}
       membershipTier={getMembershipTier(profile)}
