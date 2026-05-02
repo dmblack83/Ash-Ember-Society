@@ -5,9 +5,10 @@ import { createAnonClient } from "@/utils/supabase/anon";
  * Cached read-only access to the news_items table.
  *
  * Tag: "news-items"
- * The cron sync route should call revalidateTag("news-items", "max")
- * after each run so freshly-pulled articles propagate. Until then, the
- * 10-min TTL bounds staleness.
+ * The cron sync route calls revalidateTag("news-items", { expire: 0 })
+ * after each run so freshly-pulled articles propagate immediately. The
+ * 5-min TTL is a fallback bound on staleness if revalidation ever
+ * silently no-ops.
  */
 
 export interface NewsItem {
@@ -34,7 +35,7 @@ export const getLatestNews = unstable_cache(
     return (data ?? []) as NewsItem[];
   },
   ["news-latest"],
-  { tags: ["news-items"], revalidate: 600 }
+  { tags: ["news-items"], revalidate: 300 }
 );
 
 export const getNewsPage = unstable_cache(
@@ -48,5 +49,5 @@ export const getNewsPage = unstable_cache(
     return (data ?? []) as NewsItem[];
   },
   ["news-page"],
-  { tags: ["news-items"], revalidate: 600 }
+  { tags: ["news-items"], revalidate: 300 }
 );
