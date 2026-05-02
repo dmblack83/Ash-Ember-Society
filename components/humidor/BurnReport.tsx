@@ -119,29 +119,33 @@ function ratingLabel(v: number): string {
 }
 
 /* ------------------------------------------------------------------
-   ProgressDots
+   ProgressRail — 6-tick editorial progress, gold-deep done /
+   gold current (extra-wide) / line future. Replaces the previous dot
+   row for the Burn Report visual refresh.
    ------------------------------------------------------------------ */
 
-function ProgressDots({ current }: { current: number }) {
+function ProgressRail({ current }: { current: number }) {
   return (
     <div className="flex items-center justify-center gap-1.5" aria-hidden="true">
-      {STEPS.map((_, i) => (
-        <div
-          key={i}
-          className="rounded-full transition-all duration-300"
-          style={{
-            width: i === current ? "20px" : "6px",
-            height: "6px",
-            backgroundColor:
-              i < current
-                ? "var(--primary)"
-                : i === current
-                ? "var(--ember)"
-                : "var(--muted-foreground)",
-            opacity: i > current ? 0.4 : 1,
-          }}
-        />
-      ))}
+      {STEPS.map((_, i) => {
+        const done    = i <  current;
+        const active  = i === current;
+        return (
+          <div
+            key={i}
+            className="rounded-full transition-all duration-300"
+            style={{
+              width:  active ? 36 : 18,
+              height: 3,
+              backgroundColor: done
+                ? "var(--gold-deep)"
+                : active
+                  ? "var(--gold)"
+                  : "var(--line)",
+            }}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -163,37 +167,75 @@ function StarRating({
   const display = hovered || value;
 
   return (
-    <div className="space-y-2">
-      <p className="text-sm font-medium text-foreground">{label}</p>
-      <div className="flex items-center gap-1">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <button
-            key={star}
-            type="button"
-            onMouseEnter={() => setHovered(star)}
-            onMouseLeave={() => setHovered(0)}
-            onClick={() => onChange(star)}
-            className="p-1 -m-1 transition-transform duration-100 active:scale-90"
-            aria-label={`${star} star`}
-          >
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-                fill={star <= display ? "var(--primary)" : "none"}
-                stroke={star <= display ? "var(--primary)" : "var(--border)"}
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </button>
-        ))}
-      </div>
+    <div>
+      {/* Italic question */}
       <p
-        className="text-xs font-medium transition-colors duration-150"
-        style={{ color: display > 0 ? "var(--primary)" : "var(--muted-foreground)" }}
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontStyle:  "italic",
+          fontSize:   19,
+          fontWeight: 500,
+          color:      "var(--foreground)",
+          margin:     0,
+          lineHeight: 1.25,
+        }}
       >
-        {display > 0 ? STAR_LABELS[display] : "Tap to rate"}
+        {label}
+      </p>
+
+      {/* Star row — 24px tall, 4px gap, no padding box */}
+      <div
+        className="flex items-center"
+        style={{ gap: 4, marginTop: 12 }}
+      >
+        {[1, 2, 3, 4, 5].map((star) => {
+          const filled = star <= display;
+          // Tap-same-star-again to clear, otherwise set rating.
+          const handleClick = () => onChange(value === star ? 0 : star);
+          return (
+            <button
+              key={star}
+              type="button"
+              onMouseEnter={() => setHovered(star)}
+              onMouseLeave={() => setHovered(0)}
+              onClick={handleClick}
+              className="transition-transform duration-100 active:scale-90"
+              style={{
+                padding:    0,
+                background: "transparent",
+                border:     "none",
+                cursor:     "pointer",
+                lineHeight: 0,
+              }}
+              aria-label={`${star} star${star === 1 ? "" : "s"}`}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+                  fill={filled ? "var(--gold)" : "rgba(245,230,211,0.18)"}
+                />
+              </svg>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Rating word — fixed 12px height to prevent layout shift on empty */}
+      <p
+        style={{
+          fontFamily:    "var(--font-mono)",
+          fontSize:      10,
+          fontWeight:    500,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color:         "var(--gold-deep)",
+          height:        12,
+          marginTop:     8,
+          marginBottom:  0,
+          lineHeight:    1,
+        }}
+      >
+        {display > 0 ? STAR_LABELS[display] : ""}
       </p>
     </div>
   );
@@ -207,10 +249,18 @@ function CigarContext({ item }: { item: BurnReportItem }) {
   const c = item.cigar;
   return (
     <div
-      className="flex items-center gap-3 p-3 rounded-xl mb-6"
-      style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}
+      className="flex items-center gap-3 mb-6"
+      style={{
+        padding:        "10px 12px",
+        backgroundColor: "var(--card)",
+        border:          "1px solid var(--line)",
+        borderRadius:    4,
+      }}
     >
-      <div className="w-12 h-12 rounded-lg overflow-hidden bg-card flex-shrink-0">
+      <div
+        className="overflow-hidden flex-shrink-0"
+        style={{ width: 44, height: 44, borderRadius: 3, backgroundColor: "var(--muted)" }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={getCigarImage(c.image_url, c.wrapper)}
@@ -219,18 +269,126 @@ function CigarContext({ item }: { item: BurnReportItem }) {
         />
       </div>
       <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
+        <p
+          style={{
+            fontFamily:    "var(--font-mono)",
+            fontSize:      9,
+            letterSpacing: "0.28em",
+            textTransform: "uppercase",
+            color:         "var(--gold)",
+            margin:        0,
+            lineHeight:    1.2,
+          }}
+        >
           {c.brand}
         </p>
         <p
-          className="text-sm font-semibold text-foreground truncate"
-          style={{ fontFamily: "var(--font-serif)" }}
+          className="truncate"
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontStyle:  "italic",
+            fontSize:   17,
+            fontWeight: 500,
+            color:      "var(--foreground)",
+            margin:     "2px 0 0",
+            lineHeight: 1.15,
+          }}
         >
           {c.series ?? c.format}
         </p>
-        {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
+        {c.format && c.series && (
+          <p
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontStyle:  "italic",
+              fontSize:   13,
+              color:      "var(--paper-mute)",
+              margin:     "1px 0 0",
+              lineHeight: 1.2,
+            }}
+          >
+            {c.format}
+          </p>
+        )}
       </div>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Eyebrow — mono uppercase letterspaced label. Reused above
+   inputs and chip groups across Steps 1, 2, 4, 5.
+   ------------------------------------------------------------------ */
+
+function Eyebrow({
+  children,
+  htmlFor,
+  optional = false,
+}: {
+  children: React.ReactNode;
+  htmlFor?: string;
+  optional?: boolean;
+}) {
+  const Tag = (htmlFor ? "label" : "p") as "label" | "p";
+  return (
+    <Tag
+      htmlFor={htmlFor}
+      style={{
+        display:        "block",
+        fontFamily:     "var(--font-mono)",
+        fontSize:       10,
+        fontWeight:     500,
+        letterSpacing:  "0.22em",
+        textTransform:  "uppercase",
+        color:          "var(--paper-mute)",
+        margin:         0,
+        marginBottom:   8,
+      }}
+    >
+      {children}
+      {optional && (
+        <span style={{ marginLeft: 6, letterSpacing: "0.04em", textTransform: "none", color: "var(--paper-dim)" }}>
+          (optional)
+        </span>
+      )}
+    </Tag>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Chip — pill toggle. Selected = solid gold fill on dark text;
+   unselected = transparent with gold-tint hairline.
+   ------------------------------------------------------------------ */
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="transition-all duration-150 active:scale-95"
+      style={{
+        padding:        "7px 14px",
+        borderRadius:   999,
+        fontFamily:     "var(--font-sans)",
+        fontSize:       13,
+        fontWeight:     500,
+        lineHeight:     1,
+        cursor:         "pointer",
+        background:     active ? "var(--gold)" : "transparent",
+        color:          active ? "#1a1208" : "var(--paper-mute)",
+        border:         active ? "1px solid var(--gold)" : "1px solid var(--line-strong)",
+      }}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -252,10 +410,8 @@ function Step1({
     <div className="space-y-6">
       <CigarContext item={item} />
 
-      <div className="space-y-1.5">
-        <label htmlFor="br-date" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Date Smoked
-        </label>
+      <div>
+        <Eyebrow htmlFor="br-date">Date Smoked</Eyebrow>
         <input
           id="br-date"
           type="date"
@@ -266,10 +422,8 @@ function Step1({
         />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="br-location" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Location
-        </label>
+      <div>
+        <Eyebrow htmlFor="br-location">Location</Eyebrow>
         <input
           id="br-location"
           type="text"
@@ -280,25 +434,17 @@ function Step1({
         />
       </div>
 
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Occasion <span className="normal-case tracking-normal font-normal">(optional)</span>
-        </p>
+      <div>
+        <Eyebrow optional>Occasion</Eyebrow>
         <div className="flex flex-wrap gap-2">
           {OCCASIONS.map((occ) => (
-            <button
+            <Chip
               key={occ}
-              type="button"
+              active={form.occasion === occ}
               onClick={() => update({ occasion: form.occasion === occ ? "" : occ })}
-              className="px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 active:scale-95"
-              style={
-                form.occasion === occ
-                  ? { backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }
-                  : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }
-              }
             >
               {occ}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
@@ -323,33 +469,23 @@ function Step2({
     <div className="space-y-6">
       <CigarContext item={item} />
 
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Quick-select drink
-        </p>
+      <div>
+        <Eyebrow>Quick-select drink</Eyebrow>
         <div className="flex flex-wrap gap-2">
           {QUICK_PAIRINGS.map((p) => (
-            <button
+            <Chip
               key={p}
-              type="button"
+              active={form.pairing_drink === p}
               onClick={() => update({ pairing_drink: form.pairing_drink === p ? "" : p })}
-              className="px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 active:scale-95"
-              style={
-                form.pairing_drink === p
-                  ? { backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }
-                  : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }
-              }
             >
               {p}
-            </button>
+            </Chip>
           ))}
         </div>
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="br-drink" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Pairing Drink <span className="normal-case tracking-normal font-normal">(optional)</span>
-        </label>
+      <div>
+        <Eyebrow htmlFor="br-drink" optional>Pairing Drink</Eyebrow>
         <input
           id="br-drink"
           type="text"
@@ -360,10 +496,8 @@ function Step2({
         />
       </div>
 
-      <div className="space-y-1.5">
-        <label htmlFor="br-food" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Pairing Food <span className="normal-case tracking-normal font-normal">(optional)</span>
-        </label>
+      <div>
+        <Eyebrow htmlFor="br-food" optional>Pairing Food</Eyebrow>
         <input
           id="br-food"
           type="text"
@@ -390,27 +524,30 @@ function Step3({
   update: (f: Partial<FormData>) => void;
   item: BurnReportItem;
 }) {
+  const hairline = (
+    <div style={{ height: 1, background: "var(--line)", margin: "22px 0" }} aria-hidden="true" />
+  );
   return (
-    <div className="space-y-6">
+    <div>
       <CigarContext item={item} />
       <StarRating
         value={form.draw_rating}
         onChange={(v) => update({ draw_rating: v })}
         label="How was the draw?"
       />
-      <div className="h-px bg-border" />
+      {hairline}
       <StarRating
         value={form.burn_rating}
         onChange={(v) => update({ burn_rating: v })}
         label="How even was the burn?"
       />
-      <div className="h-px bg-border" />
+      {hairline}
       <StarRating
         value={form.construction_rating}
         onChange={(v) => update({ construction_rating: v })}
         label="How was the construction?"
       />
-      <div className="h-px bg-border" />
+      {hairline}
       <StarRating
         value={form.flavor_rating}
         onChange={(v) => update({ flavor_rating: v })}
@@ -448,53 +585,26 @@ function Step4({
     update({ flavor_tag_ids: ids });
   }
 
-  const selectedNames = flavorTags
-    .filter((t) => form.flavor_tag_ids.includes(t.id))
-    .map((t) => t.name);
-
   return (
     <div className="space-y-6">
       <CigarContext item={item} />
 
       {Object.entries(grouped).map(([cat, tags]) => (
-        <div key={cat} className="space-y-2">
-          <p className="text-[10px] uppercase tracking-widest font-semibold text-muted-foreground">
-            {CATEGORY_DISPLAY[cat]}
-          </p>
+        <div key={cat}>
+          <Eyebrow>{CATEGORY_DISPLAY[cat]}</Eyebrow>
           <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => {
-              const active = form.flavor_tag_ids.includes(tag.id);
-              return (
-                <button
-                  key={tag.id}
-                  type="button"
-                  onClick={() => toggleTag(tag.id)}
-                  className="px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-150 active:scale-95"
-                  style={
-                    active
-                      ? { backgroundColor: "var(--primary)", color: "var(--primary-foreground)" }
-                      : { backgroundColor: "var(--muted)", color: "var(--muted-foreground)", border: "1px solid var(--border)" }
-                  }
-                >
-                  {tag.name}
-                </button>
-              );
-            })}
+            {tags.map((tag) => (
+              <Chip
+                key={tag.id}
+                active={form.flavor_tag_ids.includes(tag.id)}
+                onClick={() => toggleTag(tag.id)}
+              >
+                {tag.name}
+              </Chip>
+            ))}
           </div>
         </div>
       ))}
-
-      {selectedNames.length > 0 && (
-        <div
-          className="p-3 rounded-xl space-y-1"
-          style={{ backgroundColor: "var(--muted)", border: "1px solid var(--border)" }}
-        >
-          <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">
-            Selected flavors
-          </p>
-          <p className="text-sm text-foreground">{selectedNames.join(" · ")}</p>
-        </div>
-      )}
     </div>
   );
 }
@@ -513,7 +623,6 @@ function Step5({
   item: BurnReportItem;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const color = ratingColor(form.overall_rating);
   const label = ratingLabel(form.overall_rating);
 
   function addPhotos(files: FileList | null) {
@@ -533,72 +642,93 @@ function Step5({
     <div className="space-y-6">
       <CigarContext item={item} />
 
-      {/* Overall rating slider */}
-      <div className="space-y-4">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Overall Rating
-        </p>
+      {/* ── Overall rating ─────────────────────────────────────────── */}
+      <div>
+        <Eyebrow>Overall Rating</Eyebrow>
 
-        {/* Large number */}
-        <div className="text-center py-4">
+        {/* 88px italic numeral + grade word */}
+        <div className="text-center" style={{ paddingTop: 4, paddingBottom: 8 }}>
           <p
-            className="text-8xl font-bold leading-none transition-colors duration-300"
-            style={{ fontFamily: "var(--font-serif)", color }}
+            style={{
+              fontFamily:    "var(--font-serif)",
+              fontStyle:     "italic",
+              fontWeight:    500,
+              fontSize:      88,
+              lineHeight:    0.9,
+              letterSpacing: "-0.02em",
+              color:         "var(--gold)",
+              margin:        0,
+            }}
           >
             {form.overall_rating}
           </p>
           <p
-            className="text-base font-medium mt-2 transition-colors duration-300"
-            style={{ color }}
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontStyle:  "italic",
+              fontSize:   18,
+              fontWeight: 500,
+              color:      "var(--paper-mute)",
+              margin:     "4px 0 0",
+            }}
           >
             {label}
           </p>
         </div>
 
-        {/* Slider */}
-        <div className="px-1 space-y-2">
+        {/* Slider with gold-fill track via custom property --p */}
+        <div style={{ paddingLeft: 4, paddingRight: 4, marginTop: 4 }}>
           <input
             type="range"
             min={1}
             max={100}
             value={form.overall_rating}
             onChange={(e) => update({ overall_rating: parseInt(e.target.value) })}
-            className="w-full h-2 rounded-full appearance-none cursor-pointer"
+            className="burn-report-slider"
             style={{
-              background: `linear-gradient(to right, ${color} ${form.overall_rating}%, var(--muted) ${form.overall_rating}%)`,
-              accentColor: color,
+              ["--p" as string]: `${form.overall_rating}%`,
+              width: "100%",
             }}
           />
-          <div className="flex justify-between text-[10px] text-muted-foreground">
-            <span>1</span>
+          {/* 5-tick scale row */}
+          <div
+            className="flex justify-between"
+            style={{
+              fontFamily:    "var(--font-mono)",
+              fontSize:      9,
+              fontWeight:    500,
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              color:         "var(--paper-dim)",
+              marginTop:     10,
+            }}
+          >
             <span>Poor</span>
+            <span>Below</span>
             <span>Average</span>
             <span>Good</span>
-            <span>100</span>
+            <span>Outstanding</span>
           </div>
         </div>
       </div>
 
-      {/* Review text */}
-      <div className="space-y-1.5">
-        <label htmlFor="br-review" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Review
-        </label>
+      {/* ── Review text ────────────────────────────────────────────── */}
+      <div>
+        <Eyebrow htmlFor="br-review">Review</Eyebrow>
         <textarea
           id="br-review"
-          className="input resize-none"
+          className="input resize-y"
           placeholder="Share your thoughts on this cigar…"
           rows={4}
+          style={{ minHeight: 100 }}
           value={form.review_text}
           onChange={(e) => update({ review_text: e.target.value })}
         />
       </div>
 
-      {/* Smoke duration */}
-      <div className="space-y-1.5">
-        <label htmlFor="br-duration" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Smoke Duration <span className="normal-case tracking-normal font-normal">(minutes)</span>
-        </label>
+      {/* ── Smoke duration — italic Playfair numeral inside field ── */}
+      <div>
+        <Eyebrow htmlFor="br-duration">Smoke Duration (minutes)</Eyebrow>
         <input
           id="br-duration"
           type="number"
@@ -606,56 +736,103 @@ function Step5({
           min={1}
           placeholder="e.g. 90"
           className="input"
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontStyle:  "italic",
+            fontSize:   22,
+          }}
           value={form.smoke_duration_minutes}
           onChange={(e) => update({ smoke_duration_minutes: e.target.value })}
         />
       </div>
 
-      {/* Photo upload */}
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-          Photos <span className="normal-case tracking-normal font-normal">(optional, up to 3)</span>
-        </p>
-
-        <div className="flex items-center gap-3">
-          {form.photo_files.map((file, i) => (
-            <div key={i} className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={URL.createObjectURL(file)}
-                alt={`Photo ${i + 1}`}
-                className="w-full h-full object-cover"
-              />
+      {/* ── Photo upload — 3-column square grid ───────────────────── */}
+      <div>
+        <Eyebrow optional>Photos (up to 3)</Eyebrow>
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap:                 10,
+          }}
+        >
+          {[0, 1, 2].map((i) => {
+            const file = form.photo_files[i];
+            if (file) {
+              return (
+                <div
+                  key={i}
+                  className="relative overflow-hidden"
+                  style={{
+                    aspectRatio:  "1 / 1",
+                    borderRadius: 4,
+                    border:       "1px solid var(--line-strong)",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={URL.createObjectURL(file)}
+                    alt={`Photo ${i + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
+                    style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
+                    aria-label="Remove photo"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                      <path d="M2 2L8 8M8 2L2 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            }
+            // empty slot — only the next-up empty is interactive; later
+            // empties render visually but tap also opens the picker
+            return (
               <button
+                key={i}
                 type="button"
-                onClick={() => removePhoto(i)}
-                className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center"
-                style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
-                aria-label="Remove photo"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex flex-col items-center justify-center transition-colors duration-150"
+                style={{
+                  aspectRatio:  "1 / 1",
+                  borderRadius: 4,
+                  background:   "transparent",
+                  border:       "1px dashed var(--line-strong)",
+                  cursor:       "pointer",
+                  color:        "var(--paper-dim)",
+                }}
+                aria-label={`Add photo ${i + 1}`}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                  <path d="M2 2L8 8M8 2L2 8" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
+                <span
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize:   28,
+                    lineHeight: 1,
+                    color:      "var(--gold)",
+                  }}
+                >
+                  +
+                </span>
+                <span
+                  style={{
+                    fontFamily:    "var(--font-mono)",
+                    fontSize:      9,
+                    fontWeight:    500,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    marginTop:     6,
+                    color:         "var(--paper-dim)",
+                  }}
+                >
+                  Add
+                </span>
               </button>
-            </div>
-          ))}
-
-          {form.photo_files.length < 3 && (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-20 h-20 rounded-lg flex flex-col items-center justify-center gap-1 flex-shrink-0 transition-colors duration-150"
-              style={{
-                backgroundColor: "var(--muted)",
-                border: "1.5px dashed var(--border)",
-              }}
-            >
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <path d="M10 4v12M4 10h12" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <span className="text-[10px] text-muted-foreground">Add</span>
-            </button>
-          )}
+            );
+          })}
         </div>
 
         <input
@@ -672,7 +849,159 @@ function Step5({
 }
 
 /* ------------------------------------------------------------------
-   Step 6 — Summary
+   Verdict Card sub-components (Step 6) — hoisted to module level so
+   React doesn't recreate them on every parent render.
+   ------------------------------------------------------------------ */
+
+function VerdictStarRow({ val }: { val: number }) {
+  return (
+    <div className="flex" style={{ gap: 2 }}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path
+            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            fill={s <= val ? "var(--gold)" : "rgba(245,230,211,0.18)"}
+          />
+        </svg>
+      ))}
+    </div>
+  );
+}
+
+function SubRatingCell({ label, val }: { label: string; val: number }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <p
+        style={{
+          fontFamily:    "var(--font-mono)",
+          fontSize:      9,
+          fontWeight:    500,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color:         "var(--paper-mute)",
+          margin:        0,
+        }}
+      >
+        {label}
+      </p>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
+        <VerdictStarRow val={val} />
+      </div>
+      <p
+        style={{
+          fontFamily:    "var(--font-mono)",
+          fontSize:      9,
+          fontWeight:    500,
+          letterSpacing: "0.18em",
+          textTransform: "uppercase",
+          color:         "var(--gold-deep)",
+          margin:        "6px 0 0",
+          minHeight:     11,
+        }}
+      >
+        {val > 0 ? STAR_LABELS[val] : "—"}
+      </p>
+    </div>
+  );
+}
+
+function SpecCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ textAlign: "center" }}>
+      <p
+        style={{
+          fontFamily:    "var(--font-mono)",
+          fontSize:      9,
+          fontWeight:    500,
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+          color:         "var(--paper-mute)",
+          margin:        0,
+        }}
+      >
+        {label}
+      </p>
+      <p
+        style={{
+          fontFamily: "var(--font-serif)",
+          fontStyle:  "italic",
+          fontSize:   16,
+          fontWeight: 500,
+          color:      "var(--foreground)",
+          margin:     "4px 0 0",
+          lineHeight: 1.2,
+        }}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function VerdictPhotoStrip({ files }: { files: File[] }) {
+  if (files.length === 0) return null;
+  if (files.length === 1) {
+    return (
+      <div style={{ marginTop: 22 }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={URL.createObjectURL(files[0])}
+          alt=""
+          style={{ width: "100%", aspectRatio: "16 / 10", objectFit: "cover", borderRadius: 3 }}
+        />
+      </div>
+    );
+  }
+  if (files.length === 2) {
+    return (
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 22 }}>
+        {files.map((f, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={i}
+            src={URL.createObjectURL(f)}
+            alt=""
+            style={{ width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 3 }}
+          />
+        ))}
+      </div>
+    );
+  }
+  // 3 photos — asymmetric: large left + 2 stacked right
+  return (
+    <div
+      style={{
+        display:             "grid",
+        gridTemplateColumns: "2fr 1fr",
+        gridTemplateRows:    "1fr 1fr",
+        gap:                 6,
+        marginTop:           22,
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={URL.createObjectURL(files[0])}
+        alt=""
+        style={{ gridRow: "1 / span 2", width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={URL.createObjectURL(files[1])}
+        alt=""
+        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={URL.createObjectURL(files[2])}
+        alt=""
+        style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 3 }}
+      />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Step 6 — Summary (Verdict Card)
    ------------------------------------------------------------------ */
 
 function SummaryStep({
@@ -681,149 +1010,348 @@ function SummaryStep({
   item,
   partnerVideos,
   update,
+  displayName,
+  city,
+  reportNumber,
+  onEdit,
 }: {
   form: FormData;
   flavorTags: FlavorTag[];
   item: BurnReportItem;
   partnerVideos: PartnerVideo[];
   update: (f: Partial<FormData>) => void;
+  displayName: string | null;
+  city: string | null;
+  reportNumber: number;
+  onEdit: () => void;
 }) {
   const c = item.cigar;
-  const color = ratingColor(form.overall_rating);
+  const grade = ratingLabel(form.overall_rating);
   const selectedTagNames = flavorTags
     .filter((t) => form.flavor_tag_ids.includes(t.id))
     .map((t) => t.name);
 
-  function Row({ label, value }: { label: string; value: string }) {
-    return (
-      <div className="flex items-start justify-between gap-4 py-2.5 border-b last:border-0" style={{ borderColor: "var(--border)" }}>
-        <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium flex-shrink-0">{label}</span>
-        <span className="text-sm text-foreground text-right">{value}</span>
-      </div>
-    );
-  }
+  // Editorial byline: first name (or fallback) and city, both uppercase.
+  const firstName = (displayName?.trim().split(/\s+/)[0] ?? "").toUpperCase() || null;
+  const cityUpper = city?.trim().toUpperCase() || null;
 
-  function StarsSummary({ val }: { val: number }) {
-    return (
-      <span className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((s) => (
-          <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-              fill={s <= val ? "var(--primary)" : "none"}
-              stroke={s <= val ? "var(--primary)" : "var(--border)"}
-              strokeWidth="1.5"
-            />
-          </svg>
-        ))}
-        <span className="text-xs text-muted-foreground ml-1">{STAR_LABELS[val]}</span>
-      </span>
-    );
-  }
+  // Masthead date: "MAY 02 2026" — uppercase, mono, no commas.
+  const smokedDate = form.smoked_at ? new Date(form.smoked_at + "T00:00:00") : new Date();
+  const mastheadDate = smokedDate
+    .toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })
+    .toUpperCase()
+    .replace(",", "");
 
   return (
-    <div className="space-y-6">
-      {/* Cigar + overall score hero */}
-      <div
-        className="rounded-2xl p-5 text-center space-y-2"
-        style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
+    <div>
+      {/* ────────── Verdict Card ────────── */}
+      <article
+        style={{
+          background:    "var(--card)",
+          border:        "1px solid var(--line)",
+          borderRadius:  4,
+          padding:       22,
+        }}
       >
-        <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
-          {c.brand}
-        </p>
-        <p className="text-lg font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-          {c.series ?? c.format}
-        </p>
-        <p
-          className="text-6xl font-bold leading-none mt-3"
-          style={{ fontFamily: "var(--font-serif)", color }}
-        >
-          {form.overall_rating}
-        </p>
-        <p className="text-sm font-medium" style={{ color }}>{ratingLabel(form.overall_rating)}</p>
-      </div>
-
-      {/* Details */}
-      <div
-        className="rounded-xl px-4"
-        style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-      >
-        <Row
-          label="Date"
-          value={form.smoked_at
-            ? new Date(form.smoked_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-            : "N/A"}
-        />
-        <Row label="Location" value={form.location.trim() || "N/A"} />
-        <Row label="Occasion" value={form.occasion || "N/A"} />
-        <Row label="Drink"    value={form.pairing_drink.trim() || "N/A"} />
-        <Row label="Food"     value={form.pairing_food.trim() || "N/A"} />
-        <Row label="Duration" value={form.smoke_duration_minutes.trim() ? `${form.smoke_duration_minutes} min` : "N/A"} />
-
-        {(["Draw", "Burn", "Construction", "Flavor"] as const).map((lbl, i) => {
-          const val = [form.draw_rating, form.burn_rating, form.construction_rating, form.flavor_rating][i];
-          const isLast = i === 3;
-          return (
-            <div
-              key={lbl}
-              className={`flex items-center justify-between gap-4 py-2.5 ${isLast ? "" : "border-b"}`}
-              style={{ borderColor: "var(--border)" }}
-            >
-              <span className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">{lbl}</span>
-              {val > 0
-                ? <StarsSummary val={val} />
-                : <span className="text-sm text-muted-foreground">N/A</span>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Flavor tags */}
-      <div className="space-y-2">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Flavor Profile</p>
-        {selectedTagNames.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {selectedTagNames.map((name) => (
-              <span
-                key={name}
-                className="px-3 py-1 rounded-full text-xs font-medium"
-                style={{ backgroundColor: "var(--secondary)", color: "var(--foreground)" }}
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">N/A</p>
-        )}
-      </div>
-
-      {/* Review */}
-      <div className="space-y-1">
-        <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Review</p>
-        <p className="text-sm text-foreground leading-relaxed">{form.review_text.trim() || "N/A"}</p>
-      </div>
-
-      {/* Photos */}
-      {form.photo_files.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-            Photos ({form.photo_files.length})
+        {/* Masthead row — two hairlines bracketing a mono uppercase line */}
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ height: 1, background: "var(--line)" }} aria-hidden="true" />
+          <p
+            style={{
+              fontFamily:    "var(--font-mono)",
+              fontSize:      10,
+              fontWeight:    500,
+              letterSpacing: "0.32em",
+              textTransform: "uppercase",
+              color:         "var(--paper-mute)",
+              textAlign:     "center",
+              margin:        "6px 0",
+            }}
+          >
+            Burn Report · No. {reportNumber} · {mastheadDate}
           </p>
-          <div className="flex gap-2">
-            {form.photo_files.map((file, i) => (
-              <div key={i} className="w-20 h-20 rounded-lg overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={URL.createObjectURL(file)} alt="" className="w-full h-full object-cover" />
-              </div>
-            ))}
+          <div style={{ height: 1, background: "var(--line)" }} aria-hidden="true" />
+        </div>
+
+        {/* Centered identity */}
+        <div style={{ textAlign: "center" }}>
+          {c.brand && (
+            <p
+              style={{
+                fontFamily:    "var(--font-mono)",
+                fontSize:      10,
+                fontWeight:    500,
+                letterSpacing: "0.32em",
+                textTransform: "uppercase",
+                color:         "var(--gold)",
+                margin:        0,
+              }}
+            >
+              {c.brand}
+            </p>
+          )}
+          <p
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontStyle:  "italic",
+              fontSize:   28,
+              fontWeight: 500,
+              color:      "var(--foreground)",
+              margin:     "8px 0 0",
+              lineHeight: 1.1,
+              letterSpacing: "-0.01em",
+            }}
+          >
+            {c.series ?? c.format}
+          </p>
+          {c.format && c.series && (
+            <p
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontStyle:  "italic",
+                fontSize:   15,
+                color:      "var(--paper-mute)",
+                margin:     "4px 0 0",
+              }}
+            >
+              {c.format}
+            </p>
+          )}
+        </div>
+
+        {/* Score block — auto/1fr grid with vertical rule */}
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "auto 1fr",
+            gap:                 18,
+            alignItems:          "center",
+            padding:             "22px 0",
+            margin:              "22px 0",
+            borderTop:           "1px solid var(--line-soft)",
+            borderBottom:        "1px solid var(--line-soft)",
+          }}
+        >
+          <p
+            style={{
+              fontFamily:    "var(--font-serif)",
+              fontStyle:     "italic",
+              fontSize:      76,
+              fontWeight:    500,
+              lineHeight:    0.9,
+              letterSpacing: "-0.02em",
+              color:         "var(--gold)",
+              margin:        0,
+              paddingRight:  18,
+              borderRight:   "1px solid var(--line-soft)",
+            }}
+          >
+            {form.overall_rating}
+          </p>
+          <div>
+            <p
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontStyle:  "italic",
+                fontSize:   22,
+                fontWeight: 500,
+                color:      "var(--foreground)",
+                lineHeight: 1.05,
+                margin:     0,
+              }}
+            >
+              {grade}
+            </p>
+            <p
+              style={{
+                fontFamily:    "var(--font-mono)",
+                fontSize:      10,
+                fontWeight:    500,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color:         "var(--paper-mute)",
+                margin:        "4px 0 0",
+              }}
+            >
+              {firstName ? `${firstName}'s Verdict` : "The Verdict"}
+            </p>
           </div>
         </div>
+
+        {/* Sub-ratings stripe — 4 columns */}
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap:                 8,
+          }}
+        >
+          <SubRatingCell label="Draw"   val={form.draw_rating} />
+          <SubRatingCell label="Burn"   val={form.burn_rating} />
+          <SubRatingCell label="Build"  val={form.construction_rating} />
+          <SubRatingCell label="Flavor" val={form.flavor_rating} />
+        </div>
+
+        {/* Photo strip */}
+        <VerdictPhotoStrip files={form.photo_files} />
+
+        {/* Pull-quote review */}
+        {form.review_text.trim() && (
+          <div style={{ position: "relative", marginTop: 28, paddingTop: 12 }}>
+            <span
+              aria-hidden="true"
+              style={{
+                position:   "absolute",
+                top:        -6,
+                left:       -2,
+                fontFamily: "var(--font-serif)",
+                fontStyle:  "italic",
+                fontSize:   "3em",
+                lineHeight: 1,
+                color:      "var(--gold)",
+                opacity:    0.85,
+                pointerEvents: "none",
+              }}
+            >
+              &ldquo;
+            </span>
+            <p
+              style={{
+                fontFamily: "var(--font-serif)",
+                fontStyle:  "italic",
+                fontSize:   17,
+                lineHeight: 1.5,
+                color:      "var(--foreground)",
+                margin:     "0 0 0 24px",
+              }}
+            >
+              {form.review_text.trim()}
+            </p>
+            {(firstName || cityUpper) && (
+              <div style={{ marginTop: 14, marginLeft: 24, display: "flex", alignItems: "center", gap: 10 }}>
+                <span
+                  aria-hidden="true"
+                  style={{ width: 20, height: 1, background: "var(--gold-deep)", flexShrink: 0 }}
+                />
+                <p
+                  style={{
+                    fontFamily:    "var(--font-mono)",
+                    fontSize:      10,
+                    fontWeight:    500,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color:         "var(--paper-mute)",
+                    margin:        0,
+                  }}
+                >
+                  {[firstName, cityUpper].filter(Boolean).join(" · ")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Specs strip */}
+        <div
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap:                 8,
+            marginTop:           28,
+            paddingTop:          18,
+            borderTop:           "1px solid var(--line-soft)",
+          }}
+        >
+          <SpecCell
+            label="Duration"
+            value={form.smoke_duration_minutes.trim() ? `${form.smoke_duration_minutes} min` : "—"}
+          />
+          <SpecCell
+            label="Pairing"
+            value={form.pairing_drink.trim() || "—"}
+          />
+          <SpecCell
+            label="Occasion"
+            value={form.occasion || "—"}
+          />
+        </div>
+      </article>
+
+      {/* Flavor profile italic line — gold middots */}
+      {selectedTagNames.length > 0 && (
+        <p
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontStyle:  "italic",
+            fontSize:   17,
+            lineHeight: 1.5,
+            color:      "var(--paper-mute)",
+            textAlign:  "center",
+            margin:     "22px 0 0",
+            padding:    "0 12px",
+          }}
+        >
+          {selectedTagNames.map((name, i) => (
+            <span key={name}>
+              {name.toLowerCase()}
+              {i < selectedTagNames.length - 1 && (
+                <span style={{ color: "var(--gold)", margin: "0 8px" }}>·</span>
+              )}
+            </span>
+          ))}
+        </p>
       )}
+
+      {/* Action row — Edit pill (functional) + Share to Lounge (placeholder) */}
+      <div style={{ display: "flex", gap: 10, marginTop: 22, justifyContent: "center" }}>
+        <button
+          type="button"
+          onClick={onEdit}
+          style={{
+            fontFamily:    "var(--font-mono)",
+            fontSize:      11,
+            fontWeight:    500,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color:         "var(--paper-mute)",
+            background:    "transparent",
+            border:        "1px solid var(--line-strong)",
+            borderRadius:  999,
+            padding:       "10px 22px",
+            cursor:         "pointer",
+          }}
+        >
+          Edit
+        </button>
+        {/* Share-to-Lounge from this preview is a placeholder — the
+            existing post-submit success screen handles real sharing. */}
+        <button
+          type="button"
+          disabled
+          aria-disabled="true"
+          title="Share once your report is filed"
+          style={{
+            fontFamily:    "var(--font-mono)",
+            fontSize:      11,
+            fontWeight:    500,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color:         "var(--gold)",
+            background:    "transparent",
+            border:        "1px solid var(--gold)",
+            borderRadius:  999,
+            padding:       "10px 22px",
+            cursor:         "not-allowed",
+            opacity:        0.55,
+          }}
+        >
+          Share to Lounge
+        </button>
+      </div>
 
       {/* Partner video picker — only shown for Partner badge holders */}
       {partnerVideos.length > 0 && (
-        <div className="space-y-3">
+        <div className="space-y-3" style={{ marginTop: 28 }}>
           <div>
             <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
               Link a Video
@@ -1019,10 +1547,16 @@ export function BurnReport({
   item,
   flavorTags,
   partnerVideos = [],
+  displayName,
+  city,
+  reportNumber,
 }: {
   item: BurnReportItem;
   flavorTags: FlavorTag[];
   partnerVideos?: PartnerVideo[];
+  displayName: string | null;
+  city: string | null;
+  reportNumber: number;
 }) {
   const router = useRouter();
 
@@ -1237,7 +1771,19 @@ export function BurnReport({
       case 2: return <Step3 form={form} update={update} item={item} />;
       case 3: return <Step4 form={form} update={update} flavorTags={flavorTags} item={item} />;
       case 4: return <Step5 form={form} update={update} item={item} />;
-      case 5: return <SummaryStep form={form} flavorTags={flavorTags} item={item} partnerVideos={partnerVideos} update={update} />;
+      case 5: return (
+        <SummaryStep
+          form={form}
+          flavorTags={flavorTags}
+          item={item}
+          partnerVideos={partnerVideos}
+          update={update}
+          displayName={displayName}
+          city={city}
+          reportNumber={reportNumber}
+          onEdit={goBack}
+        />
+      );
     }
   };
 
@@ -1246,36 +1792,88 @@ export function BurnReport({
       {/* ── Header ────────────────────────────────────────────────── */}
       <header
         className="flex-shrink-0 px-4 pt-safe"
-        style={{ backgroundColor: "var(--background)", borderBottom: "1px solid var(--border)" }}
+        style={{ backgroundColor: "var(--background)", borderBottom: "1px solid var(--line)" }}
       >
         <div className="max-w-lg mx-auto">
-          <div className="flex items-center justify-between h-14">
-            {/* Back / Close */}
+          {/* 3-column grid: back · centered eyebrow+title · counter */}
+          <div
+            className="pt-2 pb-3"
+            style={{
+              display:            "grid",
+              gridTemplateColumns: "1fr auto 1fr",
+              alignItems:         "center",
+              gap:                12,
+              minHeight:          56,
+            }}
+          >
+            {/* Back / Cancel */}
             <button
               type="button"
               onClick={goBack}
-              className="btn btn-ghost p-2 -ml-2 flex items-center gap-1.5 text-sm text-muted-foreground"
+              className="btn btn-ghost p-2 -ml-2 flex items-center gap-1.5"
+              style={{
+                justifySelf:    "start",
+                fontFamily:     "var(--font-mono)",
+                fontSize:       11,
+                letterSpacing:  "0.18em",
+                textTransform:  "uppercase",
+                color:          "var(--paper-mute)",
+              }}
             >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                 <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
               {step === 0 ? "Cancel" : "Back"}
             </button>
 
-            {/* Title */}
-            <p className="text-sm font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-              {STEPS[step]}
-            </p>
+            {/* Centered eyebrow + italic title */}
+            <div className="text-center">
+              <p
+                style={{
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      9,
+                  letterSpacing: "0.32em",
+                  textTransform: "uppercase",
+                  color:         "var(--gold)",
+                  margin:        0,
+                }}
+              >
+                Step {step + 1}
+              </p>
+              <p
+                style={{
+                  fontFamily:    "var(--font-serif)",
+                  fontStyle:     "italic",
+                  fontSize:      18,
+                  fontWeight:    500,
+                  color:         "var(--foreground)",
+                  margin:        "2px 0 0",
+                  lineHeight:    1.1,
+                }}
+              >
+                {STEPS[step]}
+              </p>
+            </div>
 
             {/* Step counter */}
-            <p className="text-xs text-muted-foreground w-16 text-right">
+            <p
+              style={{
+                justifySelf:    "end",
+                fontFamily:     "var(--font-mono)",
+                fontSize:       10,
+                letterSpacing:  "0.2em",
+                textTransform:  "uppercase",
+                color:          "var(--paper-dim)",
+                margin:         0,
+              }}
+            >
               {step + 1} of {STEPS.length}
             </p>
           </div>
 
-          {/* Progress dots */}
+          {/* 6-tick progress rail */}
           <div className="pb-3">
-            <ProgressDots current={step} />
+            <ProgressRail current={step} />
           </div>
         </div>
       </header>
@@ -1396,13 +1994,24 @@ export function BurnReport({
               </button>
             </>
           ) : (
-            <div className="flex gap-3">
-              {/* Skip (only for skippable steps) */}
+            <div className="flex items-center gap-3">
+              {/* Skip — editorial text button with mono uppercase letterspacing */}
               {SKIPPABLE.has(step) && (
                 <button
                   type="button"
-                  className="btn btn-ghost text-sm text-muted-foreground"
                   onClick={goNext}
+                  style={{
+                    fontFamily:    "var(--font-mono)",
+                    fontSize:      11,
+                    fontWeight:    500,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color:         "var(--paper-mute)",
+                    background:    "transparent",
+                    border:        "none",
+                    padding:       "0 12px",
+                    cursor:        "pointer",
+                  }}
                 >
                   Skip
                 </button>
