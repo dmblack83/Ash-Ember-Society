@@ -77,6 +77,15 @@ interface FormData {
   photo_files: File[];
   smoke_duration_minutes: string;
   content_video_id: string | null;
+
+  /* Thirds — opt-in phased review (first/second/final third). The
+     three text fields persist across toggle off→on so users don't
+     lose notes when collapsing the section. The verdict card honors
+     thirds_enabled on read; we never auto-disable on empty input. */
+  thirds_enabled: boolean;
+  third_beginning: string;
+  third_middle: string;
+  third_end: string;
 }
 
 function defaultForm(): FormData {
@@ -96,6 +105,10 @@ function defaultForm(): FormData {
     photo_files: [],
     smoke_duration_minutes: "",
     content_video_id: null,
+    thirds_enabled:  false,
+    third_beginning: "",
+    third_middle:    "",
+    third_end:       "",
   };
 }
 
@@ -712,13 +725,160 @@ function Step5({
         </div>
       </div>
 
+      {/* ── Enable Thirds toggle ───────────────────────────────────── */}
+      {/* Full-width pill row. When on, reveals three labeled textareas
+          below for first/second/final third notes. Toggling off
+          collapses the textareas but preserves their text in state. */}
+      <div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={form.thirds_enabled}
+          onClick={() => update({ thirds_enabled: !form.thirds_enabled })}
+          style={{
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "space-between",
+            width:          "100%",
+            padding:        "12px 14px",
+            borderRadius:   12,
+            border:         form.thirds_enabled
+              ? "1px solid var(--gold)"
+              : "1px solid var(--line-strong)",
+            background:     form.thirds_enabled
+              ? "linear-gradient(135deg, rgba(212,160,74,0.12) 0%, rgba(212,160,74,0.04) 100%)"
+              : "var(--card)",
+            cursor:         "pointer",
+            textAlign:      "left",
+          }}
+        >
+          <div>
+            <span
+              style={{
+                display:    "block",
+                fontFamily: "var(--font-serif)",
+                fontStyle:  "italic",
+                fontSize:   17,
+                fontWeight: 500,
+                color:      "var(--foreground)",
+                lineHeight: 1.2,
+              }}
+            >
+              Enable Thirds
+            </span>
+            <span
+              style={{
+                display:       "block",
+                fontFamily:    "var(--font-mono)",
+                fontSize:      9,
+                fontWeight:    500,
+                letterSpacing: "0.22em",
+                textTransform: "uppercase",
+                color:         "var(--paper-mute)",
+                marginTop:     4,
+              }}
+            >
+              Break your review into phases
+            </span>
+          </div>
+          {/* iOS-style switch — 42×24 with 18px knob */}
+          <span
+            aria-hidden="true"
+            style={{
+              position:       "relative",
+              display:        "inline-block",
+              flexShrink:     0,
+              width:          42,
+              height:         24,
+              borderRadius:   999,
+              background:     form.thirds_enabled ? "var(--gold)" : "rgba(245,230,211,0.12)",
+              transition:     "background 200ms ease",
+            }}
+          >
+            <span
+              style={{
+                position:     "absolute",
+                top:          3,
+                left:         form.thirds_enabled ? 21 : 3,
+                width:        18,
+                height:       18,
+                borderRadius: 999,
+                background:   form.thirds_enabled ? "#1a1208" : "var(--foreground)",
+                boxShadow:    "0 1px 3px rgba(0,0,0,0.4)",
+                transition:   "left 200ms ease, background 200ms ease",
+              }}
+            />
+          </span>
+        </button>
+
+        {/* Three thirds — only rendered when toggled on. We deliberately
+            unmount when off rather than CSS-hide, so the input order in
+            the DOM stays linear when navigating with a keyboard. State
+            for the three text fields lives on `form` so it survives
+            toggle off→on cycles. */}
+        {form.thirds_enabled && (
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+            {([
+              { id: "br-third-beginning", key: "third_beginning", tag: "First Third · Beginning",
+                placeholder: "Opening notes, light, first impressions…" },
+              { id: "br-third-middle",    key: "third_middle",    tag: "Second Third · Middle",
+                placeholder: "How it's developing — flavor shifts, draw, burn…" },
+              { id: "br-third-end",       key: "third_end",       tag: "Final Third · End",
+                placeholder: "Finish, complexity, lingering notes…" },
+            ] as const).map(({ id, key, tag, placeholder }) => {
+              const value      = form[key];
+              const hasContent = value.trim().length > 0;
+              return (
+                <div
+                  key={id}
+                  style={{
+                    position:    "relative",
+                    paddingLeft: 14,
+                    borderLeft:  "2px solid var(--line)",
+                  }}
+                >
+                  {/* 8px circular indicator — fills gold once any text */}
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      position:     "absolute",
+                      top:          0,
+                      left:         -5,
+                      width:        8,
+                      height:       8,
+                      borderRadius: 999,
+                      background:   hasContent ? "var(--gold)" : "var(--line-strong)",
+                      transition:   "background 200ms ease",
+                    }}
+                  />
+                  <Eyebrow htmlFor={id}>{tag}</Eyebrow>
+                  <textarea
+                    id={id}
+                    className="input resize-y"
+                    placeholder={placeholder}
+                    rows={2}
+                    style={{ minHeight: 64 }}
+                    value={value}
+                    onChange={(e) => update({ [key]: e.target.value } as Partial<FormData>)}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
       {/* ── Review text ────────────────────────────────────────────── */}
       <div>
         <Eyebrow htmlFor="br-review">Review</Eyebrow>
         <textarea
           id="br-review"
           className="input resize-y"
-          placeholder="Share your thoughts on this cigar…"
+          placeholder={
+            form.thirds_enabled
+              ? "Overall recap — pull it together…"
+              : "Share your thoughts on this cigar…"
+          }
           rows={4}
           style={{ minHeight: 100 }}
           value={form.review_text}
@@ -1194,6 +1354,55 @@ function SummaryStep({
 
         {/* Photo strip */}
         <VerdictPhotoStrip files={form.photo_files} />
+
+        {/* Thirds section — rendered above the pull-quote when the
+            user enabled Thirds AND at least one phase has content.
+            Empty thirds within an enabled set render as an em dash so
+            the structure stays visible. */}
+        {form.thirds_enabled
+          && (form.third_beginning.trim() || form.third_middle.trim() || form.third_end.trim()) && (
+          <div
+            style={{
+              marginTop:  28,
+              paddingTop: 22,
+              borderTop:  "1px dashed var(--line-soft)",
+            }}
+          >
+            {([
+              ["First Third · Beginning", form.third_beginning],
+              ["Second Third · Middle",   form.third_middle],
+              ["Final Third · End",       form.third_end],
+            ] as const).map(([tag, text]) => (
+              <div key={tag} style={{ marginBottom: 14 }}>
+                <p
+                  style={{
+                    fontFamily:    "var(--font-mono)",
+                    fontSize:      9,
+                    fontWeight:    500,
+                    letterSpacing: "0.28em",
+                    textTransform: "uppercase",
+                    color:         "var(--gold)",
+                    margin:        0,
+                  }}
+                >
+                  {tag}
+                </p>
+                <p
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontStyle:  "italic",
+                    fontSize:   17,
+                    lineHeight: 1.4,
+                    color:      text.trim() ? "var(--foreground)" : "var(--paper-dim)",
+                    margin:     "4px 0 0",
+                  }}
+                >
+                  {text.trim() || "—"}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Pull-quote review */}
         {form.review_text.trim() && (
@@ -1711,6 +1920,14 @@ export function BurnReport({
       if (!isNaN(mins) && mins > 0) payload.smoke_duration_minutes = mins;
     }
     if (form.content_video_id) payload.content_video_id = form.content_video_id;
+
+    /* Thirds — persist toggle state, plus any third_* text the user
+       entered. Text is sent even when the toggle is currently off so
+       a future toggle-on render shows the previously typed notes. */
+    payload.thirds_enabled = form.thirds_enabled;
+    if (form.third_beginning.trim()) payload.third_beginning = form.third_beginning.trim();
+    if (form.third_middle.trim())    payload.third_middle    = form.third_middle.trim();
+    if (form.third_end.trim())       payload.third_end       = form.third_end.trim();
 
     /* Insert smoke log */
     const { data: logData, error: logError } = await supabase
