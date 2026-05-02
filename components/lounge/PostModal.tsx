@@ -422,7 +422,9 @@ const CommentNode = memo(function CommentNode({
             style={{ minHeight: 72, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", color: "var(--foreground)", fontSize: 14, outline: "none" }}
           />
           <div className="flex gap-2">
-            <button type="button" onClick={handleReply} disabled={replyText.trim().length < 3 || submitting} className="text-xs font-semibold px-3 py-1.5 rounded-full"
+            <button type="button" onClick={handleReply}
+              onMouseDown={(e) => e.preventDefault()}
+              disabled={replyText.trim().length < 3 || submitting} className="text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{ background: replyText.trim().length >= 3 ? "var(--gold, #D4A04A)" : "rgba(212,160,74,0.3)", color: "#1A1210", border: "none", cursor: replyText.trim().length >= 3 ? "pointer" : "default", touchAction: "manipulation" }}>
               {submitting ? "Sending..." : "Send Reply"}
             </button>
@@ -1042,6 +1044,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
                   <button
                     type="button"
                     onClick={handleComment}
+                    onMouseDown={(e) => e.preventDefault()}
                     disabled={commentText.trim().length < 3 || submitting}
                     className="mt-2 px-5 rounded-xl font-semibold text-xs flex items-center gap-1.5"
                     style={{
