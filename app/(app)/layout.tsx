@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ResumeHandler } from "@/components/system/ResumeHandler";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -197,6 +198,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           app-container enables dvh tracking on Android so the layout
           shrinks correctly when the software keyboard opens. */}
       <ScrollReset />
+      <ResumeHandler />
       <main className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
