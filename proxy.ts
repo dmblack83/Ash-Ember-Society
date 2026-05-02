@@ -92,6 +92,25 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // ── 1b. Unauthenticated on landing with a stale auth cookie → /login ──
+  // Previously signed-in users whose session expired (or never refreshed
+  // because the PWA was suspended) shouldn't see the marketing landing.
+  // Detect leftover Supabase auth cookies and bounce to /login so they can
+  // reauthenticate. Fresh visitors with no cookie still see the landing.
+  if (!user && pathname === "/") {
+    // Supabase splits the auth token across chunked cookies (`...auth-token`,
+    // `...auth-token.0`, `...auth-token.1`), so match any prefix.
+    const hasStaleAuthCookie = request.cookies
+      .getAll()
+      .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+    if (hasStaleAuthCookie) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
+  }
+
   if (user) {
     const onboardingComplete = Boolean(
       (user.user_metadata as Record<string, unknown>)?.onboarding_completed
