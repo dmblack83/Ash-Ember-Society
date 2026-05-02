@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name:             "Ash & Ember Society",
     short_name:       "Ash & Ember",
     description:      "The premium cigar enthusiast app",
-    start_url:        "/",
+    start_url:        "/home",
     display:          "standalone",
     background_color: "#1A1210",
     theme_color:      "#1A1210",
