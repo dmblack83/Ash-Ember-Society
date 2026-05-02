@@ -69,8 +69,8 @@ function rank(level: string): number {
 /** strict — profile images */
 function failsStrict(s: SafetyScores): boolean {
   return (
-    rank(s.adult)    >= rank("LIKELY") ||
-    rank(s.violence) >= rank("LIKELY") ||
+    rank(s.adult)    >= rank("VERY_LIKELY") ||
+    rank(s.violence) >= rank("VERY_LIKELY") ||
     rank(s.racy)     >= rank("VERY_LIKELY")
   );
 }
