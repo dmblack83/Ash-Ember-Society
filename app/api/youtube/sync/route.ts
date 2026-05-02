@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient }       from "@/utils/supabase/service";
 
-export const runtime = "edge";
+// Node.js runtime — consistency with the news sync route, and avoids
+// the quiet failures we saw with Edge + service-client work.
+export const runtime = "nodejs";
 
 /* ------------------------------------------------------------------
    ISO 8601 duration parser  e.g. "PT1H2M3S" -> 3723 seconds
@@ -147,10 +149,44 @@ export async function POST(req: NextRequest) {
   return handler(req);
 }
 
+/* ------------------------------------------------------------------
+   Auth — matches the news sync route's pattern.
+
+   Accepts:
+     - Authorization: Bearer ${CRON_SECRET}     (Vercel cron when set)
+     - x-sync-secret: ${SYNC_SECRET}            (manual / staging)
+     - user-agent: vercel-cron/...              (fallback when
+                                                 CRON_SECRET unset, so
+                                                 cron starts working
+                                                 without env-var
+                                                 bootstrap first)
+   ------------------------------------------------------------------ */
+
+function isAuthorized(req: NextRequest): boolean {
+  const cronSecret = process.env.CRON_SECRET;
+  const syncSecret = process.env.SYNC_SECRET;
+
+  const auth = req.headers.get("authorization");
+  if (cronSecret && auth === `Bearer ${cronSecret}`) return true;
+
+  const sync = req.headers.get("x-sync-secret");
+  if (syncSecret && sync === syncSecret) return true;
+
+  const ua = req.headers.get("user-agent") ?? "";
+  if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+
+  return false;
+}
+
 async function handler(req: NextRequest) {
-  // Require sync secret
-  const secret = req.headers.get("x-sync-secret");
-  if (!secret || secret !== process.env.SYNC_SECRET) {
+  if (!isAuthorized(req)) {
+    console.warn("[youtube-sync] unauthorized", {
+      hasAuthHeader: !!req.headers.get("authorization"),
+      hasSyncSecret: !!req.headers.get("x-sync-secret"),
+      userAgent:     req.headers.get("user-agent"),
+      cronSecretSet: !!process.env.CRON_SECRET,
+      syncSecretSet: !!process.env.SYNC_SECRET,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -221,6 +257,8 @@ async function handler(req: NextRequest) {
       console.error(`Sync failed for channel ${ch.id}:`, err);
     }
   }
+
+  console.log("[youtube-sync] complete", { channels: channelRows.length, videos: totalVideos });
 
   return NextResponse.json({ synced: channelRows.length, videos: totalVideos });
 }
