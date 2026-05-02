@@ -4,7 +4,11 @@ import { XMLParser }                  from "fast-xml-parser";
 import { createServiceClient }        from "@/utils/supabase/service";
 import { NEWS_FEEDS, type NewsFeed }  from "@/lib/news-feeds";
 
-export const runtime = "edge";
+// Node.js runtime — Edge runtime had quiet issues with revalidateTag()
+// in this codebase, leaving stale data in the home page cache after
+// each sync run. Node is also the safer default for the Supabase
+// service client + XML parser used here.
+export const runtime = "nodejs";
 
 /**
  * POST/GET /api/news/sync
@@ -183,6 +187,14 @@ function isAuthorized(req: NextRequest): boolean {
   const sync = req.headers.get("x-sync-secret");
   if (syncSecret && sync === syncSecret) return true;
 
+  // Vercel Cron fallback: when the request comes from Vercel's cron
+  // infrastructure, the user-agent is "vercel-cron/1.0". Honor it if
+  // CRON_SECRET isn't configured yet so cron starts working without
+  // requiring a project env-var change. (Not relied on when CRON_SECRET
+  // is set — Bearer check above wins first.)
+  const ua = req.headers.get("user-agent") ?? "";
+  if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+
   return false;
 }
 
@@ -192,6 +204,13 @@ function isAuthorized(req: NextRequest): boolean {
 
 async function handle(req: NextRequest) {
   if (!isAuthorized(req)) {
+    console.warn("[news-sync] unauthorized", {
+      hasAuthHeader:    !!req.headers.get("authorization"),
+      hasSyncSecret:    !!req.headers.get("x-sync-secret"),
+      userAgent:        req.headers.get("user-agent"),
+      cronSecretSet:    !!process.env.CRON_SECRET,
+      syncSecretSet:    !!process.env.SYNC_SECRET,
+    });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -228,9 +247,15 @@ async function handle(req: NextRequest) {
     }
   }
 
-  // Mark cached news reads stale so the home + Discover surfaces pick
-  // up the new items on next visit (stale-while-revalidate).
-  if (totalUpserted > 0) revalidateTag("news-items", "max");
+  // Expire the cached news reads immediately so the home + Discover
+  // surfaces pick up the new items on the very next visit. The "max"
+  // profile we used to call here is stale-while-revalidate, which left
+  // visitors seeing the old news for one more page load after each
+  // cron run; { expire: 0 } is the recommended pattern for webhook /
+  // cron triggers per the Next.js docs.
+  if (totalUpserted > 0) revalidateTag("news-items", { expire: 0 });
+
+  console.log("[news-sync] complete", { totalUpserted, perFeed });
 
   return NextResponse.json({ ok: true, totalUpserted, perFeed });
 }
