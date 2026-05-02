@@ -149,19 +149,20 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
         <MastheadContent displayName={displayName} isAdmin={isAdmin} copy={c} />
       </div>
 
-      {/* Fixed overlay — pinned to viewport top, immune to overscroll. */}
+      {/* Fixed overlay — pinned to viewport top, immune to overscroll.
+          Background is fully opaque so the warm gradients on the cards
+          underneath (Tonight's Pairing, Aging Shelf) don't bleed
+          through and read as floating above the header. */}
       <div
         style={{
           ...sharedPad,
-          position:             "fixed",
-          top:                  0,
-          left:                 0,
-          right:                0,
-          zIndex:               30,
-          background:           "rgba(26,18,16,0.88)",
-          backdropFilter:       "blur(14px) saturate(140%)",
-          WebkitBackdropFilter: "blur(14px) saturate(140%)",
-          borderBottom:         "1px solid var(--line)",
+          position:     "fixed",
+          top:          0,
+          left:         0,
+          right:        0,
+          zIndex:       40,
+          background:   "var(--background)",
+          borderBottom: "1px solid var(--line)",
         }}
       >
         <MastheadContent displayName={displayName} isAdmin={isAdmin} copy={c} />
