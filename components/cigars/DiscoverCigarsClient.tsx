@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Image from "next/image";
+import { CigarImage } from "@/components/ui/CigarImage";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
 import { CigarPlaceholder, BrandPlaceholder } from "@/components/ui/cigar-placeholder";
-import { getCigarImage } from "@/lib/cigar-default-image";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -68,11 +67,13 @@ function CatalogGridCard({
     <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
       {/* Cigar image */}
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
-        <Image
-          src={getCigarImage(cigar.image_url, cigar.wrapper)}
+        <CigarImage
+          imageUrl={cigar.image_url}
+          wrapper={cigar.wrapper}
           alt={cigar.series ?? cigar.format ?? ""}
           fill
           sizes="(min-width: 768px) 25vw, 50vw"
+          quality={75}
           className="object-contain"
         />
       </div>
@@ -161,11 +162,13 @@ function CatalogListRow({
     <div className="card flex items-center gap-3 p-3">
       {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
-        <Image
-          src={getCigarImage(cigar.image_url, cigar.wrapper)}
+        <CigarImage
+          imageUrl={cigar.image_url}
+          wrapper={cigar.wrapper}
           alt={cigar.series ?? cigar.format ?? ""}
           fill
           sizes="48px"
+          quality={70}
           className="object-contain"
         />
       </div>

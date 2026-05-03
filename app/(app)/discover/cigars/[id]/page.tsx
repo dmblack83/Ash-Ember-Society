@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
-import { getCigarImage } from "@/lib/cigar-default-image";
+import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 
 export const runtime = "edge";
@@ -122,9 +122,19 @@ export default async function CigarDetailPage({
 
       {/* ── Hero ────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
-        {/* Cigar image */}
-        <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+        {/* Cigar image — hero on the cigar detail page. priority because
+            this is above the fold and contributes to LCP on phones. */}
+        <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 relative">
+          <CigarImage
+            imageUrl={c.image_url}
+            wrapper={c.wrapper}
+            alt={c.series ?? c.format ?? ""}
+            fill
+            sizes="(max-width: 640px) 100vw, 288px"
+            quality={80}
+            priority
+            style={{ objectFit: "contain" }}
+          />
         </div>
 
         {/* Info */}

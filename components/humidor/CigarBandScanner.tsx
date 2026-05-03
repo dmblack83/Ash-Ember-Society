@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal }           from "react-dom";
 import { createClient }           from "@/utils/supabase/client";
-import { getCigarImage }          from "@/lib/cigar-default-image";
+import { CigarImage }             from "@/components/ui/CigarImage";
 import { AddToHumidorSheet }      from "@/components/cigars/AddToHumidorSheet";
 import type { CatalogResult }     from "@/components/cigar-search";
 
@@ -432,10 +432,14 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
                         className="rounded-lg overflow-hidden flex-shrink-0"
                         style={{ width: 52, height: 52 }}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={getCigarImage(cigar.image_url, cigar.wrapper)}
+                        <CigarImage
+                          imageUrl={cigar.image_url}
+                          wrapper={cigar.wrapper}
                           alt={cigar.series ?? cigar.format ?? ""}
+                          width={52}
+                          height={52}
+                          sizes="52px"
+                          quality={75}
                           style={{ width: "100%", height: "100%", objectFit: "cover" }}
                         />
                       </div>

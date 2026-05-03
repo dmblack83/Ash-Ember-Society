@@ -7,7 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
-import { getCigarImage } from "@/lib/cigar-default-image";
+import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
@@ -670,8 +670,17 @@ export function HumidorItemClient({
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
         {/* Cigar image */}
         <div className="w-full sm:w-64 flex-shrink-0 flex flex-col gap-2">
-          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center">
-            <img src={getCigarImage(c.image_url, c.wrapper)} alt={c.series ?? c.format ?? ""} className="w-full h-full object-contain" />
+          <div className="w-full aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center relative">
+            <CigarImage
+              imageUrl={c.image_url}
+              wrapper={c.wrapper}
+              alt={c.series ?? c.format ?? ""}
+              fill
+              sizes="(max-width: 640px) 100vw, 256px"
+              quality={80}
+              priority
+              style={{ objectFit: "contain" }}
+            />
           </div>
           <CigarPhotoSubmitButton
             cigarId={item.cigar_id}
