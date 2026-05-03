@@ -262,8 +262,11 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
               </div>
             )}
 
-            {/* Category selector — standard posts only */}
-            {!isFeedback && (
+            {/* Category selector — only when the sheet was opened with
+                more than one option. Composing from inside a category
+                hands us a single-entry list, so we drop the picker
+                entirely; the category context is implicit. */}
+            {!isFeedback && categories.length > 1 && (
               <div>
                 <label
                   className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
