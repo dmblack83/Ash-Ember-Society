@@ -1,6 +1,7 @@
 import { createClient }    from "@/utils/supabase/server";
 import { getServerUser }   from "@/lib/auth/server-user";
 import { getProfileLite }  from "@/lib/data/profile";
+import { getShopCount }    from "@/lib/data/shops";
 import { getLatestNews }   from "@/lib/data/news";
 import { Masthead }                     from "@/components/dashboard/Masthead";
 import { TonightsPairing }              from "@/components/dashboard/TonightsPairing";
@@ -34,7 +35,7 @@ export default async function HomePage() {
   const agingFloorStr = agingFloor.toISOString().split("T")[0];
 
   /* ── Run all data queries in parallel ─────────────────────────── */
-  const [agingRes, shopCountRes, newsItems] = await Promise.all([
+  const [agingRes, shopCount, newsItems] = await Promise.all([
     user
       ? supabase
           .from("humidor_items")
@@ -49,14 +50,14 @@ export default async function HomePage() {
           .lte("aging_target_date", cutoffStr)
           .order("aging_target_date", { ascending: true })
       : Promise.resolve({ data: [] as unknown[] }),
-    supabase
-      .from("shops")
-      .select("id", { count: "exact", head: true }),
+    /* Cached cross-request — see lib/data/shops.ts. Shops are
+       admin-managed; the count refreshes on its 1h TTL or when
+       an admin write path adds revalidateTag("shops"). */
+    getShopCount(),
     getLatestNews(5),
   ]);
 
   const agingItems = (agingRes.data ?? []) as unknown as AgingItem[];
-  const shopCount  = shopCountRes.count ?? 0;
 
   return (
     <>
