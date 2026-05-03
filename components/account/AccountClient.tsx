@@ -1129,8 +1129,7 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
     state === "loading"     ? "Checking this device…" :
     state === "unsupported" ? "Not available on this device" :
     state === "denied"      ? "Blocked. Re-enable in browser/system settings." :
-    state === "on"          ? "Aging alerts, replies, and reactions." :
-                              "Aging alerts, replies, and reactions.";
+                              "Get a ping when an aging cigar hits its target date.";
 
   const isOn       = state === "on";
   const isDisabled = busy || state === "loading" || state === "unsupported" || state === "denied";
