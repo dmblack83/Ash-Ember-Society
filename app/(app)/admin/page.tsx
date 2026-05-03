@@ -1,6 +1,6 @@
 import { redirect }            from "next/navigation";
-import { createClient }        from "@/utils/supabase/server";
 import { getServerUser }       from "@/lib/auth/server-user";
+import { getProfileLite }      from "@/lib/data/profile";
 import { createServiceClient } from "@/utils/supabase/service";
 import { AdminTasksWidget }  from "@/components/admin/AdminTasksWidget";
 import type { PendingSubmission } from "@/components/admin/AdminTasksWidget";
@@ -9,17 +9,11 @@ export const runtime = "edge";
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const supabase = await createClient();
-  const user     = await getServerUser();
+  const user = await getServerUser();
   if (!user) redirect("/login");
 
-  /* ── Admin gate ───────────────────────────────────────────────── */
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("display_name, is_admin")
-    .eq("id", user.id)
-    .single();
-
+  /* ── Admin gate (cache-deduped — see lib/data/profile.ts) ────── */
+  const profile = await getProfileLite(user.id);
   if (!profile?.is_admin) redirect("/home");
 
   /* ── Fetch pending submissions (service role to bypass RLS) ───── */

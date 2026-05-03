@@ -1,5 +1,6 @@
 import { createClient }  from "@/utils/supabase/server";
 import { getServerUser } from "@/lib/auth/server-user";
+import { getFlavorTags } from "@/lib/data/flavor-tags";
 import { StatsClient }   from "@/components/humidor/StatsClient";
 import type {
   StatsClientData,
@@ -155,7 +156,7 @@ export default async function StatsPage() {
 
   if (!user) return null;
 
-  const [logsRes, humidorRes, tagsRes] = await Promise.all([
+  const [logsRes, humidorRes, tags] = await Promise.all([
     supabase
       .from("smoke_logs")
       .select("id, smoked_at, overall_rating, flavor_tag_ids, cigar_id")
@@ -166,12 +167,12 @@ export default async function StatsPage() {
       .select("quantity, purchase_quantity, price_paid_cents, cigar:cigar_catalog(id, brand, strength)")
       .eq("user_id", user.id)
       .eq("is_wishlist", false),
-    supabase.from("flavor_tags").select("id, name, category"),
+    /* Cached cross-request — see lib/data/flavor-tags.ts. */
+    getFlavorTags() as Promise<FlavorTag[]>,
   ]);
 
   const logs  = (logsRes.data   ?? []) as SmokeLog[];
   const hRows = (humidorRes.data ?? []) as unknown as HumidorRow[];
-  const tags  = (tagsRes.data   ?? []) as FlavorTag[];
 
   const brandsByCigar:   Record<string, string> = {};
   const strengthByCigar: Record<string, string> = {};

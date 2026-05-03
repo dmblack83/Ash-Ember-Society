@@ -1,5 +1,6 @@
 import { createClient }        from "@/utils/supabase/server";
 import { getServerUser }        from "@/lib/auth/server-user";
+import { getProfileLite }       from "@/lib/data/profile";
 import { redirect }             from "next/navigation";
 import { LoungeForumClient }    from "@/components/lounge/LoungeForumClient";
 import { getMembershipTier }    from "@/lib/membership";
@@ -19,10 +20,13 @@ export default async function LoungePage() {
 
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-  const [categories, stats, profileRes, rulesPostRes, todayRes] = await Promise.all([
+  const [categories, stats, profile, rulesPostRes, todayRes] = await Promise.all([
     getAllForumCategories(),
     getForumCategoryStats(),
-    supabase.from("profiles").select("display_name, membership_tier, badge").eq("id", user.id).single(),
+    /* React.cache()-deduped — see lib/data/profile.ts. The
+       getMembershipTier() call below reads .membership_tier; the
+       projection in getProfileLite includes it. */
+    getProfileLite(user.id),
     supabase
       .from("forum_posts")
       .select("id, title, content")
@@ -69,8 +73,8 @@ export default async function LoungePage() {
     agreementCount = (totalLikeRes.count ?? 0);
   }
 
-  const displayName    = profileRes.data?.display_name ?? user.email?.split("@")[0] ?? "Member";
-  const membershipTier = getMembershipTier(profileRes.data);
+  const displayName    = profile?.display_name ?? user.email?.split("@")[0] ?? "Member";
+  const membershipTier = getMembershipTier(profile);
 
   return (
     <LoungeForumClient

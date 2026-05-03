@@ -1,5 +1,6 @@
 import { createClient }    from "@/utils/supabase/server";
 import { getServerUser }   from "@/lib/auth/server-user";
+import { getProfileLite }  from "@/lib/data/profile";
 import { getLatestNews }   from "@/lib/data/news";
 import { Masthead }                     from "@/components/dashboard/Masthead";
 import { TonightsPairing }              from "@/components/dashboard/TonightsPairing";
@@ -18,14 +19,8 @@ export default async function HomePage() {
   const supabase = await createClient();
   const user     = await getServerUser();
 
-  /* ── Profile ──────────────────────────────────────────────────── */
-  const { data: profile } = user
-    ? await supabase
-        .from("profiles")
-        .select("display_name, city, is_admin")
-        .eq("id", user.id)
-        .single()
-    : { data: null };
+  /* ── Profile (cache-deduped — see lib/data/profile.ts) ───────── */
+  const profile = user ? await getProfileLite(user.id) : null;
 
   const displayName = profile?.display_name ?? "there";
   const city        = profile?.city?.trim() || null;
