@@ -28,6 +28,13 @@ const nextConfig: NextConfig = {
         hostname: "media.istockphoto.com",
       },
     ],
+    /*
+     * Format negotiation. AVIF first — ~30% smaller than WebP at
+     * comparable quality on supported browsers (~95% of traffic).
+     * Next.js still falls back to WebP for browsers that don't accept
+     * AVIF, and the original format for the long tail.
+     */
+    formats: ["image/avif", "image/webp"],
   },
   async redirects() {
     return [

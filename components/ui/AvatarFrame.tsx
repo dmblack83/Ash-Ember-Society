@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import type { BadgeType } from "@/lib/badge";
 
 /* ------------------------------------------------------------------
@@ -267,17 +268,115 @@ function FounderFrame() {
 }
 
 /* ------------------------------------------------------------------
-   Main export
+   Initials helper — used as the inline fallback when avatarUrl is
+   missing. Kept here so consumers don't each carry their own copy.
+   ------------------------------------------------------------------ */
+
+function initialsFor(name: string | null | undefined): string {
+  if (!name) return "A";
+  return name
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("") || "A";
+}
+
+/* ------------------------------------------------------------------
+   Internal: render the actual avatar (image OR initials) inside the
+   already-clipped circular slot. The slot owns the size/clip; this
+   helper just paints it.
+   ------------------------------------------------------------------ */
+
+function AvatarSlot({
+  name,
+  avatarUrl,
+  size,
+}: {
+  name:      string | null | undefined;
+  avatarUrl: string | null | undefined;
+  size:      number;
+}) {
+  if (avatarUrl) {
+    return (
+      <Image
+        src={avatarUrl}
+        alt={name ?? "Member"}
+        width={size}
+        height={size}
+        // Avatars are exactly `size` px at 1× DPR; the optimizer also
+        // generates a 2× variant automatically. No `sizes` prop needed
+        // because we have explicit width/height.
+        quality={70}
+        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+      />
+    );
+  }
+  return (
+    <div
+      className="flex items-center justify-center"
+      style={{
+        width:      "100%",
+        height:     "100%",
+        background: "var(--secondary)",
+        color:      "var(--muted-foreground)",
+        fontSize:   Math.round(size * 0.4),
+        fontWeight: 600,
+      }}
+    >
+      {initialsFor(name)}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Main export — AvatarFrame
+
+   Two ways to call this:
+
+   1. PREFERRED — let the frame own the avatar. Pass `name` and
+      `avatarUrl` and the frame renders an optimized <Image> (or an
+      initials fallback) inside the circular slot:
+
+        <AvatarFrame
+          badge={resolveBadge(badge, tier)}
+          size={32}
+          name={profile.display_name}
+          avatarUrl={profile.avatar_url}
+        />
+
+      Use this for every new call site. It removes the need for each
+      consumer to carry its own `<img>`/initials fallback block, and
+      the image flows through next/image for AVIF + lazy loading.
+
+   2. LEGACY — pass children for full control. Existing call sites
+      that haven't migrated yet keep working unchanged. Slated for
+      removal once PRs 2/3 sweep all consumers onto the prop API.
    ------------------------------------------------------------------ */
 
 interface AvatarFrameProps {
-  badge:    BadgeType;
-  size:     number;       // avatar diameter in px
-  children: React.ReactNode;
+  badge: BadgeType;
+  /** Avatar diameter in px. */
+  size: number;
+
+  /** Preferred API — frame renders the avatar internally. */
+  name?:      string | null;
+  avatarUrl?: string | null;
+
+  /** Legacy API — caller renders the avatar themselves. */
+  children?: React.ReactNode;
 }
 
-export function AvatarFrame({ badge, size, children }: AvatarFrameProps) {
-  if (!badge) return <>{children}</>;
+export function AvatarFrame({
+  badge,
+  size,
+  name,
+  avatarUrl,
+  children,
+}: AvatarFrameProps) {
+  // When the caller uses the legacy children API and there's no
+  // badge, just pass children through unchanged — preserves the
+  // previous behavior exactly so consumers don't break.
+  if (!badge && children) return <>{children}</>;
 
   const isFounder = badge === "founder";
   // 1.2× ratio aligns the avatar edge to the frame's inner ring at zero gap.
@@ -285,6 +384,24 @@ export function AvatarFrame({ badge, size, children }: AvatarFrameProps) {
   //             → outerSize = size * 108/90 = size * 1.2
   // Same 1.2× works for the 140px Founder viewBox (inner ring r59 → 59*(outerSize/140) ≈ size/2).
   const outerSize = Math.round(size * 1.2);
+
+  // When there's no badge AND we're using the new prop API, render
+  // the avatar slot at the bare size (no SVG frame, no padding).
+  if (!badge) {
+    return (
+      <div
+        style={{
+          width:        size,
+          height:       size,
+          borderRadius: "50%",
+          overflow:     "hidden",
+          flexShrink:   0,
+        }}
+      >
+        <AvatarSlot name={name} avatarUrl={avatarUrl} size={size} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ position: "relative", width: outerSize, height: outerSize, flexShrink: 0 }}>
@@ -324,7 +441,9 @@ export function AvatarFrame({ badge, size, children }: AvatarFrameProps) {
           flexShrink:   0,
         }}
       >
-        {children}
+        {children ?? (
+          <AvatarSlot name={name} avatarUrl={avatarUrl} size={size} />
+        )}
       </div>
     </div>
   );
