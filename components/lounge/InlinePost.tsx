@@ -8,6 +8,7 @@ import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
+import { tapHaptic }                           from "@/lib/haptics";
 import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
 
@@ -369,6 +370,9 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
   /* Like */
   async function handleLike() {
     if (liking) return;
+    /* Tap haptic on every like/unlike — these are the highest-frequency
+       interactions in the lounge feed. */
+    tapHaptic();
     setLiking(true);
     if (liked) {
       setLiked(false);
