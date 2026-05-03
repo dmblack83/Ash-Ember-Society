@@ -282,21 +282,9 @@ export function LoungeForumClient({
           <h1 className="font-serif text-xl font-semibold flex-1" style={{ color: "var(--foreground)" }}>
             The Lounge
           </h1>
-          <button
-            type="button"
-            onClick={() => handleNewPost()}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold"
-            style={{
-              background:              "linear-gradient(135deg, #D4A04A, #C17817)",
-              color:                   "#1A1210",
-              border:                  "none",
-              cursor:                  "pointer",
-              touchAction:             "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            + New Post
-          </button>
+          {/* No global "+ New Post" — composing is scoped to a category.
+              Each CategoryCard surfaces its own +New Post (or, for the
+              Burn Reports category, a redirect to /humidor). */}
         </div>
       </div>
 
@@ -450,21 +438,27 @@ export function LoungeForumClient({
         />
       )}
 
-      {/* New post sheet */}
-      {showNewPost && (
-        <NewPostSheet
-          categories={nonGateCategories}
-          initialCategoryId={newPostCategory}
-          isFeedback={feedbackCategories.some((c) => c.id === newPostCategory)}
-          userId={userId}
-          onClose={() => setShowNewPost(false)}
-          onCreated={() => {
-            setShowNewPost(false);
-            showToast("Post created.");
-            router.refresh();
-          }}
-        />
-      )}
+      {/* New post sheet — the picker is gone now, so we hand the
+          sheet only the single selected category. NewPostSheet hides
+          its category dropdown when the list has just one entry. */}
+      {showNewPost && (() => {
+        const selected = nonGateCategories.find((c) => c.id === newPostCategory);
+        if (!selected) return null;
+        return (
+          <NewPostSheet
+            categories={[selected]}
+            initialCategoryId={newPostCategory}
+            isFeedback={feedbackCategories.some((c) => c.id === newPostCategory)}
+            userId={userId}
+            onClose={() => setShowNewPost(false)}
+            onCreated={() => {
+              setShowNewPost(false);
+              showToast("Post created.");
+              router.refresh();
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

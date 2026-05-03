@@ -78,6 +78,14 @@ export function CategoryFeed({
 
   function handleNewPost() {
     if (!canPost) { showToast("Upgrade to Member to post in the Lounge."); return; }
+    /* Burn Reports posts have to be tied to a saved smoke_log; the
+       composer can't author one from scratch. Send the user to the
+       humidor so they pick a cigar, log a smoke, and share from
+       there. CategoryCard.handleNewPost has the matching branch. */
+    if (category.slug === "burn-reports") {
+      router.push("/humidor");
+      return;
+    }
     setShowNewPost(true);
   }
 
@@ -370,10 +378,15 @@ export function CategoryFeed({
         </div>
       </div>
 
-      {/* New post sheet */}
+      {/* New post sheet — single-category mode. The picker is hidden
+          since the user is already inside this category. */}
       {showNewPost && (
         <NewPostSheet
-          categories={postableCategories}
+          categories={[{
+            id:         category.id,
+            name:       category.name,
+            is_locked:  category.is_locked,
+          }]}
           initialCategoryId={category.id}
           isFeedback={category.is_feedback}
           userId={userId}
