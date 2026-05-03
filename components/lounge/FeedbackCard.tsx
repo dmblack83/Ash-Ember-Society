@@ -62,22 +62,14 @@ function Avatar({
   badge?:    string | null;
   tier?:     string | null;
 }) {
-  const resolved = resolveBadge(badge, tier);
-  const init = name ? name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") : "A";
-  const inner = avatarUrl ? (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-    </div>
-  ) : (
-    <div
-      className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-      style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-    >
-      {init}
-    </div>
+  return (
+    <AvatarFrame
+      badge={resolveBadge(badge, tier)}
+      size={size}
+      name={name}
+      avatarUrl={avatarUrl}
+    />
   );
-  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 /* ---- Vote button -------------------------------------------------- */

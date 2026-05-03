@@ -233,39 +233,13 @@ function Avatar({
   tier?:  string | null;
   size?:  number;
 }) {
-  const resolved = resolveBadge(badge, tier);
-
-  const inner = avatarUrl ? (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={avatarUrl}
-      alt={name ?? ""}
-      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-    />
-  ) : (
-    <div
-      style={{
-        width:           "100%",
-        height:          "100%",
-        borderRadius:    "50%",
-        backgroundColor: "var(--secondary)",
-        display:         "flex",
-        alignItems:      "center",
-        justifyContent:  "center",
-        fontSize:        size * 0.38,
-        fontWeight:      700,
-        color:           "var(--primary)",
-        flexShrink:      0,
-      }}
-    >
-      {initials(name)}
-    </div>
-  );
-
   return (
-    <AvatarFrame badge={resolved} size={size}>
-      {inner}
-    </AvatarFrame>
+    <AvatarFrame
+      badge={resolveBadge(badge, tier)}
+      size={size}
+      name={name}
+      avatarUrl={avatarUrl}
+    />
   );
 }
 
