@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 
 export interface PendingSubmission {
   id:          string;
@@ -114,10 +115,13 @@ export function AdminTasksWidget({ initialSubmissions }: Props) {
                   background:   "var(--muted)",
                 }}
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={s.previewUrl}
                   alt="Submission"
+                  width={80}
+                  height={60}
+                  sizes="80px"
+                  quality={75}
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               </div>

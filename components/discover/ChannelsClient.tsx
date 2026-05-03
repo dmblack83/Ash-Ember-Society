@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import Image                   from "next/image";
 import { createClient }        from "@/utils/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
@@ -562,10 +563,13 @@ function VideoCard({
           aria-label={`Watch "${video.title}" on YouTube`}
         >
           {video.thumbnail_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={video.thumbnail_url}
               alt=""
+              width={112}
+              height={63}
+              sizes="112px"
+              quality={70}
               style={{ width: 112, height: 63, objectFit: "cover", display: "block" }}
             />
           ) : (
@@ -790,10 +794,13 @@ function ChannelSection({
         >
           {/* Channel thumbnail */}
           {channel.thumbnail_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            <Image
               src={channel.thumbnail_url}
               alt={channel.name}
+              width={48}
+              height={48}
+              sizes="48px"
+              quality={70}
               style={{
                 width:        48,
                 height:       48,

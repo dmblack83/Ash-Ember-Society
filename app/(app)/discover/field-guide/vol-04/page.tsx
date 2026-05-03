@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/server-user";
 import {
@@ -189,10 +190,13 @@ export default async function Vol04Page() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{
               height:     140,
               width:      "auto",
@@ -201,10 +205,13 @@ export default async function Vol04Page() {
             }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/guillotine-cutter.webp"
               alt="Guillotine cutter"
+              width={88}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{
                 width:   88,
                 height:  88,
@@ -383,17 +390,23 @@ export default async function Vol04Page() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/punch-cutter.webp"
               alt="Bullet punch cutter"
+              width={88}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
             <span style={{ fontFamily: S.sans, fontSize: 9.5, letterSpacing: "0.28em", textTransform: "uppercase", color: S.fg2 }}>
@@ -510,17 +523,23 @@ export default async function Vol04Page() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/v-cutter.webp"
               alt="V-cutter"
+              width={132}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
             <span style={{ fontFamily: S.sans, fontSize: 9.5, letterSpacing: "0.28em", textTransform: "uppercase", color: S.fg2 }}>

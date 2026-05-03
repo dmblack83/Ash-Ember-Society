@@ -1,3 +1,4 @@
+import Image from "next/image";
 import {
   Em,
   SectionHeading,
@@ -118,8 +119,15 @@ export function Vol03Content() {
                   <div style={{ flex: 1, width: 1, background: S.ember, margin: "4px 0", minHeight: 16 }} />
                   <span>{s.bot}</span>
                 </div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`/field-guide/cigar-${s.id}.webp`} alt={`${s.label} cigar`} style={{ height: s.h, width: "auto", display: "block" }} />
+                <Image
+                  src={`/field-guide/cigar-${s.id}.webp`}
+                  alt={`${s.label} cigar`}
+                  width={48}
+                  height={s.h}
+                  sizes="48px"
+                  quality={80}
+                  style={{ height: s.h, width: "auto", display: "block" }}
+                />
               </div>
               <div style={{ marginTop: 12, textAlign: "center" }}>
                 <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: S.fg1 }}>{s.label}</div>
@@ -222,8 +230,15 @@ export function Vol03Content() {
             <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 13, marginBottom: 22 }}>Straight</div>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/field-guide/cigar-parejo.webp" alt="Parejo cigar" style={{ height: 240, width: "auto", display: "block" }} />
+                <Image
+                  src="/field-guide/cigar-parejo.webp"
+                  alt="Parejo cigar"
+                  width={48}
+                  height={240}
+                  sizes="48px"
+                  quality={80}
+                  style={{ height: 240, width: "auto", display: "block" }}
+                />
                 <div style={{ marginTop: 12, fontFamily: S.serif, fontWeight: 600, fontSize: 14, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1 }}>Parejo</div>
                 <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 11.5, color: S.gold, marginTop: 2 }}>uniform gauge</div>
               </div>
@@ -239,8 +254,15 @@ export function Vol03Content() {
                 { id: "perfecto", name: "Perfecto", gloss: "tapered both ends" },
               ].map((s) => (
                 <div key={s.id} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/field-guide/cigar-${s.id}.webp`} alt={`${s.name} cigar`} style={{ height: 240, width: "auto", display: "block" }} />
+                  <Image
+                    src={`/field-guide/cigar-${s.id}.webp`}
+                    alt={`${s.name} cigar`}
+                    width={48}
+                    height={240}
+                    sizes="48px"
+                    quality={80}
+                    style={{ height: 240, width: "auto", display: "block" }}
+                  />
                   <div style={{ marginTop: 12, fontFamily: S.serif, fontWeight: 600, fontSize: 14, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1 }}>{s.name}</div>
                   <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 11.5, color: S.gold, marginTop: 2 }}>{s.gloss}</div>
                 </div>
