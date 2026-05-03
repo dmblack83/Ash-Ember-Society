@@ -1,5 +1,6 @@
 import { createClient }      from "@/utils/supabase/server";
 import { getServerUser }     from "@/lib/auth/server-user";
+import { getFlavorTags }     from "@/lib/data/flavor-tags";
 import { redirect, notFound } from "next/navigation";
 import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
 import type { PostItem }     from "@/components/lounge/InlinePost";
@@ -126,14 +127,17 @@ export default async function LoungeCategoryPage({ params }: Props) {
 
     const rawLogs = (logs ?? []) as Array<Record<string, unknown> & { id: string; flavor_tag_ids: string[] | null; user_id: string | null; burn_report: Array<Record<string, unknown>> | null }>;
 
-    const allTagIds = [...new Set(rawLogs.flatMap((l) => l.flavor_tag_ids ?? []))];
+    /* Resolve flavor tag IDs → names. Reads the cached full catalog
+       (lib/data/flavor-tags.ts) and filters to the IDs we need —
+       cheap because flavor_tags is a small reference table and we
+       skip the per-request roundtrip. */
+    const allTagIds = new Set(rawLogs.flatMap((l) => l.flavor_tag_ids ?? []));
     const tagNameMap: Record<string, string> = {};
-    if (allTagIds.length > 0) {
-      const { data: tags } = await supabase
-        .from("flavor_tags")
-        .select("id, name")
-        .in("id", allTagIds);
-      for (const t of (tags ?? []) as { id: string; name: string }[]) tagNameMap[t.id] = t.name;
+    if (allTagIds.size > 0) {
+      const tags = await getFlavorTags();
+      for (const t of tags) {
+        if (allTagIds.has(t.id)) tagNameMap[t.id] = t.name;
+      }
     }
 
     for (const log of rawLogs) {

@@ -1,5 +1,7 @@
 import { createClient }       from "@/utils/supabase/server";
 import { getServerUser }      from "@/lib/auth/server-user";
+import { getProfileLite }     from "@/lib/data/profile";
+import { getFlavorTags }      from "@/lib/data/flavor-tags";
 import { BurnReportsClient }  from "@/components/humidor/BurnReportsClient";
 import type { BurnReportRow, FlavorTag } from "@/components/humidor/BurnReportsClient";
 
@@ -12,7 +14,7 @@ export default async function BurnReportsPage() {
 
   if (!user) return null;
 
-  const [logsRes, tagsRes, profileRes] = await Promise.all([
+  const [logsRes, flavorTagsAll, profile] = await Promise.all([
     supabase
       .from("smoke_logs")
       .select(`
@@ -36,23 +38,24 @@ export default async function BurnReportsPage() {
       `)
       .eq("user_id", user.id)
       .order("smoked_at", { ascending: false }),
-    supabase.from("flavor_tags").select("id, name"),
-    supabase
-      .from("profiles")
-      .select("display_name, city")
-      .eq("id", user.id)
-      .single(),
+    /* Cached cross-request — see lib/data/flavor-tags.ts. The full
+       category column is in the cached payload but BurnReportsClient
+       only uses { id, name }, so we narrow at the boundary. */
+    getFlavorTags(),
+    /* React.cache()-deduped — see lib/data/profile.ts. Other server
+       components on the same page render get the same cached row. */
+    getProfileLite(user.id),
   ]);
 
   const reports    = (logsRes.data ?? []) as unknown as BurnReportRow[];
-  const flavorTags = (tagsRes.data ?? []) as FlavorTag[];
+  const flavorTags = flavorTagsAll.map((t) => ({ id: t.id, name: t.name })) as FlavorTag[];
 
   return (
     <BurnReportsClient
       reports={reports}
       flavorTags={flavorTags}
-      displayName={profileRes.data?.display_name ?? null}
-      city={profileRes.data?.city ?? null}
+      displayName={profile?.display_name ?? null}
+      city={profile?.city ?? null}
     />
   );
 }

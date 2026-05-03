@@ -1,5 +1,7 @@
 import { createClient }  from "@/utils/supabase/server";
 import { getServerUser } from "@/lib/auth/server-user";
+import { getProfileLite } from "@/lib/data/profile";
+import { getFlavorTags }  from "@/lib/data/flavor-tags";
 import { notFound, redirect } from "next/navigation";
 import { BurnReport } from "@/components/humidor/BurnReport";
 
@@ -53,7 +55,7 @@ export default async function BurnReportPage({
   const user     = await getServerUser();
   if (!user) redirect("/login");
 
-  const [{ data: item, error }, { data: profile }, { data: flavorTagData }] =
+  const [{ data: item, error }, profile, flavorTagData] =
     await Promise.all([
       supabase
         .from("humidor_items")
@@ -61,16 +63,10 @@ export default async function BurnReportPage({
         .eq("id", id)
         .eq("user_id", user.id)
         .single(),
-      supabase
-        .from("profiles")
-        .select("badge, display_name, city")
-        .eq("id", user.id)
-        .single(),
-      supabase
-        .from("flavor_tags")
-        .select("id, name, category")
-        .order("category")
-        .order("name"),
+      /* React.cache()-deduped — see lib/data/profile.ts. */
+      getProfileLite(user.id),
+      /* Cached cross-request — see lib/data/flavor-tags.ts. */
+      getFlavorTags(),
     ]);
 
   if (error || !item || !item.cigar_id) notFound();
@@ -110,7 +106,7 @@ export default async function BurnReportPage({
   return (
     <BurnReport
       item={item as unknown as BurnReportItem}
-      flavorTags={(flavorTagData ?? []) as FlavorTag[]}
+      flavorTags={flavorTagData as FlavorTag[]}
       partnerVideos={partnerVideos}
       displayName={profile?.display_name ?? null}
       city={profile?.city ?? null}
