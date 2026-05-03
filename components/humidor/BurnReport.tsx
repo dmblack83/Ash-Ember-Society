@@ -8,6 +8,12 @@ import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humido
 import Image from "next/image";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
+import { Toast } from "@/components/ui/toast";
+import {
+  loadBurnReportDraft,
+  saveBurnReportDraft,
+  clearBurnReportDraft,
+} from "@/lib/burn-report-draft";
 
 /* ------------------------------------------------------------------
    Constants
@@ -89,6 +95,12 @@ interface FormData {
   third_middle: string;
   third_end: string;
 }
+
+/* The shape we serialize for the localStorage draft. Photos are
+   intentionally excluded — File objects can't be JSON-serialized,
+   and dropped photos are less painful to re-add than retyping a
+   freeform review. */
+type PersistableForm = Omit<FormData, "photo_files">;
 
 function defaultForm(): FormData {
   return {
@@ -1347,9 +1359,49 @@ export function BurnReport({
   const [quantityAfter, setQuantityAfter] = useState(0);
   const [smokeLogId, setSmokeLogId] = useState<string | null>(null);
 
+  /* Draft persistence — see lib/burn-report-draft.ts for rationale.
+     `draftReady` flips true after the restore attempt completes; the
+     autosave effect early-returns until then so it can't blow away
+     the persisted draft with the initial empty defaults. `showResumed`
+     drives the brief Toast that confirms a restore happened. */
+  const [draftReady, setDraftReady] = useState(false);
+  const [showResumed, setShowResumed] = useState(false);
+
   const scrollRef = useRef<HTMLElement>(null);
   const [shadowTop,    setShadowTop]    = useState(false);
   const [shadowBottom, setShadowBottom] = useState(false);
+
+  /* Restore any saved draft for this humidor item once on mount.
+     Runs in useEffect (not lazy useState init) so SSR markup and
+     client first-paint render the same defaultForm — no hydration
+     mismatch warning. The brief flash of empty fields is invisible
+     because hydration completes within the first frame on mobile. */
+  useEffect(() => {
+    const draft = loadBurnReportDraft<PersistableForm>(item.id);
+    if (draft) {
+      // Spread persisted fields over defaults; photos stay [] because
+      // PersistableForm omits them and the spread can't fill them in.
+      setForm((prev) => ({ ...prev, ...draft.form }));
+      setStep(draft.step);
+      setShowResumed(true);
+    }
+    setDraftReady(true);
+  }, [item.id]);
+
+  /* Auto-save draft on every form/step change. Debounced to ~500ms
+     so a flurry of keystrokes only writes once. We skip while the
+     restore attempt is in flight (would clobber the persisted draft
+     with the initial empty state) and after a successful submit
+     (the draft has been cleared and we don't want to re-create it). */
+  useEffect(() => {
+    if (!draftReady || success) return;
+    const t = setTimeout(() => {
+      const { photo_files: _photo_files, ...persistable } = form;
+      void _photo_files;
+      saveBurnReportDraft<PersistableForm>(item.id, persistable, step);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [draftReady, success, form, step, item.id]);
 
   /* Scroll to top + recalculate shadows on every step change */
   useEffect(() => {
@@ -1542,6 +1594,10 @@ export function BurnReport({
     setQuantityAfter(newQty);
     setSubmitting(false);
     setSuccess(true);
+    /* Report filed — drop the persisted draft. The success-guard in
+       the autosave effect prevents it from being rewritten before
+       the component unmounts. */
+    clearBurnReportDraft(item.id);
   }
 
   /* Remove from humidor after 0-qty */
@@ -1595,6 +1651,15 @@ export function BurnReport({
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
+      {/* Resumed-draft toast — auto-dismisses 3s. Only shows once
+          per mount, after the restore effect succeeds. */}
+      {showResumed && (
+        <Toast
+          message="Draft restored"
+          onDismiss={() => setShowResumed(false)}
+        />
+      )}
+
       {/* ── Header ────────────────────────────────────────────────── */}
       <header
         className="flex-shrink-0 px-4 pt-safe"
