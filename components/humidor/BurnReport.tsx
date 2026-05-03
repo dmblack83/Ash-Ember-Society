@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
-import { getCigarImage } from "@/lib/cigar-default-image";
+import { CigarImage } from "@/components/ui/CigarImage";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 
 /* ------------------------------------------------------------------
@@ -275,11 +275,15 @@ function CigarContext({ item }: { item: BurnReportItem }) {
         className="overflow-hidden flex-shrink-0"
         style={{ width: 44, height: 44, borderRadius: 3, backgroundColor: "var(--muted)" }}
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={getCigarImage(c.image_url, c.wrapper)}
+        <CigarImage
+          imageUrl={c.image_url}
+          wrapper={c.wrapper}
           alt={c.series ?? c.format ?? ""}
-          className="w-full h-full object-cover"
+          width={44}
+          height={44}
+          sizes="44px"
+          quality={75}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       </div>
       <div className="min-w-0">
