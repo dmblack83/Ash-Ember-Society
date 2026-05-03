@@ -1,9 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
-import { AddToHumidorSheet } from "./AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
+
+/* AddToHumidorSheet (462 lines) is always mounted (it manages its own
+   visibility via the `open` prop), but lazy-loading still splits its
+   ~30 KB chunk off the initial bundle and parallelizes the fetch. */
+const AddToHumidorSheet = dynamic(
+  () => import("./AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+  { ssr: false },
+);
 
 /* ------------------------------------------------------------------
    CigarActions — client wrapper for the Add to Humidor sheet and

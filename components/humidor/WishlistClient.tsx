@@ -2,9 +2,16 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult, Highlight } from "@/components/cigar-search";
-import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
+
+/* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
+   so its chunk fetches in parallel with the main bundle. */
+const AddToHumidorSheet = dynamic(
+  () => import("@/components/cigars/AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+  { ssr: false },
+);
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 import { CigarImage } from "@/components/ui/CigarImage";

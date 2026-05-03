@@ -2,12 +2,20 @@
 
 import { useState, useMemo } from "react";
 import { useRouter }         from "next/navigation";
+import dynamic               from "next/dynamic";
 import { createClient }      from "@/utils/supabase/client";
 import { InlinePost }        from "./InlinePost";
 import { PinnedPostCard }    from "./PinnedPostCard";
 import type { PostItem }     from "./InlinePost";
 import type { SmokeLogData } from "./PostDetailClient";
-import { NewPostSheet }      from "./NewPostSheet";
+
+/* NewPostSheet (456 lines) only mounts when the user taps "+ New Post".
+   Conditional render at the call site means the chunk fetches only
+   on first open; the rest of the lounge feed loads without it. */
+const NewPostSheet = dynamic(
+  () => import("./NewPostSheet").then((m) => ({ default: m.NewPostSheet })),
+  { ssr: false },
+);
 import { Toast }             from "@/components/ui/toast";
 import { ScrollCarets }      from "@/components/ui/ScrollCarets";
 

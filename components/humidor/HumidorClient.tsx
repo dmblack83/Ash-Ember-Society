@@ -2,12 +2,24 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { CigarImage } from "@/components/ui/CigarImage";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
-import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
+import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
-import { CigarBandScanner } from "@/components/humidor/CigarBandScanner";
+
+/* AddCigarSheet (873 lines) and CigarBandScanner (579 lines) are
+   only mounted after user interaction. Lazy-loading shaves their
+   chunks off the Humidor route's initial bundle. ssr:false because
+   neither sheet has any meaningful server-render output. */
+const AddCigarSheet = dynamic(
+  () => import("@/components/humidor/AddCigarSheet").then((m) => ({ default: m.AddCigarSheet })),
+  { ssr: false },
+);
+const CigarBandScanner = dynamic(
+  () => import("@/components/humidor/CigarBandScanner").then((m) => ({ default: m.CigarBandScanner })),
+  { ssr: false },
+);
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";

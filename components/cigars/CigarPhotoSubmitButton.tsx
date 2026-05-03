@@ -1,7 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { SubmitCigarPhotoSheet } from "./SubmitCigarPhotoSheet";
+import dynamic from "next/dynamic";
+
+/* SubmitCigarPhotoSheet (260 lines) only mounts when the user taps
+   "Submit photo". Conditional render means the chunk fetches lazily. */
+const SubmitCigarPhotoSheet = dynamic(
+  () => import("./SubmitCigarPhotoSheet").then((m) => ({ default: m.SubmitCigarPhotoSheet })),
+  { ssr: false },
+);
 
 interface Props {
   cigarId:     string;
