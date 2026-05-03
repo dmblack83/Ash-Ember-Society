@@ -2,14 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { CigarImage } from "@/components/ui/CigarImage";
 import Link from "next/link";
 import { createClient } from "@/utils/supabase/client";
 import { AddCigarSheet } from "@/components/humidor/AddCigarSheet";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { CigarBandScanner } from "@/components/humidor/CigarBandScanner";
 import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
-import { getCigarImage } from "@/lib/cigar-default-image";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -201,11 +200,13 @@ function GridCard({ item }: { item: HumidorItem }) {
 
         {/* Cigar image */}
         <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
-          <Image
-            src={getCigarImage(c.image_url, c.wrapper)}
+          <CigarImage
+            imageUrl={c.image_url}
+            wrapper={c.wrapper}
             alt={c.series ?? c.format ?? ""}
             fill
             sizes="(min-width: 768px) 25vw, 50vw"
+            quality={75}
             className="object-contain"
           />
         </div>
@@ -250,11 +251,13 @@ function ListRow({ item }: { item: HumidorItem }) {
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
-          <Image
-            src={getCigarImage(c.image_url, c.wrapper)}
+          <CigarImage
+            imageUrl={c.image_url}
+            wrapper={c.wrapper}
             alt={c.series ?? c.format ?? ""}
             fill
             sizes="48px"
+            quality={70}
             className="object-contain"
           />
         </div>
