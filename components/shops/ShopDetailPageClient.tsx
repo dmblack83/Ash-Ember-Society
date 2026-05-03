@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect }  from "react";
+import Image                    from "next/image";
 import Link                     from "next/link";
 import { createClient }         from "@/utils/supabase/client";
 import { MembershipCard }       from "@/components/membership/MembershipCard";
@@ -150,9 +151,16 @@ export function ShopDetailPageClient({
 
         {/* ── Hero cover ───────────────────────────────────────────── */}
         {shop.cover_photo_url ? (
-          <div className="w-full h-44 rounded-2xl overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={shop.cover_photo_url} alt={shop.name} className="w-full h-full object-cover" />
+          <div className="w-full h-44 rounded-2xl overflow-hidden relative">
+            <Image
+              src={shop.cover_photo_url}
+              alt={shop.name}
+              fill
+              sizes="(max-width: 640px) 100vw, 512px"
+              quality={80}
+              priority
+              className="object-cover"
+            />
           </div>
         ) : (
           <div
