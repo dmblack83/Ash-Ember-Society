@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                         from "react-dom";
+import Image                                    from "next/image";
 import { createClient }                         from "@/utils/supabase/client";
 import { formatDistanceToNow }                  from "date-fns";
 import type { SmokeLogData }                    from "./PostDetailClient";
@@ -124,9 +125,21 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
     ? createPortal(
         <>
           <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 10991, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lightboxSrc} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 10991, padding: 16 }}>
+            {/* fill mode requires a sized parent. The fixed inset
+                gives that size; objectFit:contain preserves aspect.
+                blob: URLs (in-flight VerdictCard) bypass optimizer. */}
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <Image
+                src={lightboxSrc}
+                alt=""
+                fill
+                sizes="100vw"
+                quality={85}
+                unoptimized={lightboxSrc.startsWith("blob:")}
+                style={{ objectFit: "contain", borderRadius: 8 }}
+              />
+            </div>
             <button type="button" onClick={() => setLightboxSrc(null)} aria-label="Close"
               style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
                 background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
