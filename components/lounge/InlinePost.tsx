@@ -8,6 +8,8 @@ import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
+import { BurnReportPreviewCard }               from "@/components/humidor/BurnReportPreviewCard";
+import { BurnReportModal }                     from "@/components/humidor/BurnReportModal";
 import { tapHaptic }                           from "@/lib/haptics";
 import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
@@ -141,11 +143,28 @@ function useLightbox() {
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
   const lightbox = useLightbox();
   const thirds   = unwrapBurnReport(log.burn_report);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div style={{ marginTop: 4 }}>
-      <VerdictCard
+      <BurnReportPreviewCard
         cigar={log.cigar}
+        reportNumber={log.report_number ?? null}
+        smokedAt={log.smoked_at}
+        overallRating={log.overall_rating}
+        drawRating={log.draw_rating}
+        burnRating={log.burn_rating}
+        constructionRating={log.construction_rating}
+        flavorRating={log.flavor_rating}
+        smokeDurationMinutes={log.smoke_duration_minutes}
+        onTap={() => setExpanded(true)}
+      />
+
+      <BurnReportModal
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        cigar={log.cigar}
+        reportNumber={log.report_number ?? null}
         smokedAt={log.smoked_at}
         overallRating={log.overall_rating}
         drawRating={log.draw_rating}
@@ -166,6 +185,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         city={log.author_city ?? null}
         onPhotoClick={lightbox.open}
       />
+
       {lightbox.node}
     </div>
   );

@@ -66,6 +66,11 @@ export interface SmokeLogData {
      from the post author's profile, NOT the viewer's. */
   author_display_name?: string | null;
   author_city?:         string | null;
+  /* The post author's 1-indexed burn report number for THIS smoke log.
+     If the author has 117 burn reports and this one is their 45th, we
+     show "NO. 45" on the preview card. Computed server-side via
+     lib/data/burn-report-number. */
+  report_number?:       number | null;
 }
 
 /* ------------------------------------------------------------------ */

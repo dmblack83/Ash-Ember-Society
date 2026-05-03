@@ -6,6 +6,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
+import { BurnReportPreviewCard } from "@/components/humidor/BurnReportPreviewCard";
+import { BurnReportModal } from "@/components/humidor/BurnReportModal";
 
 /* ------------------------------------------------------------------
    Types
@@ -223,6 +225,10 @@ function BurnReportCard({
   const [shared,        setShared]        = useState(false);
   const [shareErr,      setShareErr]      = useState<string | null>(null);
   const [linkedVideo, setLinkedVideo] = useState<{ ytId: string; title: string; thumb: string | null } | null>(null);
+  /* Tap-to-expand: list shows the compact preview only; the full
+     VerdictCard + linked video + share/delete actions live in this
+     overlay. The list stays scannable. */
+  const [expanded,      setExpanded]      = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -343,36 +349,10 @@ function BurnReportCard({
     onDelete(report.id);
   }
 
-  return (
-    <div>
-      {/* The verdict card itself owns its border + background — no
-          outer wrapper here, otherwise we get a doubled border around
-          the card edge. Saved-report actions (share / delete / linked
-          video) live below the card. */}
-      <VerdictCard
-        cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
-        reportNumber={reportNumber}
-        smokedAt={report.smoked_at}
-        overallRating={report.overall_rating}
-        drawRating={report.draw_rating}
-        burnRating={report.burn_rating}
-        constructionRating={report.construction_rating}
-        flavorRating={report.flavor_rating}
-        reviewText={report.review_text}
-        smokeDurationMinutes={report.smoke_duration_minutes}
-        pairingDrink={report.pairing_drink}
-        occasion={report.occasion}
-        flavorTagNames={tagNames}
-        photoUrls={photos}
-        thirdsEnabled={thirds?.thirds_enabled ?? false}
-        thirdBeginning={thirds?.third_beginning ?? null}
-        thirdMiddle={thirds?.third_middle ?? null}
-        thirdEnd={thirds?.third_end ?? null}
-        displayName={displayName}
-        city={city}
-        onPhotoClick={(url) => setPhotoUrl(url)}
-      />
-
+  /* Linked video + share/delete actions — rendered inside the modal
+     when expanded. Extracted so the JSX below stays scannable. */
+  const belowCard = (
+    <>
       {linkedVideo && (
         <div style={{ marginTop: 16 }}>
           <Link
@@ -424,8 +404,6 @@ function BurnReportCard({
         style={{ marginTop: 16 }}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          {/* OS-native share (Web Share API → Share Sheet on iOS,
-              share intent on Android). Falls back to clipboard copy. */}
           <button
             type="button"
             onClick={handleNativeShare}
@@ -443,13 +421,7 @@ function BurnReportCard({
             aria-label="Share"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M12 3v12M8 7l4-4 4 4M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M12 3v12M8 7l4-4 4 4M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
           <div className="flex flex-col gap-1">
@@ -497,6 +469,50 @@ function BurnReportCard({
           Delete
         </button>
       </div>
+    </>
+  );
+
+  return (
+    <>
+      <BurnReportPreviewCard
+        cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
+        reportNumber={reportNumber}
+        smokedAt={report.smoked_at}
+        overallRating={report.overall_rating}
+        drawRating={report.draw_rating}
+        burnRating={report.burn_rating}
+        constructionRating={report.construction_rating}
+        flavorRating={report.flavor_rating}
+        smokeDurationMinutes={report.smoke_duration_minutes}
+        onTap={() => setExpanded(true)}
+      />
+
+      <BurnReportModal
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        cigar={c ? { brand: c.brand, series: c.series, format: c.format } : null}
+        reportNumber={reportNumber}
+        smokedAt={report.smoked_at}
+        overallRating={report.overall_rating}
+        drawRating={report.draw_rating}
+        burnRating={report.burn_rating}
+        constructionRating={report.construction_rating}
+        flavorRating={report.flavor_rating}
+        reviewText={report.review_text}
+        smokeDurationMinutes={report.smoke_duration_minutes}
+        pairingDrink={report.pairing_drink}
+        occasion={report.occasion}
+        flavorTagNames={tagNames}
+        photoUrls={photos}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
+        displayName={displayName}
+        city={city}
+        onPhotoClick={(url) => setPhotoUrl(url)}
+        belowCard={belowCard}
+      />
 
       {/* Portals */}
       {mounted && photoUrl && (
@@ -509,7 +525,7 @@ function BurnReportCard({
           onCancel={() => setConfirmDelete(false)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -635,10 +651,12 @@ export function BurnReportsClient({
             </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-10">
+          <div className="flex flex-col gap-4">
             {reports.map((report, i) => (
               /* Reports are sorted newest-first, so the first row is
-                 the user's most recent (highest report number). */
+                 the user's most recent (highest report number). The
+                 compact preview cards live tight; tap-to-expand opens
+                 the full verdict in a modal. */
               <BurnReportCard
                 key={report.id}
                 report={report}

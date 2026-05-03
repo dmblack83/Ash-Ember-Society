@@ -1,6 +1,7 @@
 import { createClient }      from "@/utils/supabase/server";
 import { getServerUser }     from "@/lib/auth/server-user";
 import { getFlavorTags }     from "@/lib/data/flavor-tags";
+import { computeReportNumbers } from "@/lib/data/burn-report-number";
 import { redirect, notFound } from "next/navigation";
 import { CategoryFeed }      from "@/components/lounge/CategoryFeed";
 import type { PostItem }     from "@/components/lounge/InlinePost";
@@ -140,6 +141,11 @@ export default async function LoungeCategoryPage({ params }: Props) {
       }
     }
 
+    /* Per-author 1-indexed report numbers. The handoff card shows
+       "NO. 45" reflecting the AUTHOR's lifetime count of burn
+       reports up to and including this one. */
+    const reportNumberMap = await computeReportNumbers(supabase, smokeLogIds);
+
     for (const log of rawLogs) {
       const author = log.user_id ? nameMap[log.user_id as string] : null;
       // burn_report is passed through as-is (array OR object — the
@@ -152,6 +158,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
           .filter(Boolean) as string[],
         author_display_name: author?.display_name ?? null,
         author_city:         author?.city         ?? null,
+        report_number:       reportNumberMap[log.id] ?? null,
       };
     }
   }
