@@ -7,10 +7,14 @@
    THIS browser receives Web Push notifications. Mirrors the visual
    pattern of the existing "Install" affordance just below it.
 
-   States rendered:
+   States rendered (section is ALWAYS visible — never returns null):
 
-     1. loading       — initial async derive in progress. Returns
-                        null briefly to avoid a flash of wrong state.
+     1. loading       — initial async derive in progress. Renders
+                        the section shell with a "Checking this
+                        device…" placeholder. Earlier versions
+                        returned null here, which on iOS PWA could
+                        leave the section invisible indefinitely if
+                        navigator.serviceWorker.ready stalled.
      2. unsupported   — browser/device can't do Web Push. Renders the
                         section with platform-specific guidance + a
                         diagnostic line so users (and we) can tell
@@ -20,11 +24,6 @@
      4. unsubscribed  — granted-or-default. Shows "Enable" CTA.
      5. subscribed    — already opted in on this browser. Shows
                         "Disable" CTA.
-
-   Earlier versions returned null for "unsupported" — clean for users
-   who can't act on the feature, but it left iOS/older-browser users
-   wondering whether the section was hidden by design or by bug.
-   Always rendering with a clear status fixes both UX and diagnostic.
    ------------------------------------------------------------------ */
 
 import { useEffect, useState } from "react";
@@ -113,17 +112,6 @@ export function NotificationsToggle() {
     }
   }
 
-  /* Loading flash-prevention only — once derived we always render
-     the section, even in unsupported, so users have visible feedback
-     about the feature on every device. */
-  if (state === "loading") {
-    return (
-      <>
-        {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
-      </>
-    );
-  }
-
   /* Sub-component renderers, kept as helpers so the JSX below stays
      compact and readable. Each branch returns the heading + body
      text + (optional) action button. */
@@ -192,6 +180,15 @@ export function NotificationsToggle() {
           <div className="min-w-0">
             {state === "unsupported" ? (
               unsupportedBody()
+            ) : state === "loading" ? (
+              <>
+                <p className="text-sm font-medium text-foreground">
+                  Notifications
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Checking this device…
+                </p>
+              </>
             ) : (
               <>
                 <p className="text-sm font-medium text-foreground">
