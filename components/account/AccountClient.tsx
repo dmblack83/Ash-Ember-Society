@@ -19,6 +19,13 @@ import { AvatarFrame } from "@/components/ui/AvatarFrame";
 import { ScrollCarets } from "@/components/ui/ScrollCarets";
 import { getInstallState, useBeforeInstallPrompt, type InstallState } from "@/lib/install-prompt";
 import { resolveBadge, getBadgeOptions } from "@/lib/badge";
+import {
+  isPushSupported,
+  getPushPermission,
+  getCurrentSubscription,
+  subscribe as pushSubscribe,
+  unsubscribe as pushUnsubscribe,
+} from "@/lib/push-client";
 import type { MembershipTier } from "@/lib/stripe";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
@@ -1077,6 +1084,138 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
   );
 }
 
+/* ─── Notifications Section ──────────────────────────────────────────── */
+
+type PushState = "loading" | "unsupported" | "denied" | "off" | "on";
+
+interface NotificationsSectionProps {
+  onToast: (msg: string) => void;
+}
+
+function NotificationsSection({ onToast }: NotificationsSectionProps) {
+  const [state, setState] = useState<PushState>("loading");
+  const [busy,  setBusy]  = useState(false);
+
+  useEffect(() => { void refresh(); }, []);
+
+  async function refresh() {
+    if (!isPushSupported()) { setState("unsupported"); return; }
+    const permission = getPushPermission();
+    if (permission === "denied") { setState("denied"); return; }
+    const sub = await getCurrentSubscription();
+    setState(sub ? "on" : "off");
+  }
+
+  async function handleToggle() {
+    if (busy) return;
+    if (state !== "off" && state !== "on") return;
+    setBusy(true);
+    if (state === "off") {
+      const result = await pushSubscribe();
+      if (result.ok) { onToast("Notifications enabled"); }
+      else            { onToast(result.error ?? "Couldn't enable notifications."); }
+    } else {
+      const result = await pushUnsubscribe();
+      if (result.ok) { onToast("Notifications turned off"); }
+      else            { onToast(result.error ?? "Couldn't turn off notifications."); }
+    }
+    await refresh();
+    setBusy(false);
+  }
+
+  /* Visual subtitle for the row — explains what the toggle does in
+     each state. Kept short to fit the row pattern. */
+  const subtitle =
+    state === "loading"     ? "Checking this device…" :
+    state === "unsupported" ? "Not available on this device" :
+    state === "denied"      ? "Blocked. Re-enable in browser/system settings." :
+    state === "on"          ? "Aging alerts, replies, and reactions." :
+                              "Aging alerts, replies, and reactions.";
+
+  const isOn       = state === "on";
+  const isDisabled = busy || state === "loading" || state === "unsupported" || state === "denied";
+
+  return (
+    <div>
+      <SectionLabel>Notifications</SectionLabel>
+      <div style={{
+        borderRadius:    20,
+        backgroundColor: "var(--card)",
+        border:          "1px solid var(--border)",
+        overflow:        "hidden",
+      }}>
+        <div style={{
+          display:                 "flex",
+          alignItems:              "center",
+          justifyContent:          "space-between",
+          padding:                 "16px 20px",
+          minHeight:               56,
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+        }}>
+          <div style={{ minWidth: 0, flex: 1, marginRight: 12 }}>
+            <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>
+              Push notifications
+            </p>
+            <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+              {subtitle}
+            </p>
+          </div>
+          <ToggleSwitch on={isOn} disabled={isDisabled} onChange={handleToggle} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Toggle Switch ──────────────────────────────────────────────────── */
+
+interface ToggleSwitchProps {
+  on:       boolean;
+  disabled: boolean;
+  onChange: () => void;
+}
+
+function ToggleSwitch({ on, disabled, onChange }: ToggleSwitchProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      disabled={disabled}
+      onClick={onChange}
+      style={{
+        position:                "relative",
+        flexShrink:              0,
+        width:                   44,
+        height:                  26,
+        borderRadius:            13,
+        border:                  "1px solid var(--border)",
+        background:              on ? "var(--ember)" : "var(--secondary)",
+        cursor:                  disabled ? "not-allowed" : "pointer",
+        opacity:                 disabled ? 0.5 : 1,
+        transition:              "background 0.18s ease",
+        padding:                 0,
+        touchAction:             "manipulation",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      <span
+        style={{
+          position:        "absolute",
+          top:             2,
+          left:            on ? 20 : 2,
+          width:           20,
+          height:          20,
+          borderRadius:    10,
+          backgroundColor: "var(--foreground)",
+          transition:      "left 0.18s ease",
+        }}
+      />
+    </button>
+  );
+}
+
 /* ─── Account Section ────────────────────────────────────────────────── */
 
 interface AccountSectionProps {
@@ -1360,6 +1499,8 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
             profile={profile}
             onToast={setToast}
           />
+
+          <NotificationsSection onToast={setToast} />
 
           <AccountSection
             userId={userId}
