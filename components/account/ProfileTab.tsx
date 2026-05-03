@@ -5,6 +5,7 @@ import Image from "next/image";
 import dynamic                           from "next/dynamic";
 import { createClient }                  from "@/utils/supabase/client";
 import { Toast }                         from "@/components/ui/toast";
+import { NotificationsToggle }           from "@/components/account/NotificationsToggle";
 
 /* InstallSheet (360 lines) only mounts when the user taps "Install". */
 const InstallSheet = dynamic(
@@ -381,6 +382,10 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
           </button>
         </div>
       </section>
+
+      {/* ── Notifications toggle (Web Push). Hidden on browsers
+              that can't do push (regular Safari tabs, etc.). ─── */}
+      <NotificationsToggle />
 
       {/* ── Install affordance (iOS only; hidden on Android,
               desktop, and when already running standalone) ────── */}
