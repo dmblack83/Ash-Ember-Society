@@ -1086,7 +1086,22 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
 
 /* ─── Notifications Section ──────────────────────────────────────────── */
 
-type PushState = "loading" | "unsupported" | "denied" | "off" | "on";
+/* Push notifications are mobile-PWA only. We deliberately don't offer
+   them on desktop (Chrome/Edge/Firefox technically support push, but
+   the feature is positioned as a phone-side nudge — desktop pop-ups
+   aren't what users want here) or on mobile-in-browser-tab (iOS
+   wouldn't deliver them anyway pre-install). One unified message. */
+type PushState = "loading" | "needs-mobile-pwa" | "denied" | "off" | "on";
+
+function isMobilePWA(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent ?? "";
+  if (!/iPhone|iPad|iPod|Android/i.test(ua)) return false;
+  return (
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true
+  );
+}
 
 interface NotificationsSectionProps {
   onToast: (msg: string) => void;
@@ -1099,7 +1114,12 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
   useEffect(() => { void refresh(); }, []);
 
   async function refresh() {
-    if (!isPushSupported()) { setState("unsupported"); return; }
+    /* Gate before anything else: desktop or mobile-tab → static
+       "install on mobile" message. Push API support doesn't matter
+       here — even on a Chrome desktop that supports push we won't
+       offer it. */
+    if (!isMobilePWA())     { setState("needs-mobile-pwa"); return; }
+    if (!isPushSupported()) { setState("needs-mobile-pwa"); return; } // iOS <16.4 etc.
     const permission = getPushPermission();
     if (permission === "denied") { setState("denied"); return; }
     const sub = await getCurrentSubscription();
@@ -1126,13 +1146,13 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
   /* Visual subtitle for the row — explains what the toggle does in
      each state. Kept short to fit the row pattern. */
   const subtitle =
-    state === "loading"     ? "Checking this device…" :
-    state === "unsupported" ? "Not available on this device" :
-    state === "denied"      ? "Blocked. Re-enable in browser/system settings." :
-                              "Get a ping when an aging cigar hits its target date.";
+    state === "loading"          ? "Checking this device…" :
+    state === "needs-mobile-pwa" ? "Only available on mobile when installed to your home screen." :
+    state === "denied"           ? "Blocked. Re-enable in your device settings." :
+                                   "Get a ping when an aging cigar hits its target date.";
 
   const isOn       = state === "on";
-  const isDisabled = busy || state === "loading" || state === "unsupported" || state === "denied";
+  const isDisabled = state !== "off" && state !== "on";
 
   return (
     <div>
