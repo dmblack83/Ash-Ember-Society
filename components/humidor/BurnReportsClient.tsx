@@ -346,8 +346,15 @@ function BurnReportCard({
             }}
           >
             {linkedVideo.thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+              <Image
+                src={linkedVideo.thumb}
+                alt=""
+                width={112}
+                height={63}
+                sizes="112px"
+                quality={70}
+                style={{ objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+              />
             ) : (
               <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
