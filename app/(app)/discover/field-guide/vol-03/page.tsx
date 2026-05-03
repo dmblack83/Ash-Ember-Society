@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/server-user";
 import {
@@ -290,10 +291,13 @@ export default async function Vol03Page() {
                   />
                   <span>{s.bot}</span>
                 </div>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
+                <Image
                   src={`/field-guide/cigar-${s.id}.webp`}
                   alt={`${s.label} cigar`}
+                  width={48}
+                  height={s.h}
+                  sizes="48px"
+                  quality={80}
                   style={{ height: s.h, width: "auto", display: "block" }}
                 />
               </div>
@@ -618,8 +622,15 @@ export default async function Vol03Page() {
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "center" }}>
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/field-guide/cigar-parejo.webp" alt="Parejo cigar" style={{ height: 240, width: "auto", display: "block" }} />
+                <Image
+                  src="/field-guide/cigar-parejo.webp"
+                  alt="Parejo cigar"
+                  width={48}
+                  height={240}
+                  sizes="48px"
+                  quality={80}
+                  style={{ height: 240, width: "auto", display: "block" }}
+                />
                 <div style={{ marginTop: 12, fontFamily: S.serif, fontWeight: 600, fontSize: 14, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1 }}>
                   Parejo
                 </div>
@@ -653,8 +664,15 @@ export default async function Vol03Page() {
                 { id: "perfecto", name: "Perfecto", gloss: "tapered both ends" },
               ].map((s) => (
                 <div key={s.id} style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/field-guide/cigar-${s.id}.webp`} alt={`${s.name} cigar`} style={{ height: 240, width: "auto", display: "block" }} />
+                  <Image
+                    src={`/field-guide/cigar-${s.id}.webp`}
+                    alt={`${s.name} cigar`}
+                    width={48}
+                    height={240}
+                    sizes="48px"
+                    quality={80}
+                    style={{ height: 240, width: "auto", display: "block" }}
+                  />
                   <div style={{ marginTop: 12, fontFamily: S.serif, fontWeight: 600, fontSize: 14, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1 }}>
                     {s.name}
                   </div>

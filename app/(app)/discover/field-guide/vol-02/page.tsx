@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getServerUser } from "@/lib/auth/server-user";
 import {
@@ -222,10 +223,13 @@ export default async function Vol02Page() {
             padding:        "0 24px 24px",
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/tobacco-plant.webp"
             alt="A tobacco plant showing the four priming positions"
+            width={360}
+            height={387}
+            sizes="(max-width: 360px) 100vw, 360px"
+            quality={80}
             style={{
               maxWidth:   360,
               width:      "100%",
