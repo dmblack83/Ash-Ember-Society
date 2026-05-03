@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const S = {
   serif: "'Playfair Display', Georgia, serif",
   sans:  "Inter, system-ui, sans-serif",
@@ -156,10 +158,13 @@ export function Vol04Content() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{
               height:  140,
               width:   "auto",
@@ -168,10 +173,13 @@ export function Vol04Content() {
             }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/guillotine-cutter.webp"
               alt="Guillotine cutter"
+              width={88}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{
                 width:     88,
                 height:    88,
@@ -347,17 +355,23 @@ export function Vol04Content() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/punch-cutter.webp"
               alt="Bullet punch cutter"
+              width={88}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
             <span style={{ fontFamily: S.sans, fontSize: 9.5, letterSpacing: "0.28em", textTransform: "uppercase" as const, color: S.fg2 }}>
@@ -474,17 +488,23 @@ export function Vol04Content() {
             marginBottom:   28,
           }}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+          <Image
             src="/field-guide/maduro-cigar.webp"
             alt="Maduro cigar"
+            width={350}
+            height={140}
+            sizes="350px"
+            quality={80}
             style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="/field-guide/v-cutter.webp"
               alt="V-cutter"
+              width={132}
+              height={88}
+              sizes="88px"
+              quality={80}
               style={{ width: 88, height: 88, objectFit: "contain", filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.6))" }}
             />
             <span style={{ fontFamily: S.sans, fontSize: 9.5, letterSpacing: "0.28em", textTransform: "uppercase" as const, color: S.fg2 }}>

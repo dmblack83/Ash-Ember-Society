@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode, CSSProperties } from "react";
 
@@ -186,11 +187,14 @@ function Colophon({ volLabel }: { volLabel: string }) {
       }}
     >
       <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="/Circle Logo.png"
           alt=""
-          style={{ width: 22, height: 22, opacity: 0.7 }}
+          width={22}
+          height={22}
+          sizes="22px"
+          quality={75}
+          style={{ opacity: 0.7 }}
         />
         <span>Ash &amp; Ember Society</span>
       </div>
