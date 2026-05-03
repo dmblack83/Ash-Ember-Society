@@ -8,6 +8,7 @@ import {
   useOptimistic,
   startTransition,
 } from "react";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
@@ -612,13 +613,14 @@ function PostCard({ post, userId, displayName, index, onLikeToggle }: PostCardPr
 
       {/* Image */}
       {post.image_url && (
-        <div className="rounded-xl overflow-hidden -mx-1">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="rounded-xl overflow-hidden -mx-1 relative" style={{ height: 320 }}>
+          <Image
             src={post.image_url}
             alt="Post image"
-            className="w-full object-cover"
-            style={{ maxHeight: 320 }}
+            fill
+            sizes="(max-width: 768px) 100vw, 600px"
+            quality={78}
+            className="object-cover"
           />
         </div>
       )}

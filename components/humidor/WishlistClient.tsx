@@ -7,7 +7,7 @@ import { CatalogResult, Highlight } from "@/components/cigar-search";
 import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
-import { getCigarImage } from "@/lib/cigar-default-image";
+import { CigarImage } from "@/components/ui/CigarImage";
 
 /* ------------------------------------------------------------------
    Types
@@ -802,12 +802,15 @@ function WishlistCard({
           WebkitTapHighlightColor: "transparent",
         }}
       >
-        <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0">
-          <img
-            src={getCigarImage(c.image_url, c.wrapper)}
+        <div className="w-full aspect-[16/9] rounded-lg overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 relative">
+          <CigarImage
+            imageUrl={c.image_url}
+            wrapper={c.wrapper}
             alt={c.series ?? c.format ?? ""}
-            className="w-full h-full object-contain"
-            loading="lazy"
+            fill
+            sizes="(max-width: 640px) 100vw, 640px"
+            quality={75}
+            style={{ objectFit: "contain" }}
           />
         </div>
 
@@ -880,10 +883,15 @@ function WishlistListRow({
           }}
         >
           <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 flex items-center justify-center">
-            <img
-              src={getCigarImage(c.image_url, c.wrapper)}
+            <CigarImage
+              imageUrl={c.image_url}
+              wrapper={c.wrapper}
               alt={c.series ?? c.format ?? ""}
-              className="w-full h-full object-contain"
+              width={48}
+              height={48}
+              sizes="48px"
+              quality={75}
+              style={{ width: "100%", height: "100%", objectFit: "contain" }}
             />
           </div>
 

@@ -18,6 +18,20 @@
    ------------------------------------------------------------------ */
 
 import React from "react";
+import Image from "next/image";
+
+/* ------------------------------------------------------------------
+   Helpers
+   ------------------------------------------------------------------ */
+
+/* In-flight Burn Report previews pass blob: URLs (URL.createObjectURL
+   on the user's File). next/image can't optimize client-side memory
+   refs, so we mark blob sources `unoptimized` and let the browser
+   render them directly. Saved-report sources are real Supabase
+   URLs and run through the optimizer normally. */
+function isBlobUrl(src: string): boolean {
+  return src.startsWith("blob:");
+}
 
 /* ------------------------------------------------------------------
    Score-grade label — 1–100 thresholds. Kept in sync with the
@@ -127,52 +141,59 @@ function SpecCell({ label, value }: { label: string; value: string }) {
 function PhotoStrip({
   urls,
   onPhotoClick,
+  sizesHint,
 }: {
   urls: string[];
   onPhotoClick?: (url: string) => void;
+  /* Comma-list of viewport-conditional widths the layout uses for
+     each cell. Saved-report contexts (full card) pass a tighter
+     value than the in-flight preview to give the optimizer a more
+     accurate target. */
+  sizesHint: string;
 }) {
   if (urls.length === 0) return null;
 
-  // Wrap each <img> in a button when an `onPhotoClick` is supplied
-  // so the saved-report contexts can pop a lightbox. The in-flight
-  // preview omits the handler and gets plain images.
-  function img(url: string, gridStyle: React.CSSProperties) {
-    const baseStyle: React.CSSProperties = {
-      width:        "100%",
-      height:       "100%",
-      objectFit:    "cover",
-      borderRadius: 3,
-      ...gridStyle,
+  // Each cell wraps a next/image in fill mode so the optimizer
+  // generates a srcset matched to the rendered size. blob: URLs
+  // (in-flight previews from URL.createObjectURL) bypass the
+  // optimizer; everything else (Supabase Storage) goes through it.
+  function cell(url: string, cellStyle: React.CSSProperties) {
+    const inner = (
+      <Image
+        src={url}
+        alt=""
+        fill
+        sizes={sizesHint}
+        quality={82}
+        unoptimized={isBlobUrl(url)}
+        style={{ objectFit: "cover", borderRadius: 3 }}
+      />
+    );
+
+    const wrapperStyle: React.CSSProperties = {
+      position: "relative",
+      ...cellStyle,
     };
+
     if (!onPhotoClick) {
-      return (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={url} alt="" style={baseStyle} />
-      );
+      return <div style={wrapperStyle}>{inner}</div>;
     }
     return (
       <button
         type="button"
         onClick={() => onPhotoClick(url)}
-        style={{
-          padding:    0,
-          border:     "none",
-          background: "none",
-          cursor:     "pointer",
-          ...gridStyle,
-        }}
+        style={{ ...wrapperStyle, padding: 0, border: "none", background: "none", cursor: "pointer" }}
         aria-label="View photo"
       >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 3, display: "block" }} />
+        {inner}
       </button>
     );
   }
 
   if (urls.length === 1) {
     return (
-      <div style={{ marginTop: 22, aspectRatio: "16 / 10" }}>
-        {img(urls[0], { width: "100%", height: "100%" })}
+      <div style={{ marginTop: 22 }}>
+        {cell(urls[0], { width: "100%", aspectRatio: "16 / 10" })}
       </div>
     );
   }
@@ -181,9 +202,7 @@ function PhotoStrip({
     return (
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 22 }}>
         {urls.map((u, i) => (
-          <div key={i} style={{ aspectRatio: "1 / 1" }}>
-            {img(u, { width: "100%", height: "100%" })}
-          </div>
+          <React.Fragment key={i}>{cell(u, { aspectRatio: "1 / 1" })}</React.Fragment>
         ))}
       </div>
     );
@@ -201,9 +220,9 @@ function PhotoStrip({
         aspectRatio:         "3 / 2",
       }}
     >
-      {img(urls[0], { gridRow: "1 / span 2" })}
-      {img(urls[1], {})}
-      {img(urls[2], {})}
+      {cell(urls[0], { gridRow: "1 / span 2" })}
+      {cell(urls[1], {})}
+      {cell(urls[2], {})}
     </div>
   );
 }
@@ -472,7 +491,14 @@ export function VerdictCard({
         </div>
 
         {/* Photo strip */}
-        <PhotoStrip urls={photoUrls} onPhotoClick={onPhotoClick} />
+        {/* The card maxes out around 600px wide; pass that as the
+            optimizer's sizes hint so it picks a variant matched to
+            the rendered cell rather than the full viewport. */}
+        <PhotoStrip
+          urls={photoUrls}
+          onPhotoClick={onPhotoClick}
+          sizesHint="(max-width: 640px) 100vw, 600px"
+        />
 
         {/* Thirds — above the pull-quote when toggle was on AND ≥ 1
             phase has content. Empty thirds within an enabled set

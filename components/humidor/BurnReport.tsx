@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
+import Image from "next/image";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 
@@ -1156,11 +1157,14 @@ function SummaryStep({
                   }}
                 >
                   {v.thumbnail_url && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={v.thumbnail_url}
                       alt=""
-                      style={{ width: 72, height: 41, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+                      width={72}
+                      height={41}
+                      sizes="72px"
+                      quality={70}
+                      style={{ objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
                     />
                   )}
                   <span style={{ flex: 1, fontSize: 13, color: "var(--foreground)", lineHeight: 1.4 }}>

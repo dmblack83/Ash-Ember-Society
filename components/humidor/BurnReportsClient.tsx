@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 
@@ -105,13 +106,23 @@ function PhotoModal({ url, onClose }: { url: string; onClose: () => void }) {
         </svg>
       </button>
 
-      {/* Image */}
-      <img
-        src={url}
-        alt="Burn report photo"
+      {/* Image — fill mode requires a sized parent. The wrapper
+          caps the image at 92vw × 88vh; objectFit:contain preserves
+          aspect ratio. */}
+      <div
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: "92vw", maxHeight: "88vh", borderRadius: 12, objectFit: "contain" }}
-      />
+        style={{ position: "relative", width: "92vw", height: "88vh" }}
+      >
+        <Image
+          src={url}
+          alt="Burn report photo"
+          fill
+          sizes="92vw"
+          quality={85}
+          unoptimized={url.startsWith("blob:")}
+          style={{ borderRadius: 12, objectFit: "contain" }}
+        />
+      </div>
     </div>,
     document.body,
   );
@@ -335,8 +346,15 @@ function BurnReportCard({
             }}
           >
             {linkedVideo.thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+              <Image
+                src={linkedVideo.thumb}
+                alt=""
+                width={112}
+                height={63}
+                sizes="112px"
+                quality={70}
+                style={{ objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+              />
             ) : (
               <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">

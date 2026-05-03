@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                         from "react-dom";
+import Image                                    from "next/image";
 import { createClient }                         from "@/utils/supabase/client";
 import { formatDistanceToNow }                  from "date-fns";
 import type { SmokeLogData }                    from "./PostDetailClient";
@@ -124,9 +125,21 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
     ? createPortal(
         <>
           <div onClick={() => setLightboxSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 10991, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={lightboxSrc} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 10991, padding: 16 }}>
+            {/* fill mode requires a sized parent. The fixed inset
+                gives that size; objectFit:contain preserves aspect.
+                blob: URLs (in-flight VerdictCard) bypass optimizer. */}
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <Image
+                src={lightboxSrc}
+                alt=""
+                fill
+                sizes="100vw"
+                quality={85}
+                unoptimized={lightboxSrc.startsWith("blob:")}
+                style={{ objectFit: "contain", borderRadius: 8 }}
+              />
+            </div>
             <button type="button" onClick={() => setLightboxSrc(null)} aria-label="Close"
               style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
                 background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
@@ -184,8 +197,15 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
           }}
         >
           {linkedVideo.thumb ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={linkedVideo.thumb} alt="" style={{ width: 112, height: 63, objectFit: "cover", borderRadius: 6, flexShrink: 0 }} />
+            <Image
+              src={linkedVideo.thumb}
+              alt=""
+              width={112}
+              height={63}
+              sizes="112px"
+              quality={70}
+              style={{ objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+            />
           ) : (
             <div style={{ width: 112, height: 63, backgroundColor: "var(--secondary)", borderRadius: 6, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -850,8 +870,15 @@ export function PostModal({ postId, userId, onClose }: Props) {
                       }}
                       aria-label="View attached image"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={post.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      <Image
+                        src={post.image_url}
+                        alt=""
+                        width={80}
+                        height={80}
+                        sizes="80px"
+                        quality={75}
+                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                      />
                     </button>
                   )}
                 </>
@@ -1134,9 +1161,17 @@ export function PostModal({ postId, userId, onClose }: Props) {
         createPortal(
           <>
             <div onClick={() => setLightboxOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
-            <div style={{ position: "fixed", inset: 0, zIndex: 10991, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={post.image_url} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+            <div style={{ position: "fixed", inset: 0, zIndex: 10991, padding: 16 }}>
+              <div style={{ position: "relative", width: "100%", height: "100%" }}>
+                <Image
+                  src={post.image_url}
+                  alt=""
+                  fill
+                  sizes="100vw"
+                  quality={85}
+                  style={{ objectFit: "contain", borderRadius: 8 }}
+                />
+              </div>
               <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close"
                 style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
                   background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
