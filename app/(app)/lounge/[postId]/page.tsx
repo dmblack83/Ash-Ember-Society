@@ -3,6 +3,7 @@ import { getServerUser }     from "@/lib/auth/server-user";
 import { redirect }          from "next/navigation";
 import { PostDetailClient }  from "@/components/lounge/PostDetailClient";
 import type { SmokeLogData } from "@/components/lounge/PostDetailClient";
+import { computeReportNumbers } from "@/lib/data/burn-report-number";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -73,18 +74,27 @@ export default async function PostDetailPage({ params }: Props) {
   // Fetch full smoke log if linked
   let smokeLog: SmokeLogData | null = null;
   if (raw.smoke_log_id) {
-    const { data: logData } = await supabase
-      .from("smoke_logs")
-      .select(`
-        id, smoked_at, overall_rating,
-        draw_rating, burn_rating, construction_rating, flavor_rating,
-        pairing_drink, pairing_food, location, occasion,
-        smoke_duration_minutes, review_text, photo_urls,
-        cigar:cigar_catalog(brand, series, format)
-      `)
-      .eq("id", raw.smoke_log_id as string)
-      .single();
-    smokeLog = (logData as SmokeLogData | null) ?? null;
+    const smokeLogId = raw.smoke_log_id as string;
+    const [logRes, reportNumberMap] = await Promise.all([
+      supabase
+        .from("smoke_logs")
+        .select(`
+          id, smoked_at, overall_rating,
+          draw_rating, burn_rating, construction_rating, flavor_rating,
+          pairing_drink, pairing_food, location, occasion,
+          smoke_duration_minutes, review_text, photo_urls,
+          cigar:cigar_catalog(brand, series, format)
+        `)
+        .eq("id", smokeLogId)
+        .single(),
+      computeReportNumbers(supabase, [smokeLogId]),
+    ]);
+    if (logRes.data) {
+      smokeLog = {
+        ...(logRes.data as unknown as SmokeLogData),
+        report_number: reportNumberMap[smokeLogId] ?? null,
+      };
+    }
   }
 
   const post = {
