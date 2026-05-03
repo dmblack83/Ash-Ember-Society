@@ -496,9 +496,17 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
         <>
           <div onClick={() => setLightboxOpen(false)}
             style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={post.image_url!} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, padding: 16 }}>
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <Image
+                src={post.image_url!}
+                alt=""
+                fill
+                sizes="100vw"
+                quality={85}
+                style={{ objectFit: "contain", borderRadius: 8 }}
+              />
+            </div>
             <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close"
               style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -563,12 +571,17 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
 
             {post.image_url && (
               <button type="button" onClick={() => setLightboxOpen(true)}
-                className="mt-3 rounded-xl overflow-hidden block"
-                style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
+                className="mt-3 rounded-xl overflow-hidden block relative"
+                style={{ width: "100%", height: 260, border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
                 aria-label="View image">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={post.image_url} alt=""
-                  style={{ width: "100%", maxHeight: 260, objectFit: "cover", display: "block" }} />
+                <Image
+                  src={post.image_url}
+                  alt=""
+                  fill
+                  sizes="(max-width: 768px) 100vw, 600px"
+                  quality={78}
+                  style={{ objectFit: "cover", display: "block" }}
+                />
               </button>
             )}
           </>

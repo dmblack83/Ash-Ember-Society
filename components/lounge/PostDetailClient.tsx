@@ -654,9 +654,17 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     ? createPortal(
         <>
           <div onClick={() => setLightboxOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={post.image_url!} alt="" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain", borderRadius: 8 }} />
+          <div style={{ position: "fixed", inset: 0, zIndex: 9999, padding: 16 }}>
+            <div style={{ position: "relative", width: "100%", height: "100%" }}>
+              <Image
+                src={post.image_url!}
+                alt=""
+                fill
+                sizes="100vw"
+                quality={85}
+                style={{ objectFit: "contain", borderRadius: 8 }}
+              />
+            </div>
             <button
               type="button"
               onClick={() => setLightboxOpen(false)}
@@ -768,19 +776,21 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
                 <button
                   type="button"
                   onClick={() => setLightboxOpen(true)}
-                  className="mt-4 rounded-xl overflow-hidden block"
+                  className="mt-4 rounded-xl overflow-hidden block relative"
                   style={{
-                    width: "100%", maxHeight: 260,
+                    width: "100%", height: 260,
                     border: "none", padding: 0, cursor: "pointer",
                     touchAction: "manipulation",
                   }}
                   aria-label="View image"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
+                  <Image
                     src={post.image_url}
                     alt=""
-                    style={{ width: "100%", height: "100%", maxHeight: 260, objectFit: "cover", display: "block" }}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 600px"
+                    quality={78}
+                    style={{ objectFit: "cover", display: "block" }}
                   />
                 </button>
               )}
