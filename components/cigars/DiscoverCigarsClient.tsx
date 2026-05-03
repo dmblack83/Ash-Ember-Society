@@ -1,10 +1,17 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
-import { AddToHumidorSheet } from "@/components/cigars/AddToHumidorSheet";
+
+/* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
+   so its chunk fetches in parallel with the main bundle. */
+const AddToHumidorSheet = dynamic(
+  () => import("@/components/cigars/AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+  { ssr: false },
+);
 import { Toast } from "@/components/ui/toast";
 import { CigarPlaceholder, BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";

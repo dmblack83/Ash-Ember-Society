@@ -3,8 +3,14 @@
 import { useState, useEffect, useMemo } from "react";
 import { createPortal }                 from "react-dom";
 import { useRouter }                    from "next/navigation";
+import dynamic                          from "next/dynamic";
 import { createClient }                 from "@/utils/supabase/client";
-import { NewPostSheet }                 from "./NewPostSheet";
+
+/* NewPostSheet (456 lines) only mounts when the user taps "+ New Post". */
+const NewPostSheet = dynamic(
+  () => import("./NewPostSheet").then((m) => ({ default: m.NewPostSheet })),
+  { ssr: false },
+);
 import { Toast }                        from "@/components/ui/toast";
 import { ScrollCarets }                 from "@/components/ui/ScrollCarets";
 

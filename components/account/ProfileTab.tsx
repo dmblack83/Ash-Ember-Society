@@ -2,9 +2,15 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
+import dynamic                           from "next/dynamic";
 import { createClient }                  from "@/utils/supabase/client";
 import { Toast }                         from "@/components/ui/toast";
-import { InstallSheet }                  from "@/components/account/InstallSheet";
+
+/* InstallSheet (360 lines) only mounts when the user taps "Install". */
+const InstallSheet = dynamic(
+  () => import("@/components/account/InstallSheet").then((m) => ({ default: m.InstallSheet })),
+  { ssr: false },
+);
 import { getInstallState, type InstallState } from "@/lib/install-prompt";
 import type { ProfileData } from "@/components/account/AccountClient";
 

@@ -1,7 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { FieldGuideModal } from "@/components/field-guide/FieldGuideModal";
+import dynamic from "next/dynamic";
+
+/* FieldGuideModal (302 lines) only mounts when the user opens a vol.
+   Conditional render at the call site means the chunk fetches only
+   on first open. */
+const FieldGuideModal = dynamic(
+  () => import("@/components/field-guide/FieldGuideModal").then((m) => ({ default: m.FieldGuideModal })),
+  { ssr: false },
+);
 
 /* ------------------------------------------------------------------
    FieldGuide

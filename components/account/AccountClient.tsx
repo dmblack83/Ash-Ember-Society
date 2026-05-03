@@ -2,12 +2,19 @@
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
-import { InstallSheet } from "@/components/account/InstallSheet";
+
+/* InstallSheet (360 lines) only mounts when the user taps "Install".
+   Conditional render means the chunk fetches lazily. */
+const InstallSheet = dynamic(
+  () => import("@/components/account/InstallSheet").then((m) => ({ default: m.InstallSheet })),
+  { ssr: false },
+);
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
 import { ScrollCarets } from "@/components/ui/ScrollCarets";
 import { getInstallState, useBeforeInstallPrompt, type InstallState } from "@/lib/install-prompt";
