@@ -14,6 +14,7 @@ import {
   saveBurnReportDraft,
   clearBurnReportDraft,
 } from "@/lib/burn-report-draft";
+import { tapHaptic, successHaptic } from "@/lib/haptics";
 
 /* ------------------------------------------------------------------
    Constants
@@ -218,7 +219,12 @@ function StarRating({
         {[1, 2, 3, 4, 5].map((star) => {
           const filled = star <= display;
           // Tap-same-star-again to clear, otherwise set rating.
-          const handleClick = () => onChange(value === star ? 0 : star);
+          // Light haptic on every tap so each star feels like a real
+          // physical click (Android only — iOS Web has no haptic API).
+          const handleClick = () => {
+            tapHaptic();
+            onChange(value === star ? 0 : star);
+          };
           return (
             <button
               key={star}
@@ -752,7 +758,10 @@ function Step5({
           type="button"
           role="switch"
           aria-checked={form.thirds_enabled}
-          onClick={() => update({ thirds_enabled: !form.thirds_enabled })}
+          onClick={() => {
+            tapHaptic();
+            update({ thirds_enabled: !form.thirds_enabled });
+          }}
           style={{
             display:        "flex",
             alignItems:     "center",
@@ -1598,6 +1607,9 @@ export function BurnReport({
        the autosave effect prevents it from being rewritten before
        the component unmounts. */
     clearBurnReportDraft(item.id);
+    /* Success haptic — brief double-pulse, native-app feel for the
+       moment the user just completed a 6-step flow. */
+    successHaptic();
   }
 
   /* Remove from humidor after 0-qty */
