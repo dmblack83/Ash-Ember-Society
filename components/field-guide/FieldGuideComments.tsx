@@ -38,11 +38,6 @@ type Comment = {
    Helpers — match PostModal.tsx exactly
    ------------------------------------------------------------------ */
 
-function initials(name: string | null | undefined): string {
-  if (!name) return "?";
-  return name.split(" ").slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("");
-}
-
 function relativeTime(iso: string): string {
   try { return formatDistanceToNow(new Date(iso), { addSuffix: true }); }
   catch { return ""; }
@@ -61,21 +56,14 @@ function Avatar({
   tier?:     string | null;
   size?:     number;
 }) {
-  const resolved = resolveBadge(badge, tier);
-  const inner = avatarUrl ? (
-    <div style={{ width: size, height: size, borderRadius: "50%", overflow: "hidden", border: "1px solid var(--border)", flexShrink: 0 }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={avatarUrl} alt={name ?? "Member"} style={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }} />
-    </div>
-  ) : (
-    <div
-      className="flex items-center justify-center rounded-full shrink-0 text-xs font-semibold"
-      style={{ width: size, height: size, background: "var(--secondary)", color: "var(--muted-foreground)" }}
-    >
-      {initials(name)}
-    </div>
+  return (
+    <AvatarFrame
+      badge={resolveBadge(badge, tier)}
+      size={size}
+      name={name}
+      avatarUrl={avatarUrl}
+    />
   );
-  return <AvatarFrame badge={resolved} size={size}>{inner}</AvatarFrame>;
 }
 
 /* ------------------------------------------------------------------

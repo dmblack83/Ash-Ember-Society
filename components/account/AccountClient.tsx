@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
@@ -425,7 +426,14 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, onUpd
         aria-label="Change profile photo"
       >
         {avatarUrl ? (
-          <img src={avatarUrl} alt="Profile photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          <Image
+            src={avatarUrl}
+            alt="Profile photo"
+            width={72}
+            height={72}
+            quality={75}
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
         ) : (
           <div style={{
             width: "100%", height: "100%",
@@ -750,7 +758,14 @@ function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onT
               <AvatarFrame badge={opt.type} size={48}>
                 <div style={{ width: 48, height: 48, borderRadius: "50%", overflow: "hidden", flexShrink: 0 }}>
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    <Image
+                      src={avatarUrl}
+                      alt=""
+                      width={48}
+                      height={48}
+                      quality={70}
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
                   ) : (
                     <div style={{
                       width: "100%", height: "100%",

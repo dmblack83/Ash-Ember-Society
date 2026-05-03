@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import Image from "next/image";
 import { createClient }                  from "@/utils/supabase/client";
 import { Toast }                         from "@/components/ui/toast";
 import { InstallSheet }                  from "@/components/account/InstallSheet";
@@ -225,9 +226,12 @@ export function ProfileTab({ userId, email, initialProfile }: Props) {
         >
           {/* Avatar image or initials */}
           {avatarUrl ? (
-            <img
+            <Image
               src={avatarUrl}
               alt="Profile photo"
+              width={88}
+              height={88}
+              quality={75}
               className="w-full h-full object-cover"
             />
           ) : (
