@@ -1,6 +1,22 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  /*
+   * Tree-shake well-known barrel-export packages so unused exports
+   * don't get pulled into client bundles.
+   *
+   * Next 16 already auto-optimizes lucide-react, date-fns, recharts
+   * (full default list at next/dist/docs/.../optimizePackageImports.md)
+   * — only add packages that aren't covered by the default.
+   *
+   * framer-motion is a barrel that ships ~100KB even when only
+   * `motion` and `AnimatePresence` are used. The transform here
+   * resolves named imports to deep paths and lets Turbopack drop
+   * the rest. Used today only on the marketing landing.
+   */
+  experimental: {
+    optimizePackageImports: ["framer-motion"],
+  },
   images: {
     remotePatterns: [
       {
