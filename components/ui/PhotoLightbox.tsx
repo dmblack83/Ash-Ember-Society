@@ -8,14 +8,17 @@ import Image                   from "next/image";
    PhotoLightbox
 
    Fullscreen photo viewer with prev/next navigation. Used by burn-
-   report views (humidor list, lounge feed, post detail) to inspect
-   uploaded photos without leaving the surrounding card.
+   report views (humidor list, lounge feed, post detail) and lounge
+   post images to inspect uploaded photos without leaving the
+   surrounding card.
 
-   z-index sits at 11000 / 11001 — explicitly above the
-   BurnReportModal close button (10000) so its own X actually
-   captures the tap. Earlier inline implementations sat at 9999 and
-   the BurnReportModal X bled through; users tapping the photo's X
-   would close the entire burn report.
+   Why a centred [Close] button (and not a top-right X)?
+   The previous top-right X collided with BurnReportModal's own
+   close X. Aligning coordinates and raising z-index didn't reliably
+   solve it on Dave's device — taps still bled through to the modal
+   X and dismissed the parent report. A text button anchored to the
+   TOP CENTRE is structurally separate (different position, doesn't
+   overlap any parent chrome) so the bug is impossible by design.
 
    Multi-image:
    - urls.length === 1 hides the prev/next/counter chrome.
@@ -23,6 +26,7 @@ import Image                   from "next/image";
      centred at the bottom, and ←/→ keyboard navigation.
 
    Behaviour:
+   - Tap [Close] → close.
    - Click the dimmed backdrop → close.
    - Click the image itself → no-op (e.stopPropagation on the wrapper).
    - Esc → close.
@@ -151,38 +155,41 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
         />
       </div>
 
-      {/* Close — same coordinates as BurnReportModal's close X
-          (top:12 + safe-area, right:12 + safe-area). Aligning the
-          two buttons means the modal X is fully behind this one
-          with no exposed sliver — earlier 16px offset left a 4px
-          edge where taps reached the modal X directly. zIndex
-          11001 keeps it above the modal X (10000). */}
+      {/* Close — secondary text button anchored TOP-CENTRE.
+          Deliberately not top-right: that put it on top of (or near)
+          BurnReportModal's X and taps bled through to the wrong
+          handler regardless of z-index. Centring it physically
+          separates the two affordances. */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         aria-label="Close photo"
         style={{
           position:                "fixed",
-          top:                     "calc(12px + env(safe-area-inset-top))",
-          right:                   "calc(12px + env(safe-area-inset-right))",
-          width:                   44,
-          height:                  44,
-          borderRadius:            "50%",
+          top:                     "calc(16px + env(safe-area-inset-top))",
+          left:                    "50%",
+          transform:               "translateX(-50%)",
+          minHeight:               44,
+          padding:                 "10px 22px",
+          borderRadius:            9999,
           background:              "rgba(255,255,255,0.14)",
-          border:                  "1px solid rgba(255,255,255,0.18)",
+          border:                  "1px solid rgba(255,255,255,0.22)",
           color:                   "#fff",
+          fontSize:                13,
+          fontWeight:              600,
+          letterSpacing:           "0.04em",
           cursor:                  "pointer",
           touchAction:             "manipulation",
           WebkitTapHighlightColor: "transparent",
+          backdropFilter:          "blur(6px)",
+          WebkitBackdropFilter:    "blur(6px)",
           zIndex:                  11001,
-          display:                 "flex",
+          display:                 "inline-flex",
           alignItems:              "center",
           justifyContent:          "center",
         }}
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M12 4L4 12M4 4l8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
+        Close
       </button>
 
       {/* Prev / Next + counter — only when there are multiple photos. */}

@@ -536,8 +536,14 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [commentError,    setCommentError]    = useState<string | null>(null);
   const [showDeletePost,  setShowDeletePost]  = useState(false);
   const [deletingPost,    setDeletingPost]    = useState(false);
-  const [lightboxOpen,    setLightboxOpen]    = useState(false);
   const [mounted,         setMounted]         = useState(false);
+
+  /* Inline post-image lightbox via the shared PhotoLightbox so
+     close UX (centred [Close] button) matches every other photo
+     viewer in the app. */
+  const postImageLightbox = usePhotoLightbox(
+    post.image_url ? [post.image_url] : []
+  );
 
   // SSR-safe portal/window guard: setMounted in an effect is the
   // standard pattern for "client-only render gate". Lint rule
@@ -683,42 +689,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       )
     : null;
 
-  const imageLightbox = mounted && lightboxOpen && post.image_url
-    ? createPortal(
-        <>
-          <div onClick={() => setLightboxOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, padding: 16 }}>
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              <Image
-                src={post.image_url!}
-                alt=""
-                fill
-                sizes="100vw"
-                quality={85}
-                style={{ objectFit: "contain", borderRadius: 8 }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              aria-label="Close"
-              style={{
-                position: "absolute", top: 16, right: 16,
-                width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(255,255,255,0.12)", border: "none",
-                color: "#fff", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </>,
-        document.body
-      )
-    : null;
+  /* imageLightbox node provided by postImageLightbox.node above. */
 
   /* ---- Render ------------------------------------------------------ */
 
@@ -808,7 +779,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
               {post.image_url && (
                 <button
                   type="button"
-                  onClick={() => setLightboxOpen(true)}
+                  onClick={() => post.image_url && postImageLightbox.open(post.image_url)}
                   className="mt-4 rounded-xl overflow-hidden block relative"
                   style={{
                     width: "100%", height: 260,
@@ -930,7 +901,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       </div>
 
       {deletePostModal}
-      {imageLightbox}
+      {postImageLightbox.node}
     </div>
   );
 }
