@@ -45,22 +45,45 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
-  /* Body scroll lock + key handlers. */
+  /* Body scroll lock + key handlers + history sentinel.
+   *
+   * Keydown listener runs in CAPTURE phase so Esc here fires BEFORE
+   * BurnReportModal's bubble-phase listener (which would otherwise
+   * also call its onClose and dismiss the parent report). Same logic
+   * for ←/→: they belong to the lightbox, not anything underneath.
+   *
+   * History sentinel: when the lightbox opens we push a marker
+   * state. Browser back / Android system back triggers popstate,
+   * which we map to onClose. Without this, back-from-the-lightbox
+   * pops the BurnReportModal's sentinel instead and closes the
+   * entire report.
+   */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
+        e.stopPropagation();
         onClose();
         return;
       }
       if (urls.length > 1) {
         if (e.key === "ArrowRight") {
+          e.stopPropagation();
           setIndex((i) => (i + 1) % urls.length);
         } else if (e.key === "ArrowLeft") {
+          e.stopPropagation();
           setIndex((i) => (i - 1 + urls.length) % urls.length);
         }
       }
     }
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("keydown", onKey, true);
+
+    /* Push a sentinel so popstate (back button / swipe-back) maps
+       to onClose. Tagged so the popstate handler can tell our entry
+       apart from any other history state on the stack. */
+    const sentinel = { __photoLightbox: true };
+    window.history.pushState(sentinel, "");
+    const onPop = () => onClose();
+    window.addEventListener("popstate", onPop);
 
     const scrollY = window.scrollY;
     const body = document.body;
@@ -70,12 +93,20 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
     body.style.overflow = "hidden";
 
     return () => {
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("popstate", onPop);
       body.style.position = "";
       body.style.top      = "";
       body.style.width    = "";
       body.style.overflow = "";
       window.scrollTo(0, scrollY);
+
+      /* Pop our sentinel if it's still on top of the stack. If close
+         was triggered BY a popstate event, our entry is already gone
+         and history.back() would over-pop into the modal's sentinel. */
+      if (window.history.state && (window.history.state as { __photoLightbox?: boolean }).__photoLightbox) {
+        window.history.back();
+      }
     };
   }, [onClose, urls.length]);
 
@@ -120,16 +151,20 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
         />
       </div>
 
-      {/* Close — explicitly zIndex 11001, above any other modal X
-          on the page (BurnReportModal sits at 10000). */}
+      {/* Close — same coordinates as BurnReportModal's close X
+          (top:12 + safe-area, right:12 + safe-area). Aligning the
+          two buttons means the modal X is fully behind this one
+          with no exposed sliver — earlier 16px offset left a 4px
+          edge where taps reached the modal X directly. zIndex
+          11001 keeps it above the modal X (10000). */}
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); onClose(); }}
         aria-label="Close photo"
         style={{
           position:                "fixed",
-          top:                     "calc(16px + env(safe-area-inset-top))",
-          right:                   "calc(16px + env(safe-area-inset-right))",
+          top:                     "calc(12px + env(safe-area-inset-top))",
+          right:                   "calc(12px + env(safe-area-inset-right))",
           width:                   44,
           height:                  44,
           borderRadius:            "50%",
