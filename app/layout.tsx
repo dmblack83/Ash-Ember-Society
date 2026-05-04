@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
 import { SWRProvider } from "@/components/SWRProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import "./globals.css";
 
@@ -90,6 +91,10 @@ export default function RootLayout({
         <ViewportMeta />
         {/* Registers /sw.js (production only) so the app is PWA-installable */}
         <RegisterServiceWorker />
+        {/* Vercel Speed Insights — captures real-user LCP/CLS/INP/FCP/TTFB
+            from production traffic. Free tier covers ~10K data points/mo
+            on Hobby, 25K on Pro. Disabled automatically in dev. */}
+        <SpeedInsights />
       </body>
     </html>
   );
