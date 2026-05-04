@@ -60,7 +60,7 @@ export default async function PostDetailPage({ params }: Props) {
     ),
   ];
 
-  let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
+  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
   if (allUserIds.length > 0) {
     const { data: profileRows } = await supabase
       .from("profiles")

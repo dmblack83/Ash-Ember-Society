@@ -153,7 +153,7 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
         ...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean)),
       ] as string[];
 
-      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
+      const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profileRows } = await supabase
           .from("profiles")

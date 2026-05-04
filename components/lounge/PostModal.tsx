@@ -461,7 +461,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
 
       // Profiles include `city` so the verdict-card byline on burn-
       // report posts uses the post author's city.
-      let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+      const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
       if (allUserIds.length > 0) {
         const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier, city").in("id", allUserIds);
         for (const p of profileRows ?? []) {
@@ -583,7 +583,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
     }
 
     const newUserIds = [...new Set(data.map((c: any) => c.user_id).filter(Boolean))] as string[];
-    let newNameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
+    const newNameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
     if (newUserIds.length > 0) {
       const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", newUserIds);
       for (const p of profileRows ?? []) { newNameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null }; }
