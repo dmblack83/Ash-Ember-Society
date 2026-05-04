@@ -42,9 +42,13 @@ export const keyFor = {
     ["feedback-posts", categoryId, userId] as const,
 
   /* ── Cigar catalog (largely public — backed by the existing
-   *   server-side React.cache + 60s revalidate on /discover/cigars). */
+   *   server-side React.cache + 60s revalidate on /discover/cigars).
+   *   cigarSearch is paginated; key includes page index so different
+   *   queries get separate cache trees. Empty query is a valid value
+   *   (treated as "popular cigars" sort). */
   cigar:        (cigarId: string) => ["cigar", cigarId] as const,
-  cigarSearch:  (query: string)   => ["cigar-search", query] as const,
+  cigarSearch:  (query: string, page: number) =>
+    ["cigar-search", query, page] as const,
 
   /* ── Shops directory (public). */
   shop:         (slug: string) => ["shop", slug] as const,
