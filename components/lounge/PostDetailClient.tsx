@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import useSWR                                  from "swr";
+import { mutate as globalMutate }              from "swr";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import { useRouter }                           from "next/navigation";
@@ -606,6 +607,30 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     setLiking(false);
   }
 
+  /*
+   * Invalidate every cached page of the parent lounge feed for this
+   * post's category. The feed shows comment_count per post; without
+   * this, adding/deleting a comment leaves the feed showing a stale
+   * count until the 30s dedupingInterval expires or the user
+   * refreshes.
+   *
+   * SWR's global mutate accepts a key-matcher function; this matches
+   * any tuple keyed `["lounge-feed", category_id, *, *]`. Cached
+   * entries get marked stale; mounted hooks revalidate, unmounted
+   * caches refetch on next mount.
+   */
+  function invalidateCategoryFeed() {
+    const categoryId = post.category_id;
+    globalMutate(
+      (key) =>
+        Array.isArray(key) &&
+        key[0] === "lounge-feed" &&
+        key[1] === categoryId,
+      undefined,
+      { revalidate: true },
+    );
+  }
+
   /* ---- Submit top-level comment ----------------------------------- */
 
   async function handleComment() {
@@ -627,6 +652,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       [...localComments, { ...data, profiles: profileData ?? null }],
       { revalidate: false },
     );
+    invalidateCategoryFeed();
     setCommentText("");
   }
 
@@ -637,6 +663,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       localComments.filter((c) => c.id !== id && c.parent_comment_id !== id),
       { revalidate: false },
     );
+    invalidateCategoryFeed();
   }
 
   function handleEditSave(id: string, text: string) {
@@ -648,6 +675,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
 
   function handleReplyCreated(reply: Comment) {
     mutateComments([...localComments, reply], { revalidate: false });
+    invalidateCategoryFeed();
   }
 
   /* ---- Delete post ------------------------------------------------- */
