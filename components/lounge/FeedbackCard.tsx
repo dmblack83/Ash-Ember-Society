@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { createClient }                               from "@/utils/supabase/client";
-import { formatDistanceToNow }                        from "date-fns";
-import { AvatarFrame }                                from "@/components/ui/AvatarFrame";
-import { resolveBadge }                               from "@/lib/badge";
+import { useState, useEffect, useMemo } from "react";
+import useSWR                            from "swr";
+import { createClient }                  from "@/utils/supabase/client";
+import { formatDistanceToNow }           from "date-fns";
+import { AvatarFrame }                   from "@/components/ui/AvatarFrame";
+import { resolveBadge }                  from "@/lib/badge";
+import { keyFor }                        from "@/lib/data/keys";
+import { fetchFeedbackPosts }            from "@/lib/data/lounge-fetchers";
+import type { FeedbackPost }             from "@/lib/data/lounge-fetchers";
 
 /* ------------------------------------------------------------------ */
 
@@ -18,20 +22,8 @@ interface Category {
   last_post_at: string | null;
 }
 
-interface FeedbackPost {
-  id:              string;
-  title:           string;
-  created_at:      string;
-  user_id:         string | null;
-  display_name:    string | null;
-  avatar_url:      string | null;
-  badge:           string | null;
-  membership_tier: string | null;
-  upvotes:         number;
-  downvotes:       number;
-  comment_count:   number;
-  user_vote:       1 | -1 | 0;
-}
+/* FeedbackPost type is now exported from lib/data/lounge-fetchers
+ * so the fetcher and the component agree on the shape. */
 
 interface Props {
   category:    Category;
@@ -136,103 +128,71 @@ export function FeedbackCard({ category, userId, canPost, refreshKey, onNewPost,
   const supabase = useMemo(() => createClient(), []);
 
   const [expanded,    setExpanded]    = useState(false);
-  const [posts,       setPosts]       = useState<FeedbackPost[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [fetchedOnce, setFetchedOnce] = useState(false);
   const [voting,      setVoting]      = useState<string | null>(null);
   const [page,        setPage]        = useState(0);
 
   const PAGE_SIZE = 10;
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
+  /*
+   * Lazy-load: SWR only fires the fetcher when the user expands the
+   * card. `null` key = no fetch; collapsing the card preserves the
+   * cached value, so re-expanding paints instantly.
+   *
+   * `refreshKey` (parent signals "data changed externally") is wired
+   * via mutate() on change, not via re-keying.
+   */
+  const swrKey = expanded ? keyFor.feedbackPosts(category.id, userId) : null;
+  const {
+    data:   posts = [],
+    isLoading: loading,
+    mutate: mutatePosts,
+  } = useSWR<FeedbackPost[]>(
+    swrKey,
+    () => fetchFeedbackPosts(category.id, userId),
+  );
 
-    const { data, error } = await supabase
-      .from("forum_posts")
-      .select("id, title, created_at, user_id, forum_post_votes(user_id, value), forum_comments(count)")
-      .eq("category_id", category.id)
-      .order("created_at", { ascending: false });
-
-    if (error || !data) { setLoading(false); return; }
-
-    const userIds = [...new Set((data as any[]).map((r: any) => r.user_id).filter(Boolean))] as string[];
-    let nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
-    if (userIds.length > 0) {
-      const { data: profileRows } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_url, badge, membership_tier")
-        .in("id", userIds);
-      for (const p of profileRows ?? []) nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
-    }
-
-    const mapped: FeedbackPost[] = (data as any[]).map((row: any) => {
-      const votes     = (row.forum_post_votes ?? []) as { user_id: string; value: number }[];
-      const upvotes   = votes.filter((v) => v.value === 1).length;
-      const downvotes = votes.filter((v) => v.value === -1).length;
-      const myVote    = votes.find((v) => v.user_id === userId)?.value ?? 0;
-      return {
-        id:            row.id,
-        title:         row.title,
-        created_at:    row.created_at,
-        user_id:       row.user_id ?? null,
-        display_name:    row.user_id ? (nameMap[row.user_id]?.display_name    ?? null) : null,
-        avatar_url:      row.user_id ? (nameMap[row.user_id]?.avatar_url      ?? null) : null,
-        badge:           row.user_id ? (nameMap[row.user_id]?.badge            ?? null) : null,
-        membership_tier: row.user_id ? (nameMap[row.user_id]?.membership_tier ?? null) : null,
-        upvotes,
-        downvotes,
-        comment_count: (row.forum_comments as { count: number }[])[0]?.count ?? 0,
-        user_vote:     myVote as 1 | -1 | 0,
-      };
-    });
-
-    // Newest first
-    mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-    setLoading(false);
-    setFetchedOnce(true);
-    setPosts(mapped);
-    setPage(0);
-  }, [category.id, userId, supabase]);
-
-  useEffect(() => {
-    if (expanded && !fetchedOnce) fetchPosts();
-  }, [expanded, fetchedOnce, fetchPosts]);
-
+  /*
+   * External refresh trigger from the parent (e.g. after a new post
+   * is created elsewhere). Force a refetch of the cached entry.
+   */
   useEffect(() => {
     if (!refreshKey) return;
-    setFetchedOnce(false);
-    if (expanded) fetchPosts();
+    if (expanded) mutatePosts();
+  // mutatePosts is stable; intentionally only refetch on refreshKey change
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  /* ---- Vote handler ------------------------------------------------ */
+  /* Reset paginator when posts change (length differs after fetch). */
+  useEffect(() => {
+    setPage(0);
+  }, [posts.length]);
 
+  /* ---- Vote handler ------------------------------------------------
+   * Optimistic: mutate the SWR cache to reflect the new vote, fire
+   * the DB write, leave the cache as-is on success. The previous
+   * implementation didn't roll back on failure; that behaviour is
+   * preserved here. */
   async function handleVote(postId: string, direction: 1 | -1) {
     if (voting) return;
     setVoting(postId);
 
-    setPosts((prev) =>
-      prev.map((p) => {
-        if (p.id !== postId) return p;
-        const prev_vote = p.user_vote;
-        const toggle    = prev_vote === direction;
-        const newVote   = toggle ? 0 : direction;
-
-        let up   = p.upvotes;
-        let down = p.downvotes;
-        if (prev_vote === 1)  up   -= 1;
-        if (prev_vote === -1) down -= 1;
-        if (newVote === 1)  up   += 1;
-        if (newVote === -1) down += 1;
-
-        return { ...p, upvotes: up, downvotes: down, user_vote: newVote as 1 | -1 | 0 };
-      })
-    );
-
     const post     = posts.find((p) => p.id === postId);
     const prevVote = post?.user_vote ?? 0;
     const newVote  = prevVote === direction ? 0 : direction;
+
+    mutatePosts(
+      posts.map((p) => {
+        if (p.id !== postId) return p;
+        let up   = p.upvotes;
+        let down = p.downvotes;
+        if (prevVote === 1)  up   -= 1;
+        if (prevVote === -1) down -= 1;
+        if (newVote  === 1)  up   += 1;
+        if (newVote  === -1) down += 1;
+        return { ...p, upvotes: up, downvotes: down, user_vote: newVote as 1 | -1 | 0 };
+      }),
+      { revalidate: false },
+    );
 
     if (newVote === 0) {
       await supabase.from("forum_post_votes").delete().eq("user_id", userId).eq("post_id", postId);
