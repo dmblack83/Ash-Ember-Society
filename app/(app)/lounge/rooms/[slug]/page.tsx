@@ -120,7 +120,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
         id, smoked_at, overall_rating, draw_rating, burn_rating,
         construction_rating, flavor_rating, pairing_drink, pairing_food,
         location, occasion, smoke_duration_minutes, review_text, photo_urls,
-        content_video_id, flavor_tag_ids, user_id,
+        content_video_id, flavor_tag_ids, user_id, cigar_id,
         cigar:cigar_catalog(brand, series, format),
         burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
       `)

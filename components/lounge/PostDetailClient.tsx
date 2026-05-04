@@ -51,6 +51,11 @@ export interface SmokeLogData {
   review_text:            string | null;
   photo_urls:             string[] | null;
   content_video_id:       string | null;
+  /* The cigar's catalog ID, threaded through so a viewer in the
+     lounge can add it to their wishlist directly from the burn-
+     report modal. Null only if the smoke log has no cigar reference
+     (legacy rows). */
+  cigar_id?:              string | null;
   /* Resolved flavor names (from flavor_tag_ids ⨝ flavor_tags). The
      verdict-card flavor sentence renders these directly. Lounge call
      sites populate this after fetching the smoke log + tags. */
