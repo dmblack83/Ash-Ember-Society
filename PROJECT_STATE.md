@@ -2,7 +2,7 @@
 
 > This file is auto-loaded by CLAUDE.md and updated at the end of every session.
 > It gives Claude (both Claude Code and Cowork) full project context without needing reminders.
-> Last updated: 2026-04-18
+> Last updated: 2026-05-04
 
 ---
 
@@ -231,20 +231,43 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 
 ---
 
+## Performance work shipped (May 2026)
+
+Six-phase performance plan from the PWA load-time audit. All merged to main.
+
+| Phase | PR | What | Win |
+|---|---|---|---|
+| 1 | #262 | `/home` decomposed into sync shell + Suspense islands | LCP no longer blocked on slowest Supabase query; shell paints from edge before any data resolves |
+| 2 | #263 | Serwist service worker with per-resource strategy table + `/offline` fallback | Repeat visits serve assets from device cache; never touch Vercel/Supabase |
+| 3 | #264 | SWR foundation (provider + key conventions in `lib/data/keys.ts`) | Migration pattern established; per-feature migrations are scoped follow-ups |
+| 4 | #259 | `npm run analyze` script + framer-motion tree-shake | Diff-able bundle reports across PRs |
+| 5 | #258 | Compress static PNGs (1.68 MB saved, ~67% reduction) | Cold-load bandwidth |
+| 6 | #265 | Vercel Speed Insights for RUM | Real-user LCP / CLS / INP / FCP / TTFB visible in Vercel dashboard |
+
+Architectural pieces from the plan already on main before this work, kept in mind so they don't get duplicated:
+- Auth consolidation via `proxy.ts` — forwards verified user via `x-ae-*` headers, eliminates per-page `auth.getUser()` round-trips. Read in server components via `getServerUser()` from `lib/auth/server-user.ts`.
+- React `cache()` dedup on `getProfileLite`, `getLatestNews`.
+- `next/dynamic` lazy-loads for sheets, scanners, modals.
+- Per-route `loading.tsx` skeletons.
+- WebP conversion for cigar default images and field-guide illustrations.
+
+---
+
 ## Pending / Next Steps
 
-1. **Performance refactor (Prompt B series)** — B0 dead code done, B1-B5 prompts written, run in order and test each before next. Also address these PWA-specific issues:
-   - Server render more pages (minimize client components)
-   - Add service worker via `next-pwa` for offline caching and instant repeat loads
-   - Convert cigar default images from PNG to WebP
-   - Replace `box-shadow` on scrolling elements with `border` (GPU-friendlier on mobile)
-   - Dynamic imports (`next/dynamic`) for heavy components not needed on initial load
-   - Cache Supabase queries to avoid re-fetching on every navigation
-   - Skeleton screens on data-heavy pages instead of spinners
-   - **Auth call consolidation** — every page calls `supabase.auth.getUser()` independently, each making a live network round-trip to Supabase. With 14 pages doing this, a single browsing session generates ~1 auth call per page load. At scale this is wasteful. Fix: add Next.js middleware that validates auth once per request and forwards the verified user via a header; server components read the header instead of calling `getUser()`. Reduces auth calls by ~80% per page load. Observed at 2,228 auth requests/24hrs with 1 active user.
-2. **Home route fix** — Move `app/(app)/page.tsx` to `app/(app)/home/page.tsx`, update all redirects to `/home`
-3. **Humidor fixed header** — Fixed header: tabs row + title/button row + sort/view toggle row
-4. **Prompt 6.2** — Responsive polish and performance pass
-5. **Prompt 6.3** — Landing page and SEO
-6. **Dashboard skipped sections** — D.4 On This Day, D.7 Shop Spotlight, D.8 Member Milestones (deferred)
-7. **Staging environment** — Separate Supabase project + Vercel preview env for safe testing before production
+1. **SWR per-feature migrations** (Phase 3 follow-ups) — foundation landed in #264; convert one feature at a time using the pattern in `lib/data/keys.ts`:
+   - Humidor (`HumidorClient`, `WishlistClient`)
+   - Lounge (`LoungeForumClient`, `CategoryFeed`, `FeedbackCard`)
+   - Cigar discover (`DiscoverCigarsClient`)
+
+2. **SW navigation strategy upgrade** — Phase 2 uses `NetworkFirst` for navigation requests; the obvious next step is `StaleWhileRevalidate` for instant repeat loads. Not a one-liner: even with Phase 1's shell decomposition, the streamed HTML still contains the islands' rendered content. Caching that under one URL key means a shared browser could briefly serve User A's cached HTML to User B post-sign-in. Real fix requires either a cookie-aware cache key (Serwist supports this via a custom plugin) or a sign-out hook that clears the `navigations` cache. Worth doing — but as its own scoped PR, not a strategy swap.
+
+3. **Performance budget in CI** — RUM (Speed Insights) shipped in #265; the budget half is deferred. Setting up a budget gate needs CI infrastructure first (no `.github/workflows` exists today). Decision: GH Actions vs Vercel Build vs pre-commit.
+
+4. **Humidor fixed header** — Fixed header: tabs row + title/button row + sort/view toggle row.
+
+5. **Landing page and SEO**.
+
+6. **Dashboard skipped sections** — D.4 On This Day, D.7 Shop Spotlight, D.8 Member Milestones (deferred).
+
+7. **Staging environment** — Separate Supabase project + Vercel preview env for safe testing before production.
