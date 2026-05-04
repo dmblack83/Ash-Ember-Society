@@ -28,9 +28,11 @@ export const keyFor = {
   humidorItem:  (itemId: string) => ["humidor-item",  itemId] as const,
   wishlist:     (userId: string) => ["wishlist",      userId] as const,
 
-  /* ── Lounge / forum. */
-  loungeFeed:   (categoryId: string, page: number) =>
-    ["lounge-feed", categoryId, page] as const,
+  /* ── Lounge / forum. Liked status is per-user, so userId is part
+   *   of the key — switching account on the same browser produces a
+   *   fresh cache, not stale liked flags. */
+  loungeFeed:   (categoryId: string, page: number, userId: string) =>
+    ["lounge-feed", categoryId, page, userId] as const,
   loungePost:   (postId: string) => ["lounge-post", postId] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
 
