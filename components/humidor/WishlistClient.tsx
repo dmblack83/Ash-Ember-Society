@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult, Highlight } from "@/components/cigar-search";
+import { keyFor } from "@/lib/data/keys";
+import { fetchWishlistItems } from "@/lib/data/humidor-fetchers";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
    so its chunk fetches in parallel with the main bundle. */
@@ -985,8 +988,32 @@ interface WishlistClientProps {
 }
 
 export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
-  const [items,      setItems]      = useState<WishlistItem[]>(initialItems);
-  const [error,      setError]      = useState<string | null>(null);
+  /*
+   * SWR-managed wishlist. `fallbackData` seeds the cache from the
+   * server's initial render so the first paint matches what page.tsx
+   * fetched. revalidateOnMount: false avoids a redundant Supabase
+   * round-trip on every navigation TO /humidor/wishlist.
+   *
+   * Optimistic updates (handleRemove, handleMoveSuccess) call
+   * `mutate(next, { revalidate: false })` to swap the cache without
+   * triggering a refetch — same UX as the previous local-state
+   * pattern, but the cached value is now visible to other surfaces
+   * subscribing to the same key.
+   */
+  const {
+    data:    items = initialItems,
+    error:   wishlistError,
+    mutate:  mutateItems,
+  } = useSWR(
+    keyFor.wishlist(userId),
+    () => fetchWishlistItems(userId),
+    {
+      fallbackData:      initialItems,
+      revalidateOnMount: false,
+    },
+  );
+
+  const error = wishlistError ? "Failed to load wishlist. Please try again." : null;
   const [toast,      setToast]      = useState<string | null>(null);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [showAdd,    setShowAdd]    = useState(false);
@@ -1006,9 +1033,15 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     return () => ro.disconnect();
   }, []);
 
-  /* Persist view preference */
+  /*
+   * Persist view preference. Lazy useState init would cause hydration
+   * mismatch (server renders "grid", client may rehydrate as "list");
+   * SSR-safe-default-then-sync is the accepted pattern. Lint rule
+   * react-hooks/set-state-in-effect doesn't model it — disabled per-line.
+   */
   useEffect(() => {
     const saved = localStorage.getItem("wishlist-view") as ViewMode | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "list" || saved === "grid") setView(saved);
   }, []);
 
@@ -1025,41 +1058,27 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     return () => document.removeEventListener("click", handleClick);
   }, []);
 
-  const fetchWishlist = useCallback(async () => {
-    setError(null);
-    const supabase = createClient();
-    const { data, error: fetchError } = await supabase
-      .from("humidor_items")
-      .select("id, cigar_id, created_at, cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)")
-      .eq("user_id", userId)
-      .eq("is_wishlist", true)
-      .order("created_at", { ascending: false });
-
-    if (fetchError) { setError("Failed to load wishlist. Please try again."); return; }
-
-    const merged: WishlistItem[] = (data ?? [])
-      .map((row) => {
-        const cigar = Array.isArray(row.cigar) ? row.cigar[0] ?? null : row.cigar ?? null;
-        if (!cigar) return null;
-        return { id: row.id, cigar_id: row.cigar_id, created_at: row.created_at, cigar: cigar as CatalogResult };
-      })
-      .filter((x): x is WishlistItem => x !== null);
-
-    setItems(merged);
-  }, [userId]);
-
+  /* Optimistic remove — strip the row from the SWR cache, fire the
+     delete, and roll back on failure. `revalidate: false` keeps the
+     mutated cache without a follow-up refetch. */
   async function handleRemove(itemId: string) {
     const prev = items;
-    setItems((cur) => cur.filter((i) => i.id !== itemId));
+    mutateItems(prev.filter((i) => i.id !== itemId), { revalidate: false });
     const supabase = createClient();
     const { error: deleteError } = await supabase.from("humidor_items").delete().eq("id", itemId);
-    if (deleteError) { setItems(prev); setToast("Failed to remove. Please try again."); }
+    if (deleteError) {
+      mutateItems(prev, { revalidate: false });
+      setToast("Failed to remove. Please try again.");
+    }
   }
 
+  /* Move-to-humidor success — drop from wishlist optimistically.
+     The Humidor list invalidation is handled by HumidorClient's own
+     refresh() when AddToHumidorSheet's onSuccess fires there. */
   async function handleMoveSuccess() {
     if (!moveItem) return;
     setToast("Moved to your humidor!");
-    setItems((cur) => cur.filter((i) => i.id !== moveItem.id));
+    mutateItems(items.filter((i) => i.id !== moveItem.id), { revalidate: false });
     const supabase = createClient();
     await supabase.from("humidor_items").delete().eq("id", moveItem.id);
     setMoveItem(null);
@@ -1148,7 +1167,7 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
         {error ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <p className="text-sm text-destructive">{error}</p>
-            <button type="button" className="btn btn-secondary" onClick={fetchWishlist}>Try again</button>
+            <button type="button" className="btn btn-secondary" onClick={() => mutateItems()}>Try again</button>
           </div>
         ) : items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
@@ -1200,7 +1219,7 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
       <AddWishlistSheet
         open={showAdd}
         onClose={() => setShowAdd(false)}
-        onAdded={() => { fetchWishlist(); setToast("Added to your wishlist!"); }}
+        onAdded={() => { mutateItems(); setToast("Added to your wishlist!"); }}
       />
 
       <AddToHumidorSheet
