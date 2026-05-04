@@ -21,6 +21,7 @@
 import { createClient }            from "@/utils/supabase/client";
 import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
+import type { Comment }            from "@/components/lounge/PostDetailClient";
 
 /* ── Feedback-card post shape (shared by FeedbackCard + this fetcher). */
 export interface FeedbackPost {
@@ -314,4 +315,38 @@ export async function fetchFeedbackPosts(
   // Newest first (server already orders, but defensive).
   mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return mapped;
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Post comments
+
+   Loads every comment on a single post (top-level and replies) plus
+   the joined author profile (display_name, avatar_url, badge, tier).
+   Caller filters into top-level vs reply trees from the flat array.
+   No pagination — comment volumes per post are small in practice.
+   ────────────────────────────────────────────────────────────── */
+
+export async function fetchPostComments(postId: string): Promise<Comment[]> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("forum_comments")
+    .select(
+      "id, content, created_at, updated_at, user_id, parent_comment_id, " +
+      "profiles:profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
+    )
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+
+  // Supabase returns the joined profile as either an object (to-one)
+  // or an array depending on schema metadata — normalize to object.
+  type Row = Omit<Comment, "profiles"> & {
+    profiles: Comment["profiles"] | Comment["profiles"][] | null;
+  };
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
+    ...row,
+    profiles: Array.isArray(row.profiles) ? (row.profiles[0] ?? null) : row.profiles,
+  }));
 }

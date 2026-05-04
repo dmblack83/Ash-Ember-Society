@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, memo } from "react";
+import useSWR                                  from "swr";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import { useRouter }                           from "next/navigation";
@@ -9,6 +10,8 @@ import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
+import { keyFor }                              from "@/lib/data/keys";
+import { fetchPostComments }                   from "@/lib/data/lounge-fetchers";
 
 /* ------------------------------------------------------------------ */
 /* Exported type — consumed by the server page                          */
@@ -91,7 +94,7 @@ interface Post {
   image_url:   string | null;
 }
 
-interface Comment {
+export interface Comment {
   id:                string;
   content:           string;
   created_at:        string;
@@ -171,6 +174,10 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
   const [mounted,     setMounted]     = useState(false);
   const thirds = unwrapBurnReport(log.burn_report);
 
+  // SSR-safe portal/window guard: setMounted in an effect is the
+  // standard pattern for "client-only render gate". Lint rule
+  // doesn't model it, disabled per-line.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
   const lightbox = mounted && lightboxSrc
@@ -542,7 +549,28 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [liked,           setLiked]           = useState(hasLiked);
   const [likeCount,       setLikeCount]       = useState(post.like_count);
   const [liking,          setLiking]          = useState(false);
-  const [localComments,   setLocalComments]   = useState<Comment[]>(initialComments);
+
+  /*
+   * Comments via SWR. fallbackData seeds page 0 from the server's
+   * initial render; revalidateOnMount: false skips a redundant fetch
+   * on every navigation TO this post. Add / edit / delete / reply
+   * paths use mutateComments(next, { revalidate: false }) for
+   * optimistic updates that match the previous setState UX, but the
+   * cached value is now visible to any other surface that subscribes
+   * to keyFor.loungeComments(post.id).
+   */
+  const {
+    data:   localComments = initialComments,
+    mutate: mutateComments,
+  } = useSWR(
+    keyFor.loungeComments(post.id),
+    () => fetchPostComments(post.id),
+    {
+      fallbackData:      initialComments,
+      revalidateOnMount: false,
+    },
+  );
+
   const [commentText,     setCommentText]     = useState("");
   const [submitting,      setSubmitting]      = useState(false);
   const [commentError,    setCommentError]    = useState<string | null>(null);
@@ -551,6 +579,10 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [lightboxOpen,    setLightboxOpen]    = useState(false);
   const [mounted,         setMounted]         = useState(false);
 
+  // SSR-safe portal/window guard: setMounted in an effect is the
+  // standard pattern for "client-only render gate". Lint rule
+  // doesn't model it, disabled per-line.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
   /* ---- Like toggle ------------------------------------------------- */
@@ -591,22 +623,31 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
     const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single();
-    setLocalComments((prev) => [...prev, { ...data, profiles: profileData ?? null }]);
+    mutateComments(
+      [...localComments, { ...data, profiles: profileData ?? null }],
+      { revalidate: false },
+    );
     setCommentText("");
   }
 
   /* ---- Handlers passed to CommentNode ----------------------------- */
 
   function handleDeleteComment(id: string) {
-    setLocalComments((prev) => prev.filter((c) => c.id !== id && c.parent_comment_id !== id));
+    mutateComments(
+      localComments.filter((c) => c.id !== id && c.parent_comment_id !== id),
+      { revalidate: false },
+    );
   }
 
   function handleEditSave(id: string, text: string) {
-    setLocalComments((prev) => prev.map((c) => c.id === id ? { ...c, content: text } : c));
+    mutateComments(
+      localComments.map((c) => c.id === id ? { ...c, content: text } : c),
+      { revalidate: false },
+    );
   }
 
   function handleReplyCreated(reply: Comment) {
-    setLocalComments((prev) => [...prev, reply]);
+    mutateComments([...localComments, reply], { revalidate: false });
   }
 
   /* ---- Delete post ------------------------------------------------- */
