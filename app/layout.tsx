@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
+import { SWRProvider } from "@/components/SWRProvider";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import "./globals.css";
 
@@ -76,10 +77,15 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: COLD_SMOKE_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          <ColdOpenSmoke />
-          {children}
-        </ThemeProvider>
+        {/* SWRProvider wraps the entire app so any client component can
+            useSWR(...) and share one cache. Conservative defaults live
+            in components/SWRProvider.tsx — see comment block there. */}
+        <SWRProvider>
+          <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+            <ColdOpenSmoke />
+            {children}
+          </ThemeProvider>
+        </SWRProvider>
         {/* Patches viewport meta on desktop; resets scroll on iOS focusout */}
         <ViewportMeta />
         {/* Registers /sw.js (production only) so the app is PWA-installable */}
