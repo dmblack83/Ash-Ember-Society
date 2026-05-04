@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { createClient } from "@/utils/supabase/client";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
+import { keyFor } from "@/lib/data/keys";
+import {
+  fetchHumidorItems,
+  fetchHasWishlistItems,
+} from "@/lib/data/humidor-fetchers";
 
 /* AddCigarSheet (873 lines) and CigarBandScanner (579 lines) are
    only mounted after user interaction. Lazy-loading shaves their
@@ -433,14 +437,56 @@ export function HumidorClient({
   initialHasWishlist,
   userId,
 }: HumidorClientProps) {
-  const router = useRouter();
-  const [items,        setItems]        = useState<HumidorItem[]>(initialItems);
+  /*
+   * SWR-managed humidor list. Keyed on userId so a sign-in-as-different-
+   * user produces a fresh cache entry, not stale data from User A.
+   * fallbackData seeds the cache from the server's initial render —
+   * SWR uses it on the very first render, then takes over on subsequent
+   * renders of the same key. revalidateOnMount: false because the
+   * server already provided fresh data; we don't want a redundant
+   * Supabase round-trip on every navigation TO /humidor.
+   */
+  const {
+    data:       items     = initialItems,
+    isValidating: loading,
+    error:      itemsError,
+    mutate:     mutateItems,
+  } = useSWR(
+    keyFor.humidorItems(userId),
+    () => fetchHumidorItems(userId),
+    {
+      fallbackData:        initialItems,
+      revalidateOnMount:   false,
+    },
+  );
 
-  /* Keep local state in sync when server initialItems revalidate (e.g. router.refresh after add) */
-  useEffect(() => { setItems(initialItems); }, [initialItems]);
-  const [loading,      setLoading]      = useState(false);   // no skeleton on initial render
-  const [error,        setError]        = useState<string | null>(null);
-  const [hasWishlist,  setHasWishlist]  = useState(initialHasWishlist);
+  /*
+   * Wishlist boolean — small HEAD count query. Mirrors humidor list
+   * cache behaviour (SWR-cached, refresh on demand) so adding an item
+   * to the wishlist via another surface invalidates the empty-state
+   * "Or add from wishlist" CTA correctly.
+   */
+  const {
+    data:   hasWishlist = initialHasWishlist,
+    mutate: mutateHasWishlist,
+  } = useSWR(
+    ["wishlist-has", userId] as const,
+    () => fetchHasWishlistItems(userId),
+    {
+      fallbackData:        initialHasWishlist,
+      revalidateOnMount:   false,
+    },
+  );
+
+  /*
+   * Refresh both keys together — used by the toolbar refresh button
+   * and after add/scan flows complete. Returns a Promise so callers
+   * can await the refetch if needed.
+   */
+  const refresh = () =>
+    Promise.all([mutateItems(), mutateHasWishlist()]);
+
+  const error = itemsError ? "Failed to load your humidor. Please try again." : null;
   const [view,         setView]         = useState<ViewMode>("grid");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
   const [showOptions,  setShowOptions]  = useState(false);
@@ -462,9 +508,18 @@ export function HumidorClient({
     return () => ro.disconnect();
   }, []);
 
-  /* Persist view preference + auto-open add sheet from ?add=true */
+  /*
+   * Persist view preference + auto-open add sheet from ?add=true.
+   *
+   * Reading localStorage via lazy useState init would cause a hydration
+   * mismatch (server renders "grid", client may rehydrate as "list").
+   * Standard pattern: render SSR-safe default, then sync preference
+   * after mount. The react-hooks/set-state-in-effect rule doesn't
+   * model this case — disabled per-line with rationale.
+   */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
     if (new URLSearchParams(window.location.search).get("add") === "true") {
@@ -475,38 +530,6 @@ export function HumidorClient({
   useEffect(() => {
     if (hasMounted.current) localStorage.setItem("humidor_view", view);
   }, [view]);
-
-  /* Manual refresh — uses userId from props, skips auth round-trip */
-  const fetchItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    const supabase = createClient();
-
-    const { data, error: fetchError } = await supabase
-      .from("humidor_items")
-      .select("*, cigar:cigar_catalog(*)")
-      .eq("user_id", userId)
-      .eq("is_wishlist", false)
-      .order("created_at", { ascending: false });
-
-    if (fetchError) {
-      setError("Failed to load your humidor. Please try again.");
-      setLoading(false);
-      return;
-    }
-
-    setItems((data as HumidorItem[]) ?? []);
-
-    const { count } = await supabase
-      .from("humidor_items")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("is_wishlist", true);
-
-    setHasWishlist((count ?? 0) > 0);
-    setLoading(false);
-  }, [userId]);
 
   /* Derived — sorted */
   const displayed = sortItems(items, sort);
@@ -617,7 +640,7 @@ export function HumidorClient({
                 {/* Refresh */}
                 <button
                   type="button"
-                  onClick={fetchItems}
+                  onClick={() => refresh()}
                   disabled={loading}
                   className="btn btn-ghost p-2 flex-shrink-0"
                   aria-label="Refresh"
@@ -674,7 +697,7 @@ export function HumidorClient({
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <p className="text-sm text-destructive">{error}</p>
-            <button type="button" className="btn btn-secondary" onClick={fetchItems}>
+            <button type="button" className="btn btn-secondary" onClick={() => refresh()}>
               Try again
             </button>
           </div>
@@ -706,7 +729,7 @@ export function HumidorClient({
       {showScanner && (
         <CigarBandScanner
           onClose={() => setShowScanner(false)}
-          onAdded={() => { setShowScanner(false); fetchItems(); router.refresh(); }}
+          onAdded={() => { setShowScanner(false); refresh(); }}
           onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
         />
       )}
@@ -714,7 +737,7 @@ export function HumidorClient({
       <AddCigarSheet
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
-        onAdded={() => { fetchItems(); router.refresh(); }}
+        onAdded={() => { refresh(); }}
       />
     </>
   );
