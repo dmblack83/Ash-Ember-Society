@@ -22,6 +22,22 @@ import { createClient }            from "@/utils/supabase/client";
 import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
 
+/* ── Feedback-card post shape (shared by FeedbackCard + this fetcher). */
+export interface FeedbackPost {
+  id:              string;
+  title:           string;
+  created_at:      string;
+  user_id:         string | null;
+  display_name:    string | null;
+  avatar_url:      string | null;
+  badge:           string | null;
+  membership_tier: string | null;
+  upvotes:         number;
+  downvotes:       number;
+  comment_count:   number;
+  user_vote:       1 | -1 | 0;
+}
+
 export interface CategoryFeedPage {
   posts:    PostItem[];
   likedIds: string[];
@@ -209,4 +225,93 @@ export async function fetchCategoryFeedPage({
     likedIds: [...likedSet],
     hasMore:  batch.length >= pageSize,
   };
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Feedback-card posts
+
+   Fetches all posts in a feedback category — title-only listing
+   (no body content), with vote tallies and the viewer's own vote.
+   No pagination: the volume is small enough (<<100 posts per
+   category in practice) that loading once is cheaper than
+   paginating + state managing.
+   ────────────────────────────────────────────────────────────── */
+
+export async function fetchFeedbackPosts(
+  categoryId: string,
+  userId:     string,
+): Promise<FeedbackPost[]> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("forum_posts")
+    .select(
+      "id, title, created_at, user_id, " +
+      "forum_post_votes(user_id, value), " +
+      "forum_comments(count)"
+    )
+    .eq("category_id", categoryId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+
+  type Row = {
+    id:                 string;
+    title:              string;
+    created_at:         string;
+    user_id:            string | null;
+    forum_post_votes:   { user_id: string; value: number }[];
+    forum_comments:     { count: number }[];
+  };
+  const rows = (data ?? []) as unknown as Row[];
+
+  /* Author profile lookup, deduped by user_id. */
+  const userIds = [...new Set(rows.map((r) => r.user_id).filter(Boolean) as string[])];
+  type AuthorEntry = {
+    display_name:    string | null;
+    avatar_url:      string | null;
+    badge:           string | null;
+    membership_tier: string | null;
+  };
+  const nameMap: Record<string, AuthorEntry> = {};
+  if (userIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url, badge, membership_tier")
+      .in("id", userIds);
+    for (const p of (profileRows ?? []) as Array<{ id: string } & AuthorEntry>) {
+      nameMap[p.id] = {
+        display_name:    p.display_name,
+        avatar_url:      p.avatar_url,
+        badge:           p.badge           ?? null,
+        membership_tier: p.membership_tier ?? null,
+      };
+    }
+  }
+
+  const mapped: FeedbackPost[] = rows.map((row) => {
+    const votes     = row.forum_post_votes ?? [];
+    const upvotes   = votes.filter((v) => v.value === 1).length;
+    const downvotes = votes.filter((v) => v.value === -1).length;
+    const myVote    = votes.find((v) => v.user_id === userId)?.value ?? 0;
+    const author    = row.user_id ? (nameMap[row.user_id] ?? null) : null;
+    return {
+      id:              row.id,
+      title:           row.title,
+      created_at:      row.created_at,
+      user_id:         row.user_id ?? null,
+      display_name:    author?.display_name    ?? null,
+      avatar_url:      author?.avatar_url      ?? null,
+      badge:           author?.badge           ?? null,
+      membership_tier: author?.membership_tier ?? null,
+      upvotes,
+      downvotes,
+      comment_count:   row.forum_comments[0]?.count ?? 0,
+      user_vote:       myVote as 1 | -1 | 0,
+    };
+  });
+
+  // Newest first (server already orders, but defensive).
+  mapped.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return mapped;
 }

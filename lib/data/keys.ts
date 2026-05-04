@@ -35,6 +35,11 @@ export const keyFor = {
     ["lounge-feed", categoryId, page, userId] as const,
   loungePost:   (postId: string) => ["lounge-post", postId] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
+  /* Feedback category list — separate from `loungeFeed` because the
+   * vote tallies and the hidden-by-default expand UX have a different
+   * shape. Keyed per-user so vote state caches correctly. */
+  feedbackPosts: (categoryId: string, userId: string) =>
+    ["feedback-posts", categoryId, userId] as const,
 
   /* ── Cigar catalog (largely public — backed by the existing
    *   server-side React.cache + 60s revalidate on /discover/cigars). */
