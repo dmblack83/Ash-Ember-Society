@@ -58,8 +58,16 @@ export interface SafetyResult {
 /**
  * Runs SAFE_SEARCH_DETECTION on a base64-encoded image.
  *
- * strict   — profile images: adult/racy/violence VERY_LIKELY+
- * moderate — other content:  adult/violence/racy VERY_LIKELY+
+ * strict   — profile avatars, forum posts, cigar-catalog submissions.
+ *            Flags adult / racy / violence at VERY_LIKELY+.
+ * moderate — burn-report photos. Close-ups of cigars (ash, wrapper,
+ *            hands holding the stick) routinely trip Vision's
+ *            "racy" channel even though nothing inappropriate is
+ *            visible. Moderate skips racy entirely and only flags
+ *            adult + violence at VERY_LIKELY+. The adult and
+ *            violence checks alone are enough to catch the genuine
+ *            abuse case (someone uploading a non-cigar image to
+ *            their burn report).
  */
 export async function checkImageSafety(
   base64: string,
@@ -98,10 +106,10 @@ export async function checkImageSafety(
       reason = "Image did not pass content moderation.";
     }
   } else {
+    /* moderate — racy intentionally NOT checked; see jsdoc above. */
     if (
       rank(scores.adult)    >= rank("VERY_LIKELY") ||
-      rank(scores.violence) >= rank("VERY_LIKELY") ||
-      rank(scores.racy)     >= rank("VERY_LIKELY")
+      rank(scores.violence) >= rank("VERY_LIKELY")
     ) {
       passed = false;
       reason = "Image did not pass content moderation.";
