@@ -52,9 +52,22 @@ export async function POST(request: NextRequest) {
   const bytes  = await file.arrayBuffer();
   const base64 = Buffer.from(bytes).toString("base64");
 
-  // 3. Content moderation — strict policy for all user-displayed images
+  /*
+   * 3. Content moderation.
+   *
+   * Forum posts go on the public lounge feed and demand strict
+   * checks (adult / racy / violence at VERY_LIKELY+).
+   *
+   * Burn-report photos are close-ups of cigars — ash, wrapper, the
+   * burn line, often hands holding the stick. Vision's "racy"
+   * channel routinely flags these even though nothing inappropriate
+   * is visible. Use the moderate policy: still blocks adult /
+   * violence at VERY_LIKELY+, drops racy entirely. See
+   * lib/vision-safety.ts for the rationale in detail.
+   */
+  const policy = folder === "burn-reports" ? "moderate" : "strict";
   try {
-    const safety = await checkImageSafety(base64, "strict");
+    const safety = await checkImageSafety(base64, policy);
     if (!safety.passed) {
       return NextResponse.json(
         { error: safety.reason ?? "Image did not pass content moderation." },
