@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWRInfinite from "swr/infinite";
+import { mutate as globalMutate } from "swr";
 import dynamic from "next/dynamic";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
+import { keyFor } from "@/lib/data/keys";
+import { fetchCigarPage } from "@/lib/data/cigar-fetchers";
+import type { CigarPage } from "@/lib/data/cigar-fetchers";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
    so its chunk fetches in parallel with the main bundle. */
@@ -21,8 +26,8 @@ import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
    Constants
    ------------------------------------------------------------------ */
 
-const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+/* CATALOG_SELECT moved to lib/data/cigar-fetchers.ts alongside the
+   client-side fetcher. */
 
 const PAGE_SIZE = 20;
 const LS_KEY    = "discover-cigars-view";
@@ -250,17 +255,11 @@ interface DiscoverCigarsClientProps {
 }
 
 export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientProps) {
-  const [query,       setQuery]       = useState("");
-  const [debouncedQ,  setDebouncedQ]  = useState("");
-  const [cigars,      setCigars]      = useState<CatalogResult[]>(initialResults);
-  const [loading,     setLoading]     = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore,     setHasMore]     = useState(initialResults.length === PAGE_SIZE);
-  const [error,       setError]       = useState<string | null>(null);
-  const [isPopular,   setIsPopular]   = useState(true);
+  const [query,      setQuery]      = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
 
   // View mode -- default grid, persisted to localStorage
-  const [view,        setView]        = useState<ViewMode>("grid");
+  const [view, setView] = useState<ViewMode>("grid");
   const viewMounted = useRef(false);
 
   // Humidor sheet
@@ -271,12 +270,10 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
 
   const [toast, setToast] = useState<string | null>(null);
 
-  // offsetRef tracks how many results are loaded for pagination
-  const offsetRef = useRef(initialResults.length);
-
   /* Restore view preference */
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY) as ViewMode | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "grid" || saved === "list") setView(saved);
     viewMounted.current = true;
   }, []);
@@ -287,75 +284,66 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
     localStorage.setItem(LS_KEY, view);
   }, [view]);
 
-  /* 300 ms debounce on query */
+  /* 300 ms debounce on query — drives the SWR cache key. */
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(query.trim()), 300);
     return () => clearTimeout(t);
   }, [query]);
 
-  const fetchCigars = useCallback(
-    async (reset: boolean) => {
-      // Query cleared -- restore server-fetched initial results immediately, no DB call
-      if (!debouncedQ && reset) {
-        setCigars(initialResults);
-        offsetRef.current = initialResults.length;
-        setIsPopular(true);
-        setHasMore(initialResults.length === PAGE_SIZE);
-        setLoading(false);
-        setError(null);
-        return;
-      }
+  /*
+   * SWR-driven catalog data. Each (debouncedQ, pageIndex) tuple is a
+   * cache entry. For the EMPTY-query case at first render, fallbackData
+   * seeds page 0 with the server-fetched initialResults; pages 1+ for
+   * the same empty query fetch from Supabase. As soon as the user
+   * types something, the key family changes, fallbackData no longer
+   * matches, and SWR fetches the search results.
+   *
+   * revalidateOnMount/FirstPage: false — we don't want a redundant
+   * Supabase call on first render of the empty-query case. The 30s
+   * dedupingInterval (set globally in SWRProvider) covers warm-cache
+   * navigation (e.g. /discover/cigars → /home → /discover/cigars).
+   */
+  const seedPage: CigarPage = {
+    results: initialResults,
+    hasMore: initialResults.length === PAGE_SIZE,
+  };
 
-      const supabase = createClient();
-      const offset   = reset ? 0 : offsetRef.current;
-
-      if (reset) {
-        setLoading(true);
-        setCigars([]);
-        offsetRef.current = 0;
-      } else {
-        setLoadingMore(true);
-      }
-      setError(null);
-
-      try {
-        const isSearch = !!debouncedQ;
-        setIsPopular(!isSearch);
-
-        let q = supabase
-          .from("cigar_catalog")
-          .select(CATALOG_SELECT)
-          .range(offset, offset + PAGE_SIZE - 1);
-
-        if (isSearch) {
-          q = q.or(
-            `brand.ilike.%${debouncedQ}%,series.ilike.%${debouncedQ}%,format.ilike.%${debouncedQ}%`
-          );
-        } else {
-          q = q.order("usage_count", { ascending: false });
-        }
-
-        const { data, error: fetchErr } = await q;
-        if (fetchErr) throw fetchErr;
-
-        const results = data ?? [];
-        setCigars((prev) => (reset ? results : [...prev, ...results]));
-        offsetRef.current = offset + results.length;
-        setHasMore(results.length === PAGE_SIZE);
-      } catch (e) {
-        console.error(e);
-        setError("Failed to load cigars. Please try again.");
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-      }
+  const {
+    data,
+    size,
+    setSize,
+    isValidating,
+    isLoading,
+    error: fetchError,
+    mutate: mutateCigars,
+  } = useSWRInfinite<CigarPage>(
+    (pageIndex, prev) => {
+      if (prev && !prev.hasMore) return null;
+      return keyFor.cigarSearch(debouncedQ, pageIndex);
     },
-    [debouncedQ, initialResults]
+    ([, q, pageIndex]) =>
+      fetchCigarPage({
+        query:     q as string,
+        pageIndex: pageIndex as number,
+        pageSize:  PAGE_SIZE,
+      }),
+    {
+      // fallbackData only matches the empty-query key. SWR ignores it
+      // for any other key — exactly the behaviour we want.
+      fallbackData:        debouncedQ === "" ? [seedPage] : undefined,
+      revalidateOnMount:   false,
+      revalidateFirstPage: false,
+    },
   );
 
-  useEffect(() => {
-    fetchCigars(true);
-  }, [fetchCigars]);
+  /* Derive flat views. `size === 1 && isLoading` distinguishes initial
+     fetch from a load-more (which keeps prior pages on screen). */
+  const cigars      = (data ?? []).flatMap((p) => p.results);
+  const hasMore     = data?.[data.length - 1]?.hasMore ?? false;
+  const loading     = isLoading;
+  const loadingMore = isValidating && !isLoading && size > 1;
+  const isPopular   = debouncedQ === "";
+  const error       = fetchError ? "Failed to load cigars. Please try again." : null;
 
   /* ── Action handlers ──────────────────────────────────────────── */
 
@@ -392,18 +380,26 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
         .update({ usage_count: (cigar.usage_count ?? 0) + 1 })
         .eq("id", cigar.id);
       setToast("Added to your wishlist!");
+      // Invalidate any wishlist SWR caches so /humidor/wishlist sees
+      // the new item on next visit instead of a 30s-stale cached list.
+      globalMutate(keyFor.wishlist(user.id));
+      globalMutate(["wishlist-has", user.id]);
     }
 
     setWishlistPending((prev) => { const s = new Set(prev); s.delete(cigar.id); return s; });
   }
 
-  function handleHumidorSuccess() {
+  async function handleHumidorSuccess() {
     if (humidorCigar) {
       const supabase = createClient();
       supabase
         .from("cigar_catalog")
         .update({ usage_count: (humidorCigar.usage_count ?? 0) + 1 })
         .eq("id", humidorCigar.id);
+      // Invalidate the user's humidor SWR cache so the new item shows
+      // up immediately on /humidor.
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) globalMutate(keyFor.humidorItems(user.id));
     }
     setToast("Added to your humidor!");
     setHumidorCigar(null);
@@ -468,7 +464,7 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
         ) : error ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
             <p className="text-sm text-destructive">{error}</p>
-            <button type="button" className="btn btn-secondary" onClick={() => fetchCigars(true)}>
+            <button type="button" className="btn btn-secondary" onClick={() => mutateCigars()}>
               Try again
             </button>
           </div>
@@ -520,7 +516,7 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
                 <button
                   type="button"
                   className="btn btn-secondary min-w-[120px]"
-                  onClick={() => fetchCigars(false)}
+                  onClick={() => setSize(size + 1)}
                   disabled={loadingMore}
                 >
                   {loadingMore ? "Loading..." : "Load more"}
