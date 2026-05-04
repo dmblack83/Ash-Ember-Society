@@ -8,6 +8,7 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/signup",
+  "/offline",       // SW navigation fallback; must be reachable without a session
   "/auth/callback",
   "/manifest.webmanifest",
   "/manifest.json",
