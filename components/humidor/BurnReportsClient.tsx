@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 import { BurnReportPreviewCard } from "@/components/humidor/BurnReportPreviewCard";
 import { BurnReportModal } from "@/components/humidor/BurnReportModal";
+import { PhotoLightbox } from "@/components/ui/PhotoLightbox";
 
 /* ------------------------------------------------------------------
    Types
@@ -59,76 +60,10 @@ export interface FlavorTag {
    Helpers
    ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------
-   Photo modal
-   ------------------------------------------------------------------ */
-
-function PhotoModal({ url, onClose }: { url: string; onClose: () => void }) {
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", h);
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", h);
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [onClose]);
-
-  return createPortal(
-    <div
-      className="fixed inset-0 flex items-center justify-center"
-      style={{ zIndex: 9999, background: "rgba(0,0,0,0.92)" }}
-      onClick={onClose}
-    >
-      {/* X button */}
-      <button
-        type="button"
-        onClick={onClose}
-        className="absolute top-4 right-4 flex items-center justify-center rounded-full transition-opacity hover:opacity-80 active:opacity-50"
-        style={{
-          width:      44,
-          height:     44,
-          background: "rgba(255,255,255,0.14)",
-          border:     "1px solid rgba(255,255,255,0.18)",
-          cursor:     "pointer",
-          zIndex:     10000,
-        } as React.CSSProperties}
-        aria-label="Close photo"
-      >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M12 4L4 12M4 4l8 8" stroke="var(--foreground)" strokeWidth="1.8" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {/* Image — fill mode requires a sized parent. The wrapper
-          caps the image at 92vw × 88vh; objectFit:contain preserves
-          aspect ratio. */}
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{ position: "relative", width: "92vw", height: "88vh" }}
-      >
-        <Image
-          src={url}
-          alt="Burn report photo"
-          fill
-          sizes="92vw"
-          quality={85}
-          unoptimized={url.startsWith("blob:")}
-          style={{ borderRadius: 12, objectFit: "contain" }}
-        />
-      </div>
-    </div>,
-    document.body,
-  );
-}
+/* PhotoModal moved to components/ui/PhotoLightbox.tsx — shared
+   between burn-report views (this file, InlinePost, PostDetailClient)
+   and now supports prev/next navigation across multiple photos plus
+   a raised z-index that sits above BurnReportModal's close X. */
 
 /* ------------------------------------------------------------------
    Confirm delete modal
@@ -219,7 +154,10 @@ function BurnReportCard({
 }) {
   const [deleting,      setDeleting]      = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [photoUrl,      setPhotoUrl]      = useState<string | null>(null);
+  /* PhotoLightbox open state — null when closed, a 0-based index
+     into `photos` when open. Stored as index (not URL) so the
+     viewer can correctly tab forward/back through the list. */
+  const [photoIndex,    setPhotoIndex]    = useState<number | null>(null);
   const [mounted,       setMounted]       = useState(false);
   const [sharing,       setSharing]       = useState(false);
   const [shared,        setShared]        = useState(false);
@@ -510,13 +448,23 @@ function BurnReportCard({
         thirdEnd={thirds?.third_end ?? null}
         displayName={displayName}
         city={city}
-        onPhotoClick={(url) => setPhotoUrl(url)}
+        onPhotoClick={(url) => {
+          // Map the clicked URL back to its index in `photos` so
+          // PhotoLightbox starts on the right image AND can tab
+          // through the rest. Falls back to 0 if not found.
+          const idx = photos.indexOf(url);
+          setPhotoIndex(idx >= 0 ? idx : 0);
+        }}
         belowCard={belowCard}
       />
 
       {/* Portals */}
-      {mounted && photoUrl && (
-        <PhotoModal url={photoUrl} onClose={() => setPhotoUrl(null)} />
+      {mounted && photoIndex !== null && (
+        <PhotoLightbox
+          urls={photos}
+          initialIndex={photoIndex}
+          onClose={() => setPhotoIndex(null)}
+        />
       )}
       {mounted && confirmDelete && (
         <ConfirmDeleteModal
