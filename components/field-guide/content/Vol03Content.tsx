@@ -35,7 +35,7 @@ export function Vol03Content() {
         >
           A
         </span>
-        cigar is not just a cigar. The same blend of leaf, rolled into a different shape and size, produces a fundamentally different smoking experience. The cigar world has a name for the specific combination of shape and dimensions that defines an individual stick: <em style={{ color: S.gold, fontStyle: "italic" }}>vitola</em>. A Spanish word that translates roughly to "size and shape," and the most useful piece of vocabulary anyone serious about cigars can learn.
+        cigar is not just a cigar. The same blend of leaf, rolled into a different shape and size, produces a fundamentally different smoking experience. The cigar world has a name for the specific combination of shape and dimensions that defines an individual stick: <em style={{ color: S.gold, fontStyle: "italic" }}>vitola</em>. A Spanish word that translates roughly to &ldquo;size and shape,&rdquo; and the most useful piece of vocabulary anyone serious about cigars can learn.
       </p>
 
       <p style={{ fontSize: 17, lineHeight: 1.78, color: S.fg1, margin: "0 0 22px" }}>
@@ -210,11 +210,11 @@ export function Vol03Content() {
       <SectionHeading>Shape: <Em>Parejo</Em> &amp; <Em>Figurado</Em></SectionHeading>
 
       <p style={{ fontSize: 17, lineHeight: 1.78, color: S.fg1, margin: "0 0 22px" }}>
-        Every cigar in the world falls into one of two shape families. <em style={{ color: S.gold, fontStyle: "italic" }}>Parejo</em> means "even" or "straight", uniform diameter from foot to cap, rounded head. The classic shape, the one that fills almost every humidor on almost every shelf, the one that comes to mind when somebody says the word cigar. Straightforward to roll, straightforward to smoke, consistent draw and burn from start to finish.
+        Every cigar in the world falls into one of two shape families. <em style={{ color: S.gold, fontStyle: "italic" }}>Parejo</em> means &ldquo;even&rdquo; or &ldquo;straight&rdquo;, uniform diameter from foot to cap, rounded head. The classic shape, the one that fills almost every humidor on almost every shelf, the one that comes to mind when somebody says the word cigar. Straightforward to roll, straightforward to smoke, consistent draw and burn from start to finish.
       </p>
 
       <p style={{ fontSize: 17, lineHeight: 1.78, color: S.fg1, margin: "0 0 22px" }}>
-        <em style={{ color: S.gold, fontStyle: "italic" }}>Figurado</em> means "shaped," and the figurado category covers everything that is not a straight-sided cylinder. The geometry actually changes while the cigar burns, the ratio of wrapper to filler shifts dramatically from foot to middle to cap.
+        <em style={{ color: S.gold, fontStyle: "italic" }}>Figurado</em> means &ldquo;shaped,&rdquo; and the figurado category covers everything that is not a straight-sided cylinder. The geometry actually changes while the cigar burns, the ratio of wrapper to filler shifts dramatically from foot to middle to cap.
       </p>
 
       {/* Shapes plate */}
