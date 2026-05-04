@@ -52,7 +52,21 @@ export function BurnReportModal({ open, onClose, belowCard, ...verdictProps }: B
     const sentinel = { __burnReportModal: true };
     window.history.pushState(sentinel, "");
 
-    const onPop = () => onClose();
+    /*
+     * Only close on popstate when our sentinel is no longer the
+     * current state — i.e. the user actually backed PAST us.
+     *
+     * If a child component (e.g. PhotoLightbox) pushed its own
+     * sentinel and then popped it, popstate fires with our marker
+     * still on top of the stack. Without this guard we'd close the
+     * report whenever the photo viewer closed itself — exactly the
+     * bug Dave reported with the lightbox close.
+     */
+    const onPop = () => {
+      if (window.history.state?.__burnReportModal !== true) {
+        onClose();
+      }
+    };
     window.addEventListener("popstate", onPop);
 
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

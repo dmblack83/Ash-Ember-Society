@@ -86,7 +86,16 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
        apart from any other history state on the stack. */
     const sentinel = { __photoLightbox: true };
     window.history.pushState(sentinel, "");
-    const onPop = () => onClose();
+
+    /* Only close when our sentinel is no longer the current state.
+       Symmetry with BurnReportModal: prevents a future modal that
+       might stack on top of us from collapsing the lightbox when
+       it pops its own sentinel. */
+    const onPop = () => {
+      if (window.history.state?.__photoLightbox !== true) {
+        onClose();
+      }
+    };
     window.addEventListener("popstate", onPop);
 
     const scrollY = window.scrollY;
