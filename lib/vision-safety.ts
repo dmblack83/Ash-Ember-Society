@@ -59,15 +59,24 @@ export interface SafetyResult {
  * Runs SAFE_SEARCH_DETECTION on a base64-encoded image.
  *
  * strict   — profile avatars, forum posts, cigar-catalog submissions.
- *            Flags adult / racy / violence at VERY_LIKELY+.
- * moderate — burn-report photos. Close-ups of cigars (ash, wrapper,
- *            hands holding the stick) routinely trip Vision's
- *            "racy" channel even though nothing inappropriate is
- *            visible. Moderate skips racy entirely and only flags
- *            adult + violence at VERY_LIKELY+. The adult and
- *            violence checks alone are enough to catch the genuine
- *            abuse case (someone uploading a non-cigar image to
- *            their burn report).
+ *            Blocks if ANY of adult / racy / violence is VERY_LIKELY.
+ *            These surfaces are user-displayed in social contexts and
+ *            need a tighter bar.
+ *
+ * moderate — burn-report photos. Cigar close-ups (ash, wrapper, hands
+ *            in frame, smoke, ember) routinely trip Vision channels
+ *            individually even on legitimate content: "racy" misreads
+ *            skin in close-up, "violence" misreads fire/ember, and
+ *            "adult" can fire on warm tones + skin texture. Single-
+ *            channel false positives are common.
+ *
+ *            Moderate ONLY blocks when at least TWO of the three
+ *            channels (adult, racy, violence) are VERY_LIKELY
+ *            simultaneously — multi-channel agreement is the
+ *            high-confidence signal. POSSIBLE and LIKELY scores never
+ *            block. This is the "extreme content only" bar: real
+ *            NSFW imagery trips multiple channels; cigar photos do
+ *            not.
  */
 export async function checkImageSafety(
   base64: string,
@@ -95,25 +104,44 @@ export async function checkImageSafety(
 
   let passed = true;
   let reason: string | undefined;
+  /*
+   * Server-side log on every check. Surfaces the policy and channel
+   * scores in Vercel logs so we can see what Vision actually returned
+   * when a user reports a "still being moderated" failure.
+   */
+  console.log("[vision-safety] check", { policy, scores });
 
   if (policy === "strict") {
-    if (
-      rank(scores.adult)    >= rank("VERY_LIKELY") ||
-      rank(scores.racy)     >= rank("VERY_LIKELY") ||
-      rank(scores.violence) >= rank("VERY_LIKELY")
-    ) {
+    const failing =
+      rank(scores.adult)    >= rank("VERY_LIKELY") ? "adult" :
+      rank(scores.racy)     >= rank("VERY_LIKELY") ? "racy" :
+      rank(scores.violence) >= rank("VERY_LIKELY") ? "violence" :
+      null;
+    if (failing) {
       passed = false;
-      reason = "Image did not pass content moderation.";
+      reason = `Image did not pass content moderation (${failing}: ${scores[failing]}).`;
     }
   } else {
-    /* moderate — racy intentionally NOT checked; see jsdoc above. */
-    if (
-      rank(scores.adult)    >= rank("VERY_LIKELY") ||
-      rank(scores.violence) >= rank("VERY_LIKELY")
-    ) {
+    /*
+     * moderate — multi-channel agreement at VERY_LIKELY. Single-
+     * channel hits are too noisy on cigar close-ups (Vision misreads
+     * skin / smoke / ember). Block only when 2+ of {adult, racy,
+     * violence} are simultaneously VERY_LIKELY — that's the
+     * "high-confidence, extreme content" bar.
+     */
+    const hits: string[] = [];
+    if (rank(scores.adult)    >= rank("VERY_LIKELY")) hits.push("adult");
+    if (rank(scores.racy)     >= rank("VERY_LIKELY")) hits.push("racy");
+    if (rank(scores.violence) >= rank("VERY_LIKELY")) hits.push("violence");
+    if (hits.length >= 2) {
       passed = false;
-      reason = "Image did not pass content moderation.";
+      const detail = hits.map((h) => `${h}: ${scores[h]}`).join(", ");
+      reason = `Image did not pass content moderation (${detail}).`;
     }
+  }
+
+  if (!passed) {
+    console.warn("[vision-safety] BLOCKED", { policy, scores, reason });
   }
 
   return { passed, reason, scores };
