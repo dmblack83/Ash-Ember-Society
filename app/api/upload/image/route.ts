@@ -10,7 +10,19 @@ type Folder = (typeof ALLOWED_FOLDERS)[number];
  * POST /api/upload/image
  *
  * Server-side image upload for lounge posts and burn reports.
- * Runs strict content moderation before writing to storage.
+ *
+ * Forum posts pass through Google Vision SafeSearch (strict) before
+ * writing to storage — those go on the public lounge feed.
+ *
+ * Burn-report uploads do NOT go through Vision. SafeSearch returns
+ * VERY_LIKELY for adult and racy on legitimate cigar close-ups
+ * (skin in frame), even at multi-channel agreement, so the gate was
+ * blocking real users on real cigar photos. Burn reports are personal
+ * smoke-log entries (the user authored the cigar entry, owns the
+ * humidor item, and is logged in); when shared to the lounge they go
+ * through a separate flow that re-applies the strict policy. Skipping
+ * Vision here trades a low-value automated gate for letting real
+ * users actually log their smokes.
  *
  * Body (multipart/form-data):
  *   file   — the image file
@@ -55,30 +67,25 @@ export async function POST(request: NextRequest) {
   /*
    * 3. Content moderation.
    *
-   * Forum posts go on the public lounge feed and demand strict
-   * checks (adult / racy / violence at VERY_LIKELY+).
-   *
-   * Burn-report photos are close-ups of cigars — ash, wrapper, the
-   * burn line, often hands holding the stick. Vision's "racy"
-   * channel routinely flags these even though nothing inappropriate
-   * is visible. Use the moderate policy: still blocks adult /
-   * violence at VERY_LIKELY+, drops racy entirely. See
-   * lib/vision-safety.ts for the rationale in detail.
+   * Forum posts: strict Vision SafeSearch (public lounge feed).
+   * Burn reports: skipped — Vision is unreliable on cigar close-ups
+   *   even at multi-channel agreement. See route-level jsdoc above.
    */
-  const policy = folder === "burn-reports" ? "moderate" : "strict";
-  try {
-    const safety = await checkImageSafety(base64, policy);
-    if (!safety.passed) {
+  if (folder === "forum-posts") {
+    try {
+      const safety = await checkImageSafety(base64, "strict");
+      if (!safety.passed) {
+        return NextResponse.json(
+          { error: safety.reason ?? "Image did not pass content moderation." },
+          { status: 400 }
+        );
+      }
+    } catch {
       return NextResponse.json(
-        { error: safety.reason ?? "Image did not pass content moderation." },
-        { status: 400 }
+        { error: "Content moderation unavailable. Please try again." },
+        { status: 503 }
       );
     }
-  } catch {
-    return NextResponse.json(
-      { error: "Content moderation unavailable. Please try again." },
-      { status: 503 }
-    );
   }
 
   // 4. Upload to post-images bucket
