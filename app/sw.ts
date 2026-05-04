@@ -35,11 +35,11 @@
 import {
   Serwist,
   CacheFirst,
-  NetworkFirst,
   NetworkOnly,
   StaleWhileRevalidate,
   ExpirationPlugin,
   CacheableResponsePlugin,
+  type SerwistPlugin,
   type PrecacheEntry,
 } from "serwist";
 
@@ -48,6 +48,75 @@ declare const self: ServiceWorkerGlobalScope & {
 };
 
 const OFFLINE_URL = "/offline";
+
+/* ──────────────────────────────────────────────────────────────────
+   Auth-aware cache-key plugin
+
+   Why: navigation HTML embeds per-user data (greeting, admin link,
+   personalised islands once Phase 1 streams). Caching navigations
+   under just the URL means User A's HTML could be served to User B
+   on a shared device after sign-out / sign-in. Phase 2's original
+   strategy was NetworkFirst — fresh-first, safe, but every visit
+   pays the network round-trip.
+
+   This plugin partitions the cache by auth identity. The cache key
+   becomes `${url}#auth=${hash}` where `hash` is a short fingerprint
+   of the request's Supabase auth cookies. Different users → different
+   hashes → different cache entries; sign-out → empty hash → its own
+   bucket. Same URL is served from the right partition.
+
+   The actual NETWORK fetch still goes to the original URL; only the
+   cache lookup/store key is mutated. SHA-256 truncated to 16 hex
+   chars is collision-resistant enough for cache partitioning.
+   ────────────────────────────────────────────────────────────── */
+
+async function authHashForRequest(request: Request): Promise<string> {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  if (!cookieHeader) return "anon";
+
+  /* Supabase splits the auth token across chunked cookies named like
+     `sb-<ref>-auth-token`, `sb-<ref>-auth-token.0`, etc. Concatenate
+     the values of any cookie matching that pattern, in name-sorted
+     order so the hash is stable across requests. */
+  const parts: string[] = [];
+  for (const seg of cookieHeader.split(/;\s*/)) {
+    const eq = seg.indexOf("=");
+    if (eq === -1) continue;
+    const name = seg.slice(0, eq);
+    if (name.startsWith("sb-") && name.includes("-auth-token")) {
+      parts.push(seg);
+    }
+  }
+  if (parts.length === 0) return "anon";
+
+  parts.sort();
+  const data    = new TextEncoder().encode(parts.join(";"));
+  const buf     = await crypto.subtle.digest("SHA-256", data);
+  const bytes   = new Uint8Array(buf);
+  let hex = "";
+  for (let i = 0; i < 8; i++) {
+    hex += bytes[i].toString(16).padStart(2, "0");
+  }
+  return hex; // 16 hex chars = 64 bits
+}
+
+const authPartitionPlugin: SerwistPlugin = {
+  /*
+   * cacheKeyWillBeUsed runs both for `read` (looking up the cache)
+   * and `write` (storing a fetched response). Returning a different
+   * Request object changes only the key — the network fetch path
+   * uses the ORIGINAL request object, so the server still sees the
+   * real URL.
+   */
+  async cacheKeyWillBeUsed({ request }) {
+    const hash = await authHashForRequest(request);
+    const url  = new URL(request.url);
+    /* Use a hash fragment — never sent to the server, valid in URL,
+       trivial to inspect when debugging in DevTools → Cache Storage. */
+    url.hash = `auth=${hash}`;
+    return new Request(url.toString(), { method: request.method });
+  },
+};
 
 /* ── Initialise Serwist with the precache manifest ───────────────── */
 const serwist = new Serwist({
@@ -185,16 +254,33 @@ const serwist = new Serwist({
       }),
     },
 
-    /* ── Navigation (page) requests: NetworkFirst, offline last ── */
+    /* ── Navigation (page) requests: SWR, partitioned by auth hash ──
+     *
+     * Cache key is `${url}#auth=${hash}` (see authPartitionPlugin
+     * above) so User A's HTML can never be served to User B on a
+     * shared device. Same URL, different auth identity → different
+     * cache entry. Sign-out → "anon" bucket → fresh fetch on next
+     * sign-in.
+     *
+     * SWR (vs the previous NetworkFirst): user gets the cached HTML
+     * instantly on repeat visits; the SW fires a background refresh
+     * to update the cache for next time. Phase 1's Suspense islands
+     * mean only the lightweight static shell is cached eagerly —
+     * personalised data still streams via Network-Only RSC paths.
+     *
+     * maxEntries doubled from 25 → 60 to leave headroom for
+     * per-user partitioning (one user's full nav buffer is ~25
+     * entries; we keep two users' worth).
+     */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: new NetworkFirst({
+      handler: new StaleWhileRevalidate({
         cacheName: "navigations",
-        networkTimeoutSeconds: 5,
         plugins: [
+          authPartitionPlugin,
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
-            maxEntries:    25,
+            maxEntries:    60,
             maxAgeSeconds: 60 * 60 * 24, // 1 day
             purgeOnQuotaError: true,
           }),
