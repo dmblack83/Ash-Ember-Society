@@ -10,6 +10,7 @@ import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
 import { BurnReportPreviewCard }               from "@/components/humidor/BurnReportPreviewCard";
 import { BurnReportModal }                     from "@/components/humidor/BurnReportModal";
+import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";
 import { tapHaptic }                           from "@/lib/haptics";
 import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
@@ -95,53 +96,17 @@ function FlameIcon({ size = 18, filled = false }: { size?: number; filled?: bool
   );
 }
 
-/* Photo lightbox shared between the verdict-card photo grid and any
-   inline reuse below. Lifted out of the old BurnReportCard. */
-function useLightbox() {
-  const [src,     setSrc]     = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => { setMounted(true); }, []);
-
-  const node = mounted && src
-    ? createPortal(
-        <>
-          <div onClick={() => setSrc(null)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 10991, padding: 16 }}>
-            {/* fill mode requires a sized parent. The outer fixed inset
-                gives that size; objectFit:contain keeps the photo's
-                aspect ratio. blob: URLs (in-flight preview) bypass
-                the optimizer. */}
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              <Image
-                src={src}
-                alt=""
-                fill
-                sizes="100vw"
-                quality={85}
-                unoptimized={src.startsWith("blob:")}
-                style={{ objectFit: "contain", borderRadius: 8 }}
-              />
-            </div>
-            <button type="button" onClick={() => setSrc(null)} aria-label="Close"
-              style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </>,
-        document.body
-      )
-    : null;
-
-  return { open: (url: string) => setSrc(url), node };
-}
+/* Photo lightbox moved to components/ui/PhotoLightbox.tsx — shared
+   with the humidor burn-reports list. The shared version supports
+   prev/next navigation through multiple photos. */
 
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
-  const lightbox = useLightbox();
+  /* Photo URLs flow into the lightbox so prev/next can tab through
+     all of them, not just the one tapped. Filter out null/empty
+     entries the way the modal already does — the array passed here
+     must match what BurnReportModal renders. */
+  const photoUrls = (log.photo_urls ?? []).filter(Boolean);
+  const lightbox  = usePhotoLightbox(photoUrls);
   const thirds   = unwrapBurnReport(log.burn_report);
   const [expanded, setExpanded] = useState(false);
 

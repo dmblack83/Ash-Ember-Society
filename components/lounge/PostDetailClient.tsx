@@ -11,6 +11,7 @@ import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
+import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";
 import { keyFor }                              from "@/lib/data/keys";
 import { fetchPostComments }                   from "@/lib/data/lounge-fetchers";
 
@@ -171,59 +172,12 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
 /* ------------------------------------------------------------------ */
 
 const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const [mounted,     setMounted]     = useState(false);
-  const thirds = unwrapBurnReport(log.burn_report);
-
-  // SSR-safe portal/window guard: setMounted in an effect is the
-  // standard pattern for "client-only render gate". Lint rule
-  // doesn't model it, disabled per-line.
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { setMounted(true); }, []);
-
-  const lightbox = mounted && lightboxSrc
-    ? createPortal(
-        <>
-          <div
-            onClick={() => setLightboxSrc(null)}
-            style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }}
-          />
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, padding: 16 }}>
-            {/* fill mode requires a sized parent. The fixed inset
-                gives that size; objectFit:contain preserves aspect.
-                blob: URLs (in-flight VerdictCard) bypass optimizer. */}
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              <Image
-                src={lightboxSrc}
-                alt=""
-                fill
-                sizes="100vw"
-                quality={85}
-                unoptimized={lightboxSrc.startsWith("blob:")}
-                style={{ objectFit: "contain", borderRadius: 8 }}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={() => setLightboxSrc(null)}
-              aria-label="Close"
-              style={{
-                position: "absolute", top: 16, right: 16,
-                width: 36, height: 36, borderRadius: "50%",
-                background: "rgba(255,255,255,0.12)", border: "none",
-                color: "#fff", cursor: "pointer",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </>,
-        document.body
-      )
-    : null;
+  /* Photo URLs flow into the shared lightbox so prev/next can tab
+     through all of them. The filter() must match what we pass to
+     VerdictCard's photoUrls so indices line up. */
+  const photoUrls = (log.photo_urls ?? []).filter(Boolean);
+  const lightbox  = usePhotoLightbox(photoUrls);
+  const thirds    = unwrapBurnReport(log.burn_report);
 
   return (
     <div style={{ marginTop: 12 }}>
@@ -240,16 +194,16 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         pairingDrink={log.pairing_drink}
         occasion={log.occasion}
         flavorTagNames={log.flavor_tag_names ?? []}
-        photoUrls={(log.photo_urls ?? []).filter(Boolean)}
+        photoUrls={photoUrls}
         thirdsEnabled={thirds?.thirds_enabled ?? false}
         thirdBeginning={thirds?.third_beginning ?? null}
         thirdMiddle={thirds?.third_middle ?? null}
         thirdEnd={thirds?.third_end ?? null}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
-        onPhotoClick={(url) => setLightboxSrc(url)}
+        onPhotoClick={lightbox.open}
       />
-      {lightbox}
+      {lightbox.node}
     </div>
   );
 });
