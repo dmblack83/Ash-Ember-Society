@@ -433,8 +433,16 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
   const [commentError,       setCommentError]       = useState<string | null>(null);
   const [showDeletePost,     setShowDeletePost]     = useState(false);
   const [deletingPost,       setDeletingPost]       = useState(false);
-  const [lightboxOpen,       setLightboxOpen]       = useState(false);
   const [mounted,            setMounted]            = useState(false);
+
+  /* Image lightbox for inline post images (non-burn-report). Uses
+     the shared PhotoLightbox via usePhotoLightbox so close UX +
+     [Close] button placement matches every other photo viewer in
+     the app. Single-image case keeps the chrome minimal (no prev/
+     next/counter). */
+  const postImageLightbox = usePhotoLightbox(
+    post.image_url ? [post.image_url] : []
+  );
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -599,33 +607,8 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
       )
     : null;
 
-  const imageLightbox = mounted && lightboxOpen && post.image_url
-    ? createPortal(
-        <>
-          <div onClick={() => setLightboxOpen(false)}
-            style={{ position: "fixed", inset: 0, zIndex: 9998, backgroundColor: "rgba(0,0,0,0.92)" }} />
-          <div style={{ position: "fixed", inset: 0, zIndex: 9999, padding: 16 }}>
-            <div style={{ position: "relative", width: "100%", height: "100%" }}>
-              <Image
-                src={post.image_url!}
-                alt=""
-                fill
-                sizes="100vw"
-                quality={85}
-                style={{ objectFit: "contain", borderRadius: 8 }}
-              />
-            </div>
-            <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close"
-              style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-              </svg>
-            </button>
-          </div>
-        </>,
-        document.body
-      )
-    : null;
+  /* imageLightbox node is now provided by postImageLightbox.node
+     (shared PhotoLightbox). Inline portal removed. */
 
   /* ---- Render ------------------------------------------------------ */
 
@@ -682,7 +665,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
             </p>
 
             {post.image_url && (
-              <button type="button" onClick={() => setLightboxOpen(true)}
+              <button type="button" onClick={() => post.image_url && postImageLightbox.open(post.image_url)}
                 className="mt-3 rounded-xl overflow-hidden block relative"
                 style={{ width: "100%", height: 260, border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
                 aria-label="View image">
@@ -851,7 +834,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
       )}
 
       {deleteModal}
-      {imageLightbox}
+      {postImageLightbox.node}
     </div>
   );
 }
