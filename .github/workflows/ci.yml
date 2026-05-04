@@ -1,0 +1,63 @@
+# Typecheck gate for every PR.
+#
+# Runs on PRs targeting main and pushes to main. Catches real type
+# regressions in client/server components, cross-file type drift in
+# the SWR fetcher modules and key conventions, and SW source.
+#
+# Intentionally NOT in scope:
+# - `npm run lint` — main has 63 pre-existing eslint errors
+#   (mostly `@typescript-eslint/no-explicit-any` in older code).
+#   Running lint as a hard gate here would block every PR, including
+#   ones that don't touch flagged files. Better to drive lint debt
+#   down in dedicated cleanup PRs first, then add lint to this gate
+#   once it passes on main. New code SHOULD be lint-clean — author
+#   responsibility, not CI-enforced (yet).
+# - Production build (`next build`) — needs Stripe / Supabase env
+#   vars; Vercel's build pipeline already covers it on every PR
+#   preview deploy.
+# - End-to-end tests — none in the repo today.
+# - Performance budget — separate follow-up; needs a real build to
+#   measure bundles.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel any in-flight run on the same branch when a new commit pushes.
+# Keeps the queue tidy on rapid PR iteration.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    name: Type check
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # tsc --noEmit verifies every file in tsconfig.json typechecks.
+      # The SW source (app/sw.ts) is excluded from the main project
+      # tsconfig because it uses the WebWorker lib; check it under
+      # its own config.
+      - name: Type check (project)
+        run: npx tsc --noEmit
+
+      - name: Type check (service worker)
+        run: npx tsc --project tsconfig.sw.json --noEmit
