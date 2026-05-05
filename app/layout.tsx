@@ -6,6 +6,7 @@ import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
 import { SWRProvider } from "@/components/SWRProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
+import { STALE_CHUNK_RECOVERY_SCRIPT } from "@/components/system/stale-chunk-recovery";
 import "./globals.css";
 
 /*
@@ -90,6 +91,13 @@ export default function RootLayout({
             __html: "html,body{background-color:#1A1210;}",
           }}
         />
+        {/* Stale-chunk recovery — captures `error` events from the
+            very first <script>/<link> tags Next emits, so a stale
+            SW cache pointing at deleted /_next/static/ chunks after
+            a deploy auto-recovers (cache nuke + SW unregister +
+            reload) instead of hanging forever. Rate-limited to two
+            cache-bust attempts per session. See file for details. */}
+        <script dangerouslySetInnerHTML={{ __html: STALE_CHUNK_RECOVERY_SCRIPT }} />
         {/* Cold-smoke init — runs synchronously at parse time so the
             overlay (rendered server-side below) is visible from the
             very first frame on cold PWA launch. No flash of dashboard. */}
