@@ -7,6 +7,8 @@ import { SWRProvider } from "@/components/SWRProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
 import { STALE_CHUNK_RECOVERY_SCRIPT } from "@/components/system/stale-chunk-recovery";
+import { HydrationMark } from "@/components/system/HydrationMark";
+import { HYDRATION_WATCHDOG_SCRIPT } from "@/components/system/hydration-watchdog";
 import "./globals.css";
 
 /*
@@ -102,8 +104,19 @@ export default function RootLayout({
             overlay (rendered server-side below) is visible from the
             very first frame on cold PWA launch. No flash of dashboard. */}
         <script dangerouslySetInnerHTML={{ __html: COLD_SMOKE_INIT_SCRIPT }} />
+        {/* Hydration watchdog — starts a 15s timer at parse time;
+            forces ONE reload if `window.__AE_HYDRATED` isn't set
+            by then. Catches silent hydration crashes / hangs that
+            don't surface as a chunk-load 404. <HydrationMark/> in
+            <body> sets the flag in a useEffect. */}
+        <script dangerouslySetInnerHTML={{ __html: HYDRATION_WATCHDOG_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* HydrationMark cancels the watchdog timer in <head> the
+            moment React reaches its first useEffect — proof that
+            the page is alive. Without this, the watchdog reloads
+            after 15s assuming a hung hydration. */}
+        <HydrationMark />
         {/* SWRProvider wraps the entire app so any client component can
             useSWR(...) and share one cache. Conservative defaults live
             in components/SWRProvider.tsx — see comment block there. */}
