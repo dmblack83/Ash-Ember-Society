@@ -24,11 +24,27 @@ export function RegisterServiceWorker() {
     if (!("serviceWorker" in navigator)) return;
 
     const onLoad = () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        // Swallow registration errors — SW is best-effort.
-        // eslint-disable-next-line no-console
-        console.warn("[sw] registration failed:", err);
-      });
+      navigator.serviceWorker.register("/sw.js")
+        .then((reg) => {
+          /* Mark SW activation so the user-timing track shows when
+             the worker took control of the page. Useful for
+             diagnosing "blank screen on resume" — if activation is
+             slow on cold launch, that's the source of the gap. */
+          if (reg.active) {
+            try { performance.mark("ae:sw-active"); } catch { /* ignore */ }
+          } else if (reg.installing || reg.waiting) {
+            const target = reg.installing ?? reg.waiting;
+            target?.addEventListener("statechange", () => {
+              if (target.state === "activated") {
+                try { performance.mark("ae:sw-active"); } catch { /* ignore */ }
+              }
+            });
+          }
+        })
+        .catch((err) => {
+          // Swallow registration errors — SW is best-effort.
+          console.warn("[sw] registration failed:", err);
+        });
     };
 
     if (document.readyState === "complete") {
