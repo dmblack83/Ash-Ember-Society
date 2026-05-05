@@ -72,6 +72,24 @@ export default function RootLayout({
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        {/*
+         * Inline brand-background style — emitted in <head> so the
+         * parser applies it BEFORE external CSS loads. Without this,
+         * cold launch and warm-resume show ~2-4s of default-white
+         * body while globals.css is in flight. The dark colour
+         * matches the manifest background_color and the design-token
+         * --background value; keep them in sync.
+         *
+         * Why a literal hex instead of var(--background):
+         * the CSS custom property is defined in globals.css; if we
+         * referenced it here it would be undefined until that sheet
+         * loads — exactly the state we're trying to bridge.
+         */}
+        <style
+          dangerouslySetInnerHTML={{
+            __html: "html,body{background-color:#1A1210;}",
+          }}
+        />
         {/* Cold-smoke init — runs synchronously at parse time so the
             overlay (rendered server-side below) is visible from the
             very first frame on cold PWA launch. No flash of dashboard. */}

@@ -146,6 +146,13 @@
 }
 
 body {
+  /* Brand-dark background applied AT PARSE TIME so cold launch and
+     warm resume don't flash white between the WebView creating the
+     document and React hydrating components that paint their own
+     backgrounds. The same colour is also injected as inline CSS in
+     the root layout's <head> for the case where this stylesheet is
+     still in flight. */
+  background-color: var(--background);
   overscroll-behavior-y: none;
 }
 
