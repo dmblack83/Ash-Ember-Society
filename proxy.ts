@@ -78,10 +78,42 @@ export async function proxy(request: NextRequest) {
    * getUser() validates the JWT with the Supabase Auth server and refreshes
    * the session if needed. user.user_metadata comes from auth.users — no
    * extra DB query required to check onboarding status.
+   *
+   * Race against a 3-second timeout. If Supabase Auth is slow or down,
+   * a hung await on every request would block the entire document
+   * response — the browser shows a blank/dark screen indefinitely
+   * (see warm-resume hang investigation).
+   *
+   * 3 s is ~10× the median getUser response. On the slow path we
+   * fall through with `user = null` — the protected-route check
+   * below redirects to /login, where the user can re-auth. Annoying
+   * but recoverable; an indefinite hang is not.
+   *
+   * The `user_metadata` shape we read below ([] / Record) survives
+   * a null user via the `!user` guards in branches 1, 1b, and 2.
    */
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const AUTH_TIMEOUT_MS = 3000;
+  type AuthResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
+  const authResult = await Promise.race<AuthResult>([
+    supabase.auth.getUser(),
+    new Promise<AuthResult>((resolve) =>
+      setTimeout(() => {
+        console.warn(
+          `[proxy] supabase.auth.getUser() exceeded ${AUTH_TIMEOUT_MS}ms; ` +
+          `treating request as unauthenticated.`,
+        );
+        // Cast: the timeout branch only needs to satisfy the
+        // shape getUser() returns on no-session. error is filled
+        // so downstream code that branches on it stays consistent
+        // with the real "no user" path.
+        resolve({
+          data: { user: null },
+          error: { name: "AuthTimeout", message: "Auth lookup timed out" },
+        } as unknown as AuthResult);
+      }, AUTH_TIMEOUT_MS),
+    ),
+  ]);
+  const { data: { user } } = authResult;
 
   const { pathname } = request.nextUrl;
 
