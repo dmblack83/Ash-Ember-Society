@@ -2,7 +2,7 @@
 
 > This file is auto-loaded by CLAUDE.md and updated at the end of every session.
 > It gives Claude (both Claude Code and Cowork) full project context without needing reminders.
-> Last updated: 2026-05-04
+> Last updated: 2026-05-05
 
 ---
 
@@ -250,6 +250,20 @@ Architectural pieces from the plan already on main before this work, kept in min
 - `next/dynamic` lazy-loads for sheets, scanners, modals.
 - Per-route `loading.tsx` skeletons.
 - WebP conversion for cigar default images and field-guide illustrations.
+
+---
+
+## PWA resilience layer
+
+Three independent mechanisms layered to recover from launch hangs (an indefinite black-screen state Dave reported in production). Each addresses a distinct failure mode; together they catch every plausible cause and surface diagnostic marks for the next investigation.
+
+| PR | Addresses | Mechanism |
+|---|---|---|
+| #288 | Stale SW cache → 404'd chunk URLs after deploy | Inline `<head>` script catches `error` events on `/_next/static/...` `<script>`/`<link>` tags. On hit: nuke caches, unregister SW, hard reload. Rate-limited to 2 cache-bust reloads per session. Performance mark: `ae:chunk-load-error`. |
+| #289 | Silent hydration crash / unknown hangs | Inline `<head>` script starts a 15s timer; if `window.__AE_HYDRATED` (set by `<HydrationMark />` useEffect) isn't true by then, force one reload. Rate-limited to 1 reload/session. Marks: `ae:watchdog-fired`, `ae:hydrated`. |
+| #290 | Slow Supabase Auth → proxy holds document response open | `Promise.race` `supabase.auth.getUser()` against a 3s timeout; on timeout treat as unauthenticated, let normal `/login` redirect kick in. Logs `[proxy] supabase.auth.getUser() exceeded 3000ms` for diagnostic visibility. |
+
+**Diagnosis pattern**: when a future hang IS reported, check the User Timing track / Vercel logs for which mark or warn fired. The mark identifies which path triggered (or none → narrows to a fourth, currently-unknown cause).
 
 ---
 
