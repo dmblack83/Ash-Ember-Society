@@ -399,3 +399,148 @@ self.addEventListener("notificationclick", (event) => {
     }
   })());
 });
+
+/* ──────────────────────────────────────────────────────────────────
+   Offline mutation outbox replay (Phase 5 P5.6).
+
+   The browser fires `sync` events when connectivity returns or in
+   periodic background windows. lib/offline-outbox.ts (client side)
+   registers the tag "ae-outbox-sync" after enqueuing a record;
+   when the browser triggers it, this handler opens the same IDB
+   database, replays each pending request, and deletes successful
+   ones.
+
+   The IDB schema MUST stay in lockstep with lib/offline-outbox.ts.
+   Schema changes there require updating both files (the SW can't
+   import from app code — different bundle).
+
+   Reliability:
+   - 4xx (except 408/429) → permanent failure: delete the record
+     so we don't retry forever on a malformed request.
+   - 5xx / network / 408 / 429 → transient: leave for next sync.
+   - Successful → delete.
+   - Throws (browser kills the worker) → records stay; next sync
+     event picks them up.
+
+   Browsers without SyncManager (Safari) skip this path. The
+   client-side OutboxManager listens for `online` events and
+   triggers replay via a regular fetch loop when sync isn't
+   available.
+   ────────────────────────────────────────────────────────────── */
+
+const OUTBOX_DB    = "ae-offline-outbox";
+const OUTBOX_STORE = "mutations";
+const OUTBOX_DB_VERSION = 1;
+const OUTBOX_SYNC_TAG   = "ae-outbox-sync";
+
+interface OutboxRecord {
+  id:          string;
+  user_id:     string;
+  category:    string;
+  url:         string;
+  method:      string;
+  headers:     Record<string, string>;
+  body:        string | null;
+  contentType: string | null;
+  created_at:  number;
+}
+
+function openOutboxDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(OUTBOX_DB, OUTBOX_DB_VERSION);
+    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (event) => {
+      /* DB upgrade is normally driven by the client; the SW only
+         creates the schema here as a safety net so a SW that runs
+         before the client has ever touched IDB doesn't crash. */
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+        const store = db.createObjectStore(OUTBOX_STORE, { keyPath: "id" });
+        store.createIndex("user_id",    "user_id",    { unique: false });
+        store.createIndex("created_at", "created_at", { unique: false });
+      }
+    };
+  });
+}
+
+async function readAllOutboxRecords(db: IDBDatabase): Promise<OutboxRecord[]> {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(OUTBOX_STORE, "readonly");
+    const req = tx.objectStore(OUTBOX_STORE).getAll();
+    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result as OutboxRecord[]);
+  });
+}
+
+async function deleteOutboxRecord(db: IDBDatabase, id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OUTBOX_STORE, "readwrite");
+    tx.objectStore(OUTBOX_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+
+async function replayOutbox(): Promise<void> {
+  let db: IDBDatabase;
+  try {
+    db = await openOutboxDB();
+  } catch {
+    return; // IDB unavailable — nothing to replay
+  }
+
+  try {
+    const records = await readAllOutboxRecords(db);
+    if (records.length === 0) return;
+
+    /* Sequential replay so order is preserved. Some mutations may
+       depend on earlier ones (e.g., create-then-update flows). */
+    for (const rec of records) {
+      try {
+        const init: RequestInit = {
+          method:      rec.method,
+          headers:     rec.headers,
+          credentials: "include",
+        };
+        if (rec.body !== null && rec.method !== "GET" && rec.method !== "HEAD") {
+          init.body = rec.body;
+        }
+
+        const res = await fetch(rec.url, init);
+
+        if (res.ok) {
+          await deleteOutboxRecord(db, rec.id);
+          continue;
+        }
+
+        /* 4xx (except 408 timeout, 429 rate-limit) are permanent —
+           drop the record so we don't replay forever on a malformed
+           or auth-rejected request. */
+        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+          await deleteOutboxRecord(db, rec.id);
+          continue;
+        }
+
+        /* 5xx, 408, 429: leave for next sync. */
+      } catch {
+        /* Network still failing — leave for next sync. */
+      }
+    }
+  } finally {
+    db.close();
+  }
+}
+
+/* SyncEvent isn't in the default DOM lib. Declare a minimal type. */
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+  readonly lastChance: boolean;
+}
+
+self.addEventListener("sync", (event) => {
+  const e = event as unknown as SyncEvent;
+  if (e.tag === OUTBOX_SYNC_TAG) {
+    e.waitUntil(replayOutbox());
+  }
+});
