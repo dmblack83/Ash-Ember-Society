@@ -28,10 +28,23 @@ function isShopsCacheFresh() {
 function getShops(): Promise<Shop[]> {
   if (isShopsCacheFresh()) return Promise.resolve(_shopsCache!.shops);
   if (!_shopsFetch) {
+    /* Narrowed select (was "*"). The list view only renders these
+       12 fields; description, hours JSON, photo_urls array, phone,
+       website, member/premium discount text, etc. are detail-only.
+       Saves ~50–80% per-row payload depending on how much detail
+       text shops have. The detail page (/discover/shops/[slug]) does
+       its own select("*") for the full row.
+
+       Cast as Shop[] is a partial lie — fields not in the select
+       are undefined at runtime. Verified by grep that only the
+       selected fields are accessed in this file. If a future
+       change wants more fields, ADD THEM HERE. */
     _shopsFetch = Promise.resolve(
       createClient()
         .from("shops")
-        .select("*")
+        .select(
+          "id, slug, name, address, city, state, lat, lng, amenities, is_partner, is_founding_partner, rating"
+        )
         .order("is_founding_partner", { ascending: false })
         .order("is_partner",          { ascending: false })
         .order("name")
