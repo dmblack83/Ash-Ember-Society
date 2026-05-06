@@ -21,7 +21,7 @@ export function ShowMembershipCardButton({
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="btn btn-secondary w-full">
+      <button type="button" onClick={() => setOpen(true)} className="btn btn-secondary w-full">
         Show Membership Card
       </button>
 

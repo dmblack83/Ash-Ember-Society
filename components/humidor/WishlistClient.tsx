@@ -524,7 +524,7 @@ function AddWishlistSheet({
                   <div className="space-y-4 animate-fade-in">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
-                      <button onClick={handleClear} className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                      <button type="button" onClick={handleClear} className="text-xs" style={{ color: "var(--muted-foreground)" }}>
                         Back to search
                       </button>
                     </div>

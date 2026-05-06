@@ -130,6 +130,18 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: HYDRATION_WATCHDOG_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Skip-link — keyboard users can jump past page chrome to
+            the main content. Visually hidden until focused, then
+            appears as a focusable button at the top-left. Targets
+            #main-content which is set on each route group's <main>
+            element ((app)/layout.tsx, (auth)/layout.tsx, and the
+            landing page's main). */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:rounded focus:bg-foreground focus:text-background focus:font-medium focus:shadow-lg"
+        >
+          Skip to main content
+        </a>
         {/* HydrationMark cancels the watchdog timer in <head> the
             moment React reaches its first useEffect — proof that
             the page is alive. Without this, the watchdog reloads

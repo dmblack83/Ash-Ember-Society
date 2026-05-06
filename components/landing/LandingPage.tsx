@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { Menu, X, Archive, BookOpen, Compass, Users, Check } from "lucide-react";
 
 /* ------------------------------------------------------------------
@@ -105,6 +105,7 @@ export function Navbar() {
 
         {/* Mobile toggle — 44px touch target */}
         <button
+          type="button"
           className="md:hidden"
           onClick={() => setIsMobileMenuOpen((o) => !o)}
           aria-label="Toggle menu"
@@ -1010,17 +1011,23 @@ export function Footer() {
 
 export default function LandingPage() {
   return (
-    <div style={{ backgroundColor: "var(--background)", color: "var(--foreground)", minHeight: "100vh" }}>
-      <Navbar />
-      <main style={{ flexGrow: 1 }}>
-        <Hero />
-        <Philosophy />
-        <Features />
-        {/* <Membership /> — hidden until public launch */}
-        {/* <Community /> — hidden until public launch */}
-        <CallToAction />
-      </main>
-      <Footer />
-    </div>
+    /* MotionConfig reducedMotion="user" honors the user's
+       prefers-reduced-motion OS setting across all framer-motion
+       descendants — animations become instant transitions for
+       users with vestibular sensitivity / migraine triggers. */
+    <MotionConfig reducedMotion="user">
+      <div style={{ backgroundColor: "var(--background)", color: "var(--foreground)", minHeight: "100vh" }}>
+        <Navbar />
+        <main id="main-content" style={{ flexGrow: 1 }}>
+          <Hero />
+          <Philosophy />
+          <Features />
+          {/* <Membership /> — hidden until public launch */}
+          {/* <Community /> — hidden until public launch */}
+          <CallToAction />
+        </main>
+        <Footer />
+      </div>
+    </MotionConfig>
   );
 }

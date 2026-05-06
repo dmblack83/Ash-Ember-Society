@@ -402,7 +402,7 @@ function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () =>
         </p>
       </div>
       <div className="flex flex-col sm:flex-row items-center gap-3 mt-2">
-        <button onClick={onAdd} className="btn btn-primary">
+        <button type="button" onClick={onAdd} className="btn btn-primary">
           Add your first cigar
         </button>
         {hasWishlist && (
