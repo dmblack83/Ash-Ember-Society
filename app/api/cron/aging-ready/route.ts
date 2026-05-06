@@ -61,8 +61,13 @@ function isAuthorized(req: NextRequest): boolean {
   const sync = req.headers.get("x-sync-secret");
   if (syncSecret && sync === syncSecret) return true;
 
-  const ua = req.headers.get("user-agent") ?? "";
-  if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  // Dev-only UA fallback: production REQUIRES one of the secrets above.
+  // The vercel-cron/* user-agent is trivially spoofable, so honoring it
+  // in production would let any caller trigger arbitrary push runs.
+  if (process.env.NODE_ENV !== "production") {
+    const ua = req.headers.get("user-agent") ?? "";
+    if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  }
 
   return false;
 }
