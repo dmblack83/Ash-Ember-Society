@@ -15,6 +15,7 @@ import {
   clearBurnReportDraft,
 } from "@/lib/burn-report-draft";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
+import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 
 /* ------------------------------------------------------------------
    Constants
@@ -1493,7 +1494,11 @@ export function BurnReport({
     return urls;
   }
 
-  /* Submit */
+  /* Submit — single fetch to /api/burn-report which runs the
+     multi-step transaction (smoke_logs insert + burn_reports insert +
+     humidor quantity decrement) server-side. On offline failure, the
+     payload is queued via the offline outbox for replay when
+     connectivity returns. */
   async function handleSubmit() {
     setSubmitting(true);
     setSubmitError(null);
@@ -1506,7 +1511,10 @@ export function BurnReport({
       return;
     }
 
-    /* Upload photos first */
+    /* Upload photos first. Photo uploads aren't outbox-replayable in
+       v1 (multipart/form-data not supported there), so an offline
+       failure here surfaces as a regular error and the user keeps
+       their autosaved draft. */
     let photoUrls: string[] = [];
     try {
       photoUrls = await uploadPhotos();
@@ -1524,83 +1532,89 @@ export function BurnReport({
       return;
     }
 
-    /* Build insert payload */
+    /* Build payload for /api/burn-report. Combines smoke_logs and
+       burn_reports fields; the server splits them between the two
+       tables. user_id is derived from the auth session server-side
+       (not trusted from the body). */
     const payload: Record<string, unknown> = {
-      user_id: user.id,
-      cigar_id: item.cigar_id,
+      cigar_id:        item.cigar_id,
       humidor_item_id: item.id,
-      smoked_at: form.smoked_at,
-      overall_rating: form.overall_rating,
+      smoked_at:       form.smoked_at,
+      overall_rating:  form.overall_rating,
+      thirds_enabled:  form.thirds_enabled,
     };
-
-    if (form.location.trim()) payload.location = form.location.trim();
-    if (form.occasion) payload.occasion = form.occasion;
-    if (form.pairing_drink.trim()) payload.pairing_drink = form.pairing_drink.trim();
-    if (form.pairing_food.trim()) payload.pairing_food = form.pairing_food.trim();
-    if (form.draw_rating > 0) payload.draw_rating = form.draw_rating;
-    if (form.burn_rating > 0) payload.burn_rating = form.burn_rating;
-    if (form.construction_rating > 0) payload.construction_rating = form.construction_rating;
-    if (form.flavor_rating > 0) payload.flavor_rating = form.flavor_rating;
-    if (form.flavor_tag_ids.length > 0) payload.flavor_tag_ids = form.flavor_tag_ids;
-    if (form.review_text.trim()) payload.review_text = form.review_text.trim();
-    if (photoUrls.length > 0) payload.photo_urls = photoUrls;
+    if (form.location.trim())            payload.location            = form.location.trim();
+    if (form.occasion)                   payload.occasion            = form.occasion;
+    if (form.pairing_drink.trim())       payload.pairing_drink       = form.pairing_drink.trim();
+    if (form.pairing_food.trim())        payload.pairing_food        = form.pairing_food.trim();
+    if (form.draw_rating > 0)            payload.draw_rating         = form.draw_rating;
+    if (form.burn_rating > 0)            payload.burn_rating         = form.burn_rating;
+    if (form.construction_rating > 0)    payload.construction_rating = form.construction_rating;
+    if (form.flavor_rating > 0)          payload.flavor_rating       = form.flavor_rating;
+    if (form.flavor_tag_ids.length > 0)  payload.flavor_tag_ids      = form.flavor_tag_ids;
+    if (form.review_text.trim())         payload.review_text         = form.review_text.trim();
+    if (photoUrls.length > 0)            payload.photo_urls          = photoUrls;
     if (form.smoke_duration_minutes.trim()) {
       const mins = parseInt(form.smoke_duration_minutes);
-      if (!isNaN(mins) && mins > 0) payload.smoke_duration_minutes = mins;
+      if (!isNaN(mins) && mins > 0)      payload.smoke_duration_minutes = mins;
     }
-    if (form.content_video_id) payload.content_video_id = form.content_video_id;
+    if (form.content_video_id)           payload.content_video_id    = form.content_video_id;
+    if (form.third_beginning.trim())     payload.third_beginning     = form.third_beginning.trim();
+    if (form.third_middle.trim())        payload.third_middle        = form.third_middle.trim();
+    if (form.third_end.trim())           payload.third_end           = form.third_end.trim();
 
-    /* Insert smoke log. smoke_logs is the broad descriptive log;
-       burn-report-only fields (Thirds) live on the burn_reports
-       child table inserted below, NOT on smoke_logs. */
-    const { data: logData, error: logError } = await supabase
-      .from("smoke_logs")
-      .insert(payload)
-      .select("id")
-      .single();
-    if (logError) {
-      setSubmitError(logError.message);
-      setSubmitting(false);
-      return;
-    }
+    /* Submit. */
+    try {
+      const res = await fetch("/api/burn-report", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
 
-    setSmokeLogId(logData?.id ?? null);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        setSubmitError((errBody as { error?: string }).error ?? `Submit failed (${res.status})`);
+        setSubmitting(false);
+        return;
+      }
 
-    /* Insert the matching burn_reports row. Always created (1:1 with
-       smoke_logs from this flow) so future burn-report-only fields
-       have somewhere to live. third_* text is written even when the
-       toggle is off so re-opening with the toggle on shows prior
-       notes. We deliberately do NOT roll back the smoke_logs insert
-       on failure here — the smoke_log itself is still a valid
-       descriptive record; we just lose the thirds metadata. */
-    if (logData?.id) {
-      const burnPayload: Record<string, unknown> = {
-        smoke_log_id:   logData.id,
-        user_id:        user.id,
-        thirds_enabled: form.thirds_enabled,
-      };
-      if (form.third_beginning.trim()) burnPayload.third_beginning = form.third_beginning.trim();
-      if (form.third_middle.trim())    burnPayload.third_middle    = form.third_middle.trim();
-      if (form.third_end.trim())       burnPayload.third_end       = form.third_end.trim();
-
-      const { error: brError } = await supabase
-        .from("burn_reports")
-        .insert(burnPayload);
-      if (brError) {
-        // Log to console so it surfaces in dev; don't block the
-        // success flow over a child-row failure.
-        console.error("burn_reports insert failed:", brError.message);
+      const data = await res.json() as { smoke_log_id: string; quantity_after: number };
+      setSmokeLogId(data.smoke_log_id);
+      setQuantityAfter(data.quantity_after);
+    } catch (err) {
+      /* fetch threw — typically a network failure. If the user looks
+         offline, queue the request via the outbox so the SW (or
+         online-event fallback) replays when connectivity returns.
+         SuccessScreen handles smokeLogId === null by suppressing the
+         share-to-lounge UX; the queued send populates the rows on
+         the server later. */
+      if (isLikelyOfflineError(err)) {
+        const queued = await enqueueFetchMutation({
+          url:      "/api/burn-report",
+          method:   "POST",
+          body:     payload,
+          category: "burn-report",
+          userId:   user.id,
+        });
+        if (queued) {
+          setSmokeLogId(null);
+          /* Predicted post-decrement quantity — server hasn't actually
+             decremented yet. If the queued send fails permanently the
+             humidor will reflect the stale-but-correct count on next
+             refresh. */
+          setQuantityAfter(Math.max(0, item.quantity - 1));
+        } else {
+          setSubmitError("You're offline and we couldn't save your report locally. Try again when you reconnect.");
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Submit failed.");
+        setSubmitting(false);
+        return;
       }
     }
 
-    /* Decrement quantity */
-    const newQty = Math.max(0, item.quantity - 1);
-    await supabase
-      .from("humidor_items")
-      .update({ quantity: newQty })
-      .eq("id", item.id);
-
-    setQuantityAfter(newQty);
     setSubmitting(false);
     setSuccess(true);
     /* Report filed — drop the persisted draft. The success-guard in
