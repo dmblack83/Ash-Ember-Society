@@ -85,7 +85,7 @@ function CatalogGridCard({
           alt={cigar.series ?? cigar.format ?? ""}
           fill
           sizes="(min-width: 768px) 25vw, 50vw"
-          quality={75}
+          quality={60}
           className="object-contain"
         />
       </div>

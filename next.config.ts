@@ -135,6 +135,16 @@ const nextConfig: NextConfig = {
      * AVIF, and the original format for the long tail.
      */
     formats: ["image/avif", "image/webp"],
+    /*
+     * Quality allowlist. Next 16 defaults to `[75]` only — any other
+     * `quality={...}` value silently snaps to the nearest allowed one.
+     *   60 — dark, low-contrast cigar wrapper photography (lists / catalog).
+     *   70 — secondary surfaces (avatars, small thumbnails).
+     *   75 — default for everything else (lounge feed, detail heroes,
+     *        editorial). Higher values were tried in the codebase but
+     *        were already snapping to 75; we keep that behavior.
+     */
+    qualities: [60, 70, 75],
   },
   async redirects() {
     return [

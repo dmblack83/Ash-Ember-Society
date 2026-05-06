@@ -225,7 +225,7 @@ function GridCard({ item }: { item: HumidorItem }) {
             alt={c.series ?? c.format ?? ""}
             fill
             sizes="(min-width: 768px) 25vw, 50vw"
-            quality={75}
+            quality={60}
             className="object-contain"
           />
         </div>
