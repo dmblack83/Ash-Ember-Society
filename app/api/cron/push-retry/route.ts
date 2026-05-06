@@ -35,6 +35,7 @@ import {
   type NotificationCategory,
 } from "@/lib/notification-categories";
 import { logPushSend, type PushPayload } from "@/lib/push";
+import { startCronRun, finishCronRun }   from "@/lib/cron-log";
 
 export const runtime = "nodejs";
 
@@ -269,6 +270,8 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "VAPID not configured" }, { status: 500 });
   }
 
+  const run = await startCronRun("push-retry");
+  try {
   const supabase = createServiceClient();
   const now      = new Date().toISOString();
 
@@ -282,6 +285,7 @@ async function handle(req: NextRequest) {
 
   if (error) {
     console.error("[push-retry] outbox query failed:", error.message);
+    await finishCronRun(run, { ok: false, error: `outbox query failed: ${error.message}`.slice(0, 500) });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -302,6 +306,9 @@ async function handle(req: NextRequest) {
     }
   }
 
+  const summary = { processed: rows?.length ?? 0, sent, retried, dead };
+  await finishCronRun(run, { ok: true, summary });
+
   return NextResponse.json({
     ok:        true,
     processed: (rows?.length ?? 0),
@@ -309,6 +316,10 @@ async function handle(req: NextRequest) {
     retried,
     dead,
   });
+  } catch (err) {
+    await finishCronRun(run, { ok: false, error: (err as Error).message?.slice(0, 500) ?? "unknown error" });
+    throw err;
+  }
 }
 
 export async function GET(req: NextRequest)  { return handle(req); }
