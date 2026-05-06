@@ -3,6 +3,7 @@ import { ImageAnnotatorClient }      from "@google-cloud/vision";
 import { createClient }              from "@/utils/supabase/server";
 import { getServerUser }             from "@/lib/auth/server-user";
 import { createServiceClient }       from "@/utils/supabase/service";
+import { checkRateLimit }            from "@/lib/rate-limit";
 
 /* ------------------------------------------------------------------
    Types
@@ -94,6 +95,38 @@ export async function POST(req: NextRequest) {
   const user     = await getServerUser();
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  /* ── Rate limit ───────────────────────────────────────────────────
+     Vision is a paid per-request API. Without this, an authenticated
+     user can mint a denial-of-wallet attack. 30 calls / hour / user is
+     loose enough for the band-scanner UX (a power user might scan a
+     few cigars in a row) but tight enough that a runaway script is
+     bounded. Tune via Upstash dashboard if real usage outgrows it. */
+  const rl = await checkRateLimit(user.id, {
+    limit:  30,
+    window: "1 h",
+    prefix: "vision-analyze",
+  });
+  if (!rl.ok) {
+    if (rl.reason === "rate_limit_unavailable") {
+      return NextResponse.json(
+        { error: "Service temporarily unavailable" },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json(
+      { error: "Too many requests. Try again later." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit":     String(rl.limit),
+          "X-RateLimit-Remaining": String(rl.remaining),
+          "X-RateLimit-Reset":     String(rl.reset),
+          "Retry-After":           String(Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000))),
+        },
+      },
+    );
   }
 
   /* ── Parse body ───────────────────────────────────────────────── */
