@@ -819,7 +819,7 @@ function WishlistCard({
             alt={c.series ?? c.format ?? ""}
             fill
             sizes="(max-width: 640px) 100vw, 640px"
-            quality={75}
+            quality={60}
             style={{ objectFit: "contain" }}
           />
         </div>
