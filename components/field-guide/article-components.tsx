@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode, CSSProperties } from "react";
+import type { ReactNode } from "react";
 
 /* ------------------------------------------------------------------
    Shared design tokens (inline — no new CSS files)

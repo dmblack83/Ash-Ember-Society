@@ -25,7 +25,6 @@ const CigarBandScanner = dynamic(
   () => import("@/components/humidor/CigarBandScanner").then((m) => ({ default: m.CigarBandScanner })),
   { ssr: false },
 );
-import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -158,32 +157,6 @@ function AgingBadge({ days }: { days: number }) {
     >
       Aging: {days}d ✦
     </span>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Rating stars
-   ------------------------------------------------------------------ */
-
-function RatingStars({ rating }: { rating: number }) {
-  const filled = Math.round(rating / 2); // 0–10 → 0–5
-  return (
-    <div className="flex items-center gap-0.5" aria-label={`${rating.toFixed(1)} out of 10`}>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <svg
-          key={i}
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill={i < filled ? "var(--primary)" : "none"}
-          stroke="var(--primary)"
-          strokeWidth="0.8"
-          aria-hidden="true"
-        >
-          <polygon points="5,1 6.2,3.8 9.5,3.8 7,5.8 7.9,9 5,7.2 2.1,9 3,5.8 0.5,3.8 3.8,3.8" />
-        </svg>
-      ))}
-    </div>
   );
 }
 

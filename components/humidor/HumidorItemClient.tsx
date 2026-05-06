@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
-import { BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";

@@ -178,7 +178,6 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   useEffect(() => {
     const id = requestAnimationFrame(updateCarets);
     return () => cancelAnimationFrame(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results, selected, isManual, open]);
 
   /* ── Handlers ─────────────────────────────────────────────── */

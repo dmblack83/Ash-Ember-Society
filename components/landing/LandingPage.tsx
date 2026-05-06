@@ -2,9 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
-import { Menu, X, Archive, BookOpen, Compass, Users, Check } from "lucide-react";
+import { Menu, X, Archive, BookOpen, Compass, Users } from "lucide-react";
 
 /* ------------------------------------------------------------------
    Navbar

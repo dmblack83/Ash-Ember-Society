@@ -166,7 +166,6 @@ function AddWishlistSheet({
     setNotes(""); setSubmitError(null);
     loadPopular();
     setTimeout(() => inputRef.current?.focus(), 120);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   /* Scroll caret tracking */
@@ -180,7 +179,6 @@ function AddWishlistSheet({
   useEffect(() => {
     const id = requestAnimationFrame(updateCarets);
     return () => cancelAnimationFrame(id);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [results, selected, isManual, open]);
 
   function handleClear() {

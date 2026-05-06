@@ -18,7 +18,6 @@ const AddToHumidorSheet = dynamic(
   { ssr: false },
 );
 import { Toast } from "@/components/ui/toast";
-import { CigarPlaceholder, BrandPlaceholder } from "@/components/ui/cigar-placeholder";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
