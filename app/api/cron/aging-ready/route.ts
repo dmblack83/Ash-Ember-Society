@@ -146,7 +146,7 @@ async function handle(req: NextRequest) {
             };
 
       try {
-        const result = await sendPushToUser(userId, payload);
+        const result = await sendPushToUser(userId, payload, "aging_ready");
         usersNotified += 1;
         totalSent     += result.sent;
         totalFailed   += result.failed;
