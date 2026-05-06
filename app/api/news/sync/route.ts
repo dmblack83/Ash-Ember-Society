@@ -187,13 +187,15 @@ function isAuthorized(req: NextRequest): boolean {
   const sync = req.headers.get("x-sync-secret");
   if (syncSecret && sync === syncSecret) return true;
 
-  // Vercel Cron fallback: when the request comes from Vercel's cron
-  // infrastructure, the user-agent is "vercel-cron/1.0". Honor it if
-  // CRON_SECRET isn't configured yet so cron starts working without
-  // requiring a project env-var change. (Not relied on when CRON_SECRET
-  // is set — Bearer check above wins first.)
-  const ua = req.headers.get("user-agent") ?? "";
-  if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  // Dev-only UA fallback: production REQUIRES CRON_SECRET (or SYNC_SECRET
+  // for manual triggers) above. The vercel-cron/* user-agent is trivially
+  // spoofable, so honoring it in production would let any caller trigger
+  // arbitrary RSS sync runs. Kept as a convenience for local dev where
+  // CRON_SECRET may not be set yet.
+  if (process.env.NODE_ENV !== "production") {
+    const ua = req.headers.get("user-agent") ?? "";
+    if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  }
 
   return false;
 }

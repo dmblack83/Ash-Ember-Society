@@ -152,14 +152,14 @@ export async function POST(req: NextRequest) {
 /* ------------------------------------------------------------------
    Auth — matches the news sync route's pattern.
 
-   Accepts:
+   Production accepts:
      - Authorization: Bearer ${CRON_SECRET}     (Vercel cron when set)
      - x-sync-secret: ${SYNC_SECRET}            (manual / staging)
-     - user-agent: vercel-cron/...              (fallback when
-                                                 CRON_SECRET unset, so
-                                                 cron starts working
-                                                 without env-var
-                                                 bootstrap first)
+
+   Development additionally accepts:
+     - user-agent: vercel-cron/...              (fallback when CRON_SECRET
+                                                 isn't set yet — convenience
+                                                 only; UA is spoofable)
    ------------------------------------------------------------------ */
 
 function isAuthorized(req: NextRequest): boolean {
@@ -172,8 +172,12 @@ function isAuthorized(req: NextRequest): boolean {
   const sync = req.headers.get("x-sync-secret");
   if (syncSecret && sync === syncSecret) return true;
 
-  const ua = req.headers.get("user-agent") ?? "";
-  if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  // Dev-only UA fallback. Never honor in production — UA is trivially
+  // spoofable and would allow any caller to trigger YouTube sync runs.
+  if (process.env.NODE_ENV !== "production") {
+    const ua = req.headers.get("user-agent") ?? "";
+    if (!cronSecret && ua.startsWith("vercel-cron/")) return true;
+  }
 
   return false;
 }
