@@ -70,34 +70,96 @@ const OFFLINE_URL = "/offline";
    chars is collision-resistant enough for cache partitioning.
    ────────────────────────────────────────────────────────────── */
 
+/* Extract the `sub` claim from a Supabase auth cookie value.
+
+   Cookie value may be in one of two formats:
+   - "base64-{json}" — newer @supabase/ssr wraps a JSON object
+     containing access_token/refresh_token in a base64-encoded blob
+   - Plain JWT (header.payload.signature) — older format
+
+   We don't VERIFY the JWT (no signing key in the SW; no need for
+   trust here — we're just partitioning a cache, not authorizing).
+   Just decode the payload to read `sub`. Any parse/decode failure
+   returns null; the caller falls back to the "anon" partition.
+
+   Returns null when:
+   - The cookie isn't in either expected shape
+   - The JWT has fewer than 3 segments
+   - The payload isn't valid JSON
+   - There's no string `sub` claim */
+function extractSubClaim(cookieValue: string): string | null {
+  let raw = cookieValue;
+
+  /* base64-wrapped JSON envelope (newer @supabase/ssr). The wrapper
+     is the literal prefix "base64-" followed by base64-encoded JSON. */
+  if (raw.startsWith("base64-")) {
+    try {
+      const decoded = atob(raw.slice("base64-".length));
+      const parsed  = JSON.parse(decoded) as { access_token?: unknown };
+      if (typeof parsed.access_token !== "string") return null;
+      raw = parsed.access_token;
+    } catch {
+      return null;
+    }
+  }
+
+  /* Now raw should be a JWT: header.payload.signature */
+  const segs = raw.split(".");
+  if (segs.length !== 3) return null;
+
+  try {
+    /* base64url → base64, then atob. Pad to multiple of 4. */
+    const b64    = segs[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json   = atob(padded);
+    const claims = JSON.parse(json) as { sub?: unknown };
+    return typeof claims.sub === "string" ? claims.sub : null;
+  } catch {
+    return null;
+  }
+}
+
 async function authHashForRequest(request: Request): Promise<string> {
   const cookieHeader = request.headers.get("cookie") ?? "";
   if (!cookieHeader) return "anon";
 
   /* Supabase splits the auth token across chunked cookies named like
-     `sb-<ref>-auth-token`, `sb-<ref>-auth-token.0`, etc. Concatenate
-     the values of any cookie matching that pattern, in name-sorted
-     order so the hash is stable across requests. */
-  const parts: string[] = [];
+     `sb-<ref>-auth-token`, `sb-<ref>-auth-token.0`, etc. Reassemble
+     by sorting on name (so the chunk order is stable: base name
+     first, then .0, .1, .2 by lexical order) and concatenating just
+     the values. */
+  const parts: { name: string; value: string }[] = [];
   for (const seg of cookieHeader.split(/;\s*/)) {
     const eq = seg.indexOf("=");
     if (eq === -1) continue;
-    const name = seg.slice(0, eq);
+    const name  = seg.slice(0, eq);
+    const value = seg.slice(eq + 1);
     if (name.startsWith("sb-") && name.includes("-auth-token")) {
-      parts.push(seg);
+      parts.push({ name, value });
     }
   }
   if (parts.length === 0) return "anon";
 
-  parts.sort();
-  const data    = new TextEncoder().encode(parts.join(";"));
-  const buf     = await crypto.subtle.digest("SHA-256", data);
-  const bytes   = new Uint8Array(buf);
+  parts.sort((a, b) => a.name.localeCompare(b.name));
+  const reassembled = parts.map((p) => p.value).join("");
+
+  /* Hash only the `sub` claim, NOT the whole token. The access_token
+     rotates on every refresh; hashing it caused cache entries to
+     orphan on every rotation (cache pollution that grew with session
+     length — audit item 2c). The `sub` is the user_id and is stable
+     for the lifetime of the account. Different users → different
+     subs → different cache buckets, exactly the property we want. */
+  const sub = extractSubClaim(reassembled);
+  if (!sub) return "anon";
+
+  const data  = new TextEncoder().encode(sub);
+  const buf   = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(buf);
   let hex = "";
   for (let i = 0; i < 8; i++) {
     hex += bytes[i].toString(16).padStart(2, "0");
   }
-  return hex; // 16 hex chars = 64 bits
+  return hex; // 16 hex chars = 64 bits — collision-negligible for cache partitioning
 }
 
 const authPartitionPlugin: SerwistPlugin = {
