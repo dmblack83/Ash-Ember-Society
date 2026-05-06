@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IntentLink } from "@/components/ui/IntentLink";
 import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";
 
@@ -165,9 +166,8 @@ export function News({ items }: { items: NewsItem[] }) {
       </ul>
 
       {/* View More */}
-      <Link
+      <IntentLink
         href="/discover/partners"
-        prefetch={false}
         style={{
           display:                 "inline-flex",
           alignItems:              "center",
@@ -186,7 +186,7 @@ export function News({ items }: { items: NewsItem[] }) {
       >
         View More
         <span aria-hidden="true">→</span>
-      </Link>
+      </IntentLink>
     </section>
   );
 }

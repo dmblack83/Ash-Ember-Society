@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { keyFor } from "@/lib/data/keys";
@@ -196,10 +197,12 @@ function GridCard({ item }: { item: HumidorItem }) {
   const displayName = c.series ?? c.format;
 
   return (
-    // prefetch={false} — humidor grids can contain 50+ cards. Auto-prefetch
+    // IntentLink — humidor grids can contain 50+ cards. Auto-prefetch
     // would fire an RSC fetch for every visible card on render, burning
-    // edge requests + bandwidth on items the user may never tap.
-    <Link href={`/humidor/${item.id}`} prefetch={false} className="block">
+    // edge requests + bandwidth on items the user may never tap. Intent-
+    // based prefetch (hover / first touch) gives a route-transition head
+    // start on the cards the user actually engages with.
+    <IntentLink href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive relative flex flex-col gap-2 h-full p-0 overflow-hidden">
         {/* Quantity badge */}
         {item.quantity > 1 && (
@@ -249,7 +252,7 @@ function GridCard({ item }: { item: HumidorItem }) {
           </div>
         </div>
       </div>
-    </Link>
+    </IntentLink>
   );
 }
 
@@ -263,7 +266,7 @@ function ListRow({ item }: { item: HumidorItem }) {
   const displayName = c.series ?? c.format;
 
   return (
-    <Link href={`/humidor/${item.id}`} prefetch={false} className="block">
+    <IntentLink href={`/humidor/${item.id}`} className="block">
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
@@ -332,7 +335,7 @@ function ListRow({ item }: { item: HumidorItem }) {
           />
         </svg>
       </div>
-    </Link>
+    </IntentLink>
   );
 }
 

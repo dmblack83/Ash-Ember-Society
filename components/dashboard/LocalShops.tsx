@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { IntentLink } from "@/components/ui/IntentLink";
 
 /* ------------------------------------------------------------------
    LocalShops
@@ -29,9 +30,8 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
 
 export function LocalShops({ shopCount }: Props) {
   return (
-    <Link
+    <IntentLink
       href="/discover/shops"
-      prefetch={false}
       style={{
         display:        "flex",
         alignItems:     "center",
@@ -99,6 +99,6 @@ export function LocalShops({ shopCount }: Props) {
       >
         ›
       </span>
-    </Link>
+    </IntentLink>
   );
 }

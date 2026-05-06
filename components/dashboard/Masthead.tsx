@@ -14,6 +14,7 @@
    ------------------------------------------------------------------ */
 
 import Link from "next/link";
+import { IntentLink } from "@/components/ui/IntentLink";
 
 interface Props {
   displayName: string;
@@ -67,9 +68,8 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
 
       {/* Optional admin link, top-right */}
       {isAdmin && (
-        <Link
+        <IntentLink
           href="/admin"
-          prefetch={false}
           style={{
             position:      "absolute",
             top:           4,
@@ -83,7 +83,7 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
           }}
         >
           Admin →
-        </Link>
+        </IntentLink>
       )}
 
       <h1
