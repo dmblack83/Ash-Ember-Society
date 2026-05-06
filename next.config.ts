@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   /*
@@ -115,4 +116,31 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+/* ------------------------------------------------------------------
+   Sentry — production error tracking + source map upload.
+
+   withSentryConfig adds a webpack plugin that uploads source maps
+   to Sentry at build time. Requires SENTRY_AUTH_TOKEN, SENTRY_ORG,
+   SENTRY_PROJECT in the build env. Without those, the plugin
+   silently skips upload — runtime error capture still works, but
+   Sentry shows minified stack traces.
+
+   tunnelRoute proxies Sentry events through our own domain so ad
+   blockers don't drop them. Adds one route (/monitoring) that
+   forwards to ingest.sentry.io. The path is excluded from proxy.ts
+   matcher so it doesn't trigger auth checks.
+
+   widenClientFileUpload includes more chunks in source map upload
+   (default scope misses some App Router chunks).
+
+   silent suppresses build-time logging except in CI.
+   ------------------------------------------------------------------ */
+export default withSentryConfig(nextConfig, {
+  org:                    process.env.SENTRY_ORG,
+  project:                process.env.SENTRY_PROJECT,
+  authToken:              process.env.SENTRY_AUTH_TOKEN,
+  silent:                 !process.env.CI,
+  widenClientFileUpload:  true,
+  tunnelRoute:            "/monitoring",
+  disableLogger:          true,
+});

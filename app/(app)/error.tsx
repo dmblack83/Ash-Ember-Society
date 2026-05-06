@@ -11,6 +11,7 @@
    group (auth, marketing).
    ------------------------------------------------------------------ */
 
+import * as Sentry from "@sentry/nextjs";
 import { useEffect } from "react";
 import Link from "next/link";
 
@@ -22,6 +23,7 @@ export default function AppError({
   reset: () => void;
 }) {
   useEffect(() => {
+    Sentry.captureException(error);
     console.error("(app) error boundary caught:", error);
   }, [error]);
 

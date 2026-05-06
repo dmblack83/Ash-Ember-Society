@@ -193,7 +193,12 @@ export const config = {
      * Run on all paths except Next.js internals and static assets.
      * _next/data routes are intentionally NOT excluded — they carry RSC
      * payloads and must be protected the same way their page routes are.
+     *
+     * `monitoring` is the Sentry tunnel route (configured in next.config.ts
+     * via `tunnelRoute`). It proxies Sentry SDK events through our origin
+     * to bypass ad blockers; must NOT be auth-gated or it breaks error
+     * reporting for the very requests that need it most.
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|manifest\\.json|sw\\.js|workbox-.*\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|manifest\\.json|sw\\.js|workbox-.*\\.js|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
