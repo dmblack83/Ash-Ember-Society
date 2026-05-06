@@ -33,6 +33,13 @@ export function ResumeHandler() {
     const supabase = createClient();
 
     function onResume() {
+      /* Skip when offline. Both supabase.auth.refreshSession() and
+         router.refresh() will fail without a network — running them
+         only buys a doomed request and a console error. The next
+         visibilitychange / pageshow when the user reconnects will
+         re-fire onResume naturally. */
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+
       const now = Date.now();
       if (now - lastResume < MIN_INTERVAL_MS) return;
       lastResume = now;

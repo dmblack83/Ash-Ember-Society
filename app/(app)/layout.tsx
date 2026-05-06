@@ -199,7 +199,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           shrinks correctly when the software keyboard opens. */}
       <ScrollReset />
       <ResumeHandler />
-      <main className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
+      <main id="main-content" className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
       <BottomNav />
