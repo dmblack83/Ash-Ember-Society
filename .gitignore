@@ -49,3 +49,11 @@ next-env.d.ts
 /public/sw.js.map
 /public/swe-worker-*.js
 /public/swe-worker-*.js.map
+
+# playwright e2e tests — runtime artifacts only; specs live under
+# tests/e2e/ and ARE committed.
+/test-results
+/playwright-report
+/playwright/.auth
+/blob-report
+/playwright/.cache
