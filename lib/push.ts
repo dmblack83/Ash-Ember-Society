@@ -64,6 +64,49 @@ export interface SendResult {
   skipped?: boolean;
 }
 
+/* ------------------------------------------------------------------
+   Analytics — per-user-per-attempt log row.
+
+   Best-effort: a logging failure must NEVER break a delivery flow.
+   Wrapped in try/catch with a console.warn fallback. See the schema
+   comment in supabase/migrations/20260506_push_send_log.sql for
+   field semantics + privacy considerations (body is NOT logged).
+
+   Exported so /api/cron/push-retry can call it with source="retry"
+   after each row processes.
+   ------------------------------------------------------------------ */
+export interface PushSendLogParams {
+  userId:    string;
+  category:  NotificationCategory;
+  result:    "sent" | "failed" | "skipped" | "no_subs" | "dead";
+  payload:   PushPayload;
+  counts?:   { sent: number; failed: number; pruned: number };
+  source?:   "direct" | "retry";
+  error?:    string | null;
+}
+
+export async function logPushSend(
+  supabase: ReturnType<typeof createServiceClient>,
+  params:   PushSendLogParams,
+): Promise<void> {
+  try {
+    await supabase.from("push_send_log").insert({
+      user_id:      params.userId,
+      category:     params.category,
+      result:       params.result,
+      sent_count:   params.counts?.sent   ?? 0,
+      failed_count: params.counts?.failed ?? 0,
+      pruned_count: params.counts?.pruned ?? 0,
+      title:        params.payload.title?.slice(0, 200) ?? null,
+      url:          params.payload.url?.slice(0, 500)   ?? null,
+      source:       params.source ?? "direct",
+      error:        params.error  ?? null,
+    });
+  } catch (err) {
+    console.warn(`[push-log] insert failed for ${params.userId}:`, (err as Error).message);
+  }
+}
+
 /* Module-level VAPID config. We re-set on every cold start because
    webpush.setVapidDetails() throws if any value is missing — letting
    each call see the latest env (useful for env rotation between
@@ -122,6 +165,7 @@ export async function sendPushToUser(
     profile?.notification_preferences as Record<string, unknown> | null,
     category,
   )) {
+    await logPushSend(supabase, { userId, category, result: "skipped", payload });
     return { sent: 0, failed: 0, pruned: 0, skipped: true };
   }
 
@@ -134,6 +178,7 @@ export async function sendPushToUser(
     throw new Error(`push_subscriptions fetch failed: ${error.message}`);
   }
   if (!subs || subs.length === 0) {
+    await logPushSend(supabase, { userId, category, result: "no_subs", payload });
     return { sent: 0, failed: 0, pruned: 0 };
   }
 
@@ -180,6 +225,14 @@ export async function sendPushToUser(
       .update({ last_used_at: new Date().toISOString() })
       .in("id", liveIds);
   }
+
+  await logPushSend(supabase, {
+    userId,
+    category,
+    result: liveIds.length > 0 ? "sent" : "failed",
+    payload,
+    counts: { sent: liveIds.length, failed, pruned: deadIds.length },
+  });
 
   return { sent: liveIds.length, failed, pruned: deadIds.length };
 }
