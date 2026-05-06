@@ -1103,6 +1103,20 @@ function isMobilePWA(): boolean {
   );
 }
 
+/* True when the user is on iOS in a regular Safari tab (not a PWA
+   home-screen install). iOS doesn't have a system "install" prompt;
+   the user has to do Share → Add to Home Screen manually. The hint
+   below the toggle uses this to surface those steps when relevant. */
+function isIOSBrowser(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent ?? "";
+  if (!/iPhone|iPad|iPod/i.test(ua)) return false;
+  const isStandalone =
+    window.matchMedia("(display-mode: standalone)").matches ||
+    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+  return !isStandalone;
+}
+
 interface NotificationsSectionProps {
   onToast: (msg: string) => void;
 }
@@ -1111,8 +1125,12 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
   const [state,   setState]   = useState<PushState>("loading");
   const [busy,    setBusy]    = useState(false);
   const [testing, setTesting] = useState(false);
+  const [iosTab,  setIosTab]  = useState(false);
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => {
+    setIosTab(isIOSBrowser());
+    void refresh();
+  }, []);
 
   async function refresh() {
     /* Gate before anything else: desktop or mobile-tab → static
@@ -1214,6 +1232,32 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
           </div>
           <ToggleSwitch on={isOn} disabled={isDisabled} onChange={handleToggle} />
         </div>
+
+        {/* iOS install-to-enable hint — iOS Safari doesn't have a
+            system install prompt, so users on a regular tab won't
+            know what "install to your home screen" actually means.
+            Spell it out only when we're sure: needs-mobile-pwa AND
+            iOS browser tab. */}
+        {state === "needs-mobile-pwa" && iosTab && (
+          <div
+            style={{
+              padding:    "14px 20px 16px",
+              borderTop:  "1px solid var(--border)",
+              fontSize:   12,
+              lineHeight: 1.5,
+              color:      "var(--muted-foreground)",
+            }}
+          >
+            <p style={{ margin: "0 0 8px", fontWeight: 500, color: "var(--foreground)" }}>
+              Install to enable
+            </p>
+            <ol style={{ margin: 0, paddingLeft: 18 }}>
+              <li>Tap the Share icon at the bottom of Safari.</li>
+              <li>Scroll and choose <em>Add to Home Screen</em>.</li>
+              <li>Open Ash &amp; Ember from the home-screen icon and return here.</li>
+            </ol>
+          </div>
+        )}
 
         {/* Test-notification row — only shown when push is on. Lets
             the user verify the entire pipeline ends-to-end without
