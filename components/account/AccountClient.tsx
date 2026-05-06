@@ -274,7 +274,6 @@ function BottomSheet({
   useEffect(() => {
     const t = setTimeout(checkScroll, 60);
     return () => clearTimeout(t);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [children]);
 
   const caretBase: React.CSSProperties = {

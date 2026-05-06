@@ -13,7 +13,6 @@
    - Optional ADMIN link top-right (only shown when isAdmin = true).
    ------------------------------------------------------------------ */
 
-import Link from "next/link";
 import { IntentLink } from "@/components/ui/IntentLink";
 
 interface Props {

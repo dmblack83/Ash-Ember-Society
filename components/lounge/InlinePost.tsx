@@ -8,7 +8,6 @@ import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
 import { resolveBadge }                        from "@/lib/badge";
-import { VerdictCard }                         from "@/components/humidor/VerdictCard";
 import { BurnReportPreviewCard }               from "@/components/humidor/BurnReportPreviewCard";
 import { BurnReportModal }                     from "@/components/humidor/BurnReportModal";
 import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";

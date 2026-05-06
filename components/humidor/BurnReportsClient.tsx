@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
-import { VerdictCard } from "@/components/humidor/VerdictCard";
 import { BurnReportPreviewCard } from "@/components/humidor/BurnReportPreviewCard";
 import { BurnReportModal } from "@/components/humidor/BurnReportModal";
 import { PhotoLightbox } from "@/components/ui/PhotoLightbox";

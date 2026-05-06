@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { IntentLink } from "@/components/ui/IntentLink";
 import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";

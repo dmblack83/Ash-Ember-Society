@@ -9,7 +9,6 @@ import type confetti from "canvas-confetti";
  */
 export function SuccessConfetti() {
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let confetti: ((opts?: confetti.Options) => void) | null = null;
 
     import("canvas-confetti").then((mod) => {

@@ -68,11 +68,10 @@ export function ColdOpenSmoke() {
     <>
       <div className="cold-smoke-overlay" aria-hidden="true">
         <div className="cold-smoke-logo">
-          {/* eslint-disable-next-line @next/next/no-img-element -- the
-              cold-open overlay paints in the synchronous head script
-              before React hydrates, so it must be a plain <img> with
-              an inline-resolvable src. The next/image runtime hasn't
-              loaded yet at this point. */}
+          {/* The cold-open overlay paints in the synchronous head
+              script before React hydrates, so it must be a plain
+              <img> with an inline-resolvable src. The next/image
+              runtime hasn't loaded yet at this point. */}
           <img
             src="/Circle%20Logo.png"
             alt=""

@@ -179,7 +179,6 @@ function CigarTagPopover({
         placeholder="Cigar name"
         className="input w-full text-sm"
         style={{ minHeight: 44 }}
-        // eslint-disable-next-line jsx-a11y/no-autofocus
         autoFocus
       />
       <input
