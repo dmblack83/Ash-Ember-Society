@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
 import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
+import { OutboxManager } from "@/components/system/OutboxManager";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -203,6 +204,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ResumeHandler />
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
+      <OutboxManager />
       <main id="main-content" className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
         {children}
       </main>
