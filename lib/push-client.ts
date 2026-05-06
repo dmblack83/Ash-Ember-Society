@@ -136,6 +136,50 @@ export async function subscribe(): Promise<SubscribeResult> {
   return { ok: true };
 }
 
+/* Re-sync the current PushSubscription to the server.
+
+   Why this exists: PushSubscription endpoints can rotate silently
+   (browser security event, OS update). The client subscribes once
+   at opt-in via subscribe() above and never re-checks. If the
+   browser rotates, the server's stored endpoint goes stale —
+   sendNotification fails with 404/410, the server prunes the row,
+   and the client still believes it's subscribed. User receives
+   nothing until they manually toggle off and on.
+
+   syncSubscription() restores the server's record by re-POSTing
+   the CURRENT endpoint. /api/push/subscribe is UPSERT on
+   (user_id, endpoint), so this is a no-op when the endpoint
+   hasn't changed and a one-line fix when it has.
+
+   Idempotent. Best-effort — errors are swallowed because this is
+   background hygiene, not a user-facing action. Returns true when
+   the sync was attempted (user is opted-in on a supported
+   browser), false when there's nothing to sync. */
+export async function syncSubscription(): Promise<boolean> {
+  if (!isPushSupported())                     return false;
+  if (Notification.permission !== "granted")  return false;
+
+  try {
+    const reg          = await navigator.serviceWorker.ready;
+    const subscription = await reg.pushManager.getSubscription();
+    if (!subscription) return false;
+
+    const json = subscription.toJSON();
+    await fetch("/api/push/subscribe", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint:  json.endpoint,
+        keys:      json.keys,
+        userAgent: navigator.userAgent,
+      }),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /* Inverse of subscribe(): remove the local subscription AND the
    server row. Idempotent. */
 export async function unsubscribe(): Promise<SubscribeResult> {
