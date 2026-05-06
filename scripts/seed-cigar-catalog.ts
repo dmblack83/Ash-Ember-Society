@@ -44,8 +44,25 @@ if (raw.startsWith("```json")) raw = raw.slice(7);
 if (raw.endsWith("```"))       raw = raw.slice(0, -3);
 raw = raw.trim();
 
-const data = JSON.parse(raw);
-const cigars = data.payload as any[];
+/* Shape of records in the upstream dump (cigars_clean.json). Only
+   the fields we read are typed; the dump has many more we ignore. */
+interface RawCigar {
+  id:        number | string;
+  format?:   string | null;
+  ringGauge?: number | null;
+  length?:    number | null;
+  approved?:  boolean;
+  series?: {
+    name?:    string | null;
+    brand?:   { name?: string | null };
+    wrappers?: { name?: string | null; country?: string | null }[];
+    binders?:  { name?: string | null; country?: string | null }[];
+    fillers?:  { name?: string | null; country?: string | null }[];
+  };
+}
+
+const data   = JSON.parse(raw) as { payload: RawCigar[] };
+const cigars = data.payload;
 
 /* ------------------------------------------------------------------
    Transform
@@ -64,7 +81,7 @@ function countryList(arr: { country?: string | null }[]): string[] {
   return [...new Set(arr.map((x) => x.country).filter(Boolean))] as string[];
 }
 
-const rows = cigars.map((c: any) => {
+const rows = cigars.map((c) => {
   const brand  = c.series?.brand?.name   ?? null;
   const series = c.series?.name          ?? null;
   const format = c.format?.trim()        ?? null;

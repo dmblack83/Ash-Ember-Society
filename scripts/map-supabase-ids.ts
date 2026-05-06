@@ -58,14 +58,17 @@ async function run() {
   // 2. Load cleaned JSON
   let raw = readFileSync(JSON_PATH, 'utf-8').trim()
   if (raw.startsWith('```')) raw = raw.split('\n').slice(1).join('\n').replace(/```\s*$/, '').trim()
-  const cigars = JSON.parse(raw)
+  /* Input shape from `scripts/data/cigars_clean.json`. Only the join-key
+     fields are typed; the rest passes through via spread. */
+  interface InputCigar { brand: string | null; series: string | null; name: string | null; [k: string]: unknown }
+  const cigars = JSON.parse(raw) as InputCigar[]
 
   console.log(`Loaded ${cigars.length} cigars from JSON.`)
 
   let matched = 0
   let unmatched = 0
 
-  const output = cigars.map((c: any) => {
+  const output = cigars.map((c) => {
     const key = `${normalize(c.brand)}|${normalize(c.series)}|${normalize(c.name)}`
     const uuid = lookup.get(key) ?? null
 
@@ -83,7 +86,7 @@ async function run() {
 
   if (unmatched > 0) {
     console.log(`\nFirst 10 unmatched:`)
-    output.filter((c: any) => !c.id).slice(0, 10).forEach((c: any) => {
+    output.filter((c) => !c.id).slice(0, 10).forEach((c) => {
       console.log(`  "${c.brand}" | "${c.series}" | "${c.name}"`)
     })
   }
