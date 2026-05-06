@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { GoogleMap, useJsApiLoader, MarkerF }                 from "@react-google-maps/api";
 import Link                                                    from "next/link";
+import { IntentLink }                                          from "@/components/ui/IntentLink";
 import { createClient }                                        from "@/utils/supabase/client";
 import type { Shop }                                           from "@/app/(app)/discover/shops/page";
 import type { MembershipTier }                                 from "@/lib/stripe";
@@ -250,14 +251,13 @@ function ShopCard({ shop, userLoc, index, onSelect, selected }: ShopCardProps) {
       </button>
 
       <div className="px-4 pb-3">
-        <Link
+        <IntentLink
           href={`/discover/shops/${shop.slug}`}
-          prefetch={false}
           className="btn btn-secondary w-full text-xs py-2 text-center"
           style={{ minHeight: 44 }}
         >
           View Details
-        </Link>
+        </IntentLink>
       </div>
     </div>
   );
