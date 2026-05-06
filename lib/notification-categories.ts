@@ -26,6 +26,17 @@ export const NOTIFICATION_CATEGORIES = {
     label:       "Cigar aging alerts",
     description: "Notify me when a cigar in my humidor reaches its aging target date.",
   },
+  /* On-demand test notifications triggered by the user from /account
+     (/api/push/test). Marked `internal: true` so the future per-
+     category preference UI hides this from the toggle list — users
+     don't think of "tests" as a notification category they'd want
+     to opt out of, and the endpoint is rate-limited anyway. */
+  test: {
+    id:          "test",
+    label:       "Test notifications",
+    description: "On-demand test notifications you trigger yourself from the account page.",
+    internal:    true,
+  },
 } as const;
 
 export type NotificationCategory = keyof typeof NOTIFICATION_CATEGORIES;
