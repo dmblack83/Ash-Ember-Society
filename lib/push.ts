@@ -35,6 +35,7 @@
 
 import webpush from "web-push";
 import { createServiceClient } from "@/utils/supabase/service";
+import { isCategoryEnabled, type NotificationCategory } from "@/lib/notification-categories";
 
 export interface PushPayload {
   /** Notification title — required by the SW handler. */
@@ -57,6 +58,10 @@ export interface SendResult {
   failed: number;
   /** Number of dead subscriptions pruned (404/410). */
   pruned: number;
+  /** True when the user opted out of this category — no sends were
+      attempted. Distinguishes "user said no" from "user has no
+      subscriptions" (both look like sent: 0 otherwise). */
+  skipped?: boolean;
 }
 
 /* Module-level VAPID config. We re-set on every cold start because
@@ -82,14 +87,44 @@ function ensureVapidConfigured(): void {
 /* Send one notification to all of `userId`'s registered devices.
    Errors per-subscription don't abort the whole batch — each is
    handled independently so one dead endpoint doesn't break delivery
-   to the other browsers/devices the user has the app open in. */
+   to the other browsers/devices the user has the app open in.
+
+   `category` gates delivery against the user's per-category opt-out
+   in profiles.notification_preferences. Categories are catalogued
+   in lib/notification-categories.ts; default (missing key) is
+   ENABLED so existing users who haven't seen the new prefs UI keep
+   getting notifications. */
 export async function sendPushToUser(
-  userId:  string,
-  payload: PushPayload,
+  userId:   string,
+  payload:  PushPayload,
+  category: NotificationCategory,
 ): Promise<SendResult> {
   ensureVapidConfigured();
 
   const supabase = createServiceClient();
+
+  /* Gate on the user's category preference BEFORE pulling
+     subscriptions — saves the round-trip on opted-out users. */
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("notification_preferences")
+    .eq("id", userId)
+    .single();
+
+  if (profileError) {
+    /* Profile lookup failed — log and proceed (favor delivering over
+       silently dropping; the notification_preferences column has a
+       NOT NULL DEFAULT '{}' so this should never happen unless the
+       row is missing entirely, in which case the user's broader auth
+       state is also broken). */
+    console.warn(`[push] notification_preferences lookup failed for ${userId}:`, profileError.message);
+  } else if (!isCategoryEnabled(
+    profile?.notification_preferences as Record<string, unknown> | null,
+    category,
+  )) {
+    return { sent: 0, failed: 0, pruned: 0, skipped: true };
+  }
+
   const { data: subs, error } = await supabase
     .from("push_subscriptions")
     .select("id, endpoint, p256dh, auth")
