@@ -23,6 +23,11 @@ Sentry.init({
      stuff (passwords, auth tokens) before storage. */
   sendDefaultPii: true,
 
+  /* Sentry Logs product — console.* and structured log calls become
+     queryable events. Pairs with the structured logging wrapper
+     landing in the next PR. */
+  enableLogs: true,
+
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
 
   release:     process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA,

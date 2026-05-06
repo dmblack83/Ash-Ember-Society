@@ -13,6 +13,21 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
 
+  /* Send IP, request headers, etc. on captured events. Helps debugging;
+     Sentry's default scrubbers strip the obvious secrets (passwords,
+     auth tokens) before storage. */
+  sendDefaultPii: true,
+
+  /* Attach local variable values to stack frames. Massively easier
+     debugging — you see the actual values that triggered the throw,
+     not just the variable names. Server-side only (Edge can't). */
+  includeLocalVariables: true,
+
+  /* Sentry Logs product: console.* and structured log calls become
+     queryable events in the dashboard. Pairs with the structured
+     logging wrapper landing in the next PR. */
+  enableLogs: true,
+
   /* 10% transaction sampling in production. Generous enough to spot
      trends without burning the free-tier quota; tighten if needed. */
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,

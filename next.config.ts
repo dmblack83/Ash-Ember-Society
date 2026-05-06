@@ -126,8 +126,9 @@ const nextConfig: NextConfig = {
    Sentry shows minified stack traces.
 
    tunnelRoute proxies Sentry events through our own domain so ad
-   blockers don't drop them. Adds one route (/sentry-tunnel) that
-   forwards to ingest.sentry.io.
+   blockers don't drop them. Adds one route (/monitoring) that
+   forwards to ingest.sentry.io. The path is excluded from proxy.ts
+   matcher so it doesn't trigger auth checks.
 
    widenClientFileUpload includes more chunks in source map upload
    (default scope misses some App Router chunks).
@@ -140,6 +141,6 @@ export default withSentryConfig(nextConfig, {
   authToken:              process.env.SENTRY_AUTH_TOKEN,
   silent:                 !process.env.CI,
   widenClientFileUpload:  true,
-  tunnelRoute:            "/sentry-tunnel",
+  tunnelRoute:            "/monitoring",
   disableLogger:          true,
 });
