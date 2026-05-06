@@ -55,6 +55,31 @@ export async function POST(req: NextRequest) {
   /* ── Service-role Supabase client (bypasses RLS) ───────────── */
   const supabase = createServiceClient();
 
+  /* ── Idempotency: INSERT-first dedup by Stripe event_id ────────
+     Stripe retries failed webhooks aggressively (5 attempts up to
+     3 days). Without dedup, a slow handler that times out and
+     retries could double-process. INSERT-first prevents that — see
+     supabase/migrations/20260506_stripe_processed_events.sql for
+     the full failure-mode rationale. Handler branches are all
+     idempotent UPDATEs on profiles, so this is defense-in-depth. */
+  const { error: dedupError } = await supabase
+    .from("stripe_processed_events")
+    .insert({ event_id: event.id });
+
+  if (dedupError) {
+    /* 23505 = Postgres unique_violation. PostgREST surfaces it on
+       the error object's `code` field. */
+    if (dedupError.code === "23505") {
+      console.log(`[webhook] event ${event.id} already processed, skipping`);
+      return NextResponse.json({ received: true, deduplicated: true });
+    }
+    /* Any other DB error (connection, schema mismatch) — bail
+       without processing. Returning 500 makes Stripe retry; we'd
+       rather retry than process without claim. */
+    console.error("[webhook] dedup INSERT failed:", dedupError);
+    return NextResponse.json({ error: "Dedup check failed" }, { status: 500 });
+  }
+
   /* ── Handle events ─────────────────────────────────────────── */
   try {
     switch (event.type) {
@@ -186,8 +211,21 @@ export async function POST(req: NextRequest) {
     }
   } catch (err) {
     console.error("[webhook] Handler error:", err);
+    /* Don't update processed_at — leaves it NULL so the row is a
+       diagnostic signal for "claimed but not finished." Stripe
+       retries will still hit the dedup row and skip; for that to
+       be safe, every handler branch must be idempotent (currently
+       true — all UPDATEs on profiles). */
     return NextResponse.json({ error: "Handler failed" }, { status: 500 });
   }
+
+  /* Mark processed. Best-effort — if this fails, the row stays
+     with processed_at = NULL but the work is done; Stripe retries
+     will still skip via the dedup row. */
+  await supabase
+    .from("stripe_processed_events")
+    .update({ processed_at: new Date().toISOString() })
+    .eq("event_id", event.id);
 
   // Always return 200 so Stripe knows we received the event
   return NextResponse.json({ received: true });
