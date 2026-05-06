@@ -1,5 +1,88 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { createHash } from "node:crypto";
+
+import { COLD_SMOKE_INIT_SCRIPT }      from "./components/cold-open-smoke/cold-smoke-init";
+import { STALE_CHUNK_RECOVERY_SCRIPT } from "./components/system/stale-chunk-recovery";
+import { HYDRATION_WATCHDOG_SCRIPT }   from "./components/system/hydration-watchdog";
+
+/* ------------------------------------------------------------------
+   CSP — script hash computation.
+
+   Each inline <script> in app/layout.tsx must be hashed for the CSP
+   `script-src` directive. Hash is over the EXACT script body (no
+   wrapping <script> tags). If the script content changes, the hash
+   updates automatically because we import the same constants the
+   layout uses.
+   ------------------------------------------------------------------ */
+function sha256Hash(content: string): string {
+  return `'sha256-${createHash("sha256").update(content, "utf8").digest("base64")}'`;
+}
+
+const SCRIPT_HASHES = [
+  sha256Hash(STALE_CHUNK_RECOVERY_SCRIPT),
+  sha256Hash(COLD_SMOKE_INIT_SCRIPT),
+  sha256Hash(HYDRATION_WATCHDOG_SCRIPT),
+].join(" ");
+
+/* ------------------------------------------------------------------
+   Content Security Policy directives.
+
+   Shipped initially as Content-Security-Policy-Report-Only — Sentry
+   sees violations via the browser's automatic error reporting (and
+   manual securitypolicyviolation listener planned as a follow-up).
+   After ~7 days of clean reports, switch the header name to
+   `Content-Security-Policy` for enforcement.
+
+   Directive choices:
+   - script-src: hash-pinned for the 3 inline scripts; no unsafe-eval
+     or unsafe-inline. Strictest part of the policy — XSS protection
+     lives here.
+   - style-src 'unsafe-inline': Tailwind v4 + React inline style props
+     ship CSS we can't hash. Acceptable tradeoff; CSS injection is
+     much lower-impact than script injection.
+   - connect-src: every backend the app talks to. If a violation
+     fires here, add the origin to this list.
+   - frame-src: Stripe payment iframes + Google Maps embed.
+   - frame-ancestors 'none': clickjacking protection.
+   ------------------------------------------------------------------ */
+const CSP = [
+  "default-src 'self'",
+  `script-src 'self' ${SCRIPT_HASHES}`,
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+  "img-src 'self' data: blob: https://*.supabase.co https://i.ytimg.com https://images.unsplash.com https://media.istockphoto.com",
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://*.ingest.sentry.io https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+  "frame-src https://js.stripe.com https://*.stripe.com https://*.google.com",
+  "worker-src 'self' blob:",
+  "manifest-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+  "upgrade-insecure-requests",
+].join("; ");
+
+/* Security headers that apply to every response, regardless of CSP. */
+const SECURITY_HEADERS = [
+  /* CSP in Report-Only mode for the initial rollout. Switch to
+     "Content-Security-Policy" once Sentry confirms clean. */
+  { key: "Content-Security-Policy-Report-Only", value: CSP },
+  /* Two-year HSTS with subdomains and preload eligibility. Caller
+     can submit to https://hstspreload.org once the domain is stable. */
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+  /* Disable MIME-type sniffing on responses. */
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  /* Legacy clickjacking protection. frame-ancestors in CSP is the
+     modern equivalent — keep both for older browsers. */
+  { key: "X-Frame-Options", value: "DENY" },
+  /* Send referrer cross-origin only as the bare origin (no path /
+     query). Same-origin sends full URL — useful for analytics. */
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  /* Disable surface API access we don't use; allow the ones we do.
+     camera=(self) for cigar band scanner; geolocation=(self) for
+     shop finder. microphone explicitly denied. */
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
+];
 
 const nextConfig: NextConfig = {
   /*
@@ -111,6 +194,13 @@ const nextConfig: NextConfig = {
         // browser actually sends it.
         source: "/Cigar%20Default%20Images/:path*",
         headers: [{ key: "Cache-Control", value: monthCache }],
+      },
+      {
+        /* Security headers — applied to every response. The CSP
+           directive only enforces on HTML responses; browsers ignore
+           it on non-HTML, but no harm in serving it everywhere. */
+        source:  "/:path*",
+        headers: SECURITY_HEADERS,
       },
     ];
   },
