@@ -1,7 +1,7 @@
-import { createClient }  from "@/utils/supabase/server";
-import { getServerUser } from "@/lib/auth/server-user";
-import { getFlavorTags } from "@/lib/data/flavor-tags";
-import { StatsClient }   from "@/components/humidor/StatsClient";
+import { createClient }     from "@/utils/supabase/server";
+import { getServerUser }    from "@/lib/auth/server-user";
+import { getFlavorTags }    from "@/lib/data/flavor-tags";
+import { StatsClientLazy }  from "@/components/humidor/StatsClientLazy";
 import type {
   StatsClientData,
   MonthlyBar,
@@ -220,5 +220,5 @@ export default async function StatsPage() {
     topBrands:     buildTopBrands(logs, brandsByCigar),
   };
 
-  return <StatsClient data={statsData} />;
+  return <StatsClientLazy data={statsData} />;
 }
