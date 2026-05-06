@@ -7,7 +7,10 @@
     "build": "next build && serwist build serwist.config.mjs",
     "start": "next start",
     "lint": "eslint",
-    "analyze": "next experimental-analyze --output"
+    "analyze": "next experimental-analyze --output",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug"
   },
   "dependencies": {
     "@google-cloud/vision": "^5.3.5",
@@ -39,6 +42,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "@serwist/cli": "^9.5.11",
     "@serwist/next": "^9.5.11",
     "@tailwindcss/postcss": "^4",
