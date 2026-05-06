@@ -162,6 +162,50 @@ export async function clearMutationsExceptUser(currentUserId: string): Promise<n
   }
 }
 
+/** Convenience wrapper: enqueue a JSON fetch mutation and request
+    a background sync in one call. Used by call sites that catch a
+    failed fetch and want to retry it in the background.
+
+    Returns the queued record id (or null if IDB is unavailable or
+    the user isn't authed at queue time). */
+export async function enqueueFetchMutation(args: {
+  url:      string;
+  method:   "POST" | "PUT" | "PATCH" | "DELETE";
+  body:     unknown;
+  category: string;
+  userId:   string;
+}): Promise<string | null> {
+  const id = await enqueueMutation({
+    user_id:     args.userId,
+    category:    args.category,
+    url:         args.url,
+    method:      args.method,
+    headers:     { "Content-Type": "application/json" },
+    body:        JSON.stringify(args.body),
+    contentType: "application/json",
+  });
+  if (id) {
+    /* Best-effort. Browsers without SyncManager rely on the
+       OutboxManager's online-event fallback for replay. */
+    void requestBackgroundSync();
+  }
+  return id;
+}
+
+/** Heuristic: true when an error from fetch() is most likely caused
+    by being offline rather than by an HTTP error response. Both
+    `navigator.onLine === false` and the canonical TypeError fired
+    by fetch on network failure are treated as offline. */
+export function isLikelyOfflineError(err: unknown): boolean {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return true;
+  if (err instanceof TypeError) {
+    const msg = err.message?.toLowerCase() ?? "";
+    if (msg.includes("fetch")  || msg.includes("network") ||
+        msg.includes("offline")) return true;
+  }
+  return false;
+}
+
 /** Register a BackgroundSync tag with the service worker. Triggers
     the SW's sync event when connectivity returns (Chromium / Firefox).
     On Safari and other browsers without SyncManager, returns false —
