@@ -26,29 +26,36 @@
      the banner sits below the status bar in standalone mode.
    ------------------------------------------------------------------ */
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
+
+/* `useSyncExternalStore` is the React-idiomatic way to subscribe to
+   browser APIs that sit outside the component tree. Replaces the old
+   `useState + useEffect` pattern that triggered the React Compiler's
+   set-state-in-effect warning. SSR returns false (we can't know);
+   hydration immediately reads the real navigator.onLine. */
+function subscribeOnline(callback: () => void): () => void {
+  window.addEventListener("online",  callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online",  callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+function getOfflineSnapshot(): boolean {
+  return !navigator.onLine;
+}
+
+function getOfflineServerSnapshot(): boolean {
+  return false;
+}
 
 export function OfflineBanner() {
-  /* Initial value is `false` for SSR safety — useEffect updates to
-     the real navigator.onLine state on hydration. Brief one-frame
-     flicker on cold load if user is offline; acceptable v1. */
-  const [isOffline, setIsOffline] = useState(false);
-
-  useEffect(() => {
-    if (typeof navigator !== "undefined") {
-      setIsOffline(!navigator.onLine);
-    }
-
-    const onOnline  = () => setIsOffline(false);
-    const onOffline = () => setIsOffline(true);
-
-    window.addEventListener("online",  onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      window.removeEventListener("online",  onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
-  }, []);
+  const isOffline = useSyncExternalStore(
+    subscribeOnline,
+    getOfflineSnapshot,
+    getOfflineServerSnapshot,
+  );
 
   if (!isOffline) return null;
 
