@@ -160,9 +160,10 @@ async function main() {
 
         success++;
         process.stdout.write(`  ✓  ${cigar.brand} ${cigar.series}\n`);
-      } catch (err: any) {
+      } catch (err) {
         failed++;
-        process.stdout.write(`  ✗  ${cigar.brand} ${cigar.series}: ${err.message}\n`);
+        const message = err instanceof Error ? err.message : String(err);
+        process.stdout.write(`  ✗  ${cigar.brand} ${cigar.series}: ${message}\n`);
       }
     }));
 
