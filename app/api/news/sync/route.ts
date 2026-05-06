@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { revalidateTag }              from "next/cache";
-import { XMLParser }                  from "fast-xml-parser";
-import { createServiceClient }        from "@/utils/supabase/service";
-import { NEWS_FEEDS, type NewsFeed }  from "@/lib/news-feeds";
+import { NextRequest, NextResponse }   from "next/server";
+import { revalidateTag }                from "next/cache";
+import { XMLParser }                    from "fast-xml-parser";
+import { createServiceClient }          from "@/utils/supabase/service";
+import { NEWS_FEEDS, type NewsFeed }    from "@/lib/news-feeds";
+import { startCronRun, finishCronRun }  from "@/lib/cron-log";
 
 // Node.js runtime — Edge runtime had quiet issues with revalidateTag()
 // in this codebase, leaving stale data in the home page cache after
@@ -216,6 +217,8 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const run = await startCronRun("news-sync");
+  try {
   const supabase = createServiceClient();
 
   const perFeed: { slug: string; fetched: number; upserted: number; error?: string }[] = [];
@@ -259,7 +262,12 @@ async function handle(req: NextRequest) {
 
   console.log("[news-sync] complete", { totalUpserted, perFeed });
 
+  await finishCronRun(run, { ok: true, summary: { totalUpserted, perFeed } });
   return NextResponse.json({ ok: true, totalUpserted, perFeed });
+  } catch (err) {
+    await finishCronRun(run, { ok: false, error: (err as Error).message?.slice(0, 500) ?? "unknown error" });
+    throw err;
+  }
 }
 
 export const GET  = handle;

@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient }       from "@/utils/supabase/service";
+import { NextRequest, NextResponse }   from "next/server";
+import { createServiceClient }          from "@/utils/supabase/service";
+import { startCronRun, finishCronRun }  from "@/lib/cron-log";
 
 // Node.js runtime — consistency with the news sync route, and avoids
 // the quiet failures we saw with Edge + service-client work.
@@ -194,6 +195,8 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const run = await startCronRun("youtube-sync");
+  try {
   const supabase = createServiceClient();
   const url      = new URL(req.url);
   const handle   = url.searchParams.get("handle");
@@ -209,6 +212,7 @@ async function handler(req: NextRequest) {
 
     const ch = data.items?.[0];
     if (!ch) {
+      await finishCronRun(run, { ok: false, error: `No YouTube channel found for handle: ${handle}` });
       return NextResponse.json({ error: `No YouTube channel found for handle: ${handle}` }, { status: 404 });
     }
 
@@ -236,6 +240,7 @@ async function handler(req: NextRequest) {
       .single();
 
     if (error || !row) {
+      await finishCronRun(run, { ok: false, error: `Failed to upsert channel: ${error?.message ?? "no row"}`.slice(0, 500) });
       return NextResponse.json({ error: "Failed to upsert channel", details: error }, { status: 500 });
     }
 
@@ -248,6 +253,7 @@ async function handler(req: NextRequest) {
       .eq("is_active", true);
 
     if (error) {
+      await finishCronRun(run, { ok: false, error: `Failed to load channels: ${error.message}`.slice(0, 500) });
       return NextResponse.json({ error: "Failed to load channels", details: error }, { status: 500 });
     }
     channelRows = data ?? [];
@@ -264,5 +270,10 @@ async function handler(req: NextRequest) {
 
   console.log("[youtube-sync] complete", { channels: channelRows.length, videos: totalVideos });
 
+  await finishCronRun(run, { ok: true, summary: { channels: channelRows.length, videos: totalVideos } });
   return NextResponse.json({ synced: channelRows.length, videos: totalVideos });
+  } catch (err) {
+    await finishCronRun(run, { ok: false, error: (err as Error).message?.slice(0, 500) ?? "unknown error" });
+    throw err;
+  }
 }

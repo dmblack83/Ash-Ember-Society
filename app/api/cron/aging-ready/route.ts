@@ -41,9 +41,10 @@
    is not Edge-compatible.
    ------------------------------------------------------------------ */
 
-import { NextRequest, NextResponse } from "next/server";
-import { createServiceClient } from "@/utils/supabase/service";
-import { sendPushToUser } from "@/lib/push";
+import { NextRequest, NextResponse }            from "next/server";
+import { createServiceClient }                   from "@/utils/supabase/service";
+import { sendPushToUser }                        from "@/lib/push";
+import { startCronRun, finishCronRun }           from "@/lib/cron-log";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,8 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const run = await startCronRun("aging-ready");
+  try {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD UTC
 
   const supabase = createServiceClient();
@@ -103,6 +106,7 @@ async function handle(req: NextRequest) {
 
   if (error) {
     console.error("[aging-ready] query failed:", error.message);
+    await finishCronRun(run, { ok: false, error: `query failed: ${error.message}`.slice(0, 500) });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -160,15 +164,20 @@ async function handle(req: NextRequest) {
     }),
   );
 
-  return NextResponse.json({
-    ok:            true,
-    date:          today,
-    matched:       rows?.length ?? 0,
-    usersNotified,
-    sent:          totalSent,
-    failed:        totalFailed,
-    pruned:        totalPruned,
-  });
+    const summary = {
+      date:          today,
+      matched:       rows?.length ?? 0,
+      usersNotified,
+      sent:          totalSent,
+      failed:        totalFailed,
+      pruned:        totalPruned,
+    };
+    await finishCronRun(run, { ok: true, summary });
+    return NextResponse.json({ ok: true, ...summary });
+  } catch (err) {
+    await finishCronRun(run, { ok: false, error: (err as Error).message?.slice(0, 500) ?? "unknown error" });
+    throw err;
+  }
 }
 
 function cigarLabel(row: HumidorRow): string {
