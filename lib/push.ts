@@ -226,6 +226,29 @@ export async function sendPushToUser(
       .in("id", liveIds);
   }
 
+  /* Transient failures (5xx, network, unknown): enqueue for retry.
+     /api/cron/push-retry will re-attempt with progressive backoff
+     per supabase/migrations/20260506_push_outbox.sql. 404/410 are
+     deliberately NOT queued — those subscriptions are gone. */
+  if (failed > 0) {
+    const { error: enqueueError } = await supabase
+      .from("push_outbox")
+      .insert({
+        user_id:  userId,
+        category: category,
+        payload:  payload as unknown as Record<string, unknown>,
+      });
+    if (enqueueError) {
+      console.warn(
+        `[push] failed to enqueue outbox row for ${userId}:`,
+        enqueueError.message,
+      );
+    }
+  }
+
+  /* Analytics: log the attempt outcome. Direct path; if a queued
+     retry later succeeds, the retry cron writes its own row with
+     source="retry". */
   await logPushSend(supabase, {
     userId,
     category,
