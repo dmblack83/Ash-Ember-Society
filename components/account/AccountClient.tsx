@@ -1108,8 +1108,9 @@ interface NotificationsSectionProps {
 }
 
 function NotificationsSection({ onToast }: NotificationsSectionProps) {
-  const [state, setState] = useState<PushState>("loading");
-  const [busy,  setBusy]  = useState(false);
+  const [state,   setState]   = useState<PushState>("loading");
+  const [busy,    setBusy]    = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => { void refresh(); }, []);
 
@@ -1141,6 +1142,37 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
     }
     await refresh();
     setBusy(false);
+  }
+
+  /* Send a test notification — verifies the full pipeline (subscription
+     in DB, web-push delivery, SW receive handler, OS surfacing) without
+     waiting 24h for a real aging-ready trigger. Server is rate-limited
+     to 5/hr/user via /api/push/test. */
+  async function handleTest() {
+    if (testing) return;
+    setTesting(true);
+    try {
+      const res  = await fetch("/api/push/test", { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        if (data.skipped) {
+          onToast("Test was skipped (you're opted out of the test category).");
+        } else if (data.sent > 0) {
+          onToast("Test sent — check your notifications.");
+        } else if (data.failed > 0) {
+          onToast("Test failed to deliver to any device.");
+        } else {
+          onToast("Test sent (no active subscriptions on this device).");
+        }
+      } else if (res.status === 429) {
+        onToast("Too many test pushes. Try again in an hour.");
+      } else {
+        onToast(data.error ?? "Test failed.");
+      }
+    } catch {
+      onToast("Test failed — network error.");
+    }
+    setTesting(false);
   }
 
   /* Visual subtitle for the row — explains what the toggle does in
@@ -1182,6 +1214,44 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
           </div>
           <ToggleSwitch on={isOn} disabled={isDisabled} onChange={handleToggle} />
         </div>
+
+        {/* Test-notification row — only shown when push is on. Lets
+            the user verify the entire pipeline ends-to-end without
+            waiting for a real aging trigger. */}
+        {isOn && (
+          <div style={{
+            display:                 "flex",
+            alignItems:              "center",
+            justifyContent:          "space-between",
+            padding:                 "14px 20px",
+            borderTop:               "1px solid var(--border)",
+            minHeight:               48,
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+          }}>
+            <div style={{ minWidth: 0, flex: 1, marginRight: 12 }}>
+              <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
+                Send yourself a test to verify it's working.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleTest}
+              disabled={testing}
+              className="btn btn-ghost"
+              style={{
+                fontSize:      12,
+                fontWeight:    500,
+                letterSpacing: "0.04em",
+                opacity:       testing ? 0.6 : 1,
+                minHeight:     32,
+                padding:       "6px 14px",
+              }}
+            >
+              {testing ? "Sending…" : "Send test"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
