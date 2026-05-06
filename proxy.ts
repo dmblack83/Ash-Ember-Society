@@ -11,7 +11,6 @@ const PUBLIC_PATHS = [
   "/offline",       // SW navigation fallback; must be reachable without a session
   "/auth/callback",
   "/manifest.webmanifest",
-  "/manifest.json",
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
 ];
@@ -199,6 +198,6 @@ export const config = {
      * to bypass ad blockers; must NOT be auth-gated or it breaks error
      * reporting for the very requests that need it most.
      */
-    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|manifest\\.json|sw\\.js|workbox-.*\\.js|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|workbox-.*\\.js|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
