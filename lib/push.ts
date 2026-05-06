@@ -107,25 +107,45 @@ export async function logPushSend(
   }
 }
 
-/* Module-level VAPID config. We re-set on every cold start because
-   webpush.setVapidDetails() throws if any value is missing — letting
-   each call see the latest env (useful for env rotation between
-   deploys without a code change). */
-let vapidConfigured = false;
-function ensureVapidConfigured(): void {
-  if (vapidConfigured) return;
-  const publicKey  = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject    = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) {
-    throw new Error(
-      "VAPID env vars missing — set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, " +
-      "VAPID_SUBJECT in Vercel project settings.",
-    );
-  }
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidConfigured = true;
+/* Module-load VAPID validation.
+
+   Was: lazy `ensureVapidConfigured()` called inside sendPushToUser.
+   Problem: when env was missing, the daily cron iterated 100 users
+   and threw 100 identical "VAPID missing" errors — one per user.
+
+   Now: env is checked once at module load, webpush configured once,
+   and `isVapidConfigured()` exposes the result so callers (the cron
+   handler in particular) can short-circuit with a single error
+   instead of N. */
+const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT     = process.env.VAPID_SUBJECT;
+
+const VAPID_OK = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT);
+
+if (VAPID_OK) {
+  webpush.setVapidDetails(VAPID_SUBJECT!, VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
+} else {
+  /* Fire ONCE at module load. Distinct from per-call errors. */
+  console.error(
+    "[push] VAPID env vars missing at module load. " +
+    "Set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT in Vercel. " +
+    "sendPushToUser() will throw until these are configured.",
+  );
 }
+
+/** Exposed for callers (e.g., cron handlers) that want to short-
+    circuit cleanly when push isn't configured rather than letting
+    sendPushToUser throw N times. */
+export function isVapidConfigured(): boolean {
+  return VAPID_OK;
+}
+
+/* Web Push payload size budget. Real protocol limit is ~4KB
+   encrypted; encryption adds overhead, so 3500 is a safe ceiling
+   for the raw JSON. Larger payloads get a diagnostic warning;
+   web-push will reject them at send time anyway. */
+const PUSH_PAYLOAD_MAX_BYTES = 3500;
 
 /* Send one notification to all of `userId`'s registered devices.
    Errors per-subscription don't abort the whole batch — each is
@@ -142,7 +162,9 @@ export async function sendPushToUser(
   payload:  PushPayload,
   category: NotificationCategory,
 ): Promise<SendResult> {
-  ensureVapidConfigured();
+  if (!VAPID_OK) {
+    throw new Error("VAPID env vars missing — see startup log for details.");
+  }
 
   const supabase = createServiceClient();
 
@@ -183,6 +205,16 @@ export async function sendPushToUser(
   }
 
   const json = JSON.stringify(payload);
+  if (json.length > PUSH_PAYLOAD_MAX_BYTES) {
+    /* Diagnostic warning — web-push will reject at send time with a
+       PayloadTooLargeError. Surfacing the size here makes it easy to
+       see in logs which payload was at fault before letting the
+       per-subscription error path play out. */
+    console.warn(
+      `[push] payload size ${json.length}B exceeds recommended ${PUSH_PAYLOAD_MAX_BYTES}B for category=${category} userId=${userId}. ` +
+      "Trim payload.body or use a shorter notification.",
+    );
+  }
   const deadIds: string[] = [];
   const liveIds: string[] = [];
   let failed = 0;

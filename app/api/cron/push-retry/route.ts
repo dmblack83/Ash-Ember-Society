@@ -63,17 +63,21 @@ function isAuthorized(req: NextRequest): boolean {
   return false;
 }
 
-let vapidConfigured = false;
-function ensureVapidConfigured(): void {
-  if (vapidConfigured) return;
-  const publicKey  = process.env.VAPID_PUBLIC_KEY;
-  const privateKey = process.env.VAPID_PRIVATE_KEY;
-  const subject    = process.env.VAPID_SUBJECT;
-  if (!publicKey || !privateKey || !subject) {
-    throw new Error("VAPID env vars missing — set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.");
-  }
-  webpush.setVapidDetails(subject, publicKey, privateKey);
-  vapidConfigured = true;
+/* Module-load VAPID validation. Mirrors lib/push.ts — same env vars,
+   same one-time setup. webpush.setVapidDetails is idempotent so it
+   doesn't matter that lib/push.ts also calls it. */
+const VAPID_PUBLIC_KEY  = process.env.VAPID_PUBLIC_KEY;
+const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+const VAPID_SUBJECT     = process.env.VAPID_SUBJECT;
+const VAPID_OK = !!(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_SUBJECT);
+
+if (VAPID_OK) {
+  webpush.setVapidDetails(VAPID_SUBJECT!, VAPID_PUBLIC_KEY!, VAPID_PRIVATE_KEY!);
+} else {
+  console.error(
+    "[push-retry] VAPID env vars missing at module load. " +
+    "The retry cron will return 500 until these are configured.",
+  );
 }
 
 interface OutboxRow {
@@ -211,10 +215,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  try {
-    ensureVapidConfigured();
-  } catch (err) {
-    console.error("[push-retry]", (err as Error).message);
+  if (!VAPID_OK) {
     return NextResponse.json({ error: "VAPID not configured" }, { status: 500 });
   }
 

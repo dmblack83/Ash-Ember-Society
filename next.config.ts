@@ -232,5 +232,15 @@ export default withSentryConfig(nextConfig, {
   silent:                 !process.env.CI,
   widenClientFileUpload:  true,
   tunnelRoute:            "/monitoring",
-  disableLogger:          true,
+  /* Tree-shake Sentry's debug logger out of production bundles.
+     Replaces the deprecated `disableLogger: true` per the SDK's
+     migration guidance. webpack-only — Turbopack ignores this option
+     today, so the actual bundle effect is conditional on bundler
+     choice. Listed here for forward compatibility and to silence the
+     `disableLogger is deprecated` build warning. */
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
 });
