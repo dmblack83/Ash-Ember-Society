@@ -726,3 +726,10 @@ html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
   20%  { opacity: 0.22; }
   100% { opacity: 0;    transform: translateY(-105vh) translateX(10px) scale(4.8); }
 }
+
+/* BottomNav: translucent-gold fill on the lounge bubble + home roof
+   when the parent <Link> is active. Path geometry stays the same;
+   only the first <path> in each marked icon gets the accent fill. */
+[data-active] .bottom-nav-fill-on-active > path:first-of-type {
+  fill: rgba(212, 160, 74, 0.12);
+}
