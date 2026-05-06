@@ -34,6 +34,7 @@ import {
   isCategoryEnabled,
   type NotificationCategory,
 } from "@/lib/notification-categories";
+import { logPushSend, type PushPayload } from "@/lib/push";
 
 export const runtime = "nodejs";
 
@@ -109,14 +110,27 @@ async function processRow(
     .eq("id", row.user_id)
     .single();
 
+  /* The outbox row stores payload as Record<string,unknown>; logPushSend
+     reads only title and url (both string|undefined), so the cast is
+     safe for analytics. */
+  const payloadForLog = row.payload as unknown as PushPayload;
+  const category      = row.category as NotificationCategory;
+
   if (!isCategoryEnabled(
     profile?.notification_preferences as Record<string, unknown> | null,
-    row.category as NotificationCategory,
+    category,
   )) {
     await supabase
       .from("push_outbox")
       .update({ status: "sent", last_attempt_at: now, last_error: "category opted out post-enqueue" })
       .eq("id", row.id);
+    await logPushSend(supabase, {
+      userId:   row.user_id,
+      category,
+      result:   "skipped",
+      payload:  payloadForLog,
+      source:   "retry",
+    });
     return "sent";
   }
 
@@ -136,14 +150,22 @@ async function processRow(
         last_error:       "no active subscriptions",
       })
       .eq("id", row.id);
+    await logPushSend(supabase, {
+      userId:   row.user_id,
+      category,
+      result:   "no_subs",
+      payload:  payloadForLog,
+      source:   "retry",
+    });
     return "dead";
   }
 
-  /* 3. Send to each subscription independently. */
-  const json     = JSON.stringify(row.payload);
+  /* 3. Send to each subscription independently. Track counts (not
+        booleans) so the analytics log captures granular outcomes. */
+  const json   = JSON.stringify(row.payload);
   const deadIds: string[] = [];
-  let anySucceeded = false;
-  let anyFailed    = false;
+  let sentCount   = 0;
+  let failedCount = 0;
   let lastError: string | null = null;
 
   await Promise.all((subs as Subscription[]).map(async (sub) => {
@@ -152,13 +174,13 @@ async function processRow(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         json,
       );
-      anySucceeded = true;
+      sentCount += 1;
     } catch (err) {
       const status = (err as { statusCode?: number }).statusCode;
       if (status === 404 || status === 410) {
         deadIds.push(sub.id);
       } else {
-        anyFailed = true;
+        failedCount += 1;
         lastError = (err as Error).message?.slice(0, 200) ?? "unknown error";
       }
     }
@@ -169,18 +191,28 @@ async function processRow(
     await supabase.from("push_subscriptions").delete().in("id", deadIds);
   }
 
+  const counts = { sent: sentCount, failed: failedCount, pruned: deadIds.length };
+
   /* 5. Update the outbox row based on the outcome. */
   const newAttempts = row.attempts + 1;
 
-  if (anySucceeded) {
+  if (sentCount > 0) {
     await supabase
       .from("push_outbox")
       .update({ status: "sent", attempts: newAttempts, last_attempt_at: now, last_error: null })
       .eq("id", row.id);
+    await logPushSend(supabase, {
+      userId:   row.user_id,
+      category,
+      result:   "sent",
+      payload:  payloadForLog,
+      counts,
+      source:   "retry",
+    });
     return "sent";
   }
 
-  if (anyFailed && newAttempts < MAX_ATTEMPTS) {
+  if (failedCount > 0 && newAttempts < MAX_ATTEMPTS) {
     /* Schedule another retry. backoff index = current attempt count
        (0-indexed: after 1st retry use BACKOFF_MINUTES[0], etc.). */
     const backoffIdx  = newAttempts - 1;
@@ -194,6 +226,15 @@ async function processRow(
         last_error:      lastError,
       })
       .eq("id", row.id);
+    await logPushSend(supabase, {
+      userId:   row.user_id,
+      category,
+      result:   "failed",
+      payload:  payloadForLog,
+      counts,
+      source:   "retry",
+      error:    lastError,
+    });
     return "retried";
   }
 
@@ -207,6 +248,15 @@ async function processRow(
       last_error:      lastError ?? "all subscriptions pruned",
     })
     .eq("id", row.id);
+  await logPushSend(supabase, {
+    userId:   row.user_id,
+    category,
+    result:   "dead",
+    payload:  payloadForLog,
+    counts,
+    source:   "retry",
+    error:    lastError ?? "all subscriptions pruned",
+  });
   return "dead";
 }
 
