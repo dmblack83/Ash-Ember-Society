@@ -1,5 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
+
+/* Supabase API + Storage origin for resource-hint preconnect.
+   Read at module load — process.env.NEXT_PUBLIC_SUPABASE_URL is
+   inlined into the bundle by Next at build time. URL parse is safe
+   because the env var is required for the app to function. */
+const SUPABASE_ORIGIN = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin
+  : null;
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
@@ -75,6 +83,16 @@ export default function RootLayout({
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        {/* Resource hints — preconnect to origins used on every
+            authenticated request. Each saves the DNS+TCP+TLS handshake
+            (~100–300ms on cold mobile) when the actual fetch fires.
+            crossOrigin="anonymous" matches the CORS mode of Supabase
+            REST/Auth fetches. ytimg is dns-prefetch only (less critical;
+            images on Discover Channels and burn-report linked videos). */}
+        {SUPABASE_ORIGIN && (
+          <link rel="preconnect" href={SUPABASE_ORIGIN} crossOrigin="anonymous" />
+        )}
+        <link rel="dns-prefetch" href="https://i.ytimg.com" />
         {/*
          * Inline brand-background style — emitted in <head> so the
          * parser applies it BEFORE external CSS loads. Without this,
