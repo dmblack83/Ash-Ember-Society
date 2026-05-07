@@ -34,6 +34,53 @@ Sentry.init({
   environment: process.env.NEXT_PUBLIC_VERCEL_ENV ?? process.env.NODE_ENV,
 });
 
+/* ------------------------------------------------------------------
+   CSP violation reporter
+
+   Browsers fire `securitypolicyviolation` events on the Document
+   whenever a directive (script-src, connect-src, img-src, etc.)
+   blocks a resource. Without this listener those events go
+   nowhere — the CSP header alone is silent.
+
+   Sentry doesn't auto-instrument CSP violations. Hook them in
+   manually as a structured message so they show up alongside other
+   issues in the dashboard. Tagged for easy filtering.
+
+   Sample rate: 100% in production. Violations are rare-by-design
+   (the policy is allowlist-based) so volume should be low; if a
+   storm hits, we want to see it immediately rather than sample it
+   away. Bump to 0.1 if it ever floods.
+   ------------------------------------------------------------------ */
+if (typeof window !== "undefined") {
+  document.addEventListener("securitypolicyviolation", (event) => {
+    /* Defensive: ignore violations from extensions or devtools that
+       don't carry a real `effectiveDirective`. */
+    if (!event.effectiveDirective && !event.violatedDirective) return;
+
+    Sentry.captureMessage(
+      `CSP violation: ${event.effectiveDirective || event.violatedDirective}`,
+      {
+        level: "warning",
+        tags: {
+          type:               "csp",
+          effective_directive: event.effectiveDirective || "unknown",
+          disposition:         event.disposition || "enforce",
+        },
+        extra: {
+          blockedURI:         event.blockedURI,
+          violatedDirective:  event.violatedDirective,
+          originalPolicy:     event.originalPolicy?.slice(0, 500),
+          documentURI:        event.documentURI,
+          sourceFile:         event.sourceFile,
+          lineNumber:         event.lineNumber,
+          columnNumber:       event.columnNumber,
+          sample:             event.sample?.slice(0, 200),
+        },
+      },
+    );
+  });
+}
+
 /* Wires up Next.js App Router transitions to Sentry's tracing — lets
    page-to-page navigations show up as discrete spans in the traces UI.
    Imported by name in app/layout.tsx is NOT required; Next 16 looks
