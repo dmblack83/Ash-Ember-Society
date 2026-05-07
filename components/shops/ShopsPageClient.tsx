@@ -9,6 +9,7 @@ import type { Shop }                                           from "@/app/(app)
 import type { MembershipTier }                                 from "@/lib/stripe";
 import { distanceMiles, formatDistance }                       from "@/lib/geo";
 import type { LatLng }                                         from "@/lib/geo";
+import { useEscapeKey }                                        from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Module-level SWR cache for shops — shared across navigations.
@@ -274,6 +275,10 @@ interface PinSheetProps {
 }
 
 function PinSheet({ shop, userLoc, onClose }: PinSheetProps) {
+  /* Always mounted, visibility driven by `shop` — bind Escape to the
+     same condition so the listener only fires when the sheet is up. */
+  useEscapeKey(shop !== null, onClose);
+
   const dist = shop && userLoc
     ? formatDistance(distanceMiles(userLoc, { lat: shop.lat, lng: shop.lng }))
     : null;

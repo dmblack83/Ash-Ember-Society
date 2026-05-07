@@ -12,6 +12,7 @@ import { AvatarFrame }                         from "@/components/ui/AvatarFrame
 import { resolveBadge }                        from "@/lib/badge";
 import { VerdictCard }                         from "@/components/humidor/VerdictCard";
 import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";
+import { useEscapeKey }                        from "@/lib/hooks/use-escape-key";
 import { keyFor }                              from "@/lib/data/keys";
 import { fetchPostComments }                   from "@/lib/data/lounge-fetchers";
 
@@ -537,6 +538,9 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [showDeletePost,  setShowDeletePost]  = useState(false);
   const [deletingPost,    setDeletingPost]    = useState(false);
   const [mounted,         setMounted]         = useState(false);
+
+  /* Escape-key dismissal for the delete-post confirmation. */
+  useEscapeKey(showDeletePost, () => setShowDeletePost(false));
 
   /* Inline post-image lightbox via the shared PhotoLightbox so
      close UX (centred [Close] button) matches every other photo

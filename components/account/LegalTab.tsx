@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Simple markdown renderer — handles #/## headings and paragraphs.
@@ -51,6 +52,10 @@ interface ModalProps {
 }
 
 function LegalModal({ title, content, onClose }: ModalProps) {
+  /* Mounted only when open (parent unmounts to close), so the
+     listener attaches for the modal's full lifetime. */
+  useEscapeKey(true, onClose);
+
   return (
     <>
       {/* Backdrop */}
