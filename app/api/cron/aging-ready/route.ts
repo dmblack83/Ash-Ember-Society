@@ -92,7 +92,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const run = await startCronRun("aging-ready");
+  const run = await startCronRun("aging-ready", "0 13 * * *");
   try {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD UTC
 
