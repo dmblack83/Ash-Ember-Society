@@ -217,7 +217,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const run = await startCronRun("news-sync");
+  const run = await startCronRun("news-sync", "0 */3 * * *");
   try {
   const supabase = createServiceClient();
 

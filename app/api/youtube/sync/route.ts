@@ -195,7 +195,7 @@ async function handler(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const run = await startCronRun("youtube-sync");
+  const run = await startCronRun("youtube-sync", "0 */3 * * *");
   try {
   const supabase = createServiceClient();
   const url      = new URL(req.url);

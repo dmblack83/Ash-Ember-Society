@@ -270,7 +270,7 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ error: "VAPID not configured" }, { status: 500 });
   }
 
-  const run = await startCronRun("push-retry");
+  const run = await startCronRun("push-retry", "0 * * * *");
   try {
   const supabase = createServiceClient();
   const now      = new Date().toISOString();
