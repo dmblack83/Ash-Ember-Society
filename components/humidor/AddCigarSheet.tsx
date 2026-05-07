@@ -5,13 +5,21 @@ import { createClient }      from "@/utils/supabase/client";
 import { CatalogResult, Highlight } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 import { useEscapeKey }      from "@/lib/hooks/use-escape-key";
+import {
+  SHADES,
+  WRAPPERS,
+  WRAPPER_COUNTRIES,
+  FORMATS,
+  LENGTHS,
+  RING_GAUGES,
+} from "@/lib/cigar-taxonomy";
 
 /* ------------------------------------------------------------------
    Constants
    ------------------------------------------------------------------ */
 
 const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
 /* ------------------------------------------------------------------
    Types
@@ -25,6 +33,7 @@ interface ManualFields {
   lengthInches:   string;
   wrapper:        string;
   wrapperCountry: string;
+  shade:          string;
 }
 
 export interface AddCigarSheetProps {
@@ -70,7 +79,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
   const [manual,          setManual]          = useState<ManualFields>({
-    brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "",
+    brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "", shade: "",
   });
   const [submitToCatalog, setSubmitToCatalog] = useState(true);
 
@@ -162,7 +171,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   useEffect(() => {
     if (!open) return;
     setSelected(null); setIsManual(false); setQuery("");
-    setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "" });
+    setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "", shade: "" });
     setSubmitToCatalog(true);
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
@@ -198,6 +207,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     const format         = isManual ? manual.format.trim()         : (selected?.format          ?? "");
     const wrapper        = isManual ? manual.wrapper.trim()        : (selected?.wrapper         ?? null);
     const wrapperCountry = isManual ? manual.wrapperCountry.trim() : (selected?.wrapper_country ?? null);
+    const shade          = isManual ? manual.shade.trim()          : (selected?.shade           ?? null);
     const ringGauge      = isManual ? (parseFloat(manual.ringGauge)    || null) : (selected?.ring_gauge    ?? null);
     const lengthInches   = isManual ? (parseFloat(manual.lengthInches) || null) : (selected?.length_inches ?? null);
 
@@ -222,6 +232,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           p_length_inches:   lengthInches,
           p_wrapper:         wrapper         || null,
           p_wrapper_country: wrapperCountry  || null,
+          p_shade:           shade           || null,
         });
         if (rpcErr || !data) {
           setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
@@ -267,6 +278,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           length_inches:   lengthInches,
           wrapper:         wrapper         || null,
           wrapper_country: wrapperCountry  || null,
+          shade:           shade           || null,
         });
       }
 
@@ -574,69 +586,105 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                       </div>
                       <div>
                         <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                          Format / Vitola
+                          Format
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={manual.format}
                           onChange={(e) => setManual((m) => ({ ...m, format: e.target.value }))}
-                          placeholder="e.g. Robusto"
                           className="input w-full text-sm"
                           style={{ minHeight: 48 }}
-                        />
+                        >
+                          <option value="">Choose…</option>
+                          {FORMATS.map((f) => (
+                            <option key={f} value={f}>{f}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                           Ring Gauge
                         </label>
-                        <input
-                          type="number"
+                        <select
                           value={manual.ringGauge}
                           onChange={(e) => setManual((m) => ({ ...m, ringGauge: e.target.value }))}
-                          placeholder="50"
                           className="input w-full text-sm"
                           style={{ minHeight: 48 }}
-                        />
+                        >
+                          <option value="">Choose…</option>
+                          {RING_GAUGES.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
-                          Length (inches)
+                          Length
                         </label>
-                        <input
-                          type="number"
-                          step="0.25"
+                        <select
                           value={manual.lengthInches}
                           onChange={(e) => setManual((m) => ({ ...m, lengthInches: e.target.value }))}
-                          placeholder="5.0"
                           className="input w-full text-sm"
                           style={{ minHeight: 48 }}
-                        />
+                        >
+                          <option value="">Choose…</option>
+                          {LENGTHS.map((l) => (
+                            <option key={l.inches} value={l.inches}>{l.label}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
+                        <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          Shade
+                        </label>
+                        <select
+                          value={manual.shade}
+                          onChange={(e) => setManual((m) => ({ ...m, shade: e.target.value }))}
+                          className="input w-full text-sm"
+                          style={{ minHeight: 48 }}
+                        >
+                          <option value="">Choose…</option>
+                          {SHADES.map((s) => (
+                            <option key={s.name} value={s.name}>
+                              {s.name} — {s.description}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="col-span-2">
                         <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                           Wrapper
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={manual.wrapper}
                           onChange={(e) => setManual((m) => ({ ...m, wrapper: e.target.value }))}
-                          placeholder="e.g. Colorado"
                           className="input w-full text-sm"
                           style={{ minHeight: 48 }}
-                        />
+                        >
+                          <option value="">Choose…</option>
+                          {WRAPPERS.map((w) => (
+                            <option key={w.name} value={w.name}>
+                              {w.name} — {w.description}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                       <div className="col-span-2">
                         <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
                           Wrapper Country
                         </label>
-                        <input
-                          type="text"
+                        <select
                           value={manual.wrapperCountry}
                           onChange={(e) => setManual((m) => ({ ...m, wrapperCountry: e.target.value }))}
-                          placeholder="e.g. Dominican Republic"
                           className="input w-full text-sm"
                           style={{ minHeight: 48 }}
-                        />
+                        >
+                          <option value="">Choose…</option>
+                          {WRAPPER_COUNTRIES.map((c) => (
+                            <option key={c.name} value={c.name}>
+                              {c.name} — {c.description}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 

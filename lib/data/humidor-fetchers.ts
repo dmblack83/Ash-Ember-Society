@@ -45,7 +45,7 @@ export async function fetchWishlistItems(userId: string): Promise<WishlistItem[]
     .from("humidor_items")
     .select(
       "id, cigar_id, created_at, " +
-      "cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url)"
+      "cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url)"
     )
     .eq("user_id",     userId)
     .eq("is_wishlist", true)

@@ -47,7 +47,7 @@ interface ManualFields {
    ------------------------------------------------------------------ */
 
 const CATALOG_SELECT_WL =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
 function WishlistCaret({ dir }: { dir: "up" | "down" }) {
   return (

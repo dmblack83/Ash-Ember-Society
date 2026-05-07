@@ -60,7 +60,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
   const { data } = await supabase
     .from("cigar_catalog")
     .select(
-      "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url"
+      "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url"
     )
     .or(orFilter)
     .order("usage_count", { ascending: false })

@@ -16,7 +16,7 @@ import { createClient }     from "@/utils/supabase/client";
 import type { CatalogResult } from "@/components/cigar-search";
 
 const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url";
+  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
 export interface CigarPage {
   results: CatalogResult[];
