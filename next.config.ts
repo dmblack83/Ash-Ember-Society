@@ -63,12 +63,15 @@ const CSP = [
 
 /* Security headers that apply to every response, regardless of CSP. */
 const SECURITY_HEADERS = [
-  /* CSP in enforcement mode. Promoted from Content-Security-Policy-
-     Report-Only after the report-only window completed without
-     violations from the 3 hash-pinned inline scripts or the listed
-     connect-src origins. To roll back, change the key back to
-     "Content-Security-Policy-Report-Only". */
-  { key: "Content-Security-Policy", value: CSP },
+  /* CSP back in Report-Only after the brief enforcement window in
+     #326 broke RSC. Next 16 streams the Flight payload as inline
+     <script> tags whose content is generated per-request, so a
+     hash-pinned `script-src 'self' <hashes>` rejects them and the
+     React client surfaces "Connection closed" when the stream
+     stops. The correct enforce-mode policy needs nonce-based
+     script-src or `'strict-dynamic'`; that's a real piece of work,
+     not a header-name flip. Keep Report-Only until that lands. */
+  { key: "Content-Security-Policy-Report-Only", value: CSP },
   /* Two-year HSTS with subdomains and preload eligibility. Caller
      can submit to https://hstspreload.org once the domain is stable. */
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
