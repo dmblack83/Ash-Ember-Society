@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Types
@@ -30,6 +31,9 @@ export function AddToHumidorSheet({
   onClose,
   onSuccess,
 }: AddToHumidorSheetProps) {
+  /* Escape-key dismissal. */
+  useEscapeKey(isOpen, onClose);
+
   const today = new Date().toISOString().split("T")[0];
 
   /* Form state */

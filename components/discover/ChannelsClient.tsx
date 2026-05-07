@@ -6,6 +6,7 @@ import { createClient }        from "@/utils/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
 import { resolveBadge }        from "@/lib/badge";
+import { useEscapeKey }        from "@/lib/hooks/use-escape-key";
 import type { Channel, ChannelVideo } from "@/app/(app)/discover/channels/page";
 
 /* ------------------------------------------------------------------
@@ -257,6 +258,10 @@ function CommentSheet({
   userId:  string;
   onClose: () => void;
 }) {
+  /* Mounted only when the parent is showing the sheet — Escape closes
+     it for keyboard users. */
+  useEscapeKey(true, onClose);
+
   const supabase = createClient();
   const [comments,  setComments]  = useState<Comment[]>([]);
   const [loading,   setLoading]   = useState(true);

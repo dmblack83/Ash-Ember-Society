@@ -12,6 +12,7 @@ import { BurnReportPreviewCard }               from "@/components/humidor/BurnRe
 import { BurnReportModal }                     from "@/components/humidor/BurnReportModal";
 import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";
 import { tapHaptic }                           from "@/lib/haptics";
+import { useEscapeKey }                        from "@/lib/hooks/use-escape-key";
 import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
 
@@ -433,6 +434,11 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
   const [showDeletePost,     setShowDeletePost]     = useState(false);
   const [deletingPost,       setDeletingPost]       = useState(false);
   const [mounted,            setMounted]            = useState(false);
+
+  /* Escape-key dismissal for the inline delete-post confirmation.
+     Tied to showDeletePost so the listener only attaches while the
+     modal is open. */
+  useEscapeKey(showDeletePost, () => setShowDeletePost(false));
 
   /* Image lightbox for inline post images (non-burn-report). Uses
      the shared PhotoLightbox via usePhotoLightbox so close UX +

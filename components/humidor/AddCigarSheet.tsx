@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createClient }      from "@/utils/supabase/client";
 import { CatalogResult, Highlight } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
+import { useEscapeKey }      from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Constants
@@ -54,6 +55,10 @@ function Caret({ dir }: { dir: "up" | "down" }) {
    ------------------------------------------------------------------ */
 
 export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
+
+  /* Escape-key dismissal — keyboard users can close the sheet via
+     Escape. Only attached while open. */
+  useEscapeKey(open, onClose);
 
   /* ── Search state ─────────────────────────────────────────── */
   const [query,     setQuery]     = useState("");

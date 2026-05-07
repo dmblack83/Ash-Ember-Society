@@ -18,6 +18,7 @@ const AddToHumidorSheet = dynamic(
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 import { CigarImage } from "@/components/ui/CigarImage";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Types
@@ -70,6 +71,9 @@ function AddWishlistSheet({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  /* Escape-key dismissal. */
+  useEscapeKey(open, onClose);
+
   /* Search state */
   const [query,     setQuery]     = useState("");
   const [results,   setResults]   = useState<CatalogResult[]>([]);

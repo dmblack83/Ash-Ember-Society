@@ -11,6 +11,7 @@ import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
+import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -82,6 +83,10 @@ function DeleteDialog({
   onCancel: () => void;
   loading: boolean;
 }) {
+  /* Mounted only when open, so the listener attaches for the dialog's
+     full lifetime. */
+  useEscapeKey(true, onCancel);
+
   return (
     <>
       <div
@@ -140,6 +145,9 @@ function EditSheet({
   onClose: () => void;
   onSaved: (updated: Partial<HumidorItemDetail>) => void;
 }) {
+  /* Escape-key dismissal — listener only attached while open. */
+  useEscapeKey(isOpen, onClose);
+
   const today = new Date().toISOString().split("T")[0];
 
   const [purchaseDate, setPurchaseDate] = useState(item.purchase_date ?? "");
@@ -361,6 +369,9 @@ function SmokeModal({
   onClose: () => void;
   onSmoked: (log: SmokeLog) => void;
 }) {
+  /* Escape-key dismissal — listener only attached while open. */
+  useEscapeKey(isOpen, onClose);
+
   const today = new Date().toISOString().split("T")[0];
   const [smokedAt, setSmokedAt] = useState(today);
   const [rating, setRating] = useState<number>(8);

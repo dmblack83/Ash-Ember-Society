@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Toast } from "@/components/ui/toast";
 import { TIER_DISPLAY, PLAN_PRICING } from "@/lib/membership";
 import type { MembershipTier } from "@/lib/stripe";
+import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Feature comparison table
@@ -60,6 +61,10 @@ interface DowngradeModalProps {
 }
 
 function DowngradeModal({ targetTier, currentTier, nextBillingDate, onConfirm, onCancel, loading }: DowngradeModalProps) {
+  /* Mounted only when downgrade is pending — listener attaches for
+     the modal's full lifetime. */
+  useEscapeKey(true, onCancel);
+
   const targetLabel  = targetTier === "free" ? "Free" : "Member";
   const currentLabel = TIER_DISPLAY[currentTier].label;
 

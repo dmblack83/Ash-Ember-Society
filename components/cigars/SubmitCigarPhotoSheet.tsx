@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { createPortal }     from "react-dom";
+import { useEscapeKey }     from "@/lib/hooks/use-escape-key";
 
 interface Props {
   cigarId:   string;
@@ -10,6 +11,10 @@ interface Props {
 }
 
 export function SubmitCigarPhotoSheet({ cigarId, cigarName, onClose }: Props) {
+  /* Mounted only when the parent is showing the sheet — listener
+     attaches for the sheet's full lifetime. */
+  useEscapeKey(true, onClose);
+
   const fileInputRef                 = useRef<HTMLInputElement>(null);
   const [file,       setFile]        = useState<File | null>(null);
   const [preview,    setPreview]     = useState<string | null>(null);
