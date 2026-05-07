@@ -343,7 +343,11 @@ const serwist = new Serwist({
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
             maxEntries:    60,
-            maxAgeSeconds: 60 * 60 * 24, // 1 day
+            /* 7 days. Returning users who skip the app a few days
+               previously hit empty cache + the offline page even
+               for high-traffic routes; SWR means the cached HTML
+               serves instantly and the SW refreshes for next visit. */
+            maxAgeSeconds: 60 * 60 * 24 * 7,
             purgeOnQuotaError: true,
           }),
         ],
