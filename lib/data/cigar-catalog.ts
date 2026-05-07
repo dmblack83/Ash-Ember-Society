@@ -17,6 +17,7 @@ export interface PopularCigar {
   length_inches:   number | null;
   wrapper:         string | null;
   wrapper_country: string | null;
+  shade:           string | null;
   usage_count:     number;
   image_url:       string | null;
 }
@@ -33,7 +34,7 @@ export const getPopularCigars = unstable_cache(
     const supabase = createAnonClient();
     const { data } = await supabase
       .from("cigar_catalog")
-      .select("id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, usage_count, image_url")
+      .select("id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url")
       .order("usage_count", { ascending: false })
       .limit(limit);
     return (data ?? []) as PopularCigar[];
@@ -47,7 +48,7 @@ export const getCigarById = unstable_cache(
     const supabase = createAnonClient();
     const { data } = await supabase
       .from("cigar_catalog")
-      .select("id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, ring_gauge, length_inches, usage_count, community_added, approved, image_url")
+      .select("id, brand, series, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, usage_count, community_added, approved, image_url")
       .eq("id", id)
       .single();
     return (data as CigarDetail | null) ?? null;

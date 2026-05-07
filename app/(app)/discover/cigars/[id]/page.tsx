@@ -7,6 +7,7 @@ import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
+import { lengthLabelForInches } from "@/lib/cigar-taxonomy";
 
 export const runtime = "edge";
 
@@ -21,6 +22,7 @@ interface CigarDetail {
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;
+  shade: string | null;
   binder_country: string | null;
   filler_countries: string[] | null;
   ring_gauge: number | null;
@@ -82,6 +84,7 @@ export default async function CigarDetailPage({
   }
   /* Build details list — omit null/undefined fields */
   const details: { label: string; value: string }[] = [
+    c.shade          ? { label: "Shade",            value: c.shade }                                            : null,
     c.wrapper        ? { label: "Wrapper",          value: wrapperDisplay(c.wrapper) }                           : null,
     c.wrapper_country ? { label: "Wrapper Country",  value: countryName(c.wrapper_country) }                    : null,
     c.binder_country  ? { label: "Binder Country",   value: countryName(c.binder_country) }                     : null,
@@ -91,7 +94,7 @@ export default async function CigarDetailPage({
     c.ring_gauge != null
       ? { label: "Ring Gauge", value: String(c.ring_gauge) }                                                    : null,
     c.length_inches != null
-      ? { label: "Length",     value: `${c.length_inches}"` }                                                   : null,
+      ? { label: "Length",     value: lengthLabelForInches(c.length_inches) ?? `${c.length_inches}"` }          : null,
   ].filter((d): d is { label: string; value: string } => d !== null);
 
   return (
