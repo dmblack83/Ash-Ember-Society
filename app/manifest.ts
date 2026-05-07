@@ -23,6 +23,41 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: "#1A1210",
     theme_color:      "#1A1210",
     orientation:      "portrait",
+    /* Locale + writing direction — surfaces in install dialogs and is
+       used by some app stores (Microsoft Store / Samsung Galaxy Store)
+       to filter listings. */
+    lang:             "en",
+    dir:              "ltr",
+    /* Categories drive store-level discovery / filtering. Pick the
+       two closest fits — cigar enthusiast app sits at lifestyle +
+       social. */
+    categories:       ["lifestyle", "social"],
+    /* Quick-action shortcuts shown on long-press of the home-screen
+       icon (Android) and right-click of the dock icon (Chrome desktop).
+       Three high-frequency entry points that are NOT the start_url. */
+    shortcuts: [
+      {
+        name:        "New Burn Report",
+        short_name:  "Burn Report",
+        description: "Log a smoke from your humidor",
+        url:         "/humidor",
+        icons:       [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+      {
+        name:        "Open Humidor",
+        short_name:  "Humidor",
+        description: "View your collection",
+        url:         "/humidor",
+        icons:       [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+      {
+        name:        "Open Lounge",
+        short_name:  "Lounge",
+        description: "See the community feed",
+        url:         "/lounge",
+        icons:       [{ src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+      },
+    ],
     icons: [
       {
         src:   "/icons/apple-touch-icon.png",
