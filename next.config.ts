@@ -28,11 +28,10 @@ const SCRIPT_HASHES = [
 /* ------------------------------------------------------------------
    Content Security Policy directives.
 
-   Shipped initially as Content-Security-Policy-Report-Only — Sentry
-   sees violations via the browser's automatic error reporting (and
-   manual securitypolicyviolation listener planned as a follow-up).
-   After ~7 days of clean reports, switch the header name to
-   `Content-Security-Policy` for enforcement.
+   Now in enforcement mode (`Content-Security-Policy`). Originally
+   shipped as `Content-Security-Policy-Report-Only` so Sentry could
+   surface violations without breaking pages; the report-only window
+   completed clean and the policy is now enforced.
 
    Directive choices:
    - script-src: hash-pinned for the 3 inline scripts; no unsafe-eval
@@ -64,9 +63,12 @@ const CSP = [
 
 /* Security headers that apply to every response, regardless of CSP. */
 const SECURITY_HEADERS = [
-  /* CSP in Report-Only mode for the initial rollout. Switch to
-     "Content-Security-Policy" once Sentry confirms clean. */
-  { key: "Content-Security-Policy-Report-Only", value: CSP },
+  /* CSP in enforcement mode. Promoted from Content-Security-Policy-
+     Report-Only after the report-only window completed without
+     violations from the 3 hash-pinned inline scripts or the listed
+     connect-src origins. To roll back, change the key back to
+     "Content-Security-Policy-Report-Only". */
+  { key: "Content-Security-Policy", value: CSP },
   /* Two-year HSTS with subdomains and preload eligibility. Caller
      can submit to https://hstspreload.org once the domain is stable. */
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
