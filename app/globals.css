@@ -49,9 +49,18 @@
   --line-soft:   rgba(245,230,211,0.06);
 
   /* Translucent tiers of foreground — for muted/dim text without
-     pulling in a separate gray. */
+     pulling in a separate gray.
+
+     Computed contrast ratios on var(--background) #1A1210:
+       --paper-mute (alpha 0.62) blends to ~#A19589 → 6.5:1 (AAA).
+       --paper-dim  (alpha 0.55) blends to ~#93867B → 5.2:1 (AA).
+     The previous --paper-dim alpha (0.38) blended to ~#6D6360 →
+     3.16:1, which fails WCAG AA for normal text. The eyebrow /
+     meta labels using --paper-dim are typically 9–11px, well below
+     the 18pt large-text threshold, so they need the higher
+     contrast. Visual hierarchy is preserved (mute > dim > foreground). */
   --paper-mute: rgba(245,230,211,0.62);
-  --paper-dim:  rgba(245,230,211,0.38);
+  --paper-dim:  rgba(245,230,211,0.55);
 
   /* Mono stack for eyebrow / meta labels. System fonts only — keeps
      payload zero. */
