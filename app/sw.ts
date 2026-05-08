@@ -35,6 +35,7 @@
 import {
   Serwist,
   CacheFirst,
+  NetworkFirst,
   NetworkOnly,
   StaleWhileRevalidate,
   ExpirationPlugin,
@@ -53,11 +54,10 @@ const OFFLINE_URL = "/offline";
    Auth-aware cache-key plugin
 
    Why: navigation HTML embeds per-user data (greeting, admin link,
-   personalised islands once Phase 1 streams). Caching navigations
-   under just the URL means User A's HTML could be served to User B
-   on a shared device after sign-out / sign-in. Phase 2's original
-   strategy was NetworkFirst — fresh-first, safe, but every visit
-   pays the network round-trip.
+   personalised islands once Phase 1 streams). With NetworkFirst the
+   cache is consulted only as the offline fallback — but a shared
+   device that goes offline must still never serve User A's cached
+   HTML to User B after sign-out / sign-in.
 
    This plugin partitions the cache by auth identity. The cache key
    becomes `${url}#auth=${hash}` where `hash` is a short fingerprint
@@ -316,37 +316,39 @@ const serwist = new Serwist({
       }),
     },
 
-    /* ── Navigation (page) requests: SWR, partitioned by auth hash ──
+    /* ── Navigation (page) requests: NetworkFirst, partitioned ─────
      *
-     * Cache key is `${url}#auth=${hash}` (see authPartitionPlugin
-     * above) so User A's HTML can never be served to User B on a
-     * shared device. Same URL, different auth identity → different
-     * cache entry. Sign-out → "anon" bucket → fresh fetch on next
-     * sign-in.
+     * NetworkFirst (reverted from SWR — see PR #271 / this commit):
+     * always tries network first, falls back to cache only when the
+     * network fetch fails (offline / total network failure). Combined
+     * with `navigationPreload: true` above, the network fetch starts
+     * in parallel with SW boot, so the perceived perf cost vs SWR is
+     * small — and Phase 1's shell + Suspense islands paint quickly
+     * once the fresh HTML arrives.
      *
-     * SWR (vs the previous NetworkFirst): user gets the cached HTML
-     * instantly on repeat visits; the SW fires a background refresh
-     * to update the cache for next time. Phase 1's Suspense islands
-     * mean only the lightweight static shell is cached eagerly —
-     * personalised data still streams via Network-Only RSC paths.
+     * Why not SWR: SWR returned the CACHED HTML first, which after a
+     * deploy embedded chunk URLs (`/_next/static/chunks/...HASH.js`)
+     * that no longer existed on origin → 404 → React never hydrated
+     * → indefinite white screen. The resilience layer (#288 chunk
+     * recovery, #289 watchdog) caught this reactively, but the user
+     * still saw a multi-second hang before auto-reload. NetworkFirst
+     * makes that class of bug impossible: the cache is consulted
+     * only when offline, and stale cached HTML offline is acceptable
+     * because the offline fallback is `/offline` if the cache misses.
      *
-     * maxEntries doubled from 25 → 60 to leave headroom for
-     * per-user partitioning (one user's full nav buffer is ~25
-     * entries; we keep two users' worth).
+     * Cache is still consulted as the offline fallback, so the
+     * authPartitionPlugin stays in place: User A's offline-cached
+     * HTML must never be served to User B on a shared device.
      */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: "navigations",
         plugins: [
           authPartitionPlugin,
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
             maxEntries:    60,
-            /* 7 days. Returning users who skip the app a few days
-               previously hit empty cache + the offline page even
-               for high-traffic routes; SWR means the cached HTML
-               serves instantly and the SW refreshes for next visit. */
             maxAgeSeconds: 60 * 60 * 24 * 7,
             purgeOnQuotaError: true,
           }),
