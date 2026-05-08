@@ -11,6 +11,8 @@ const PUBLIC_PATHS = [
   "/offline",       // SW navigation fallback; must be reachable without a session
   "/auth/callback",
   "/manifest.webmanifest",
+  "/privacy",       // referenced by Google OAuth consent screen + landing footer
+  "/terms",         // referenced by Google OAuth consent screen + landing footer
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
 ];
@@ -157,10 +159,14 @@ export async function proxy(request: NextRequest) {
     }
 
     // ── 3. Authenticated but onboarding incomplete ─────────────────────
+    // /privacy and /terms are exempt so users can read the policies
+    // without being bounced back to onboarding mid-read.
     if (
       !onboardingComplete &&
       pathname !== "/onboarding" &&
-      !pathname.startsWith("/onboarding/")
+      !pathname.startsWith("/onboarding/") &&
+      pathname !== "/privacy" &&
+      pathname !== "/terms"
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
