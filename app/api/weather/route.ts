@@ -15,6 +15,9 @@ export const runtime = "edge";
    Resolution chain:
      1. zip → zippopotam.us → lat/lon
      2. lat/lon → NWS api.weather.gov station observation (primary)
+        — fetches the nearest 5 stations' latest observations in
+        parallel and picks the first viable result (some stations
+        return null temperature/humidity).
      3. lat/lon → Open-Meteo current (fallback if NWS fails or returns
         null fields)
      4. city → Open-Meteo geocoding + current (final fallback)
@@ -118,35 +121,47 @@ async function nwsObservation(lat: number, lon: number): Promise<CurrentReading 
     });
     if (!stationsRes.ok) return null;
     const stationsJson = await stationsRes.json();
-    const stations: Array<{ properties?: { stationIdentifier?: string } }> =
-      stationsJson?.features ?? [];
+    const stationIds: string[] = (stationsJson?.features ?? [])
+      .map((f: { properties?: { stationIdentifier?: string } }) => f?.properties?.stationIdentifier)
+      .filter((id: unknown): id is string => typeof id === "string")
+      .slice(0, 5);
 
-    // Walk the nearest few stations until we find one reporting all fields.
-    // Some stations return null temperature/humidity in their latest record.
-    for (const f of stations.slice(0, 5)) {
-      const id = f?.properties?.stationIdentifier;
-      if (!id) continue;
+    if (stationIds.length === 0) return null;
 
-      const obsRes = await fetch(
-        `https://api.weather.gov/stations/${id}/observations/latest`,
-        { headers: NWS_HEADERS, next: { revalidate: 300 } }
-      );
-      if (!obsRes.ok) continue;
+    /* Fetch the nearest few stations' observations in parallel.
+       Some stations return null temperature/humidity in their latest
+       record; pick the first viable one in nearest-first order. The
+       prior implementation walked sequentially, paying up to 5 round
+       trips on every cache miss (5-min revalidate). Parallelising
+       collapses that to a single round trip. */
+    const readings = await Promise.all(
+      stationIds.map(async (id): Promise<CurrentReading | null> => {
+        try {
+          const obsRes = await fetch(
+            `https://api.weather.gov/stations/${id}/observations/latest`,
+            { headers: NWS_HEADERS, next: { revalidate: 300 } }
+          );
+          if (!obsRes.ok) return null;
 
-      const p = (await obsRes.json())?.properties;
-      const tempC    = p?.temperature?.value;
-      const humidity = p?.relativeHumidity?.value;
-      const windKph  = p?.windSpeed?.value;
-      if (typeof tempC !== "number") continue;
-      if (typeof humidity !== "number") continue;
+          const p = (await obsRes.json())?.properties;
+          const tempC    = p?.temperature?.value;
+          const humidity = p?.relativeHumidity?.value;
+          const windKph  = p?.windSpeed?.value;
+          if (typeof tempC !== "number") return null;
+          if (typeof humidity !== "number") return null;
 
-      return {
-        tempF:    cToF(tempC),
-        humidity,
-        windMph:  typeof windKph === "number" ? kphToMph(windKph) : 0,
-      };
-    }
-    return null;
+          return {
+            tempF:    cToF(tempC),
+            humidity,
+            windMph:  typeof windKph === "number" ? kphToMph(windKph) : 0,
+          };
+        } catch {
+          return null;
+        }
+      })
+    );
+
+    return readings.find((r): r is CurrentReading => r !== null) ?? null;
   } catch {
     return null;
   }
