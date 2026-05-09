@@ -3,9 +3,8 @@
 /* ------------------------------------------------------------------
    Masthead
 
-   Newspaper-style greeting at the top of the home dashboard. Sticks
-   to the top of the viewport while scrolling; backdrop-blur lets the
-   content slide under it cleanly.
+   Newspaper-style greeting at the top of the home dashboard. Scrolls
+   with the page (no sticky/fixed positioning).
 
    - Top hairline gold rule.
    - Time-of-day greeting (Date().getHours()) with italic gold name.
@@ -41,15 +40,10 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
     <header
       className="animate-fade-in"
       style={{
-        position:             "sticky",
-        top:                  0,
-        zIndex:               30,
-        paddingTop:           "calc(env(safe-area-inset-top) + 14px)",
-        paddingBottom:        18,
-        background:           "rgba(26,18,16,0.88)",
-        backdropFilter:       "blur(14px) saturate(140%)",
-        WebkitBackdropFilter: "blur(14px) saturate(140%)",
-        borderBottom:         "1px solid var(--line)",
+        paddingTop:    "calc(env(safe-area-inset-top) + 14px)",
+        paddingBottom: 18,
+        background:    "rgba(26,18,16,0.88)",
+        borderBottom:  "1px solid var(--line)",
       }}
       aria-label="Welcome"
     >
