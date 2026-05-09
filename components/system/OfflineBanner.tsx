@@ -66,7 +66,7 @@ export function OfflineBanner() {
       style={{
         position:        "fixed",
         top:             0,
-        left:            0,
+        left:            "var(--app-content-left)",
         right:           0,
         zIndex:          50,
         backgroundColor: "rgba(61, 46, 35, 0.96)",

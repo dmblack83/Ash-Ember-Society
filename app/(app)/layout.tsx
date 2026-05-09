@@ -139,13 +139,16 @@ function BottomNav() {
    Side rail navigation — visible on desktop (lg+) only.
    Mobile + tablet keep the existing bottom nav.
 
+   Width comes from `--side-rail-width` in globals.css; full-width
+   fixed elements elsewhere in the app respect `--app-content-left`
+   (zero below lg, rail-width above) so they sit to the right of the
+   rail rather than underneath it.
+
    Reuses NAV_ITEMS for source-of-truth parity. Reorders Home to the
    top because a vertical list reads naturally from primary
    destination down; the bottom nav puts Home in the visual centre
    for thumb reach, which doesn't apply on a side rail.
    ------------------------------------------------------------------ */
-
-const RAIL_WIDTH_PX = 240;
 
 function SideRailNav() {
   const pathname = usePathname();
@@ -161,7 +164,7 @@ function SideRailNav() {
     <nav
       className="hidden lg:flex flex-col fixed top-0 bottom-0 left-0 z-40 py-7"
       style={{
-        width:                `${RAIL_WIDTH_PX}px`,
+        width:                "var(--side-rail-width)",
         backgroundColor:      "rgba(26,18,16,0.95)",
         backdropFilter:       "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
@@ -233,8 +236,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OutboxManager />
       <main
         id="main-content"
-        className="flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0 lg:ml-[240px]"
-        style={{ touchAction: "pan-y" }}
+        className="flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0"
+        style={{
+          touchAction: "pan-y",
+          marginLeft:  "var(--app-content-left)",
+        }}
       >
         {children}
       </main>
