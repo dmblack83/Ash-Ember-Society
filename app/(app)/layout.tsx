@@ -68,7 +68,7 @@ const NAV_ITEMS = [
   { href: "/humidor",           label: "Humidor",  center: false, match: (p: string) => p.startsWith("/humidor"),  icon: HUMIDOR_ICON },
   { href: "/lounge",            label: "Lounge",   center: false, match: (p: string) => p.startsWith("/lounge"),   icon: LOUNGE_ICON },
   { href: "/home",              label: "Home",     center: true,  match: (p: string) => p === "/home",             icon: HOME_ICON },
-  { href: "/discover/partners", label: "Discover", center: false, match: (p: string) => p.startsWith("/discover"), icon: DISCOVER_ICON },
+  { href: "/discover/cigar-news", label: "Discover", center: false, match: (p: string) => p.startsWith("/discover"), icon: DISCOVER_ICON },
   { href: "/account",           label: "Account",  center: false, match: (p: string) => p.startsWith("/account"),  icon: ACCOUNT_ICON },
 ];
 

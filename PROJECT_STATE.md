@@ -49,7 +49,7 @@ Bottom nav bar (mobile-first, 44px touch targets, safe-area-inset-bottom aware):
 | Humidor | `/humidor` | Primary daily-use feature |
 | Lounge | `/lounge` | Community feed |
 | Home | `/home` | Dashboard |
-| Discover | `/discover/cigars` + `/discover/shops` (two tabs) | Cigar catalog + shop directory |
+| Discover | `/discover/channels`, `/discover/cigar-news`, `/discover/vendors` | Cigar discovery hub |
 | Account | `/account` | Profile / Membership / Legal |
 
 Active tab uses `--ember` color indicator. Toast messages appear ABOVE the nav bar.
@@ -111,8 +111,8 @@ Vercel env vars: all set to Production + Preview.
 | Wishlist | `app/(app)/humidor/wishlist/page.tsx` | Done |
 | Discover Cigars | `app/(app)/discover/cigars/page.tsx` | Done |
 | Cigar Detail | `app/(app)/discover/cigars/[id]/page.tsx` | Done |
-| Discover Shops | `app/(app)/discover/shops/page.tsx` | Done |
-| Shop Detail | `app/(app)/discover/shops/[slug]/page.tsx` | Done |
+| Discover Cigar News | `app/(app)/discover/cigar-news/page.tsx` | Done (renamed from `/partners`) |
+| Discover Vendors | `app/(app)/discover/vendors/page.tsx` | Placeholder (affiliate links pending) |
 | Lounge | `app/(app)/lounge/page.tsx` | Done |
 | Account | `app/(app)/account/page.tsx` | Done (Profile / Membership / Legal tabs) |
 | Membership Success | `app/(app)/account/membership/success/page.tsx` | Done |

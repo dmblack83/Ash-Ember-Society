@@ -166,7 +166,7 @@ export function News({ items }: { items: NewsItem[] }) {
 
       {/* View More */}
       <IntentLink
-        href="/discover/partners"
+        href="/discover/cigar-news"
         style={{
           display:                 "inline-flex",
           alignItems:              "center",

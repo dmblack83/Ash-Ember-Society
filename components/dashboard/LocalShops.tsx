@@ -1,17 +1,19 @@
-import { IntentLink } from "@/components/ui/IntentLink";
-
 /* ------------------------------------------------------------------
    LocalShops
 
-   Single-row card linking to /discover/shops. Server component —
-   accepts a pre-fetched count so home/page.tsx can wrap it in the
-   same Promise.all batch as everything else.
+   Single-row card on the home dashboard. The in-app shop directory
+   was retired (no curated partner data, Google Maps removed) — this
+   card now hands the user to a Google Maps search in the system
+   browser, which uses native location prompts and a much richer
+   listings UI than we could build in-app.
+
+   `target="_blank" rel="noopener noreferrer"` opens the system
+   browser from the PWA so the user stays in their default Maps app
+   on mobile. No data, no Supabase round-trip — pure static card.
    ------------------------------------------------------------------ */
 
-interface Props {
-  /** Total partner shops; surfaced as "X shops · within 25 miles". */
-  shopCount: number;
-}
+const FIND_SHOPS_URL =
+  "https://www.google.com/maps/search/?api=1&query=cigar+shops+near+me";
 
 function StorefrontIcon({ size = 18 }: { size?: number }) {
   return (
@@ -27,10 +29,9 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-export function LocalShops({ shopCount }: Props) {
+export function LocalShops() {
   return (
-    <IntentLink
-      href="/discover/shops"
+    <section
       style={{
         display:        "flex",
         alignItems:     "center",
@@ -40,24 +41,20 @@ export function LocalShops({ shopCount }: Props) {
         border:         "1px solid var(--card-border)",
         borderRadius:   4,
         boxShadow:      "var(--card-edge)",
-        textDecoration: "none",
-        color:          "var(--foreground)",
-        transition:     "border-color 200ms ease, background 200ms ease",
       }}
-      className="hover:border-[var(--card-border-hover)]"
     >
       {/* Circle icon */}
       <div
         aria-hidden="true"
         style={{
-          width:          38,
-          height:         38,
-          borderRadius:   "50%",
-          border:         "1px solid var(--line)",
-          display:        "grid",
-          placeItems:     "center",
-          color:          "var(--gold)",
-          flexShrink:     0,
+          width:        38,
+          height:       38,
+          borderRadius: "50%",
+          border:       "1px solid var(--line)",
+          display:      "grid",
+          placeItems:   "center",
+          color:        "var(--gold)",
+          flexShrink:   0,
         }}
       >
         <StorefrontIcon />
@@ -85,21 +82,35 @@ export function LocalShops({ shopCount }: Props) {
             textTransform: "uppercase",
           }}
         >
-          <b style={{ color: "var(--gold)", fontWeight: 500 }}>{shopCount}</b>
-          {"  "}{shopCount === 1 ? "shop" : "shops"} · within 25 miles
+          Within 25 miles
         </div>
       </div>
 
-      <span
-        aria-hidden="true"
+      <a
+        href={FIND_SHOPS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         style={{
-          color:    "var(--paper-dim)",
-          fontSize: 16,
-          flexShrink: 0,
+          display:        "inline-flex",
+          alignItems:     "center",
+          gap:            6,
+          padding:        "8px 14px",
+          fontFamily:     "var(--font-mono)",
+          fontSize:       10.5,
+          fontWeight:     600,
+          letterSpacing:  "0.18em",
+          textTransform:  "uppercase",
+          color:          "var(--gold)",
+          background:     "transparent",
+          border:         "1px solid var(--card-border)",
+          borderRadius:   4,
+          textDecoration: "none",
+          flexShrink:     0,
+          minHeight:      44,
         }}
       >
-        ›
-      </span>
-    </IntentLink>
+        Find Shops
+      </a>
+    </section>
   );
 }

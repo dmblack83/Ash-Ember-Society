@@ -83,17 +83,3 @@ export function NewsSkeleton() {
   );
 }
 
-/* ── LocalShops skeleton — single row ────────────────────────────── */
-export function LocalShopsSkeleton() {
-  return (
-    <div className="card animate-pulse" aria-hidden="true">
-      <div className="flex items-center gap-3">
-        <div className="h-10 w-10 bg-muted rounded" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 bg-muted rounded w-1/2" />
-          <div className="h-3 bg-muted rounded w-1/3" />
-        </div>
-      </div>
-    </div>
-  );
-}
