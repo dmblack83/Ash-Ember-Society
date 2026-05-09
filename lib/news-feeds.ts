@@ -45,7 +45,7 @@ export const NEWS_FEEDS: readonly NewsFeed[] = [
   {
     slug: "smokin-tabacco",
     name: "Smokin Tabacco",
-    url:  "https://feeds.feedburner.com/smokintabacco/1U1xHnGD4v1",
+    url:  "https://smokintabacco.com/feed/",
   },
   {
     slug: "cigar-coop",
