@@ -10,20 +10,17 @@
  * exactly — keeps CLS at zero.
  */
 
-/* ── Masthead skeleton — sticky, ~140px tall ─────────────────────── */
+/* ── Masthead skeleton — ~140px tall, scrolls with page ──────────── */
 export function MastheadSkeleton() {
   return (
     <header
       aria-hidden="true"
       className="animate-pulse"
       style={{
-        position:        "sticky",
-        top:             0,
-        zIndex:          30,
-        paddingTop:      "calc(env(safe-area-inset-top) + 14px)",
-        paddingBottom:   18,
-        background:      "rgba(26,18,16,0.88)",
-        borderBottom:    "1px solid var(--line)",
+        paddingTop:    "calc(env(safe-area-inset-top) + 14px)",
+        paddingBottom: 18,
+        background:    "rgba(26,18,16,0.88)",
+        borderBottom:  "1px solid var(--line)",
       }}
     >
       <div className="px-4 sm:px-6 max-w-2xl mx-auto">

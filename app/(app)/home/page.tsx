@@ -46,7 +46,7 @@ export default async function HomePage() {
 
   return (
     <>
-      {/* ── 0. Masthead (sticky, full-width, shows greeting + admin) ── */}
+      {/* ── 0. Masthead (full-width greeting + admin link) ─────────── */}
       <Suspense fallback={<MastheadSkeleton />}>
         <MastheadIsland userId={user.id} />
       </Suspense>
