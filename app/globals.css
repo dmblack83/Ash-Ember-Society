@@ -69,19 +69,24 @@
   /* Surface tokens — cards, panels, large featured callouts.
 
      Page background is the deep cognac-black (`--background`). Every
-     card/panel surface lifts one stop warmer/lighter via a vertical
-     gradient: warmer at the top, settling toward the page tone at
-     the bottom. Combined with a low-opacity brass hairline and a
-     1px brass top-edge inset highlight, the surface reads as a
-     discrete "aged paper / leather-bound" sheet without leaning on
-     drop shadows.
+     card/panel surface lifts one stop warmer/lighter than the page
+     and is paired with a low-opacity brass hairline and a 1px brass
+     top-edge inset highlight, so the surface reads as a discrete
+     "aged paper / leather-bound" sheet without leaning on drop
+     shadows.
 
      `--brass` is the accent these tokens compose from — a slightly
      yellower champagne than `--gold`, used only for surface chrome
      (borders + the top-edge highlight). Existing gold accents on
-     active states / primary CTAs continue to use `--gold`. */
+     active states / primary CTAs continue to use `--gold`.
+
+     `--card-bg` was previously a vertical gradient. Reverted to a
+     flat color: gradients on every visible card add per-frame paint
+     cost, and on the home dashboard alone there are 4–6 surfaces
+     stacked. The brass hairline + top-edge highlight already carry
+     the editorial warmth that the gradient was layered on for. */
   --brass:               rgb(214, 184, 118);
-  --card-bg:             linear-gradient(180deg, #2e2218 0%, #1f1610 100%);
+  --card-bg:             #241710;
   --card-border:         rgba(214, 184, 118, 0.22);
   --card-border-hover:   rgba(214, 184, 118, 0.34);
   --card-edge:           inset 0 1px 0 rgba(214, 184, 118, 0.06);
