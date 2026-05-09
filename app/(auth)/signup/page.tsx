@@ -119,10 +119,10 @@ export default function SignupPage() {
         return;
       }
 
-      // Proxy will route to /onboarding because onboarding_completed
-      // is false in user metadata.
-      router.refresh();
-      router.push("/onboarding");
+      // Email confirmation is enabled in Supabase: signUp succeeds but
+      // does not establish a session. Send the user to the verify step
+      // to enter the 6-digit code from their inbox.
+      router.push(`/signup/verify?email=${encodeURIComponent(email)}`);
     } catch {
       setFormError(
         "Something went wrong. Please check your connection and try again."
