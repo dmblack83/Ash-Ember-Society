@@ -140,9 +140,10 @@ export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
       style={{
         animationDelay: "160ms",
         position:       "relative",
-        border:         "1px solid var(--line)",
+        border:         "1px solid var(--card-border)",
         borderRadius:   6,
-        background:     "linear-gradient(165deg, #2a1f15 0%, #1a130c 100%)",
+        background:     "var(--card-bg)",
+        boxShadow:      "var(--card-edge)",
         padding:        "18px 20px 16px",
         overflow:       "hidden",
       }}

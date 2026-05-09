@@ -51,9 +51,10 @@ export function TonightsPairing() {
     <section
       style={{
         position:     "relative",
-        border:       "1px solid var(--line)",
+        border:       "1px solid var(--card-border)",
         borderRadius: 6,
-        background:   "linear-gradient(165deg, #2a1f15 0%, #1a130c 100%)",
+        background:   "var(--card-bg)",
+        boxShadow:    "var(--card-edge)",
         padding:      "20px 22px 18px",
         overflow:     "hidden",
       }}

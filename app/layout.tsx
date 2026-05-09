@@ -108,7 +108,7 @@ export default function RootLayout({
          */}
         <style
           dangerouslySetInnerHTML={{
-            __html: "html,body{background-color:#1A1210;}",
+            __html: "html,body{background-color:#15110b;}",
           }}
         />
         {/* Stale-chunk recovery — captures `error` events from the

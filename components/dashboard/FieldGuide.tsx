@@ -57,11 +57,15 @@ export function FieldGuide() {
       className="animate-fade-in"
       style={{
         position:     "relative",
-        border:       "1px solid var(--line)",
+        border:       "1px solid var(--card-border)",
         borderRadius: 6,
+        /* Radial gold highlight overlaid on the standard card gradient.
+           The radial layer is what makes this a "featured callout";
+           the base gradient ties it to the rest of the surface system. */
         background:
           "radial-gradient(ellipse at 100% 0%, rgba(212,160,74,0.12), transparent 60%), " +
-          "linear-gradient(180deg, #221911 0%, #16100a 100%)",
+          "var(--card-bg)",
+        boxShadow:    "var(--card-edge)",
         padding:      "26px 22px 22px",
         overflow:     "hidden",
       }}

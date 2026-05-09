@@ -28,7 +28,7 @@ export default function OfflinePage() {
         alignItems:      "center",
         justifyContent:  "center",
         padding:         "32px 24px",
-        background:      "#1A1210",
+        background:      "#15110b",
         color:           "#F5E6D3",
         textAlign:       "center",
       }}

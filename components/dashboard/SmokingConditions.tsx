@@ -49,10 +49,10 @@ function ConditionsStrip({ weather }: { weather: WeatherApiResponse }) {
   return (
     <section
       style={{
-        borderTop:    "1px solid var(--line)",
-        borderBottom: "1px solid var(--line)",
-        background:
-          "linear-gradient(180deg, rgba(212,160,74,0.04), transparent 60%)",
+        border:       "1px solid var(--card-border)",
+        borderRadius: 6,
+        background:   "var(--card-bg)",
+        boxShadow:    "var(--card-edge)",
         padding:      "14px 14px 12px",
       }}
       aria-label="Smoking conditions"
