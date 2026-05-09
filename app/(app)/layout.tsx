@@ -77,7 +77,7 @@ function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-stretch"
+      className="fixed bottom-0 left-0 right-0 z-40 flex items-stretch lg:hidden"
       style={{
         backgroundColor: "rgba(26,18,16,0.95)",
         backdropFilter: "blur(12px)",
@@ -135,6 +135,83 @@ function BottomNav() {
   );
 }
 
+/* ------------------------------------------------------------------
+   Side rail navigation — visible on desktop (lg+) only.
+   Mobile + tablet keep the existing bottom nav.
+
+   Reuses NAV_ITEMS for source-of-truth parity. Reorders Home to the
+   top because a vertical list reads naturally from primary
+   destination down; the bottom nav puts Home in the visual centre
+   for thumb reach, which doesn't apply on a side rail.
+   ------------------------------------------------------------------ */
+
+const RAIL_WIDTH_PX = 240;
+
+function SideRailNav() {
+  const pathname = usePathname();
+
+  /* Inline reorder rather than a second const array — one
+     source of truth for nav items. */
+  const railItems = [
+    NAV_ITEMS.find((i) => i.href === "/home")!,
+    ...NAV_ITEMS.filter((i) => i.href !== "/home"),
+  ];
+
+  return (
+    <nav
+      className="hidden lg:flex flex-col fixed top-0 bottom-0 left-0 z-40 py-7"
+      style={{
+        width:                `${RAIL_WIDTH_PX}px`,
+        backgroundColor:      "rgba(26,18,16,0.95)",
+        backdropFilter:       "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+        borderRight:          "1px solid var(--border)",
+      }}
+      aria-label="Main navigation"
+    >
+      {/* Wordmark */}
+      <Link
+        href="/home"
+        className="px-6 mb-9 transition-opacity hover:opacity-80"
+        style={{
+          fontFamily:    "var(--font-serif)",
+          fontSize:      20,
+          fontWeight:    600,
+          letterSpacing: "0.04em",
+          color:         "var(--foreground)",
+          textDecoration: "none",
+        }}
+      >
+        Ash &amp; Ember
+      </Link>
+
+      <div className="flex flex-col gap-1 px-3">
+        {railItems.map(({ href, label, match, icon }) => {
+          const active = match(pathname);
+          return (
+            <Link
+              key={href}
+              href={href}
+              prefetch={true}
+              data-active={active || undefined}
+              className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
+              style={{
+                color:           active ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                backgroundColor: active ? "rgba(212,160,74,0.08)" : "transparent",
+                textDecoration:  "none",
+              }}
+              aria-current={active ? "page" : undefined}
+            >
+              {icon}
+              <span className="text-sm font-medium">{label}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
 function ScrollReset() {
   const pathname = usePathname();
   useEffect(() => {
@@ -154,10 +231,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
       <OutboxManager />
-      <main id="main-content" className="flex-1 app-container" style={{ paddingBottom: "calc(72px + env(safe-area-inset-bottom))", touchAction: "pan-y" }}>
+      <main
+        id="main-content"
+        className="flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0 lg:ml-[240px]"
+        style={{ touchAction: "pan-y" }}
+      >
         {children}
       </main>
       <BottomNav />
+      <SideRailNav />
     </>
   );
 }
