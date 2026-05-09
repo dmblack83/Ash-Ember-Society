@@ -41,10 +41,15 @@ export async function MastheadIsland({ userId }: { userId: string }) {
   );
 }
 
-/* ── Smoking conditions strip (city → weather lookup) ────────────── */
+/* ── Smoking conditions strip (zip → weather lookup, city fallback) ─ */
 export async function SmokingConditionsIsland({ userId }: { userId: string }) {
   const profile = await getProfileLite(userId);
-  return <SmokingConditions city={profile?.city?.trim() || null} />;
+  return (
+    <SmokingConditions
+      zip={profile?.zip_code?.trim() || null}
+      city={profile?.city?.trim() || null}
+    />
+  );
 }
 
 /* ── Aging shelf (windowed humidor query) ────────────────────────── */
