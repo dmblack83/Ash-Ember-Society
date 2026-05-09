@@ -221,7 +221,7 @@ export function LoungeForumClient({
     return (
       <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)" }}>
         <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, height: HEADER_H,
+          position: "fixed", top: 0, left: "var(--app-content-left)", right: 0, zIndex: 40, height: HEADER_H,
           backgroundColor: "rgba(26,18,16,0.97)", backdropFilter: "blur(12px)",
           WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)",
           display: "flex", alignItems: "center", justifyContent: "center",
@@ -273,7 +273,7 @@ export function LoungeForumClient({
 
       {/* Fixed header */}
       <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 40, height: HEADER_H,
+        position: "fixed", top: 0, left: "var(--app-content-left)", right: 0, zIndex: 40, height: HEADER_H,
         backgroundColor: "rgba(26,18,16,0.97)", backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)", borderBottom: "1px solid var(--border)",
         display: "flex", alignItems: "center",

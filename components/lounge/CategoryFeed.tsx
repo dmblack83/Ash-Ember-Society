@@ -176,7 +176,7 @@ export function CategoryFeed({
       <div style={{
         position:          "fixed",
         top:               0,
-        left:              0,
+        left:              "var(--app-content-left)",
         right:             0,
         zIndex:            40,
         height:            56,

@@ -20,12 +20,15 @@ export function Toast({
 
   return (
     <div
-      className="fixed left-4 right-4 z-[60] card animate-slide-up flex items-center gap-3"
+      className="fixed right-4 z-[60] card animate-slide-up flex items-center gap-3 bottom-[calc(72px+env(safe-area-inset-bottom))] lg:bottom-6"
       style={{
-        bottom: "calc(72px + env(safe-area-inset-bottom))",
+        /* Respect the desktop side rail at lg+: --app-content-left
+           is 0 below the breakpoint and the rail's width above, so
+           the toast clears the rail without overlap. */
+        left:       "calc(var(--app-content-left) + 1rem)",
         borderLeft: "4px solid var(--primary)",
-        maxWidth: 480,
-        margin: "0 auto",
+        maxWidth:   480,
+        margin:     "0 auto",
       }}
     >
       <svg
