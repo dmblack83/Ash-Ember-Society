@@ -101,7 +101,11 @@ function StatCard({ label, value, sub }: { label: string; value: string; sub?: s
   return (
     <div
       className="flex-shrink-0 rounded-xl px-5 py-4 min-w-[140px] space-y-1"
-      style={{ backgroundColor: T.card, border: `1px solid ${T.border}` }}
+      style={{
+        background: "var(--card-bg)",
+        border:     "1px solid var(--card-border)",
+        boxShadow:  "var(--card-edge)",
+      }}
     >
       <div className="flex items-baseline gap-1.5 leading-none">
         <p className="text-3xl font-bold" style={{ fontFamily: "var(--font-serif)", color: T.accent }}>
@@ -123,7 +127,11 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
   return (
     <div
       className="rounded-xl p-5 space-y-4 animate-fade-in"
-      style={{ backgroundColor: T.card, border: `1px solid ${T.border}` }}
+      style={{
+        background: "var(--card-bg)",
+        border:     "1px solid var(--card-border)",
+        boxShadow:  "var(--card-edge)",
+      }}
     >
       <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       {children}

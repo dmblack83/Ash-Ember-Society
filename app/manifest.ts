@@ -20,8 +20,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description:      "The premium cigar enthusiast app",
     start_url:        "/home",
     display:          "standalone",
-    background_color: "#1A1210",
-    theme_color:      "#1A1210",
+    background_color: "#15110b",
+    theme_color:      "#15110b",
     orientation:      "portrait",
     /* Locale + writing direction — surfaces in install dialogs and is
        used by some app stores (Microsoft Store / Samsung Galaxy Store)

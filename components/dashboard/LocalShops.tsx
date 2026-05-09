@@ -36,13 +36,15 @@ export function LocalShops({ shopCount }: Props) {
         alignItems:     "center",
         gap:            14,
         padding:        "16px 18px",
-        border:         "1px solid var(--line-soft)",
+        background:     "var(--card-bg)",
+        border:         "1px solid var(--card-border)",
         borderRadius:   4,
+        boxShadow:      "var(--card-edge)",
         textDecoration: "none",
         color:          "var(--foreground)",
         transition:     "border-color 200ms ease, background 200ms ease",
       }}
-      className="hover:border-[var(--line)]"
+      className="hover:border-[var(--card-border-hover)]"
     >
       {/* Circle icon */}
       <div

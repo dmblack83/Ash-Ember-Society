@@ -12,7 +12,7 @@
 
 :root {
   /* Core palette */
-  --background: #1A1210;
+  --background: #15110b;
   --foreground: #F5E6D3;
   --card: #241C17;
   --card-foreground: #F5E6D3;
@@ -39,7 +39,7 @@
   --gold: #D4A04A;
   --gold-deep: #A78843;
   --moss: #8A9A5F;
-  --lounge-gradient: linear-gradient(180deg, #1A1210 0%, #241C17 50%, #1A1210 100%);
+  --lounge-gradient: linear-gradient(180deg, #15110b 0%, #241C17 50%, #15110b 100%);
 
   /* Editorial hairlines — gold-tinted, used by the home masthead /
      conditions strip / shelf rows. Distinct from --border, which is
@@ -65,6 +65,26 @@
   /* Mono stack for eyebrow / meta labels. System fonts only — keeps
      payload zero. */
   --font-mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
+
+  /* Surface tokens — cards, panels, large featured callouts.
+
+     Page background is the deep cognac-black (`--background`). Every
+     card/panel surface lifts one stop warmer/lighter via a vertical
+     gradient: warmer at the top, settling toward the page tone at
+     the bottom. Combined with a low-opacity brass hairline and a
+     1px brass top-edge inset highlight, the surface reads as a
+     discrete "aged paper / leather-bound" sheet without leaning on
+     drop shadows.
+
+     `--brass` is the accent these tokens compose from — a slightly
+     yellower champagne than `--gold`, used only for surface chrome
+     (borders + the top-edge highlight). Existing gold accents on
+     active states / primary CTAs continue to use `--gold`. */
+  --brass:               rgb(214, 184, 118);
+  --card-bg:             linear-gradient(180deg, #2e2218 0%, #1f1610 100%);
+  --card-border:         rgba(214, 184, 118, 0.22);
+  --card-border-hover:   rgba(214, 184, 118, 0.34);
+  --card-edge:           inset 0 1px 0 rgba(214, 184, 118, 0.06);
 
   /* Side-rail navigation tokens.
 
@@ -304,7 +324,7 @@ select {
     background-image: radial-gradient(
       ellipse at 50% 35%,
       #2D1F18 0%,
-      #1A1210 55%,
+      #15110b 55%,
       #0F0B09 100%
     );
     background-attachment: fixed;
@@ -476,38 +496,40 @@ select {
   /* ---- Cards ----------------------------------------------------- */
 
   .card {
-    background-color: var(--card);
-    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
     border-radius: calc(var(--radius) + 8px); /* rounded-xl */
-    box-shadow:
-      0 10px 25px -5px rgba(0, 0, 0, 0.55),
-      0 4px 10px -4px rgba(0, 0, 0, 0.4);
+    /* Brass top-edge inset only — no drop shadow.
+       Surface elevation comes from the warm gradient + hairline,
+       not from cast shadow. Keeps the page reading as one
+       continuous editorial sheet. */
+    box-shadow: var(--card-edge);
     padding: 1rem;
-    transition: transform 200ms ease, box-shadow 200ms ease, border-color 200ms ease;
+    transition: transform 200ms ease, border-color 200ms ease;
   }
 
   @media (min-width: 768px) {
     .card { padding: 1.5rem; }
   }
 
-  /* Lift effect on interactive cards */
+  /* Lift effect on interactive cards. No extra shadow on hover —
+     just the subtle translate and a brass border step from 22% to
+     34% opacity for the affordance signal. */
   .card-interactive {
     cursor: pointer;
   }
   .card-interactive:hover {
     transform: translateY(-2px);
-    box-shadow:
-      0 20px 40px -10px rgba(0, 0, 0, 0.65),
-      0 8px 16px -6px rgba(0, 0, 0, 0.5);
-    border-color: rgba(193, 120, 23, 0.4);
+    border-color: var(--card-border-hover);
   }
 
-  /* Premium card: gold border glow */
+  /* Premium card: stronger brass border + soft gold halo as the
+     product-tier marker. Heavy drop shadow removed to stay in line
+     with the rest of the surface system; the gold halo is the
+     intentional "this is the upgraded thing" cue. */
   .card-premium {
-    border-color: rgba(212, 160, 74, 0.3);
-    box-shadow:
-      0 10px 25px -5px rgba(0, 0, 0, 0.55),
-      0 0 24px rgba(212, 160, 74, 0.08);
+    border-color: rgba(212, 160, 74, 0.45);
+    box-shadow: var(--card-edge), 0 0 24px rgba(212, 160, 74, 0.08);
   }
 
   /* ---- Inputs ---------------------------------------------------- */
