@@ -7,6 +7,12 @@ import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
+/* See login/page.tsx for the rationale. Same flag, same effect:
+   button + "or" divider hidden in production until Google's OAuth
+   verification completes. */
+const GOOGLE_OAUTH_ENABLED =
+  process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "true";
+
 /* ------------------------------------------------------------------
    Field wrapper — label + input stacked, consistent spacing.
    ------------------------------------------------------------------ */
@@ -143,18 +149,22 @@ export default function SignupPage() {
           </p>
         </div>
 
-        <GoogleAuthButton
-          label="Sign up with Google"
-          onError={(msg) => setFormError(msg)}
-        />
+        {GOOGLE_OAUTH_ENABLED && (
+          <>
+            <GoogleAuthButton
+              label="Sign up with Google"
+              onError={(msg) => setFormError(msg)}
+            />
 
-        <div className="flex items-center gap-3 my-5">
-          <span className="flex-1 h-px bg-border" />
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            or
-          </span>
-          <span className="flex-1 h-px bg-border" />
-        </div>
+            <div className="flex items-center gap-3 my-5">
+              <span className="flex-1 h-px bg-border" />
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                or
+              </span>
+              <span className="flex-1 h-px bg-border" />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
           <Field id="email" label="Email">
