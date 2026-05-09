@@ -5,6 +5,15 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
+import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
+
+/* Gated until Google's OAuth verification completes (4-6 weeks).
+   Flip `NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED=true` in the Vercel project
+   env vars when ready — no code change needed. NEXT_PUBLIC_* is
+   inlined at build time, so this becomes a static boolean and the
+   button is dead-code-eliminated when disabled. */
+const GOOGLE_OAUTH_ENABLED =
+  process.env.NEXT_PUBLIC_GOOGLE_OAUTH_ENABLED === "true";
 
 /* ------------------------------------------------------------------
    Field wrapper — label + input stacked, consistent spacing
@@ -105,6 +114,20 @@ function LoginForm() {
             Sign in to continue to your lounge
           </p>
         </div>
+
+        {GOOGLE_OAUTH_ENABLED && (
+          <>
+            <GoogleAuthButton onError={(msg) => setError(msg)} />
+
+            <div className="flex items-center gap-3 my-5">
+              <span className="flex-1 h-px bg-border" />
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">
+                or
+              </span>
+              <span className="flex-1 h-px bg-border" />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
           <Field id="email" label="Email">
