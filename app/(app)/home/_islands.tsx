@@ -86,11 +86,7 @@ export async function NewsIsland() {
   return <News items={items} />;
 }
 
-/* ── Local shops count (small, cheap; no user dependency) ────────── */
-export async function LocalShopsIsland() {
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("shops")
-    .select("id", { count: "exact", head: true });
-  return <LocalShops shopCount={count ?? 0} />;
+/* ── Local shops card (static; opens external Google Maps search) ── */
+export function LocalShopsIsland() {
+  return <LocalShops />;
 }

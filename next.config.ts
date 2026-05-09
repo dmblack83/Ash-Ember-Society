@@ -42,7 +42,7 @@ const SCRIPT_HASHES = [
      much lower-impact than script injection.
    - connect-src: every backend the app talks to. If a violation
      fires here, add the origin to this list.
-   - frame-src: Stripe payment iframes + Google Maps embed.
+   - frame-src: Stripe payment iframes + Google sign-in (OAuth).
    - frame-ancestors 'none': clickjacking protection.
    ------------------------------------------------------------------ */
 const CSP = [
@@ -51,7 +51,7 @@ const CSP = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https://*.supabase.co https://i.ytimg.com https://images.unsplash.com https://media.istockphoto.com",
   "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://maps.googleapis.com https://*.ingest.sentry.io https://vitals.vercel-insights.com https://va.vercel-scripts.com",
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://*.ingest.sentry.io https://vitals.vercel-insights.com https://va.vercel-scripts.com",
   "frame-src https://js.stripe.com https://*.stripe.com https://*.google.com",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

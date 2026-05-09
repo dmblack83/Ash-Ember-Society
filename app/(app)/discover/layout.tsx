@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/discover/channels", label: "Channels", match: (p: string) => p.startsWith("/discover/channels") },
-  { href: "/discover/partners", label: "Partners", match: (p: string) => p.startsWith("/discover/partners") },
-  { href: "/discover/shops",    label: "Shops",    match: (p: string) => p.startsWith("/discover/shops") },
+  { href: "/discover/channels",   label: "Channels",   match: (p: string) => p.startsWith("/discover/channels") },
+  { href: "/discover/cigar-news", label: "Cigar News", match: (p: string) => p.startsWith("/discover/cigar-news") },
+  { href: "/discover/vendors",    label: "Vendors",    match: (p: string) => p.startsWith("/discover/vendors") },
 ];
 
 /* ------------------------------------------------------------------

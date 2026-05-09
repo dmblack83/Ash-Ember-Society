@@ -17,7 +17,6 @@ import {
   SmokingConditionsSkeleton,
   AgingSkeleton,
   NewsSkeleton,
-  LocalShopsSkeleton,
 } from "./_skeletons";
 
 /*
@@ -74,10 +73,8 @@ export default async function HomePage() {
         {/* ── 5. Field Guide — self-fetching client; in static shell ── */}
         <FieldGuide />
 
-        {/* ── 6. Local Shops ───────────────────────────────────────── */}
-        <Suspense fallback={<LocalShopsSkeleton />}>
-          <LocalShopsIsland />
-        </Suspense>
+        {/* ── 6. Local Shops — static; opens Google Maps externally ── */}
+        <LocalShopsIsland />
 
       </div>
     </>
