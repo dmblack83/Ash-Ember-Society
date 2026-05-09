@@ -300,30 +300,42 @@ function NoLocation() {
 /* ------------------------------------------------------------------
    SmokingConditions — main export
 
-   Receives city as a prop (server-fetched from profile in home/page.tsx).
-   Single fetch to /api/weather (geocoding + forecast happen server-side
-   with Vercel edge caching).
+   Prefers ZIP (resolves to neighborhood-level coords + station obs);
+   falls back to city geocoding (city centroid + model output).
+   Single fetch to /api/weather, server-side with edge caching.
    ------------------------------------------------------------------ */
 
-export function SmokingConditions({ city }: { city: string | null }) {
+export function SmokingConditions({
+  zip,
+  city,
+}: {
+  zip:  string | null;
+  city: string | null;
+}) {
+  const trimmedZip  = zip?.trim()  || null;
   const trimmedCity = city?.trim() || null;
+  const hasLocation = !!(trimmedZip || trimmedCity);
 
-  const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
-  const [noCity,  setNoCity]  = useState(false);
-  const [loading, setLoading] = useState(!!trimmedCity);
+  const [weather,  setWeather]  = useState<WeatherApiResponse | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const [loading,  setLoading]  = useState(hasLocation);
 
   useEffect(() => {
-    if (!trimmedCity) return;
+    if (!hasLocation) return;
 
     let cancelled = false;
 
     async function load() {
+      const params = new URLSearchParams();
+      if (trimmedZip)  params.set("zip",  trimmedZip);
+      if (trimmedCity) params.set("city", trimmedCity);
+
       try {
-        const res = await fetch(`/api/weather?city=${encodeURIComponent(trimmedCity!)}`);
+        const res = await fetch(`/api/weather?${params.toString()}`);
         if (cancelled) return;
 
         if (res.status === 404) {
-          setNoCity(true);
+          setNotFound(true);
           setLoading(false);
           return;
         }
@@ -341,13 +353,12 @@ export function SmokingConditions({ city }: { city: string | null }) {
 
     load();
     return () => { cancelled = true; };
-  }, [trimmedCity]);
+  }, [trimmedZip, trimmedCity, hasLocation]);
 
-  // Silent failure (city set but API errored) — hide section entirely
-  if (!loading && !weather && !noCity && trimmedCity) return null;
+  if (!loading && !weather && !notFound && hasLocation) return null;
 
-  if (loading)              return <StripSkeleton />;
-  if (!trimmedCity || noCity) return <NoLocation />;
-  if (weather)              return <ConditionsStrip weather={weather} />;
+  if (loading)                return <StripSkeleton />;
+  if (!hasLocation || notFound) return <NoLocation />;
+  if (weather)                return <ConditionsStrip weather={weather} />;
   return null;
 }

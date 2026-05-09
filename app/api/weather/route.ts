@@ -3,14 +3,37 @@ import { NextRequest, NextResponse } from "next/server";
 export const runtime = "edge";
 
 /* ------------------------------------------------------------------
-   Types
+   GET /api/weather
+
+   Query params:
+     - zip  (preferred): 5-digit US ZIP. Resolves to neighborhood-
+       level lat/lon, then pulls the nearest NWS station observation.
+     - city (fallback):  free-text city name. Resolves via Open-Meteo
+       geocoding to a city centroid, then uses Open-Meteo model
+       output.
+
+   Resolution chain:
+     1. zip → zippopotam.us → lat/lon
+     2. lat/lon → NWS api.weather.gov station observation (primary)
+     3. lat/lon → Open-Meteo current (fallback if NWS fails or returns
+        null fields)
+     4. city → Open-Meteo geocoding + current (final fallback)
+
+   Why the chain: Open-Meteo `current` is model output, NOT a real
+   station reading — model vs station can disagree by 5-10°F in mtn
+   valleys, especially during inversions. NWS exposes the actual
+   ASOS/AWOS observation Apple Weather and similar apps consume.
+
+   Cache: s-maxage=300 (5 min) so the strip can't go stale by 10°F
+   like the prior 30-min cache permitted.
    ------------------------------------------------------------------ */
 
 type Suitability = "perfect" | "good" | "fair" | "indoors";
 
-/* ------------------------------------------------------------------
-   Suitability logic (mirrors SmokingConditions.tsx)
-   ------------------------------------------------------------------ */
+const NWS_HEADERS = {
+  "User-Agent": "AshAndEmberSociety (dmblack83@gmail.com)",
+  Accept:       "application/geo+json",
+};
 
 function getSuitability(tempF: number, humidity: number, windMph: number): Suitability {
   if (humidity > 85 || humidity < 40 || windMph > 20 || tempF < 40 || tempF > 95) return "indoors";
@@ -26,94 +49,178 @@ const SUITABILITY_LABELS: Record<Suitability, string> = {
   indoors: "Smoke Indoors",
 };
 
-/* ------------------------------------------------------------------
-   GET /api/weather?city=<city name>
+const cToF    = (c: number) => c * 1.8 + 32;
+const kphToMph = (k: number) => k * 0.621371;
 
-   1. Geocodes the city via Open-Meteo geocoding API.
-   2. Fetches current weather via Open-Meteo forecast API.
-   3. Returns computed suitability so the client does no heavy logic.
+interface ResolvedLocation {
+  lat:  number;
+  lon:  number;
+  city: string;
+}
 
-   Cache-Control: s-maxage=1800 — Vercel CDN caches per unique city
-   for 30 minutes; stale-while-revalidate allows up to 1 hour of stale
-   serving while a background revalidation runs.
-   ------------------------------------------------------------------ */
+interface CurrentReading {
+  tempF:    number;
+  humidity: number;
+  windMph:  number;
+}
+
+/* ── ZIP → lat/lon (zippopotam.us) ─────────────────────────────── */
+async function resolveZip(zip: string): Promise<ResolvedLocation | null> {
+  try {
+    const res = await fetch(`https://api.zippopotam.us/us/${zip}`, {
+      next: { revalidate: 86400 }, // ZIP coords don't change daily
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const place = data?.places?.[0];
+    if (!place) return null;
+    const lat = parseFloat(place.latitude);
+    const lon = parseFloat(place.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    return { lat, lon, city: place["place name"] ?? "" };
+  } catch {
+    return null;
+  }
+}
+
+/* ── city → lat/lon (Open-Meteo geocoding fallback) ────────────── */
+async function resolveCity(city: string): Promise<ResolvedLocation | null> {
+  try {
+    const res = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`,
+      { next: { revalidate: 86400 } }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const loc  = data?.results?.[0];
+    if (!loc) return null;
+    return { lat: loc.latitude, lon: loc.longitude, city: loc.name };
+  } catch {
+    return null;
+  }
+}
+
+/* ── lat/lon → NWS station observation ─────────────────────────── */
+async function nwsObservation(lat: number, lon: number): Promise<CurrentReading | null> {
+  try {
+    const pointsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+      headers: NWS_HEADERS,
+      next:    { revalidate: 86400 },
+    });
+    if (!pointsRes.ok) return null;
+    const pointsJson = await pointsRes.json();
+    const stationsUrl: string | undefined = pointsJson?.properties?.observationStations;
+    if (!stationsUrl) return null;
+
+    const stationsRes = await fetch(stationsUrl, {
+      headers: NWS_HEADERS,
+      next:    { revalidate: 86400 },
+    });
+    if (!stationsRes.ok) return null;
+    const stationsJson = await stationsRes.json();
+    const stations: Array<{ properties?: { stationIdentifier?: string } }> =
+      stationsJson?.features ?? [];
+
+    // Walk the nearest few stations until we find one reporting all fields.
+    // Some stations return null temperature/humidity in their latest record.
+    for (const f of stations.slice(0, 5)) {
+      const id = f?.properties?.stationIdentifier;
+      if (!id) continue;
+
+      const obsRes = await fetch(
+        `https://api.weather.gov/stations/${id}/observations/latest`,
+        { headers: NWS_HEADERS, next: { revalidate: 300 } }
+      );
+      if (!obsRes.ok) continue;
+
+      const p = (await obsRes.json())?.properties;
+      const tempC    = p?.temperature?.value;
+      const humidity = p?.relativeHumidity?.value;
+      const windKph  = p?.windSpeed?.value;
+      if (typeof tempC !== "number") continue;
+      if (typeof humidity !== "number") continue;
+
+      return {
+        tempF:    cToF(tempC),
+        humidity,
+        windMph:  typeof windKph === "number" ? kphToMph(windKph) : 0,
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/* ── lat/lon → Open-Meteo current (fallback) ───────────────────── */
+async function openMeteoCurrent(lat: number, lon: number): Promise<CurrentReading | null> {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast` +
+        `?latitude=${lat}&longitude=${lon}` +
+        `&current=temperature_2m,relative_humidity_2m,wind_speed_10m` +
+        `&temperature_unit=fahrenheit&wind_speed_unit=mph`,
+      { next: { revalidate: 300 } }
+    );
+    if (!res.ok) return null;
+    const cur = (await res.json())?.current;
+    if (!cur) return null;
+    if (typeof cur.temperature_2m       !== "number") return null;
+    if (typeof cur.relative_humidity_2m !== "number") return null;
+    return {
+      tempF:    cur.temperature_2m,
+      humidity: cur.relative_humidity_2m,
+      windMph:  typeof cur.wind_speed_10m === "number" ? cur.wind_speed_10m : 0,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export async function GET(req: NextRequest) {
-  const city = req.nextUrl.searchParams.get("city")?.trim();
+  const sp   = req.nextUrl.searchParams;
+  const zip  = sp.get("zip")?.trim()  || null;
+  const city = sp.get("city")?.trim() || null;
 
-  if (!city) {
-    return NextResponse.json({ error: "city param required" }, { status: 400 });
+  if (!zip && !city) {
+    return NextResponse.json({ error: "zip or city param required" }, { status: 400 });
   }
 
-  /* ── Geocoding ────────────────────────────────────────────────── */
-  let geoRes: Response;
-  try {
-    geoRes = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`,
-      { next: { revalidate: 3600 } } // geocoding result cached 1 hour
-    );
-  } catch {
-    return NextResponse.json({ error: "geocoding unreachable" }, { status: 502 });
+  /* Resolve location → coords */
+  let location: ResolvedLocation | null = null;
+
+  if (zip && /^\d{5}$/.test(zip)) {
+    location = await resolveZip(zip);
+  }
+  if (!location && city) {
+    location = await resolveCity(city);
+  }
+  if (!location) {
+    return NextResponse.json({ error: "location_not_found" }, { status: 404 });
   }
 
-  if (!geoRes.ok) {
-    return NextResponse.json({ error: "geocoding failed" }, { status: 502 });
+  /* Resolve coords → reading. NWS first, Open-Meteo fallback. */
+  const reading =
+    (await nwsObservation(location.lat, location.lon)) ??
+    (await openMeteoCurrent(location.lat, location.lon));
+
+  if (!reading) {
+    return NextResponse.json({ error: "weather_unavailable" }, { status: 502 });
   }
 
-  const geoJson = await geoRes.json();
-  const loc     = geoJson?.results?.[0];
-
-  if (!loc) {
-    // City string didn't match any known place — tell client to show NoLocation
-    return NextResponse.json({ error: "city_not_found" }, { status: 404 });
-  }
-
-  /* ── Weather ──────────────────────────────────────────────────── */
-  let wxRes: Response;
-  try {
-    wxRes = await fetch(
-      `https://api.open-meteo.com/v1/forecast` +
-      `?latitude=${loc.latitude}&longitude=${loc.longitude}` +
-      `&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weathercode` +
-      `&temperature_unit=fahrenheit&wind_speed_unit=mph`,
-      { next: { revalidate: 1800 } } // weather cached 30 minutes
-    );
-  } catch {
-    return NextResponse.json({ error: "weather unreachable" }, { status: 502 });
-  }
-
-  if (!wxRes.ok) {
-    return NextResponse.json({ error: "weather fetch failed" }, { status: 502 });
-  }
-
-  const wxJson  = await wxRes.json();
-  const current = wxJson?.current;
-
-  if (!current) {
-    return NextResponse.json({ error: "no current weather data" }, { status: 502 });
-  }
-
-  const tempF    = current.temperature_2m;
-  const humidity = current.relative_humidity_2m;
-  const windMph  = current.wind_speed_10m;
-  const code     = current.weathercode;
-
-  const suitability = getSuitability(tempF, humidity, windMph);
+  const suitability = getSuitability(reading.tempF, reading.humidity, reading.windMph);
 
   const body = {
-    temp:        Math.round(tempF),
-    humidity:    Math.round(humidity),
-    wind:        Math.round(windMph),
-    code,
-    city:        loc.name,
+    temp:        Math.round(reading.tempF),
+    humidity:    Math.round(reading.humidity),
+    wind:        Math.round(reading.windMph),
+    code:        0, // legacy field, unused by the strip component
+    city:        location.city,
     suitability,
     label:       SUITABILITY_LABELS[suitability],
   };
 
   const response = NextResponse.json(body);
-  response.headers.set(
-    "Cache-Control",
-    "s-maxage=1800, stale-while-revalidate=3600"
-  );
+  response.headers.set("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
   return response;
 }
