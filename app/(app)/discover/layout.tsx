@@ -27,7 +27,7 @@ export default function DiscoverLayout({ children }: { children: React.ReactNode
         style={{
           position:        "fixed",
           top:             0,
-          left:            0,
+          left:            "var(--app-content-left)",
           right:           0,
           zIndex:          30,
           backgroundColor: "var(--background)",

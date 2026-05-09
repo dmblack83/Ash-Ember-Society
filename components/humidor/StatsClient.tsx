@@ -173,7 +173,7 @@ export function StatsClient({ data }: { data: StatsClientData }) {
         style={{
           position:        "fixed",
           top:             0,
-          left:            0,
+          left:            "var(--app-content-left)",
           right:           0,
           zIndex:          30,
           backgroundColor: "var(--background)",

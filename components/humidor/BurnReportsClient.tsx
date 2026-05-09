@@ -516,8 +516,9 @@ export function BurnReportsClient({
       {/* ── Fixed header ───────────────────────────────────────────── */}
       <div
         ref={headerRef}
-        className="fixed top-0 left-0 right-0 z-30"
+        className="fixed top-0 right-0 z-30"
         style={{
+          left:         "var(--app-content-left)",
           background:   "var(--background)",
           borderBottom: "1px solid var(--border)",
           paddingTop:   "env(safe-area-inset-top)",

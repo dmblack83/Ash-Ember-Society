@@ -65,6 +65,26 @@
   /* Mono stack for eyebrow / meta labels. System fonts only — keeps
      payload zero. */
   --font-mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
+
+  /* Side-rail navigation tokens.
+
+     `--side-rail-width` is the rail's intrinsic width — used to size
+     the rail itself. Stays defined at all viewports so the rail's
+     `width` resolves; visibility is controlled by display rules
+     (`hidden lg:flex`).
+
+     `--app-content-left` is the offset every authenticated full-width
+     fixed element should respect (page headers, toasts) so they sit
+     to the right of the rail at lg+ instead of underneath it. Zero
+     below the breakpoint, full rail width above. */
+  --side-rail-width:   240px;
+  --app-content-left:  0px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --app-content-left: var(--side-rail-width);
+  }
 }
 
 /* -------------------------------------------------------------------
