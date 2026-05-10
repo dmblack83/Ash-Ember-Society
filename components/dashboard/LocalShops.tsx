@@ -1,44 +1,19 @@
-"use client";
-
-import { useState } from "react";
-
 /* ------------------------------------------------------------------
    LocalShops
 
    Single-row card on the home dashboard. The in-app shop directory
    was retired (no curated partner data, Google Maps removed) — this
    card now hands the user to a Google Maps search in the system
-   browser, which has a richer listings UI than we could build
-   in-app.
+   browser, which uses native location prompts and a much richer
+   listings UI than we could build in-app.
 
-   Find Shops flow (rev #351 — same-window navigation):
-   1. Await `navigator.geolocation.getCurrentPosition` to get the
-      device's actual GPS / WiFi coords (5s timeout, 60s-stale OK).
-   2. Build the URL: precise coords (`/@LAT,LON,13z`) on success,
-      `near me` on denial / timeout / no-geolocation.
-   3. Navigate the current window via `window.location.href`. NOT
-      `window.open` — that triggered a popup blocker prompt in iOS
-      PWA standalone because the await on geolocation consumed the
-      click's transient activation.
-
-   Trade-off: the PWA loses focus on click (user lands in system
-   Safari / Maps app, depending on iOS scope rules for out-of-scope
-   navigation). For Find Shops specifically this is expected
-   behavior — the user's intent is to look at shops in Maps, not
-   stay in the cigar app's webview. After they're done browsing
-   shops they re-launch the PWA from the home screen icon.
-
-   Three prior attempts at preserving new-tab UX all broke in iOS
-   PWA standalone (#348 silent cross-context redirect, #349 blank
-   tab when redirect failed, #350 popup-blocker on async open).
-   Same-window nav has no popup blocker because navigations aren't
-   subject to it.
+   `target="_blank" rel="noopener noreferrer"` opens the system
+   browser from the PWA so the user stays in their default Maps app
+   on mobile. No data, no Supabase round-trip — pure static card.
    ------------------------------------------------------------------ */
 
-const FALLBACK_URL =
+const FIND_SHOPS_URL =
   "https://www.google.com/maps/search/?api=1&query=cigar+shops+near+me";
-
-const GEOLOCATION_TIMEOUT_MS = 5000;
 
 function StorefrontIcon({ size = 18 }: { size?: number }) {
   return (
@@ -54,29 +29,7 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-function getCurrentCoords(): Promise<GeolocationCoordinates | null> {
-  if (!("geolocation" in navigator)) return Promise.resolve(null);
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      (pos)  => resolve(pos.coords),
-      ()     => resolve(null),
-      { timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 }
-    );
-  });
-}
-
 export function LocalShops() {
-  const [locating, setLocating] = useState(false);
-
-  async function handleFindShops() {
-    setLocating(true);
-    const coords = await getCurrentCoords();
-    const url = coords
-      ? `https://www.google.com/maps/search/cigar+shops/@${coords.latitude},${coords.longitude},13z`
-      : FALLBACK_URL;
-    window.location.href = url;
-  }
-
   return (
     <section
       style={{
@@ -133,34 +86,31 @@ export function LocalShops() {
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={handleFindShops}
-        disabled={locating}
+      <a
+        href={FIND_SHOPS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
         style={{
-          display:                 "inline-flex",
-          alignItems:              "center",
-          gap:                     6,
-          padding:                 "8px 14px",
-          fontFamily:              "var(--font-mono)",
-          fontSize:                10.5,
-          fontWeight:              600,
-          letterSpacing:           "0.18em",
-          textTransform:           "uppercase",
-          color:                   "var(--gold)",
-          background:              "transparent",
-          border:                  "1px solid var(--card-border)",
-          borderRadius:            4,
-          flexShrink:              0,
-          minHeight:               44,
-          cursor:                  locating ? "default" : "pointer",
-          opacity:                 locating ? 0.7 : 1,
-          touchAction:             "manipulation",
-          WebkitTapHighlightColor: "transparent",
+          display:        "inline-flex",
+          alignItems:     "center",
+          gap:            6,
+          padding:        "8px 14px",
+          fontFamily:     "var(--font-mono)",
+          fontSize:       10.5,
+          fontWeight:     600,
+          letterSpacing:  "0.18em",
+          textTransform:  "uppercase",
+          color:          "var(--gold)",
+          background:     "transparent",
+          border:         "1px solid var(--card-border)",
+          borderRadius:   4,
+          textDecoration: "none",
+          flexShrink:     0,
+          minHeight:      44,
         }}
       >
-        {locating ? "Locating…" : "Find Shops"}
-      </button>
+        Find Shops
+      </a>
     </section>
   );
 }
