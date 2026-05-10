@@ -51,38 +51,54 @@ export function LocalShops() {
   const [locating, setLocating] = useState(false);
 
   function handleFindShops() {
-    /* Open a blank tab synchronously — this is the bit that satisfies
-       popup blockers. We'll redirect it once we know where the user is.
+    /* Open the FALLBACK URL synchronously inside the click handler.
+       Two reasons:
+
+       1. Popup blockers are satisfied (synchronous user-gesture).
+       2. The tab opens with real content immediately. If the geolocation
+          upgrade below fails — which it routinely does in iOS PWA
+          standalone mode (the WindowProxy returned by window.open
+          becomes inaccessible cross-context), or when the user is slow
+          to grant permission — the user still ends up on a usable
+          Google Maps search instead of a blank `about:blank` screen.
 
        Intentionally NOT passing `noopener` here: that flag forces the
        returned WindowProxy to null in modern browsers, which would
-       break the redirect dance. We immediately navigate the tab to
-       google.com — a trusted destination — so the residual opener
-       relationship is acceptable. */
-    const newTab = window.open("about:blank", "_blank");
+       break the location-upgrade attempt below. We're navigating to
+       google.com — trusted destination — so the opener relationship
+       is acceptable. */
+    const newTab = window.open(FALLBACK_URL, "_blank");
     if (!newTab) {
       /* Popup blocked entirely; fall straight to a same-window navigation
-         to the fallback URL so the user still gets something. */
+         so the user still gets something. */
       window.location.href = FALLBACK_URL;
       return;
     }
 
-    if (!("geolocation" in navigator)) {
-      newTab.location.href = FALLBACK_URL;
-      return;
-    }
+    /* Best-effort upgrade to precise device location while the user is
+       looking at the new tab. If this succeeds within the timeout AND
+       the WindowProxy is still navigable from this context, the tab
+       redirects to a search centered on the device's actual coords.
+       If it fails, the user keeps the `near me` results that were
+       already loading — no blank screen. */
+    if (!("geolocation" in navigator)) return;
 
     setLocating(true);
 
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
-        newTab.location.href =
-          `https://www.google.com/maps/search/cigar+shops/@${latitude},${longitude},13z`;
+        try {
+          newTab.location.href =
+            `https://www.google.com/maps/search/cigar+shops/@${latitude},${longitude},13z`;
+        } catch {
+          /* Cross-context navigation blocked (PWA → external Safari,
+             etc). Tab is already on FALLBACK_URL — leave it. */
+        }
         setLocating(false);
       },
       () => {
-        newTab.location.href = FALLBACK_URL;
+        /* Permission denied / timeout. Tab is already on FALLBACK_URL. */
         setLocating(false);
       },
       { timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 }
