@@ -1,19 +1,37 @@
+"use client";
+
+import { useState } from "react";
+
 /* ------------------------------------------------------------------
    LocalShops
 
    Single-row card on the home dashboard. The in-app shop directory
    was retired (no curated partner data, Google Maps removed) — this
    card now hands the user to a Google Maps search in the system
-   browser, which uses native location prompts and a much richer
-   listings UI than we could build in-app.
+   browser, which has a richer listings UI than we could build
+   in-app.
 
-   `target="_blank" rel="noopener noreferrer"` opens the system
-   browser from the PWA so the user stays in their default Maps app
-   on mobile. No data, no Supabase round-trip — pure static card.
+   Find Shops flow:
+   1. Open a blank tab synchronously inside the click handler so
+      popup blockers don't fire.
+   2. Ask the browser for the device's current location via
+      `navigator.geolocation`. This uses GPS / WiFi / cell tower
+      triangulation — the user's ACTUAL location right now, not
+      a saved profile address or Google account home.
+   3. On success: redirect the tab to a Google Maps search centered
+      on those coords (`/@LAT,LON,13z` form). Works whether the user
+      is travelling, signed-in to Google, or not.
+   4. On error / denial / 5s timeout: redirect to a `near me` query
+      and let Google fall back to its own location heuristics.
+
+   The blank-tab redirect dance is necessary because geolocation is
+   async and browsers block `window.open` from async callbacks.
    ------------------------------------------------------------------ */
 
-const FIND_SHOPS_URL =
+const FALLBACK_URL =
   "https://www.google.com/maps/search/?api=1&query=cigar+shops+near+me";
+
+const GEOLOCATION_TIMEOUT_MS = 5000;
 
 function StorefrontIcon({ size = 18 }: { size?: number }) {
   return (
@@ -30,6 +48,47 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
 }
 
 export function LocalShops() {
+  const [locating, setLocating] = useState(false);
+
+  function handleFindShops() {
+    /* Open a blank tab synchronously — this is the bit that satisfies
+       popup blockers. We'll redirect it once we know where the user is.
+
+       Intentionally NOT passing `noopener` here: that flag forces the
+       returned WindowProxy to null in modern browsers, which would
+       break the redirect dance. We immediately navigate the tab to
+       google.com — a trusted destination — so the residual opener
+       relationship is acceptable. */
+    const newTab = window.open("about:blank", "_blank");
+    if (!newTab) {
+      /* Popup blocked entirely; fall straight to a same-window navigation
+         to the fallback URL so the user still gets something. */
+      window.location.href = FALLBACK_URL;
+      return;
+    }
+
+    if (!("geolocation" in navigator)) {
+      newTab.location.href = FALLBACK_URL;
+      return;
+    }
+
+    setLocating(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        newTab.location.href =
+          `https://www.google.com/maps/search/cigar+shops/@${latitude},${longitude},13z`;
+        setLocating(false);
+      },
+      () => {
+        newTab.location.href = FALLBACK_URL;
+        setLocating(false);
+      },
+      { timeout: GEOLOCATION_TIMEOUT_MS, maximumAge: 60_000 }
+    );
+  }
+
   return (
     <section
       style={{
@@ -86,31 +145,34 @@ export function LocalShops() {
         </div>
       </div>
 
-      <a
-        href={FIND_SHOPS_URL}
-        target="_blank"
-        rel="noopener noreferrer"
+      <button
+        type="button"
+        onClick={handleFindShops}
+        disabled={locating}
         style={{
-          display:        "inline-flex",
-          alignItems:     "center",
-          gap:            6,
-          padding:        "8px 14px",
-          fontFamily:     "var(--font-mono)",
-          fontSize:       10.5,
-          fontWeight:     600,
-          letterSpacing:  "0.18em",
-          textTransform:  "uppercase",
-          color:          "var(--gold)",
-          background:     "transparent",
-          border:         "1px solid var(--card-border)",
-          borderRadius:   4,
-          textDecoration: "none",
-          flexShrink:     0,
-          minHeight:      44,
+          display:                 "inline-flex",
+          alignItems:              "center",
+          gap:                     6,
+          padding:                 "8px 14px",
+          fontFamily:              "var(--font-mono)",
+          fontSize:                10.5,
+          fontWeight:              600,
+          letterSpacing:           "0.18em",
+          textTransform:           "uppercase",
+          color:                   "var(--gold)",
+          background:              "transparent",
+          border:                  "1px solid var(--card-border)",
+          borderRadius:            4,
+          flexShrink:              0,
+          minHeight:               44,
+          cursor:                  locating ? "default" : "pointer",
+          opacity:                 locating ? 0.7 : 1,
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
         }}
       >
-        Find Shops
-      </a>
+        {locating ? "Locating…" : "Find Shops"}
+      </button>
     </section>
   );
 }
