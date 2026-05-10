@@ -11,27 +11,28 @@ import { useState } from "react";
    browser, which has a richer listings UI than we could build
    in-app.
 
-   Find Shops flow (rev #350):
-   1. Await `navigator.geolocation.getCurrentPosition` BEFORE opening
-      anything. This uses the device's actual GPS / WiFi / cell tower
-      triangulation — the user's location right now, not a saved
-      profile address or Google account home.
-   2. Build the final URL: precise coords (`/@LAT,LON,13z` form) on
-      success, `near me` query on denial / timeout / no-geolocation.
-   3. Open the final URL in a new tab via `window.open`. Modern
-      browsers preserve "transient activation" for ~5s after a click,
-      so this still satisfies popup blockers in the common case
-      (permission already granted → geolocation resolves in <100ms).
-   4. If `window.open` returns null (transient activation expired
-      because the user took >5s to grant permission first time, OR
-      strict popup blocker), fall back to a same-window navigation.
+   Find Shops flow (rev #351 — same-window navigation):
+   1. Await `navigator.geolocation.getCurrentPosition` to get the
+      device's actual GPS / WiFi coords (5s timeout, 60s-stale OK).
+   2. Build the URL: precise coords (`/@LAT,LON,13z`) on success,
+      `near me` on denial / timeout / no-geolocation.
+   3. Navigate the current window via `window.location.href`. NOT
+      `window.open` — that triggered a popup blocker prompt in iOS
+      PWA standalone because the await on geolocation consumed the
+      click's transient activation.
 
-   Why this shape (and not the prior "open blank tab, then redirect"):
-   in iOS PWA standalone mode, `window.open` hands off the new tab
-   to system Safari, and the WindowProxy we hold becomes
-   cross-context — silent failure when we try to redirect it.
-   Building the URL up front and opening it once eliminates the
-   redirect step entirely.
+   Trade-off: the PWA loses focus on click (user lands in system
+   Safari / Maps app, depending on iOS scope rules for out-of-scope
+   navigation). For Find Shops specifically this is expected
+   behavior — the user's intent is to look at shops in Maps, not
+   stay in the cigar app's webview. After they're done browsing
+   shops they re-launch the PWA from the home screen icon.
+
+   Three prior attempts at preserving new-tab UX all broke in iOS
+   PWA standalone (#348 silent cross-context redirect, #349 blank
+   tab when redirect failed, #350 popup-blocker on async open).
+   Same-window nav has no popup blocker because navigations aren't
+   subject to it.
    ------------------------------------------------------------------ */
 
 const FALLBACK_URL =
@@ -69,25 +70,11 @@ export function LocalShops() {
 
   async function handleFindShops() {
     setLocating(true);
-
     const coords = await getCurrentCoords();
     const url = coords
       ? `https://www.google.com/maps/search/cigar+shops/@${coords.latitude},${coords.longitude},13z`
       : FALLBACK_URL;
-
-    setLocating(false);
-
-    /* Try a new tab first — preferred UX, keeps the PWA alive in the
-       background. Modern browsers preserve transient activation for
-       ~5s after a click, so this works when geolocation resolves
-       quickly (permission cached). If `window.open` is blocked
-       because activation expired (user took >5s to grant permission
-       on first run, OR strict popup blocker), navigate the current
-       window instead — guaranteed to work, but the user leaves the
-       PWA. Acceptable trade for actually getting them to the right
-       map. */
-    const opened = window.open(url, "_blank");
-    if (!opened) window.location.href = url;
+    window.location.href = url;
   }
 
   return (
