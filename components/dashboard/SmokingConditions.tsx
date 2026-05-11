@@ -1,7 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+
+/* Match the server-side data-cache revalidate window for NWS station
+   observations. Refetching more often than this can't yield a fresher
+   reading; refetching less often risks the all-day-stale-cache bug
+   that motivated this refresh hook in the first place. */
+const REFETCH_MIN_AGE_MS = 5 * 60_000;
 
 /* ------------------------------------------------------------------
    Types
@@ -302,7 +308,12 @@ function NoLocation() {
 
    Prefers ZIP (resolves to neighborhood-level coords + station obs);
    falls back to city geocoding (city centroid + model output).
-   Single fetch to /api/weather, server-side with edge caching.
+
+   Re-fetches on document visibility changes (PWA returning from
+   background, tab refocused, app brought to front) so a strip that
+   was loaded at 6am doesn't keep showing the overnight low at 3pm.
+   Guarded by REFETCH_MIN_AGE_MS so we don't hammer the route on
+   rapid foreground/background toggles.
    ------------------------------------------------------------------ */
 
 export function SmokingConditions({
@@ -316,14 +327,23 @@ export function SmokingConditions({
   const trimmedCity = city?.trim() || null;
   const hasLocation = !!(trimmedZip || trimmedCity);
 
-  const [weather,  setWeather]  = useState<WeatherApiResponse | null>(null);
-  const [notFound, setNotFound] = useState(false);
-  const [loading,  setLoading]  = useState(hasLocation);
+  const [weather,    setWeather]    = useState<WeatherApiResponse | null>(null);
+  const [notFound,   setNotFound]   = useState(false);
+  const [loading,    setLoading]    = useState(hasLocation);
+  const [refetchKey, setRefetchKey] = useState(0);
+
+  /* Wall-clock timestamp (ms) of the most recent successful fetch.
+     Zero before the initial load completes. Used to gate visibility
+     refetches: only fire if it's been > REFETCH_MIN_AGE_MS since the
+     last success, and never fire before the initial fetch has
+     completed (the mount-time effect handles that case). */
+  const lastFetchAt = useRef<number>(0);
 
   useEffect(() => {
     if (!hasLocation) return;
 
     let cancelled = false;
+    const isInitial = lastFetchAt.current === 0;
 
     async function load() {
       const params = new URLSearchParams();
@@ -336,24 +356,47 @@ export function SmokingConditions({
 
         if (res.status === 404) {
           setNotFound(true);
-          setLoading(false);
+          if (isInitial) setLoading(false);
           return;
         }
-        if (!res.ok) { setLoading(false); return; }
+        if (!res.ok) {
+          if (isInitial) setLoading(false);
+          return;
+        }
 
         const data: WeatherApiResponse = await res.json();
         if (!cancelled) {
           setWeather(data);
-          setLoading(false);
+          lastFetchAt.current = Date.now();
+          if (isInitial) setLoading(false);
         }
       } catch {
-        if (!cancelled) setLoading(false);
+        if (!cancelled && isInitial) setLoading(false);
       }
     }
 
     load();
     return () => { cancelled = true; };
-  }, [trimmedZip, trimmedCity, hasLocation]);
+  }, [trimmedZip, trimmedCity, hasLocation, refetchKey]);
+
+  /* Trigger a background refetch when the document becomes visible
+     and the cached reading is stale. No skeleton flash — only the
+     mount-time effect toggles `loading`; visibility refetches swap
+     the data in once it arrives. */
+  useEffect(() => {
+    if (!hasLocation) return;
+
+    function maybeRefetch() {
+      if (document.visibilityState !== "visible") return;
+      if (lastFetchAt.current === 0)               return; // mount effect owns this
+      const age = Date.now() - lastFetchAt.current;
+      if (age < REFETCH_MIN_AGE_MS)                return;
+      setRefetchKey((k) => k + 1);
+    }
+
+    document.addEventListener("visibilitychange", maybeRefetch);
+    return () => document.removeEventListener("visibilitychange", maybeRefetch);
+  }, [hasLocation]);
 
   if (!loading && !weather && !notFound && hasLocation) return null;
 
