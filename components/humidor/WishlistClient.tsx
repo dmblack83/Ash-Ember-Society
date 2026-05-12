@@ -49,6 +49,11 @@ interface ManualFields {
 const CATALOG_SELECT_WL =
   "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
+/* Search results page size. 8 keeps the sheet from getting long;
+   "Load more" appends another page when the user wants to see
+   results past the top matches. */
+const SEARCH_PAGE_SIZE_WL = 8;
+
 function WishlistCaret({ dir }: { dir: "up" | "down" }) {
   return (
     <svg
@@ -75,8 +80,10 @@ function AddWishlistSheet({
   useEscapeKey(open, onClose);
 
   /* Search state */
-  const [query,     setQuery]     = useState("");
-  const [results,   setResults]   = useState<CatalogResult[]>([]);
+  const [query,       setQuery]       = useState("");
+  const [results,     setResults]     = useState<CatalogResult[]>([]);
+  const [hasMore,     setHasMore]     = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [searching, setSearching] = useState(false);
   const [isPopular, setIsPopular] = useState(true);
 
@@ -134,20 +141,37 @@ function AddWishlistSheet({
       .select(CATALOG_SELECT_WL)
       .order("usage_count", { ascending: false })
       .limit(20)
-      .then(({ data }) => { setResults(data ?? []); setIsPopular(true); });
+      .then(({ data }) => {
+        setResults(data ?? []);
+        setIsPopular(true);
+        /* Popular list is a curated top-20; no pagination. */
+        setHasMore(false);
+      });
   }
 
-  const doSearch = useCallback(async (q: string) => {
-    setSearching(true);
+  /* doSearch handles BOTH the first page (offset=0, replaces results)
+     and subsequent pages (offset>0, appends). Explicit usage_count
+     ordering: without an ORDER BY, range() pagination is undefined
+     in Postgres and pages can overlap or skip rows. */
+  const doSearch = useCallback(async (q: string, offset: number) => {
+    if (offset === 0) setSearching(true);
+    else              setLoadingMore(true);
+
     const supabase = createClient();
     const { data } = await supabase
       .from("cigar_catalog")
       .select(CATALOG_SELECT_WL)
       .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
-      .limit(8);
-    setResults(data ?? []);
+      .order("usage_count", { ascending: false })
+      .order("id", { ascending: true })
+      .range(offset, offset + SEARCH_PAGE_SIZE_WL - 1);
+
+    const rows = data ?? [];
+    setResults((prev) => (offset === 0 ? rows : [...prev, ...rows]));
     setIsPopular(false);
+    setHasMore(rows.length === SEARCH_PAGE_SIZE_WL);
     setSearching(false);
+    setLoadingMore(false);
   }, []);
 
   useEffect(() => {
@@ -157,7 +181,7 @@ function AddWishlistSheet({
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
+    debounceRef.current = setTimeout(() => doSearch(query.trim(), 0), 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, doSearch]);
 
@@ -458,6 +482,32 @@ function AddWishlistSheet({
                       No results for &ldquo;{query}&rdquo;
                     </p>
                   </div>
+                )}
+
+                {hasMore && !isPopular && (
+                  <button
+                    type="button"
+                    onClick={() => doSearch(query.trim(), results.length)}
+                    disabled={loadingMore}
+                    className="w-full text-sm font-semibold text-center transition-colors active:opacity-70 flex items-center justify-center gap-2"
+                    style={{
+                      minHeight: 48,
+                      color: "var(--primary)",
+                      borderTop: "1px solid var(--border)",
+                    }}
+                  >
+                    {loadingMore && (
+                      <span
+                        className="rounded-full border animate-spin block"
+                        style={{
+                          width: 14, height: 14,
+                          borderColor: "rgba(193,120,23,0.3)",
+                          borderTopColor: "var(--primary)",
+                        }}
+                      />
+                    )}
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </button>
                 )}
 
                 <div style={{ borderTop: results.length > 0 ? "1px solid var(--border)" : undefined }}>
