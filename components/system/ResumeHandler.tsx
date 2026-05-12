@@ -6,12 +6,28 @@ import { createClient } from "@/utils/supabase/client";
 
 const MIN_INTERVAL_MS = 2000;
 
+/* iOS WebKit evicts the JS heap aggressively for backgrounded
+   standalone PWAs. The DOM stays painted but the JS context is
+   dead, so the app looks alive and buttons appear clickable but
+   nothing runs. router.refresh() cannot recover this: it re-runs
+   server components inside the (dead) JS context. Only a hard
+   reload rebuilds the heap.
+
+   5 min threshold balances: long enough that quick app-switches
+   (taking a call, replying to a text) keep their warm context;
+   short enough to catch the typical eviction window (iOS evicts
+   under memory pressure well before 30 min in practice). The cost
+   of an over-eager reload is ~1-2s LCP from edge cache; the cost
+   of NOT reloading is the user force-closing the app. */
+const IOS_RELOAD_THRESHOLD_MS = 5 * 60 * 1000;
+
 /* Performance-mark labels for diagnosing warm-resume blank-screen
    issues. Marks land on Performance Timeline and feed Vercel Speed
    Insights' RUM. View in DevTools → Performance → User timing. */
 const MARK_RESUME           = "ae:resume";
 const MARK_TOKEN_REFRESHED  = "ae:token-refreshed";
 const MEASURE_TOKEN_REFRESH = "ae:token-refresh-duration";
+const MARK_IOS_RELOAD       = "ae:ios-resume-reload";
 
 function safeMark(name: string) {
   if (typeof performance !== "undefined" && performance.mark) {
@@ -25,12 +41,29 @@ function safeMeasure(name: string, start: string, end: string) {
   }
 }
 
+/* True only for iOS PWAs added to the Home Screen. The heap-eviction
+   pattern is far worse there than in a Safari browser tab (which
+   benefits from bfcache). Gating the reload behavior to standalone
+   keeps casual Safari browsing on iOS from paying the reload cost. */
+function isIOSStandalone(): boolean {
+  if (typeof navigator === "undefined" || typeof window === "undefined") return false;
+  if (!/iPad|iPhone|iPod/.test(navigator.userAgent)) return false;
+  if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+  return (navigator as Navigator & { standalone?: boolean }).standalone === true;
+}
+
 export function ResumeHandler() {
   const router = useRouter();
 
   useEffect(() => {
     let lastResume = 0;
+    let hiddenAt: number | null = null;
+    const iosStandalone = isIOSStandalone();
     const supabase = createClient();
+
+    function recordHidden() {
+      hiddenAt = Date.now();
+    }
 
     function onResume() {
       /* Skip when offline. Both supabase.auth.refreshSession() and
@@ -47,6 +80,21 @@ export function ResumeHandler() {
       /* Mark the moment of resume so the user-timing track in
          DevTools shows the blank-screen window starting here. */
       safeMark(MARK_RESUME);
+
+      /* iOS standalone + long background gap: hard reload. The JS
+         heap is likely dead; no router-level recovery will help.
+         Skip the rest of the resume path (token refresh, SW update,
+         router.refresh) because the reload will redo all of it
+         from a fresh context. */
+      if (
+        iosStandalone &&
+        hiddenAt !== null &&
+        now - hiddenAt > IOS_RELOAD_THRESHOLD_MS
+      ) {
+        safeMark(MARK_IOS_RELOAD);
+        window.location.reload();
+        return;
+      }
 
       /* Token refresh runs in parallel with router.refresh() — the
          latter doesn't await the former. Marks let us see how long
@@ -65,11 +113,34 @@ export function ResumeHandler() {
         })
         .catch(() => { /* refresh is best-effort */ });
 
+      /* SW update check on every resume. /sw.js is served with
+         max-age=0,must-revalidate so this is one cheap revalidation
+         request. If a deploy shipped while the tab was hidden,
+         skipWaiting + clientsClaim install the new worker
+         immediately, so the next navigation gets fresh chunks. */
+      if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+        navigator.serviceWorker.ready
+          .then((reg) => reg.update())
+          .catch(() => { /* update is best-effort */ });
+      }
+
       router.refresh();
     }
 
     function onVisibility() {
-      if (document.visibilityState === "visible") onResume();
+      if (document.visibilityState === "hidden") {
+        recordHidden();
+      } else if (document.visibilityState === "visible") {
+        onResume();
+      }
+    }
+
+    function onPageHide() {
+      /* pagehide fires reliably on iOS when the PWA is backgrounded;
+         visibilitychange has historically been less consistent
+         there. Belt-and-suspenders: either path captures the moment
+         we lose the tab. */
+      recordHidden();
     }
 
     function onPageShow(e: PageTransitionEvent) {
@@ -77,9 +148,11 @@ export function ResumeHandler() {
     }
 
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onPageHide);
     window.addEventListener("pageshow", onPageShow);
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("pageshow", onPageShow);
     };
   }, [router]);
