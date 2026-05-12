@@ -26,8 +26,26 @@ let _redis: Redis | null = null;
 
 function getRedis(): Redis | null {
   if (_redis) return _redis;
-  const url   = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  /* Two naming conventions in the wild:
+
+     Canonical (Upstash dashboard direct setup, .env.local, older
+     installs):
+       UPSTASH_REDIS_REST_URL
+       UPSTASH_REDIS_REST_TOKEN
+
+     Vercel Marketplace install (auto-injected, names prefixed by the
+     integration product key):
+       UPSTASH_REDIS_REST_KV_REST_API_URL
+       UPSTASH_REDIS_REST_KV_REST_API_TOKEN
+
+     Read canonical first so a manually-set value (e.g., pointing at a
+     different Redis for staging) wins over the auto-injected one. */
+  const url =
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.UPSTASH_REDIS_REST_KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.UPSTASH_REDIS_REST_KV_REST_API_TOKEN;
   if (!url || !token) return null;
   _redis = new Redis({ url, token });
   return _redis;
@@ -83,9 +101,10 @@ export async function checkRateLimit(
   if (!limiter) {
     if (process.env.NODE_ENV === "production") {
       console.error(
-        `[rate-limit] CRITICAL: "${config.prefix}" was called but UPSTASH_REDIS_REST_URL ` +
-        `or UPSTASH_REDIS_REST_TOKEN is not set. Failing closed. Install Upstash via the ` +
-        `Vercel Marketplace to inject these env vars automatically.`,
+        `[rate-limit] CRITICAL: "${config.prefix}" was called but no Upstash env vars are ` +
+        `set. Failing closed. Expected UPSTASH_REDIS_REST_URL + _TOKEN (canonical) or ` +
+        `UPSTASH_REDIS_REST_KV_REST_API_URL + _TOKEN (Vercel Marketplace prefix). Install ` +
+        `Upstash via the Vercel Marketplace and redeploy to inject these automatically.`,
       );
       return { ok: false, limit: 0, remaining: 0, reset: 0, reason: "rate_limit_unavailable" };
     }
