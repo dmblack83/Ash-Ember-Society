@@ -730,26 +730,6 @@ html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
   transition: opacity 1s ease-out;
 }
 
-.cold-smoke-logo {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 1;
-}
-
-.cold-smoke-logo img {
-  display: block;
-  object-fit: contain;
-}
-
-.cold-smoke-scrim {
-  position: absolute;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  border-radius: 50%;
-}
-
 .cold-smoke-column {
   position: absolute;
   bottom: -12vh;

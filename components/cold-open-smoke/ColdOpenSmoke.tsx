@@ -1,5 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
-
 import { ColdOpenSmokeTimer } from "./ColdOpenSmokeTimer";
 
 /* Re-exported from a pure-TS sibling so next.config.ts can import the
@@ -22,6 +20,12 @@ export { COLD_SMOKE_INIT_SCRIPT } from "./cold-smoke-init";
    survives iOS killing the PWA when the user taps an external link
    and returns. Without that, every external-link round-trip would
    replay the loader.
+
+   No logo here: the iOS apple-touch-startup-image splash already
+   shows the brand mark in the pre-paint window. When the overlay
+   takes over after HTML paints, it shows only the rising smoke on
+   the same #15110b background — the splash logo appears to dissolve
+   into smoke, with no logo position/size mismatch between the two.
    ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
@@ -67,20 +71,6 @@ export function ColdOpenSmoke() {
   return (
     <>
       <div className="cold-smoke-overlay" aria-hidden="true">
-        <div className="cold-smoke-logo">
-          {/* The cold-open overlay paints in the synchronous head
-              script before React hydrates, so it must be a plain
-              <img> with an inline-resolvable src. The next/image
-              runtime hasn't loaded yet at this point. */}
-          <img
-            src="/Circle%20Logo.png"
-            alt=""
-            width={288}
-            height={288}
-          />
-          <div className="cold-smoke-scrim" />
-        </div>
-
         <div className="cold-smoke-column">
           {WISPS.map((w, i) => (
             <div
