@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient }      from "@/utils/supabase/client";
-import { CatalogResult, Highlight } from "@/components/cigar-search";
+import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 import { useEscapeKey }      from "@/lib/hooks/use-escape-key";
 import {
@@ -13,13 +13,6 @@ import {
   LENGTHS,
   RING_GAUGES,
 } from "@/lib/cigar-taxonomy";
-
-/* ------------------------------------------------------------------
-   Constants
-   ------------------------------------------------------------------ */
-
-const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
 /* ------------------------------------------------------------------
    Types
@@ -69,12 +62,6 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
      Escape. Only attached while open. */
   useEscapeKey(open, onClose);
 
-  /* ── Search state ─────────────────────────────────────────── */
-  const [query,     setQuery]     = useState("");
-  const [results,   setResults]   = useState<CatalogResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [isPopular, setIsPopular] = useState(true);
-
   /* ── Selection state ──────────────────────────────────────── */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
@@ -102,9 +89,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [showTopCaret,    setShowTopCaret]    = useState(false);
   const [showBottomCaret, setShowBottomCaret] = useState(false);
 
-  const bodyRef     = useRef<HTMLDivElement>(null);
-  const inputRef    = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   /* ── Desktop detection ────────────────────────────────────── */
   useEffect(() => {
@@ -132,52 +117,15 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     };
   }, [open]);
 
-  /* ── Search helpers ───────────────────────────────────────── */
-  function loadPopular() {
-    const supabase = createClient();
-    supabase
-      .from("cigar_catalog")
-      .select(CATALOG_SELECT)
-      .order("usage_count", { ascending: false })
-      .limit(20)
-      .then(({ data }) => { setResults(data ?? []); setIsPopular(true); });
-  }
-
-  const doSearch = useCallback(async (q: string) => {
-    setSearching(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("cigar_catalog")
-      .select(CATALOG_SELECT)
-      .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
-      .limit(8);
-    setResults(data ?? []);
-    setIsPopular(false);
-    setSearching(false);
-  }, []);
-
-  useEffect(() => {
-    if (!query.trim()) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      loadPopular();
-      return;
-    }
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [query, doSearch]);
-
   /* ── Reset on open ────────────────────────────────────────── */
   useEffect(() => {
     if (!open) return;
-    setSelected(null); setIsManual(false); setQuery("");
+    setSelected(null); setIsManual(false);
     setManual({ brand: "", series: "", format: "", ringGauge: "", lengthInches: "", wrapper: "", wrapperCountry: "", shade: "" });
     setSubmitToCatalog(true);
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
-    loadPopular();
-    setTimeout(() => inputRef.current?.focus(), 120);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -192,13 +140,15 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   useEffect(() => {
     const id = requestAnimationFrame(updateCarets);
     return () => cancelAnimationFrame(id);
-  }, [results, selected, isManual, open]);
+  }, [selected, isManual, open]);
 
   /* ── Handlers ─────────────────────────────────────────────── */
   function handleClear() {
+    /* CigarSearch remounts when hasSelection flips back to false
+       (it's gated on `open && !hasSelection`) — autoFocus handles
+       the input refocus on its own. */
     setSelected(null);
     setIsManual(false);
-    setTimeout(() => inputRef.current?.focus(), 80);
   }
 
   async function handleSubmit() {
@@ -382,40 +332,23 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           </button>
         </div>
 
-        {/* ── Fixed search bar ─────────────────────────────── */}
-        {!hasSelection && (
+        {/* ── Search ──────────────────────────────────────────
+             Gating on `open && !hasSelection` is what makes
+             CigarSearch fresh per open: it unmounts when the sheet
+             closes (no stale query when reopened) AND when the user
+             picks a cigar / clicks "Add manually" (so the dropdown
+             closes and Change/Back-to-search gives a fresh popular
+             list). Avoids needing an imperative reset API. */}
+        {open && !hasSelection && (
           <div
             className="px-5 py-3 flex-shrink-0"
             style={{ borderBottom: "1px solid var(--border)" }}
           >
-            <div className="relative">
-              <svg
-                className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-                style={{ color: "var(--muted-foreground)" }}
-                width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"
-              >
-                <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.4" />
-                <path d="M12 12l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <input
-                ref={inputRef}
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search cigars…"
-                className="input w-full pl-11 pr-4 text-base"
-                style={{ minHeight: 48 }}
-                autoComplete="off"
-              />
-              {searching && (
-                <span className="absolute right-4 top-1/2 -translate-y-1/2">
-                  <span
-                    className="rounded-full border animate-spin block"
-                    style={{ width: 16, height: 16, borderColor: "rgba(193,120,23,0.3)", borderTopColor: "var(--primary)" }}
-                  />
-                </span>
-              )}
-            </div>
+            <CigarSearch
+              onSelect={(r) => setSelected(r)}
+              onManual={() => setIsManual(true)}
+              autoFocus
+            />
           </div>
         )}
 
@@ -428,72 +361,9 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
             onScroll={updateCarets}
           >
 
-            {/* Results list — shown when not yet selected */}
-            {!hasSelection && (
-              <div className="pb-4">
-                {isPopular && results.length > 0 && (
-                  <div className="px-5 pt-4 pb-2">
-                    <span
-                      className="text-[10px] font-bold tracking-widest uppercase"
-                      style={{ color: "var(--muted-foreground)" }}
-                    >
-                      Popular Cigars
-                    </span>
-                  </div>
-                )}
-
-                {results.map((r, i) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => { setSelected(r); setQuery(""); }}
-                    className="w-full text-left px-5 flex flex-col justify-center transition-colors active:opacity-70"
-                    style={{
-                      minHeight:    56,
-                      borderBottom: i < results.length - 1 ? "1px solid var(--border)" : "none",
-                    }}
-                  >
-                    <span className="text-sm font-semibold text-foreground leading-snug">
-                      <Highlight text={r.brand ?? ""} query={query} />
-                      {r.series && (
-                        <span className="font-normal text-muted-foreground">
-                          {" · "}<Highlight text={r.series} query={query} />
-                        </span>
-                      )}
-                    </span>
-                    {(r.format || r.wrapper || r.ring_gauge) && (
-                      <span className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                        {[
-                          r.format,
-                          r.wrapper,
-                          r.ring_gauge    ? `${r.ring_gauge} ring` : null,
-                          r.length_inches ? `${r.length_inches}"`  : null,
-                        ].filter(Boolean).join(" · ")}
-                      </span>
-                    )}
-                  </button>
-                ))}
-
-                {!searching && query.trim() && results.length === 0 && (
-                  <div className="px-5 py-6 text-center">
-                    <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
-                      No results for &ldquo;{query}&rdquo;
-                    </p>
-                  </div>
-                )}
-
-                <div style={{ borderTop: results.length > 0 ? "1px solid var(--border)" : undefined }}>
-                  <button
-                    type="button"
-                    onClick={() => setIsManual(true)}
-                    className="w-full text-sm text-center transition-colors active:opacity-70"
-                    style={{ minHeight: 48, color: "var(--muted-foreground)" }}
-                  >
-                    Can&apos;t find it? Add manually
-                  </button>
-                </div>
-              </div>
-            )}
+            {/* Results list now lives in CigarSearch's dropdown
+                above. Body is empty until the user picks a cigar
+                or switches to manual entry. */}
 
             {/* Selection + form */}
             {hasSelection && (

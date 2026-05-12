@@ -203,8 +203,13 @@ export function CigarSearch({
       {/* Dropdown */}
       {showDropdown && (
         <div
-          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl overflow-hidden glass animate-fade-in"
-          style={{ border: "1px solid var(--border)" }}
+          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl glass animate-fade-in"
+          style={{
+            border:     "1px solid var(--border)",
+            maxHeight:  "60vh",
+            overflowX:  "hidden",
+            overflowY:  "auto",
+          }}
         >
           {results.length === 0 ? (
             <div className="px-4 py-5 space-y-3 text-center">
