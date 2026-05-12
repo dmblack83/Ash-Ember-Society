@@ -41,14 +41,37 @@ export function getPushPermission(): PushPermission {
   return Notification.permission as PushPermission;
 }
 
+/* How long to wait for an active service worker before giving up
+   and treating this device as having no subscription. Five seconds
+   covers a normal cold-launch SW install (typically <1s) with a
+   comfortable margin; if it's still pending past that, something
+   is wrong with the SW lifecycle and the user shouldn't be stuck
+   staring at "Checking this device…" indefinitely. */
+const SW_READY_TIMEOUT_MS = 5000;
+
 /* Returns the active PushSubscription for THIS browser, or null if
-   the user hasn't opted in (or the SW isn't registered yet). */
+   the user hasn't opted in, the SW isn't registered yet, or the SW
+   failed to activate within SW_READY_TIMEOUT_MS.
+
+   Falling through to null on timeout is intentional: the calling UI
+   should resolve to "off" and let the user retry by toggling. The
+   subscribe() path runs its own SW-ready wait and will surface a
+   concrete error toast if the SW is genuinely broken. */
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("ServiceWorker ready timed out")),
+          SW_READY_TIMEOUT_MS,
+        ),
+      ),
+    ]);
     return await reg.pushManager.getSubscription();
-  } catch {
+  } catch (err) {
+    console.warn("[push] getCurrentSubscription:", err);
     return null;
   }
 }
