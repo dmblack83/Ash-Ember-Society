@@ -60,6 +60,11 @@ export interface CigarSearchProps {
   autoFocus?:   boolean;
 }
 
+/* Search results page size. 8 keeps the dropdown short on mobile;
+   "Load more" appends another page when the user wants to see
+   results past the top matches. */
+const SEARCH_PAGE_SIZE = 8;
+
 export function CigarSearch({
   onSelect,
   onManual,
@@ -71,6 +76,8 @@ export function CigarSearch({
   const [searching,    setSearching]    = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
   const [isPopular,    setIsPopular]    = useState(true);
+  const [hasMore,      setHasMore]      = useState(false);
+  const [loadingMore,  setLoadingMore]  = useState(false);
 
   const inputRef    = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -87,6 +94,8 @@ export function CigarSearch({
         setResults(data ?? []);
         setIsPopular(true);
         setShowDropdown(true);
+        /* Popular list is the curated top-20; no pagination here. */
+        setHasMore(false);
       });
   }
 
@@ -96,18 +105,33 @@ export function CigarSearch({
     if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const doSearch = useCallback(async (q: string) => {
-    setSearching(true);
+  /* doSearch handles BOTH the first page (offset=0, replaces results)
+     and subsequent pages (offset>0, appends to results). Explicit
+     usage_count ordering: without it, range() pagination can return
+     overlapping or missing rows across pages — Postgres has no
+     stable order without an ORDER BY. */
+  const doSearch = useCallback(async (q: string, offset: number) => {
+    if (offset === 0) setSearching(true);
+    else              setLoadingMore(true);
+
     const supabase = createClient();
     const { data } = await supabase
       .from("cigar_catalog")
       .select(CATALOG_SELECT)
       .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
-      .limit(8);
-    setResults(data ?? []);
+      .order("usage_count", { ascending: false })
+      .order("id", { ascending: true })
+      .range(offset, offset + SEARCH_PAGE_SIZE - 1);
+
+    const rows = data ?? [];
+    setResults((prev) => (offset === 0 ? rows : [...prev, ...rows]));
     setIsPopular(false);
     setShowDropdown(true);
+    /* Full page returned → likely more available. A short page means
+       we hit the tail. */
+    setHasMore(rows.length === SEARCH_PAGE_SIZE);
     setSearching(false);
+    setLoadingMore(false);
   }, []);
 
   /* Re-fetch when query changes */
@@ -118,7 +142,7 @@ export function CigarSearch({
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(query.trim()), 300);
+    debounceRef.current = setTimeout(() => doSearch(query.trim(), 0), 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [query, doSearch]);
 
@@ -253,6 +277,30 @@ export function CigarSearch({
                   )}
                 </button>
               ))}
+              {hasMore && !isPopular && (
+                <button
+                  onClick={() => doSearch(query.trim(), results.length)}
+                  disabled={loadingMore}
+                  className="w-full text-sm font-semibold text-center transition-colors active:opacity-70 flex items-center justify-center gap-2"
+                  style={{
+                    minHeight: 48,
+                    color: "var(--primary)",
+                    borderTop: "1px solid var(--border)",
+                  }}
+                >
+                  {loadingMore && (
+                    <span
+                      className="rounded-full border animate-spin block"
+                      style={{
+                        width: 14, height: 14,
+                        borderColor: "rgba(193,120,23,0.3)",
+                        borderTopColor: "var(--primary)",
+                      }}
+                    />
+                  )}
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              )}
               {onManual && (
                 <button
                   onClick={onManual}
