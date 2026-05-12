@@ -21,11 +21,27 @@ export default await serwist({
   swSrc:  "app/sw.ts",
   swDest: "public/sw.js",
   /*
-   * Precache prerendered HTML so static pages (login, signup, the
-   * marketing landing, and `/offline`) are instantly available
-   * offline. Dynamic pages (`/home`, `/humidor`, etc.) are not
-   * prerendered and don't end up in the precache — they go through
-   * the runtime NetworkFirst route in `app/sw.ts`.
+   * `precachePrerendered: false` — flipped after diagnosing a SW
+   * install failure that hung push notifications on fresh iOS PWA
+   * installs.
+   *
+   * Root cause: with this flag on, Serwist precaches every prerendered
+   * route the Next build produces. Some of those routes are auth-
+   * gated by `proxy.ts` (notably `/discover/content`, `/discover/
+   * vendors`, and `/public/badge-preview`). The SW's precache fetch
+   * runs without auth cookies, so the proxy returns a 307 redirect
+   * to `/login`. Serwist's CacheableResponsePlugin only accepts
+   * statuses [0, 200] — a 307 breaks precache, throws during install,
+   * and the SW never activates. `navigator.serviceWorker.ready`
+   * never resolves, so every push code path (getCurrentSubscription,
+   * subscribe) hangs forever with no error surface.
+   *
+   * Disabling prerendered precaching skips the auth-gated routes
+   * entirely and lets the SW install cleanly. Cost: `/login`,
+   * `/signup`, `/privacy`, `/terms`, `/offline` aren't available
+   * for an offline first-visit. They're cached on first online
+   * visit via the NetworkFirst navigation rule in `app/sw.ts`, so
+   * realistic offline impact is nil.
    */
-  precachePrerendered: true,
+  precachePrerendered: false,
 });
