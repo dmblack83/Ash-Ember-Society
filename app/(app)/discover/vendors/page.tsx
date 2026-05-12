@@ -12,6 +12,14 @@ export const metadata = {
   title: "Vendors — Ash & Ember Society",
 };
 
+/* Force dynamic rendering. This page is auth-gated by proxy.ts; if
+   Next prerenders it at build time, unauthenticated fetches (e.g.,
+   Serwist's precache crawler) get a 307 redirect to /login and break
+   downstream consumers of the prerender manifest. See #365 for the
+   incident. Cost is negligible since the page has no per-user data
+   to fetch. */
+export const dynamic = "force-dynamic";
+
 export default function VendorsPage() {
   return (
     <div className="px-4 sm:px-6 pt-6 pb-6 max-w-2xl mx-auto">
