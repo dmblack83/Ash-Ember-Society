@@ -382,7 +382,13 @@ export function SmokingConditions({
   /* Trigger a background refetch when the document becomes visible
      and the cached reading is stale. No skeleton flash — only the
      mount-time effect toggles `loading`; visibility refetches swap
-     the data in once it arrives. */
+     the data in once it arrives.
+
+     Belt-and-suspenders on the wake-up event: iOS standalone PWAs
+     historically don't fire `visibilitychange` consistently on
+     home-screen-icon resume. `pageshow` is the reliable fallback
+     (it fires on both fresh loads and bfcache restores). Either
+     path runs the same age-gated refetch. */
   useEffect(() => {
     if (!hasLocation) return;
 
@@ -394,8 +400,16 @@ export function SmokingConditions({
       setRefetchKey((k) => k + 1);
     }
 
+    function onPageShow(e: PageTransitionEvent) {
+      if (e.persisted || document.visibilityState === "visible") maybeRefetch();
+    }
+
     document.addEventListener("visibilitychange", maybeRefetch);
-    return () => document.removeEventListener("visibilitychange", maybeRefetch);
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      document.removeEventListener("visibilitychange", maybeRefetch);
+      window.removeEventListener("pageshow", onPageShow);
+    };
   }, [hasLocation]);
 
   if (!loading && !weather && !notFound && hasLocation) return null;
