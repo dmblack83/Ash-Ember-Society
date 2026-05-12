@@ -21,11 +21,13 @@ export default await serwist({
   swSrc:  "app/sw.ts",
   swDest: "public/sw.js",
   /*
-   * Precache prerendered HTML so static pages (login, signup, the
-   * marketing landing, and `/offline`) are instantly available
-   * offline. Dynamic pages (`/home`, `/humidor`, etc.) are not
-   * prerendered and don't end up in the precache — they go through
-   * the runtime NetworkFirst route in `app/sw.ts`.
+   * `precachePrerendered: false` — flipped after the navigation
+   * interception was removed from `app/sw.ts`. The SW no longer
+   * touches navigation requests at all, so precached HTML had no
+   * route serving it and was dead weight in the cache. Removing
+   * it also closes off the failure mode where iOS PWAs re-launched
+   * onto stale precached HTML referencing chunks from a previous
+   * deploy.
    */
-  precachePrerendered: true,
+  precachePrerendered: false,
 });
