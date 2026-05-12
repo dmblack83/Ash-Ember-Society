@@ -1,6 +1,26 @@
 @AGENTS.md
 @PROJECT_STATE.md
 
+# Engineering principles — ACTIVE EVERY TASK. Quality over speed.
+
+## Diagnose before fixing
+- Form a hypothesis. State the root cause in plain words before proposing a change.
+- Verify the hypothesis explains the evidence. If it doesn't, the hypothesis is wrong; do not ship a fix on top of it.
+- "I don't know yet" beats a confident wrong answer.
+- When stuck, ask for the one diagnostic that would narrow the suspect list. Do not ship more code while guessing.
+
+## Scope of changes
+- Pick the smallest change that fixes the actual cause.
+- Architectural changes are not bugfixes. Flag them as such, separately, with their own risk assessment.
+- One concern per PR. No "while I'm in there" bundled cleanups.
+- A revert is a valid answer when a recent change broke something. Restore working state first, redesign later.
+
+## Anti-patterns
+- Shipping fixes faster than understanding the problem.
+- Masking a broken function with a timeout / retry / fallback instead of fixing the function.
+- "Defense in depth" used as cover for not knowing the root cause.
+- Chaining "what else might cause X" patches without forming a new hypothesis each time.
+
 # Communication Rules — ACTIVE EVERY RESPONSE. No revert after many turns. No filler drift. Still active if unsure.
 
 ## Drop
