@@ -105,6 +105,21 @@ const nextConfig: NextConfig = {
    */
   experimental: {
     optimizePackageImports: ["framer-motion"],
+    /*
+     * Enables React's <ViewTransition> component to drive native
+     * View Transitions API animations on route navigation. With the
+     * flag off, <ViewTransition> renders its children with no
+     * animation. With the flag on, navigations between pages
+     * trigger transitions where a <ViewTransition> wrapper is
+     * present.
+     *
+     * Browser support: Chrome 111+, Safari 18.2+ (iOS 18.2+).
+     * Browsers without support degrade gracefully — the navigation
+     * still happens, just without animation. See
+     * `node_modules/next/dist/docs/01-app/02-guides/view-transitions.md`
+     * for the full guide.
+     */
+    viewTransition: true,
   },
   images: {
     remotePatterns: [

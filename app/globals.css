@@ -769,3 +769,27 @@ html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
 [data-active] .bottom-nav-fill-on-active > path:first-of-type {
   fill: rgba(212, 160, 74, 0.12);
 }
+
+/* View Transitions — slightly slower than the browser default so the
+   crossfade reads as intentional motion rather than a flash. 220ms
+   sits in the sweet spot per Material's "complex/expanding" guidance
+   (200-300ms): fast enough to feel responsive, slow enough to register
+   as a transition. Applied to the default (unnamed) view-transition
+   group that wraps <main>'s children in app/(app)/layout.tsx. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+}
+
+/* Honour the user's reduced-motion preference. Removes durations
+   and delays from EVERY view-transition pseudo-element (old, new,
+   group), which collapses each transition to an instant swap —
+   exactly the browser's no-View-Transitions-API behaviour. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
