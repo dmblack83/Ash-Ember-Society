@@ -9,11 +9,27 @@
 
    `target="_blank" rel="noopener noreferrer"` opens the system
    browser from the PWA so the user stays in their default Maps app
-   on mobile. No data, no Supabase round-trip — pure static card.
+   on mobile.
+
+   Receives `zip` from the parent island (sourced from the user's
+   profile). Embeds it in the Maps query so the search is anchored
+   to a specific location. The plain `near me` form previously used
+   here resolved to a Google default (Chicago) when opened from an
+   iOS standalone PWA, because the new opening context lacked the
+   geolocation signal Maps depends on. Explicit ZIP makes the result
+   deterministic across every client context.
    ------------------------------------------------------------------ */
 
-const FIND_SHOPS_URL =
-  "https://www.google.com/maps/search/?api=1&query=cigar+shops+near+me";
+function findShopsUrl(zip: string | null): string {
+  /* "cigar shops near {ZIP}" reads naturally to Google Maps; it
+     returns the same results as a coordinate-anchored search but
+     without needing geocoding on our end. URL-encode the query so
+     spaces become `+` and any future special characters are safe. */
+  const query = zip
+    ? `cigar shops near ${zip}`
+    : "cigar shops near me";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
 
 function StorefrontIcon({ size = 18 }: { size?: number }) {
   return (
@@ -29,7 +45,8 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-export function LocalShops() {
+export function LocalShops({ zip }: { zip: string | null }) {
+  const href = findShopsUrl(zip);
   return (
     <section
       style={{
@@ -87,7 +104,7 @@ export function LocalShops() {
       </div>
 
       <a
-        href={FIND_SHOPS_URL}
+        href={href}
         target="_blank"
         rel="noopener noreferrer"
         style={{

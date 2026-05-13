@@ -86,7 +86,18 @@ export async function NewsIsland() {
   return <News items={items} />;
 }
 
-/* ── Local shops card (static; opens external Google Maps search) ── */
-export function LocalShopsIsland() {
-  return <LocalShops />;
+/* ── Local shops card (opens external Google Maps search) ─────────
+ *
+ * Reads the user's profile ZIP so the Maps URL embeds an explicit
+ * location instead of relying on "near me". The plain "near me"
+ * link resolved to a Google default location (Chicago) when opened
+ * from an iOS standalone PWA — the new opening context lacked the
+ * geolocation signal Maps depends on. Embedding the ZIP makes the
+ * search deterministic across every client context.
+ *
+ * Falls through to LocalShops's internal "near me" fallback if the
+ * profile has no ZIP (rare — onboarding requires one). */
+export async function LocalShopsIsland({ userId }: { userId: string }) {
+  const profile = await getProfileLite(userId);
+  return <LocalShops zip={profile?.zip_code?.trim() || null} />;
 }
