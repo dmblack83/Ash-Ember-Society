@@ -85,6 +85,12 @@ function BottomNav() {
         borderTop: "1px solid var(--border)",
         paddingBottom: "env(safe-area-inset-bottom)",
         willChange: "transform",
+        /* Anchored across view transitions — paired with the
+           `::view-transition-group(ae-bottom-nav)` rule in
+           globals.css that disables the animation. Without this,
+           the API treats the nav as part of the root snapshot and
+           cross-fades it with the rest of the document. */
+        viewTransitionName: "ae-bottom-nav",
       }}
       aria-label="Main navigation"
     >
@@ -169,6 +175,9 @@ function SideRailNav() {
         backdropFilter:       "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderRight:          "1px solid var(--border)",
+        /* Same anchoring as BottomNav — the desktop side rail should
+           not fade in/out during route transitions. */
+        viewTransitionName: "ae-side-rail",
       }}
       aria-label="Main navigation"
     >

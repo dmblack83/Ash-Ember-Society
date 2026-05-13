@@ -781,6 +781,28 @@ html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
   animation-duration: 220ms;
 }
 
+/* Anchor the bottom nav and desktop side rail across transitions.
+   By giving each its own `viewTransitionName` (set inline in
+   app/(app)/layout.tsx), they leave the root snapshot and become
+   their own animated groups. The rules below collapse those groups
+   to a no-op so the navs stay visually fixed while the content
+   swaps. `display: none` on the old snapshot prevents the brief
+   double-paint flash where both old and new navs would otherwise
+   render in the same spot. */
+::view-transition-group(ae-bottom-nav),
+::view-transition-group(ae-side-rail) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(ae-bottom-nav),
+::view-transition-old(ae-side-rail) {
+  display: none;
+}
+::view-transition-new(ae-bottom-nav),
+::view-transition-new(ae-side-rail) {
+  animation: none;
+}
+
 /* Honour the user's reduced-motion preference. Removes durations
    and delays from EVERY view-transition pseudo-element (old, new,
    group), which collapses each transition to an instant swap —
