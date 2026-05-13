@@ -544,8 +544,7 @@ function VideoCard({
   liked:          boolean;
   onToggleLike:   (videoId: string) => void;
 }) {
-  const isMember = tier === "member" || tier === "premium";
-  const ytUrl    = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
+  const ytUrl = `https://www.youtube.com/watch?v=${video.youtube_video_id}`;
 
   return (
     <div
@@ -653,9 +652,12 @@ function VideoCard({
 
       {/* Action row */}
       <div style={{ display: "flex", gap: 16, marginTop: 10, alignItems: "center", paddingLeft: 2 }}>
-        {/* Fire like button */}
+        {/* Fire like button — open to every authenticated user. The
+            former member-gated state was removed alongside the RLS
+            policy update; lightweight engagement (likes / comments)
+            stays open across tiers throughout the app. */}
         <button
-          onClick={() => isMember && onToggleLike(video.id)}
+          onClick={() => onToggleLike(video.id)}
           aria-label={liked ? "Unlike" : "Like"}
           style={{
             display:    "flex",
@@ -663,16 +665,14 @@ function VideoCard({
             gap:        4,
             background: "transparent",
             border:     "none",
-            cursor:     isMember ? "pointer" : "default",
+            cursor:     "pointer",
             color:      liked ? "var(--ember, #E8642C)" : "var(--muted-foreground)",
-            opacity:    isMember ? 1 : 0.45,
             fontSize:   12,
             fontWeight: 600,
             padding:    0,
             WebkitTapHighlightColor: "transparent",
             transition: "color 0.15s",
           }}
-          title={isMember ? undefined : "Members can like videos"}
         >
           <svg
             width="15" height="15" viewBox="0 0 24 24"
@@ -995,11 +995,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
     return m;
   });
 
-  const isMember = tier === "member" || tier === "premium";
-
   const toggleLike = useCallback(async (videoId: string) => {
-    if (!isMember) return;
-
     const liked = userLikeSet.has(videoId);
 
     // Optimistic update
@@ -1036,7 +1032,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
         setLikeCountMap((prev) => ({ ...prev, [videoId]: Math.max(0, (prev[videoId] ?? 0) - 1) }));
       }
     }
-  }, [isMember, userId, userLikeSet, supabase]);
+  }, [userId, userLikeSet, supabase]);
 
   /* ── Empty state ──────────────────────────────────────────────────── */
   if (channels.length === 0) {
@@ -1164,20 +1160,6 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
           Curated picks from the team are on the way.
         </p>
       </div>
-
-      {/* Like gate note for free users */}
-      {!isMember && (
-        <p
-          style={{
-            marginTop:  24,
-            fontSize:   13,
-            color:      "var(--muted-foreground)",
-            textAlign:  "center",
-          }}
-        >
-          Upgrade to Member to like videos.
-        </p>
-      )}
     </div>
   );
 }
