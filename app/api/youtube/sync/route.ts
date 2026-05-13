@@ -200,6 +200,18 @@ async function handler(req: NextRequest) {
   const supabase = createServiceClient();
   const url      = new URL(req.url);
   const handle   = url.searchParams.get("handle");
+  /* Optional `section` param controls which list the channel renders
+     under on /discover/channels. Defaults to 'partner'. Only honored
+     on seed mode (when handle is present); periodic re-sync runs
+     never touch this column. */
+  const sectionParam = url.searchParams.get("section");
+  if (sectionParam !== null && sectionParam !== "partner" && sectionParam !== "featured") {
+    await finishCronRun(run, { ok: false, error: `Invalid section: ${sectionParam}` });
+    return NextResponse.json(
+      { error: `Invalid section "${sectionParam}". Allowed: partner, featured.` },
+      { status: 400 },
+    );
+  }
 
   let channelRows: { id: string; youtube_channel_id: string; uploads_playlist_id: string }[] = [];
 
@@ -220,22 +232,27 @@ async function handler(req: NextRequest) {
       ch.snippet?.thumbnails?.high?.url    ??
       ch.snippet?.thumbnails?.default?.url ?? null;
 
+    /* Build the upsert payload. Section is included only when the
+       caller specified it, so existing rows aren't accidentally
+       reverted to the default on a re-seed without the param. */
+    const channelPayload: Record<string, unknown> = {
+      youtube_channel_id:  ch.id,
+      handle:              `@${handle}`,
+      name:                ch.snippet?.title,
+      description:         ch.snippet?.description?.slice(0, 500) ?? null,
+      thumbnail_url:       thumb,
+      subscriber_count:    parseInt(ch.statistics?.subscriberCount ?? "0", 10),
+      uploads_playlist_id: ch.contentDetails?.relatedPlaylists?.uploads,
+      custom_url:          ch.snippet?.customUrl ?? null,
+      last_synced_at:      new Date().toISOString(),
+    };
+    if (sectionParam !== null) {
+      channelPayload.section = sectionParam;
+    }
+
     const { data: row, error } = await supabase
       .from("content_channels")
-      .upsert(
-        {
-          youtube_channel_id:  ch.id,
-          handle:              `@${handle}`,
-          name:                ch.snippet?.title,
-          description:         ch.snippet?.description?.slice(0, 500) ?? null,
-          thumbnail_url:       thumb,
-          subscriber_count:    parseInt(ch.statistics?.subscriberCount ?? "0", 10),
-          uploads_playlist_id: ch.contentDetails?.relatedPlaylists?.uploads,
-          custom_url:          ch.snippet?.customUrl ?? null,
-          last_synced_at:      new Date().toISOString(),
-        },
-        { onConflict: "youtube_channel_id" }
-      )
+      .upsert(channelPayload, { onConflict: "youtube_channel_id" })
       .select("id, youtube_channel_id, uploads_playlist_id")
       .single();
 

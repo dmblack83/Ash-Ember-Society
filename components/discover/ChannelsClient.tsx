@@ -7,7 +7,7 @@ import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
 import { resolveBadge }        from "@/lib/badge";
 import { useEscapeKey }        from "@/lib/hooks/use-escape-key";
-import type { Channel, ChannelVideo } from "@/app/(app)/discover/channels/page";
+import type { Channel, ChannelSection, ChannelVideo } from "@/app/(app)/discover/channels/page";
 
 /* ------------------------------------------------------------------
    Module-level SWR cache — persists across client-side navigations.
@@ -18,6 +18,7 @@ import type { Channel, ChannelVideo } from "@/app/(app)/discover/channels/page";
 interface RawChannel {
   id: string; name: string; handle: string; description: string | null;
   thumbnail_url: string | null; subscriber_count: number | null; last_synced_at: string | null;
+  section: ChannelSection;
 }
 interface RawVideo {
   id: string; channel_id: string; youtube_video_id: string; title: string;
@@ -47,7 +48,7 @@ async function fetchBase(): Promise<BaseCache> {
 
   const { data: rawChannels } = await sb
     .from("content_channels")
-    .select("id, name, handle, description, thumbnail_url, subscriber_count, last_synced_at")
+    .select("id, name, handle, description, thumbnail_url, subscriber_count, last_synced_at, section")
     .eq("is_active", true)
     .order("created_at", { ascending: true });
 
@@ -1056,10 +1057,16 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
     );
   }
 
+  /* Split channels into the two on-page sections. Filter once here
+     so the JSX below stays a straight render of two grouped lists
+     instead of branching per item. */
+  const partnerChannels  = channels.filter((ch) => ch.section === "partner");
+  const featuredChannels = channels.filter((ch) => ch.section === "featured");
+
   /* ── Main render ─────────────────────────────────────────────────── */
   return (
     <div className="max-w-2xl mx-auto" style={{ padding: "24px 16px 40px" }}>
-      {/* Page header */}
+      {/* Community Partner Channels — header */}
       <div style={{ marginBottom: 20 }}>
         <h1
           style={{
@@ -1084,9 +1091,9 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
         </p>
       </div>
 
-      {/* Channel sections */}
+      {/* Community Partner Channel cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-        {channels.map((ch) => (
+        {partnerChannels.map((ch) => (
           <ChannelSection
             key={ch.id}
             channel={ch}
@@ -1100,10 +1107,10 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
         ))}
       </div>
 
-      {/* Featured Content — placeholder section for staff-curated picks.
-          Header + description render now so the page structure communicates
-          what's coming. Content (videos / posts / shop spotlights) lands in
-          a follow-up once the curation backend exists. */}
+      {/* Featured Content — staff picks. Renders the live channel
+          cards when any are seeded with section='featured'; otherwise
+          falls back to a "Coming soon" placeholder so the section
+          still reads correctly to users. */}
       <div style={{ marginTop: 36, marginBottom: 8 }}>
         <h2
           style={{
@@ -1127,39 +1134,56 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
           Staff picks from around the cigar community.
         </p>
       </div>
-      <div
-        style={{
-          marginTop:      12,
-          padding:        "20px 16px",
-          background:     "var(--card-bg)",
-          border:         "1px solid var(--card-border)",
-          borderRadius:   4,
-          boxShadow:      "var(--card-edge)",
-          textAlign:      "center",
-        }}
-      >
-        <span
+      {featuredChannels.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 28, marginTop: 12 }}>
+          {featuredChannels.map((ch) => (
+            <ChannelSection
+              key={ch.id}
+              channel={ch}
+              userId={userId}
+              tier={tier}
+              likeCountMap={likeCountMap}
+              commentCountMap={commentCountMap}
+              userLikeSet={userLikeSet}
+              onToggleLike={toggleLike}
+            />
+          ))}
+        </div>
+      ) : (
+        <div
           style={{
-            color:         "var(--primary)",
-            fontSize:      12,
-            fontWeight:    600,
-            letterSpacing: "0.04em",
-            textTransform: "uppercase",
+            marginTop:      12,
+            padding:        "20px 16px",
+            background:     "var(--card-bg)",
+            border:         "1px solid var(--card-border)",
+            borderRadius:   4,
+            boxShadow:      "var(--card-edge)",
+            textAlign:      "center",
           }}
         >
-          Coming Soon
-        </span>
-        <p
-          style={{
-            fontSize:   13,
-            color:      "var(--muted-foreground)",
-            marginTop:  8,
-            lineHeight: 1.55,
-          }}
-        >
-          Curated picks from the team are on the way.
-        </p>
-      </div>
+          <span
+            style={{
+              color:         "var(--primary)",
+              fontSize:      12,
+              fontWeight:    600,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+            }}
+          >
+            Coming Soon
+          </span>
+          <p
+            style={{
+              fontSize:   13,
+              color:      "var(--muted-foreground)",
+              marginTop:  8,
+              lineHeight: 1.55,
+            }}
+          >
+            Curated picks from the team are on the way.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
