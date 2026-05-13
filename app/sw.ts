@@ -376,6 +376,41 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 
 /* ──────────────────────────────────────────────────────────────────
+   SW update notification — tell open clients when a new SW activates
+
+   When a deploy ships, Serwist activates the new SW under any
+   already-open tab (skipWaiting + clientsClaim above). The tab keeps
+   running the OLD JS chunks until the user navigates to a new route
+   that needs a chunk that no longer exists, at which point our
+   stale-chunk-recovery script (#288) reactively reloads — with a
+   visible flash.
+
+   Posting `SW_UPDATED` to every controlled client on activate lets a
+   client-side hook surface a non-blocking "Update available" prompt,
+   so the user reloads cleanly before they hit the bad-chunk window.
+
+   We fire on EVERY activate (including the very first install). The
+   client filters out the first-install case by capturing
+   `navigator.serviceWorker.controller` at mount time — if it was
+   null, there's no prior SW to "update from" and the message is
+   ignored. See components/system/ServiceWorkerUpdateNotice.tsx.
+
+   Multiple activate listeners coexist; this runs alongside (not in
+   place of) Serwist's built-in activate behavior wired up above. */
+self.addEventListener("activate", (event) => {
+  event.waitUntil((async () => {
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    for (const client of clients) {
+      try {
+        client.postMessage({ type: "SW_UPDATED" });
+      } catch {
+        /* postMessage can throw on detached clients; non-fatal. */
+      }
+    }
+  })());
+});
+
+/* ──────────────────────────────────────────────────────────────────
    Push notifications — ported from public/sw.js (the pre-Serwist SW).
 
    Payload shape (sent by lib/push.ts):
