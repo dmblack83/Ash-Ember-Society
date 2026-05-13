@@ -73,8 +73,8 @@ export default async function HomePage() {
         {/* ── 5. Field Guide — self-fetching client; in static shell ── */}
         <FieldGuide />
 
-        {/* ── 6. Local Shops — static; opens Google Maps externally ── */}
-        <LocalShopsIsland />
+        {/* ── 6. Local Shops — reads profile ZIP, opens Google Maps externally ── */}
+        <LocalShopsIsland userId={user.id} />
 
       </div>
     </>
