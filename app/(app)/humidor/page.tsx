@@ -1,39 +1,29 @@
-import { createClient }  from "@/utils/supabase/server";
-import { getServerUser } from "@/lib/auth/server-user";
-import { HumidorClient } from "@/components/humidor/HumidorClient";
-import type { HumidorItem } from "@/components/humidor/HumidorClient";
+import { Suspense }         from "react";
+import { redirect }          from "next/navigation";
+import { getServerUser }     from "@/lib/auth/server-user";
+import { HumidorDataIsland } from "./_islands";
+import { HumidorShellSkeleton } from "./_skeletons";
 
-// User-specific data — opt out of static rendering
+/*
+ * Edge runtime: faster cold start than the Node serverless target.
+ * No `force-dynamic` — the data island is implicitly dynamic (per-user
+ * queries) but the shell here is static, so removing the flag lets the
+ * static portion be served from the edge cache where possible.
+ */
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
+/*
+ * Humidor page — sync server component. The data fetch lives in
+ * `HumidorDataIsland`; Suspense streams the shell first, fills in the
+ * cigar list when the query resolves. Pattern mirrors `app/(app)/home/`.
+ */
 export default async function HumidorPage() {
-  const supabase = await createClient();
-  const user     = await getServerUser();
-
-  // Middleware handles unauthenticated redirects; defensive null guard
-  if (!user) return null;
-
-  // Run both queries in parallel
-  const [{ data: itemsData }, { count }] = await Promise.all([
-    supabase
-      .from("humidor_items")
-      .select("*, cigar:cigar_catalog(*)")
-      .eq("user_id", user.id)
-      .eq("is_wishlist", false)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("humidor_items")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("is_wishlist", true),
-  ]);
+  const user = await getServerUser();
+  if (!user) redirect("/login");
 
   return (
-    <HumidorClient
-      initialItems={(itemsData ?? []) as unknown as HumidorItem[]}
-      initialHasWishlist={(count ?? 0) > 0}
-      userId={user.id}
-    />
+    <Suspense fallback={<HumidorShellSkeleton />}>
+      <HumidorDataIsland userId={user.id} />
+    </Suspense>
   );
 }
