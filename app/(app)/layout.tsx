@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, ViewTransition } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
@@ -242,7 +242,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           marginLeft:  "var(--app-content-left)",
         }}
       >
-        {children}
+        {/* View Transition wrapper — animates the main content swap
+            between routes. Bottom nav + side rail sit OUTSIDE this
+            wrapper so they don't fade with the content. Browsers
+            without View Transitions API support render this as a
+            passthrough; no animation, no error. Reduced-motion
+            preference disables all animation via the CSS in
+            globals.css. See node_modules/next/dist/docs/01-app/
+            02-guides/view-transitions.md for the full guide. */}
+        <ViewTransition>
+          {children}
+        </ViewTransition>
       </main>
       <BottomNav />
       <SideRailNav />
