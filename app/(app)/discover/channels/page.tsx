@@ -5,7 +5,7 @@ import { getMembershipTier }  from "@/lib/membership";
 import { ChannelsClient }     from "@/components/discover/ChannelsClient";
 
 export const runtime  = "edge";
-export const metadata = { title: "Partner Channels — Ash & Ember Society" };
+export const metadata = { title: "Community Partner Channels — Ash & Ember Society" };
 
 /* ------------------------------------------------------------------
    Types — exported so ChannelsClient can import them
