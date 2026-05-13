@@ -25,6 +25,8 @@ export interface ChannelVideo {
   user_has_liked:   boolean;
 }
 
+export type ChannelSection = "partner" | "featured";
+
 export interface Channel {
   id:               string;
   name:             string;
@@ -33,6 +35,10 @@ export interface Channel {
   thumbnail_url:    string | null;
   subscriber_count: number | null;
   last_synced_at:   string | null;
+  /* Which header on the page this channel renders under:
+       'partner'  → Community Partner Channels
+       'featured' → Featured Content */
+  section:          ChannelSection;
   videos:           ChannelVideo[];
 }
 
