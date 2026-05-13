@@ -138,6 +138,21 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: "https",
+        // YouTube channel avatars. Distinct host from video thumbs;
+        // without this entry, next/image rejects channel avatar URLs
+        // with 400 INVALID_IMAGE_OPTIMIZE_REQUEST and the channel
+        // header shows a broken-image fallback.
+        hostname: "yt3.googleusercontent.com",
+      },
+      {
+        protocol: "https",
+        // Legacy YouTube avatar host. Some older or migrated channels
+        // still return URLs from this domain; including it covers
+        // both new and historical accounts without further config.
+        hostname: "yt3.ggpht.com",
+      },
+      {
+        protocol: "https",
         // Landing-page hero image. Served through next/image so the
         // optimizer picks viewport-appropriate variants in WebP/AVIF.
         hostname: "images.unsplash.com",
