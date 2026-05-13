@@ -7,6 +7,7 @@ import { ResumeHandler } from "@/components/system/ResumeHandler";
 import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
 import { OutboxManager } from "@/components/system/OutboxManager";
+import { PersistentStorageRequest } from "@/components/system/PersistentStorageRequest";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -234,6 +235,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
       <OutboxManager />
+      <PersistentStorageRequest />
       <main
         id="main-content"
         className="flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0"
