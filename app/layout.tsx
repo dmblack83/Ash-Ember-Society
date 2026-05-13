@@ -75,6 +75,21 @@ const iosSplash = (deviceW: number, deviceH: number, dpr: 2 | 3, orientation: "p
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
   description: "A premium cigar enthusiast experience.",
+  /* Next 16 maps `appleWebApp.capable: true` to the new W3C
+     `mobile-web-app-capable` tag and stopped emitting the legacy
+     Apple-prefixed `apple-mobile-web-app-capable`. iOS still
+     requires the apple-prefixed form to:
+       1. Enable PWA standalone mode at install
+       2. Honor any apple-touch-startup-image splash references
+       3. Allow Web Push subscriptions from the home-screen icon
+     Without it, iOS treats the install as a regular browser
+     shortcut, ignores the splash images entirely, falls back to a
+     white WebView startup, and breaks push notifications.
+     Setting it explicitly via `other` puts the tag back in the
+     head alongside Next's W3C-standard one. */
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
