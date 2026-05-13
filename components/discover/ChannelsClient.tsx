@@ -1051,7 +1051,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
             marginBottom: 8,
           }}
         >
-          Featured Partner Channels
+          Community Partner Channels
         </h1>
         <p style={{ fontSize: 14, color: "var(--muted-foreground)" }}>
           Partner channels coming soon.
@@ -1074,7 +1074,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
             margin:     0,
           }}
         >
-          Featured Partner Channels
+          Community Partner Channels
         </h1>
         <p
           style={{
@@ -1084,7 +1084,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
             lineHeight: 1.5,
           }}
         >
-          Our partner creators put out great content for aficionados like you. Show them some love and subscribe to their channels and keep the community growing.
+          Show some love and support for our Community Partner Creators. Give them a like and subscribe to their channels to help keep the community growing.
         </p>
       </div>
 
@@ -1102,6 +1102,67 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
             onToggleLike={toggleLike}
           />
         ))}
+      </div>
+
+      {/* Featured Content — placeholder section for staff-curated picks.
+          Header + description render now so the page structure communicates
+          what's coming. Content (videos / posts / shop spotlights) lands in
+          a follow-up once the curation backend exists. */}
+      <div style={{ marginTop: 36, marginBottom: 8 }}>
+        <h2
+          style={{
+            fontSize:   22,
+            fontWeight: 700,
+            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            color:      "var(--foreground)",
+            margin:     0,
+          }}
+        >
+          Featured Content
+        </h2>
+        <p
+          style={{
+            fontSize:  14,
+            color:     "var(--muted-foreground)",
+            marginTop: 5,
+            lineHeight: 1.5,
+          }}
+        >
+          Staff picks from around the cigar community.
+        </p>
+      </div>
+      <div
+        style={{
+          marginTop:      12,
+          padding:        "20px 16px",
+          background:     "var(--card-bg)",
+          border:         "1px solid var(--card-border)",
+          borderRadius:   4,
+          boxShadow:      "var(--card-edge)",
+          textAlign:      "center",
+        }}
+      >
+        <span
+          style={{
+            color:         "var(--primary)",
+            fontSize:      12,
+            fontWeight:    600,
+            letterSpacing: "0.04em",
+            textTransform: "uppercase",
+          }}
+        >
+          Coming Soon
+        </span>
+        <p
+          style={{
+            fontSize:   13,
+            color:      "var(--muted-foreground)",
+            marginTop:  8,
+            lineHeight: 1.55,
+          }}
+        >
+          Curated picks from the team are on the way.
+        </p>
       </div>
 
       {/* Like gate note for free users */}
