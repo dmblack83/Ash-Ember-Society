@@ -24,7 +24,11 @@
  *
  * Strategy table
  * ──────────────
- *   Navigation requests      → NetworkFirst, /offline fallback
+ *   Navigation requests      → StaleWhileRevalidate, auth-partitioned,
+ *                              cache wiped on every SW activate so a
+ *                              new deploy never serves stale HTML
+ *                              referencing deleted chunk URLs. /offline
+ *                              fallback when both cache + network miss.
  *   /_next/static/*          → CacheFirst, immutable
  *   Same-origin images       → SWR, capped 50 entries / 30d
  *   Supabase Storage public  → SWR, capped 100 entries / 7d
@@ -35,7 +39,6 @@
 import {
   Serwist,
   CacheFirst,
-  NetworkFirst,
   NetworkOnly,
   StaleWhileRevalidate,
   ExpirationPlugin,
@@ -54,10 +57,10 @@ const OFFLINE_URL = "/offline";
    Auth-aware cache-key plugin
 
    Why: navigation HTML embeds per-user data (greeting, admin link,
-   personalised islands once Phase 1 streams). With NetworkFirst the
-   cache is consulted only as the offline fallback — but a shared
-   device that goes offline must still never serve User A's cached
-   HTML to User B after sign-out / sign-in.
+   personalised islands). With StaleWhileRevalidate the nav cache is
+   served INSTANTLY on every cold load — so on a shared device that
+   has served User A in the past, User B must never see User A's
+   cached HTML after sign-in.
 
    This plugin partitions the cache by auth identity. The cache key
    becomes `${url}#auth=${hash}` where `hash` is a short fingerprint
@@ -316,33 +319,41 @@ const serwist = new Serwist({
       }),
     },
 
-    /* ── Navigation (page) requests: NetworkFirst, partitioned ─────
+    /* ── Navigation (page) requests: StaleWhileRevalidate, partitioned ─
      *
-     * NetworkFirst (reverted from SWR — see PR #271 / this commit):
-     * always tries network first, falls back to cache only when the
-     * network fetch fails (offline / total network failure). Combined
-     * with `navigationPreload: true` above, the network fetch starts
-     * in parallel with SW boot, so the perceived perf cost vs SWR is
-     * small — and Phase 1's shell + Suspense islands paint quickly
-     * once the fresh HTML arrives.
+     * StaleWhileRevalidate serves the cached HTML INSTANTLY on every
+     * cold load while the network revalidates in parallel. This is the
+     * single biggest cold-launch perceived-perf win: on iOS PWA, the
+     * white-screen gap between splash dismissal and first paint shrinks
+     * from "wait for proxy.ts auth (up to 3s) + render + transfer" to
+     * "serve cached bytes from disk in milliseconds."
      *
-     * Why not SWR: SWR returned the CACHED HTML first, which after a
-     * deploy embedded chunk URLs (`/_next/static/chunks/...HASH.js`)
-     * that no longer existed on origin → 404 → React never hydrated
-     * → indefinite white screen. The resilience layer (#288 chunk
-     * recovery, #289 watchdog) caught this reactively, but the user
-     * still saw a multi-second hang before auto-reload. NetworkFirst
-     * makes that class of bug impossible: the cache is consulted
-     * only when offline, and stale cached HTML offline is acceptable
-     * because the offline fallback is `/offline` if the cache misses.
+     * Why this is safe NOW (and wasn't when PR #271 reverted SWR):
+     * the failure mode PR #271 saw was stale cached HTML referencing
+     * `/_next/static/chunks/...HASH.js` URLs that had been deleted on
+     * deploy → 404s → indefinite white screen. We now eliminate that
+     * class of bug at the source: the `activate` handler below wipes
+     * the entire `navigations` cache on every SW activation, which
+     * fires once per deploy (Serwist rebuilds the SW with a new
+     * precache manifest on every build → new SW → activation event).
+     * After the wipe, the FIRST navigation of the post-deploy session
+     * is a forced network round-trip; subsequent navigations hit the
+     * SWR fast path. The chunk-mismatch window is impossible because
+     * the cache is always populated from the same deploy whose chunks
+     * are currently live.
      *
-     * Cache is still consulted as the offline fallback, so the
-     * authPartitionPlugin stays in place: User A's offline-cached
-     * HTML must never be served to User B on a shared device.
+     * authPartitionPlugin guarantees User A's HTML is never served to
+     * User B on a shared device: the cache key includes a hash of the
+     * Supabase auth identity, so each user gets their own cache
+     * bucket. Anonymous users get an "anon" bucket.
+     *
+     * The resilience layer (#288 chunk-recovery, #289 hydration
+     * watchdog) stays in place as a belt-and-braces safety net for
+     * any edge case the cache-wipe doesn't cover.
      */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: new NetworkFirst({
+      handler: new StaleWhileRevalidate({
         cacheName: "navigations",
         plugins: [
           authPartitionPlugin,
@@ -376,29 +387,47 @@ const serwist = new Serwist({
 serwist.addEventListeners();
 
 /* ──────────────────────────────────────────────────────────────────
-   SW update notification — tell open clients when a new SW activates
+   SW activate — two responsibilities, run in parallel:
 
-   When a deploy ships, Serwist activates the new SW under any
-   already-open tab (skipWaiting + clientsClaim above). The tab keeps
-   running the OLD JS chunks until the user navigates to a new route
-   that needs a chunk that no longer exists, at which point our
-   stale-chunk-recovery script (#288) reactively reloads — with a
-   visible flash.
+   1. Wipe the `navigations` cache so the SWR nav strategy above
+      never serves HTML from a previous deploy. Serwist regenerates
+      this SW (and the precache manifest) on every build, so a new
+      deploy = new SW = activation event = nav cache wiped. The
+      first navigation after activation is a network round-trip
+      that refills the cache against the live chunks; every
+      subsequent navigation in that session is instant via SWR.
 
-   Posting `SW_UPDATED` to every controlled client on activate lets a
-   client-side hook surface a non-blocking "Update available" prompt,
-   so the user reloads cleanly before they hit the bad-chunk window.
+      Without this wipe, SWR would risk serving HTML embedding
+      `/_next/static/chunks/...HASH.js` URLs that no longer exist
+      on origin (the failure that caused PR #271 to revert from
+      SWR back to NetworkFirst).
 
-   We fire on EVERY activate (including the very first install). The
-   client filters out the first-install case by capturing
-   `navigator.serviceWorker.controller` at mount time — if it was
-   null, there's no prior SW to "update from" and the message is
-   ignored. See components/system/ServiceWorkerUpdateNotice.tsx.
+   2. Post `SW_UPDATED` to every controlled client so the client-side
+      ServiceWorkerUpdateNotice hook can surface a non-blocking
+      "Update available" toast. The client filters out the very
+      first install (no prior controller) so this only prompts on
+      genuine upgrades. See components/system/ServiceWorkerUpdateNotice.tsx.
 
-   Multiple activate listeners coexist; this runs alongside (not in
-   place of) Serwist's built-in activate behavior wired up above. */
+   Both run inside one `waitUntil` so activation blocks until both
+   complete. Multiple activate listeners coexist; this runs alongside
+   (not in place of) Serwist's built-in activate behavior wired up
+   above via `serwist.addEventListeners()`. */
 self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
+    /* Deploy-invalidation: wipe stale navigations before any client
+       can read from them. Failing to delete (cache doesn't exist on
+       first install, quota errors, etc.) is non-fatal — the worst
+       case is the next nav hits the SWR fast path against a fresh
+       deploy's chunks, which is what we wanted anyway. */
+    try {
+      await caches.delete("navigations");
+    } catch {
+      /* Non-fatal: failing to clear means SWR may serve old HTML
+         this session; chunk-recovery script (#288) catches any
+         resulting 404s. */
+    }
+
+    /* Notify open clients of the update. */
     const clients = await self.clients.matchAll({ includeUncontrolled: true });
     for (const client of clients) {
       try {
