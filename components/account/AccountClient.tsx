@@ -1148,17 +1148,30 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
     if (busy) return;
     if (state !== "off" && state !== "on") return;
     setBusy(true);
-    if (state === "off") {
-      const result = await pushSubscribe();
-      if (result.ok) { onToast("Notifications enabled"); }
-      else            { onToast(result.error ?? "Couldn't enable notifications."); }
-    } else {
-      const result = await pushUnsubscribe();
-      if (result.ok) { onToast("Notifications turned off"); }
-      else            { onToast(result.error ?? "Couldn't turn off notifications."); }
+    /* try/finally so `busy` ALWAYS releases. Without this, if
+       pushSubscribe / pushUnsubscribe throws (e.g. a browser-primitive
+       hang propagating past their internal timeouts), `setBusy(false)`
+       was skipped and the toggle was permanently wedged — the symptom
+       Dave reported on iOS PWA. The toast logic stays inside the try
+       so on success we show the confirmation; on error we show the
+       error string from the result or a generic fallback. */
+    try {
+      if (state === "off") {
+        const result = await pushSubscribe();
+        if (result.ok) { onToast("Notifications enabled"); }
+        else            { onToast(result.error ?? "Couldn't enable notifications."); }
+      } else {
+        const result = await pushUnsubscribe();
+        if (result.ok) { onToast("Notifications turned off"); }
+        else            { onToast(result.error ?? "Couldn't turn off notifications."); }
+      }
+      await refresh();
+    } catch (err) {
+      console.warn("[push] handleToggle:", err);
+      onToast("Notification change failed. Try again.");
+    } finally {
+      setBusy(false);
     }
-    await refresh();
-    setBusy(false);
   }
 
   /* Send a test notification — verifies the full pipeline (subscription
