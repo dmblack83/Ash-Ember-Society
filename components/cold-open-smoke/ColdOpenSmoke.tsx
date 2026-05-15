@@ -21,11 +21,17 @@ export { COLD_SMOKE_INIT_SCRIPT } from "./cold-smoke-init";
    and returns. Without that, every external-link round-trip would
    replay the loader.
 
-   No logo here: the iOS apple-touch-startup-image splash already
-   shows the brand mark in the pre-paint window. When the overlay
-   takes over after HTML paints, it shows only the rising smoke on
-   the same #15110b background — the splash logo appears to dissolve
-   into smoke, with no logo position/size mismatch between the two.
+   Background continuity: on iOS PWA, the same image iOS used for
+   the apple-touch-startup-image splash is set as the overlay's CSS
+   background-image via per-device media queries in globals.css.
+   That means the splash → cold-smoke handoff is a frame-perfect
+   match — identical logo position, identical dark fill, identical
+   pixel dimensions — with the rising smoke wisps animating on top.
+
+   On Android / desktop / non-listed iOS sizes, the overlay falls
+   back to a solid #15110b background (the Android PWA splash uses
+   the manifest background_color, also #15110b, so the handoff is
+   still color-continuous even without an image).
    ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
