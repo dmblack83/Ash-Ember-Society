@@ -30,9 +30,18 @@ export const keyFor = {
 
   /* ── Lounge / forum. Liked status is per-user, so userId is part
    *   of the key — switching account on the same browser produces a
-   *   fresh cache, not stale liked flags. */
-  loungeFeed:   (categoryId: string, page: number, userId: string) =>
-    ["lounge-feed", categoryId, page, userId] as const,
+   *   fresh cache, not stale liked flags.
+   *
+   *   `filter` partitions the cache between "all posts" and "my posts
+   *   only" so toggling the segmented control in CategoryFeed hits a
+   *   different cache entry instead of refetching the same data into
+   *   the same key. Both views are independently paginated. */
+  loungeFeed:   (
+    categoryId: string,
+    page:       number,
+    userId:     string,
+    filter:     "all" | "mine" = "all",
+  ) => ["lounge-feed", categoryId, page, userId, filter] as const,
   loungePost:   (postId: string) => ["lounge-post", postId] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
   /* Feedback category list — separate from `loungeFeed` because the

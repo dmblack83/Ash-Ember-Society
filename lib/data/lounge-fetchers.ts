@@ -51,6 +51,9 @@ interface FetchArgs {
   isFeedback: boolean;
   pageIndex:  number;
   pageSize:   number;
+  /* "all"  → every post in the category (default)
+     "mine" → only posts authored by `userId` */
+  filter?:    "all" | "mine";
 }
 
 export async function fetchCategoryFeedPage({
@@ -59,12 +62,13 @@ export async function fetchCategoryFeedPage({
   isFeedback,
   pageIndex,
   pageSize,
+  filter = "all",
 }: FetchArgs): Promise<CategoryFeedPage> {
   const supabase = createClient();
   const offset   = pageIndex * pageSize;
 
   /* ── 1. Posts (excluding pinned) ──────────────────────────────── */
-  const { data: rawPosts, error: postsError } = await supabase
+  let postsQuery = supabase
     .from("forum_posts")
     .select(
       "id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, " +
@@ -72,7 +76,17 @@ export async function fetchCategoryFeedPage({
     )
     .eq("category_id", categoryId)
     .eq("is_system",   false)
-    .neq("is_pinned",  true)
+    .neq("is_pinned",  true);
+
+  /* "mine" filter scopes the result to the viewer's own posts. The
+     RLS policy on forum_posts already allows reading the user's own
+     rows; this just narrows the query so we don't pull others' posts
+     and discard them client-side. */
+  if (filter === "mine") {
+    postsQuery = postsQuery.eq("user_id", userId);
+  }
+
+  const { data: rawPosts, error: postsError } = await postsQuery
     .order("created_at", { ascending: false })
     .range(offset, offset + pageSize - 1);
 
