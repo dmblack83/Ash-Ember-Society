@@ -25,6 +25,12 @@ import { ScrollCarets }      from "@/components/ui/ScrollCarets";
 
 const PAGE_SIZE = 15;
 
+/* Segmented control filter — "all" shows every post in the category,
+   "mine" scopes to the viewer's authored posts only. Defaults to
+   "all". Future: extend the union to include "following" when the
+   follow-user feature lands. */
+type PostFilter = "all" | "mine";
+
 interface CategoryInfo {
   id:          string;
   name:        string;
@@ -61,12 +67,23 @@ export function CategoryFeed({
 }: Props) {
   const router = useRouter();
 
+  /* Active filter for the post list. The server-rendered initial page
+     is always the "all" view, so toggling to "mine" forces a fresh
+     fetch (different SWR key). Toggling back to "all" reuses the
+     seeded cache instantly. */
+  const [postFilter, setPostFilter] = useState<PostFilter>("all");
+
   /*
    * Posts list — paginated, infinite-scroll. useSWRInfinite keeps
    * one cache entry per page index so a navigation away + back
    * paints the entire scroll buffer instantly. Page 0 is seeded
    * from the server's initial render via fallbackData; pages 1+
    * fetch on demand when setSize() advances.
+   *
+   * The filter is part of the SWR key — "all" and "mine" are
+   * independent caches. fallbackData seeds the "all" cache only
+   * (server-rendered); when the user toggles to "mine", SWR sees
+   * a new key and fetches fresh.
    *
    * revalidateOnMount      false  Server already provided fresh page 0
    * revalidateFirstPage    false  Don't auto-refetch page 0 when later
@@ -92,19 +109,24 @@ export function CategoryFeed({
     (pageIndex, prev) => {
       // Stop fetching once the previous page reported no more rows.
       if (prev && !prev.hasMore) return null;
-      return keyFor.loungeFeed(category.id, pageIndex, userId);
+      return keyFor.loungeFeed(category.id, pageIndex, userId, postFilter);
     },
-    ([, categoryId, pageIndex]) =>
+    ([, categoryId, pageIndex, , filter]) =>
       fetchCategoryFeedPage({
         categoryId: categoryId as string,
         userId,
         isFeedback: category.is_feedback,
         pageIndex:  pageIndex as number,
         pageSize:   PAGE_SIZE,
+        filter:     filter as PostFilter,
       }),
     {
-      fallbackData:        [seedPage],
-      revalidateOnMount:   false,
+      /* fallbackData applies to the initial key only. We pass the
+         server-rendered seed when the filter is "all" (matches the
+         server's query); switching to "mine" produces a different
+         key with no fallback, so SWR fetches. */
+      fallbackData:        postFilter === "all" ? [seedPage] : undefined,
+      revalidateOnMount:   postFilter !== "all",
       revalidateFirstPage: false,
     },
   );
@@ -120,8 +142,19 @@ export function CategoryFeed({
   const loading  = isValidating;
 
   /* Pinned posts are a small finite list (rarely > 1-2 items) —
-   * keep as local state. Optimistic delete updates them inline. */
+   * keep as local state. Optimistic delete updates them inline.
+   * When the "mine" filter is active, the visible pinned slice is
+   * restricted to posts the viewer authored. Most users will never
+   * have pinned posts (pinning is moderator-only), so this is
+   * usually empty under "mine". */
   const [pinnedPosts, setPinnedPosts] = useState<PostItem[]>(initialPinnedPosts ?? []);
+  const visiblePinnedPosts = useMemo(
+    () =>
+      postFilter === "mine"
+        ? pinnedPosts.filter((p) => p.user_id === userId)
+        : pinnedPosts,
+    [pinnedPosts, postFilter, userId],
+  );
   const [showNewPost, setShowNewPost] = useState(false);
   const [toast,       setToast]       = useState<string | null>(null);
 
@@ -245,9 +278,39 @@ export function CategoryFeed({
           </div>
         )}
 
+        {/* Filter — segmented control. Two options for now ("All" /
+            "My Posts"); the union widens once follow-user lands. */}
+        <div
+          className="px-4 pt-3 w-full md:max-w-[50%] md:mx-auto"
+          role="tablist"
+          aria-label="Post filter"
+        >
+          <div
+            style={{
+              display:         "inline-flex",
+              padding:         2,
+              borderRadius:    999,
+              border:          "1px solid var(--border)",
+              backgroundColor: "var(--secondary)",
+              gap:             2,
+            }}
+          >
+            <FilterPill
+              active={postFilter === "all"}
+              onClick={() => setPostFilter("all")}
+              label="All"
+            />
+            <FilterPill
+              active={postFilter === "mine"}
+              onClick={() => setPostFilter("mine")}
+              label="My Posts"
+            />
+          </div>
+        </div>
+
         {/* Posts */}
         <div className="px-4 pt-3 flex flex-col gap-3 pb-4 w-full md:max-w-[50%] md:mx-auto">
-          {pinnedPosts.map((post) => (
+          {visiblePinnedPosts.map((post) => (
             <PinnedPostCard
               key={post.id}
               post={post}
@@ -258,9 +321,13 @@ export function CategoryFeed({
             />
           ))}
 
-          {posts.length === 0 && pinnedPosts.length === 0 && (
+          {posts.length === 0 && visiblePinnedPosts.length === 0 && (
             <div className="text-center py-16">
-              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>No posts yet. Be the first.</p>
+              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                {postFilter === "mine"
+                  ? `You haven't posted in ${category.name} yet.`
+                  : "No posts yet. Be the first."}
+              </p>
             </div>
           )}
 
@@ -326,5 +393,45 @@ export function CategoryFeed({
         />
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   FilterPill — one segment of the All / My Posts segmented control.
+   Active pill paints in gold against the secondary surface; inactive
+   pills are transparent with muted text. 44px tap target preserved
+   via min-height; the visible chrome stays compact (28px). */
+function FilterPill({
+  active,
+  onClick,
+  label,
+}: {
+  active:  boolean;
+  onClick: () => void;
+  label:   string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      style={{
+        minHeight:               28,
+        padding:                 "5px 14px",
+        borderRadius:            999,
+        border:                  "none",
+        backgroundColor:         active ? "var(--gold,#D4A04A)" : "transparent",
+        color:                   active ? "#1A1210" : "var(--muted-foreground)",
+        fontSize:                12,
+        fontWeight:              600,
+        cursor:                  "pointer",
+        touchAction:             "manipulation",
+        WebkitTapHighlightColor: "transparent",
+        transition:              "background-color 0.18s ease, color 0.18s ease",
+      }}
+    >
+      {label}
+    </button>
   );
 }
