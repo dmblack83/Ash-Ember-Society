@@ -114,7 +114,20 @@ export async function subscribe(): Promise<SubscribeResult> {
 
   let subscription: PushSubscription;
   try {
-    const reg = await navigator.serviceWorker.ready;
+    /* Race `serviceWorker.ready` against a timeout, same pattern PR
+       #362 applied to getCurrentSubscription. On iOS PWA, `ready` can
+       pend indefinitely if the SW is wedged — which left the toggle
+       stuck "busy" forever, no toast, no recovery. Surface a concrete
+       error instead so the UI can recover. */
+    const reg = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_, reject) =>
+        setTimeout(
+          () => reject(new Error("ServiceWorker ready timed out")),
+          SW_READY_TIMEOUT_MS,
+        ),
+      ),
+    ]);
     /* getSubscription() first — if there's already a live one, reuse
        it. PushManager.subscribe() with a different applicationServerKey
        than the existing one throws InvalidStateError, so we always
@@ -123,14 +136,26 @@ export async function subscribe(): Promise<SubscribeResult> {
     if (existing) {
       subscription = existing;
     } else {
-      /* The DOM lib types narrow `applicationServerKey: BufferSource`
-         in a way that excludes Uint8Array<ArrayBufferLike>. The
-         underlying buffer is fine at runtime — cast through unknown
-         to satisfy the type checker. */
-      subscription = await reg.pushManager.subscribe({
-        userVisibleOnly:      true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as BufferSource,
-      });
+      /* pushManager.subscribe() on iOS Safari can also hang silently
+         in some SW states. Race the same timeout window so a wedged
+         browser primitive degrades to a recoverable error instead of
+         a permanently-stuck UI. */
+      subscription = await Promise.race([
+        /* The DOM lib types narrow `applicationServerKey: BufferSource`
+           in a way that excludes Uint8Array<ArrayBufferLike>. The
+           underlying buffer is fine at runtime — cast through unknown
+           to satisfy the type checker. */
+        reg.pushManager.subscribe({
+          userVisibleOnly:      true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as BufferSource,
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("pushManager.subscribe timed out")),
+            SW_READY_TIMEOUT_MS,
+          ),
+        ),
+      ]);
     }
   } catch (err) {
     return { ok: false, error: (err as Error)?.message ?? "Couldn't subscribe to push notifications." };
