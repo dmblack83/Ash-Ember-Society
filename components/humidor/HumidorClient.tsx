@@ -254,7 +254,11 @@ function ListRow({ item }: { item: HumidorItem }) {
           />
         </div>
 
-        {/* Brand + name */}
+        {/* Brand + name + aging.
+            Aging lives inside the text column (not as a separate row
+            item) so it's visible on every viewport width, including
+            narrow mobile. AgingBadge returns null when days === 0,
+            so cigars without an aging start show nothing extra. */}
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {c.brand}
@@ -264,6 +268,11 @@ function ListRow({ item }: { item: HumidorItem }) {
           </p>
           {c.format && (
             <p className="text-xs text-muted-foreground">{c.format}</p>
+          )}
+          {days > 0 && (
+            <div className="mt-0.5">
+              <AgingBadge days={days} />
+            </div>
           )}
         </div>
 
@@ -277,11 +286,6 @@ function ListRow({ item }: { item: HumidorItem }) {
         >
           ×{item.quantity}
         </span>
-
-        {/* Aging (hidden on small mobile) */}
-        <div className="flex-shrink-0 hidden sm:block">
-          <AgingBadge days={days} />
-        </div>
 
         {/* Wrapper (hidden on mobile) */}
         {c.wrapper && (
@@ -463,7 +467,12 @@ export function HumidorClient({
     Promise.all([mutateItems(), mutateHasWishlist()]);
 
   const error = itemsError ? "Failed to load your humidor. Please try again." : null;
-  const [view,         setView]         = useState<ViewMode>("grid");
+  /* List is the default for visitors with no saved preference — it's
+     denser per row, surfaces aging inline, and matches the route-
+     prefetch skeleton. Returning users' saved preference (localStorage
+     `humidor_view`) is honoured by the mount-time effect below, so
+     anyone who explicitly picked grid keeps grid. */
+  const [view,         setView]         = useState<ViewMode>("list");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
   const [showOptions,  setShowOptions]  = useState(false);
   const [showScanner,  setShowScanner]  = useState(false);
@@ -488,10 +497,11 @@ export function HumidorClient({
    * Persist view preference + auto-open add sheet from ?add=true.
    *
    * Reading localStorage via lazy useState init would cause a hydration
-   * mismatch (server renders "grid", client may rehydrate as "list").
-   * Standard pattern: render SSR-safe default, then sync preference
-   * after mount. The react-hooks/set-state-in-effect rule doesn't
-   * model this case — disabled per-line with rationale.
+   * mismatch (server renders "list", client may rehydrate as "grid"
+   * for a returning user who picked grid before). Standard pattern:
+   * render SSR-safe default, then sync preference after mount. The
+   * react-hooks/set-state-in-effect rule doesn't model this case —
+   * disabled per-line with rationale.
    */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
@@ -621,27 +631,26 @@ export function HumidorClient({
                   className="btn btn-ghost p-2 flex-shrink-0"
                   aria-label="Refresh"
                 >
+                  {/* RefreshCw — Lucide's two-arrow circular refresh
+                      glyph. Reads unmistakably as "refresh" at 16px
+                      vs the prior single-arrow loop, which several
+                      users mistook for "history" or "back". */}
                   <svg
                     width="16"
                     height="16"
-                    viewBox="0 0 16 16"
+                    viewBox="0 0 24 24"
                     fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                     aria-hidden="true"
                     className={loading ? "animate-spin" : ""}
                   >
-                    <path
-                      d="M14 8A6 6 0 112 8"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                    />
-                    <path
-                      d="M14 4v4h-4"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
                   </svg>
                 </button>
               </div>
