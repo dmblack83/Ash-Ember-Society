@@ -1402,16 +1402,38 @@ export function BurnReport({
      so a flurry of keystrokes only writes once. We skip while the
      restore attempt is in flight (would clobber the persisted draft
      with the initial empty state) and after a successful submit
-     (the draft has been cleared and we don't want to re-create it). */
+     (the draft has been cleared and we don't want to re-create it).
+     Cigar metadata is persisted alongside the form so the My Reports
+     surface can render a draft card without a per-draft Supabase
+     round-trip. */
   useEffect(() => {
     if (!draftReady || success) return;
     const t = setTimeout(() => {
       const { photo_files: _photo_files, ...persistable } = form;
       void _photo_files;
-      saveBurnReportDraft<PersistableForm>(item.id, persistable, step);
+      saveBurnReportDraft<PersistableForm>(item.id, persistable, step, {
+        brand:  item.cigar.brand,
+        series: item.cigar.series,
+        format: item.cigar.format,
+      });
     }, 500);
     return () => clearTimeout(t);
-  }, [draftReady, success, form, step, item.id]);
+  }, [draftReady, success, form, step, item.id, item.cigar.brand, item.cigar.series, item.cigar.format]);
+
+  /* Save & Exit — explicit user action. Flushes the draft synchronously
+     (the debounced autosave may not have fired yet) and routes back to
+     the humidor. Skips the photo_files field for the same reason as
+     autosave: File objects can't be JSON-serialized. */
+  function handleSaveAndExit() {
+    const { photo_files: _photo_files, ...persistable } = form;
+    void _photo_files;
+    saveBurnReportDraft<PersistableForm>(item.id, persistable, step, {
+      brand:  item.cigar.brand,
+      series: item.cigar.series,
+      format: item.cigar.format,
+    });
+    router.push("/humidor");
+  }
 
   /* Scroll to top + recalculate shadows on every step change */
   useEffect(() => {
@@ -1924,6 +1946,18 @@ export function BurnReport({
               </button>
             </div>
           )}
+
+          {/* Save & Exit — present on every step. Flushes the autosaved
+              draft and routes to /humidor. The draft surfaces on
+              /humidor/burn-reports as a Draft card. */}
+          <button
+            type="button"
+            className="btn btn-ghost w-full text-sm text-muted-foreground"
+            onClick={handleSaveAndExit}
+            disabled={submitting}
+          >
+            Save & Exit
+          </button>
         </div>
       </footer>
     </div>

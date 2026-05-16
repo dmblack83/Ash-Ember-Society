@@ -7,7 +7,13 @@ import Image from "next/image";
 import { createClient } from "@/utils/supabase/client";
 import { BurnReportPreviewCard } from "@/components/humidor/BurnReportPreviewCard";
 import { BurnReportModal } from "@/components/humidor/BurnReportModal";
+import { BurnReportDraftCard } from "@/components/humidor/BurnReportDraftCard";
 import { PhotoLightbox } from "@/components/ui/PhotoLightbox";
+import {
+  listBurnReportDrafts,
+  clearBurnReportDraft,
+  type BurnReportDraftEntry,
+} from "@/lib/burn-report-draft";
 
 /* ------------------------------------------------------------------
    Types
@@ -487,6 +493,55 @@ interface BurnReportsClientProps {
   city:        string | null;
 }
 
+/* Persisted form fields the draft listing inspects to decide whether
+   the draft is "meaningful" enough to surface. We deliberately keep
+   the list short and use loose typing — the canonical FormData lives
+   in BurnReport.tsx, and we don't want to import a client component
+   here just for a structural type. Anything not listed is ignored. */
+type DraftFormShape = {
+  location?:               string;
+  occasion?:               string;
+  pairing_drink?:          string;
+  pairing_food?:           string;
+  draw_rating?:            number;
+  burn_rating?:            number;
+  construction_rating?:    number;
+  flavor_rating?:          number;
+  flavor_tag_ids?:         string[];
+  review_text?:            string;
+  smoke_duration_minutes?: string;
+  third_beginning?:        string;
+  third_middle?:           string;
+  third_end?:              string;
+  thirds_enabled?:         boolean;
+};
+
+/* A draft is shown only if the user has done some real work. The
+   form auto-saves on initial mount with empty defaults, so without
+   this filter the list would fill with blank entries every time
+   anyone opened the burn-report flow. Past step 0 also counts —
+   navigating forward implies intent. */
+function isMeaningfulDraft(entry: BurnReportDraftEntry<DraftFormShape>): boolean {
+  if (entry.step > 0) return true;
+  const f = entry.form;
+  if (!f) return false;
+  if ((f.location ?? "").trim())                return true;
+  if ((f.occasion ?? "").trim())                return true;
+  if ((f.pairing_drink ?? "").trim())           return true;
+  if ((f.pairing_food ?? "").trim())            return true;
+  if ((f.draw_rating ?? 0) > 0)                 return true;
+  if ((f.burn_rating ?? 0) > 0)                 return true;
+  if ((f.construction_rating ?? 0) > 0)         return true;
+  if ((f.flavor_rating ?? 0) > 0)               return true;
+  if ((f.flavor_tag_ids ?? []).length > 0)      return true;
+  if ((f.review_text ?? "").trim())             return true;
+  if ((f.smoke_duration_minutes ?? "").trim())  return true;
+  if ((f.third_beginning ?? "").trim())         return true;
+  if ((f.third_middle    ?? "").trim())         return true;
+  if ((f.third_end       ?? "").trim())         return true;
+  return false;
+}
+
 export function BurnReportsClient({
   reports: initialReports,
   flavorTags,
@@ -496,6 +551,17 @@ export function BurnReportsClient({
   const headerRef                       = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
   const [reports,      setReports]      = useState<BurnReportRow[]>(initialReports);
+  /* Drafts hydrate from localStorage after mount — server can't see
+     them. Sorted newest-first by savedAt so the top of the list is
+     always what the user touched most recently. */
+  const [drafts, setDrafts] = useState<BurnReportDraftEntry<DraftFormShape>[]>([]);
+
+  useEffect(() => {
+    const all = listBurnReportDrafts<DraftFormShape>()
+      .filter(isMeaningfulDraft)
+      .sort((a, b) => b.savedAt - a.savedAt);
+    setDrafts(all);
+  }, []);
 
   useEffect(() => {
     const el = headerRef.current;
@@ -508,6 +574,11 @@ export function BurnReportsClient({
 
   function handleDelete(id: string) {
     setReports((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function handleDeleteDraft(itemId: string) {
+    clearBurnReportDraft(itemId);
+    setDrafts((prev) => prev.filter((d) => d.itemId !== itemId));
   }
 
   return (
@@ -562,6 +633,19 @@ export function BurnReportsClient({
                 {reports.length} {reports.length === 1 ? "report" : "reports"}
               </span>
             )}
+            {drafts.length > 0 && (
+              <span
+                className="text-xs"
+                style={{
+                  fontFamily:    "var(--font-mono)",
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color:         "var(--gold, #D4A04A)",
+                }}
+              >
+                · {drafts.length} {drafts.length === 1 ? "draft" : "drafts"}
+              </span>
+            )}
           </div>
 
         </div>
@@ -572,7 +656,7 @@ export function BurnReportsClient({
 
       {/* ── Content ─────────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-        {reports.length === 0 ? (
+        {reports.length === 0 && drafts.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div
               className="rounded-full flex items-center justify-center"
@@ -600,6 +684,19 @@ export function BurnReportsClient({
           </div>
         ) : (
           <div className="flex flex-col gap-4">
+            {/* Drafts pinned above filed reports — most recently saved
+                first. Tap routes back to /humidor/[id]/burn-report so
+                the user resumes at the persisted step. */}
+            {drafts.map((draft) => (
+              <BurnReportDraftCard
+                key={`draft:${draft.itemId}`}
+                itemId={draft.itemId}
+                step={draft.step}
+                savedAt={draft.savedAt}
+                cigar={draft.cigar ?? null}
+                onDelete={handleDeleteDraft}
+              />
+            ))}
             {reports.map((report, i) => (
               /* Reports are sorted newest-first, so the first row is
                  the user's most recent (highest report number). The
