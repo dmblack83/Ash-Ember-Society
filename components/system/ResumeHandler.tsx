@@ -28,6 +28,29 @@ const MARK_RESUME           = "ae:resume";
 const MARK_TOKEN_REFRESHED  = "ae:token-refreshed";
 const MEASURE_TOKEN_REFRESH = "ae:token-refresh-duration";
 const MARK_IOS_RELOAD       = "ae:ios-resume-reload";
+const MARK_STALE_REVIVE     = "ae:stale-revive-reload";
+
+/* JS-heap-eviction detection.
+
+   iOS aggressively evicts the JS heap of backgrounded standalone
+   PWAs. When the user returns:
+   - If iOS revives the WebView with a fresh JS context, our useEffect
+     runs again BUT `hiddenAt` is null (closure was lost), so the
+     existing 5-min reload below doesn't fire — the page tries to
+     recover via the normal token-refresh + router.refresh path and
+     can stall for minutes on slow networks or wedged auth.
+   - If iOS keeps JS dead, nothing runs at all. We can't help from
+     in here.
+
+   The heartbeat below writes a sessionStorage timestamp every 60s
+   while JS is alive. sessionStorage survives heap eviction (separate
+   storage layer), so on mount we can compare the last heartbeat
+   against the current time. A large gap means JS was dead for a
+   while → hard-reload immediately rather than chain the doomed
+   recovery path. */
+const HEARTBEAT_KEY          = "ae:lastAlive";
+const HEARTBEAT_INTERVAL_MS  = 60 * 1000;
+const HEARTBEAT_STALE_MS     = 90 * 1000;  // 1.5 min — well past one heartbeat
 
 function safeMark(name: string) {
   if (typeof performance !== "undefined" && performance.mark) {
@@ -60,6 +83,41 @@ export function ResumeHandler() {
     let hiddenAt: number | null = null;
     const iosStandalone = isIOSStandalone();
     const supabase = createClient();
+
+    /* Stale-heartbeat check: if the last alive timestamp in
+       sessionStorage is far older than one heartbeat interval, JS
+       was likely dead for an extended period. Hard-reload now to
+       short-circuit the doomed recovery chain. Guard on iOS PWA
+       only — desktop / Safari tab don't see eviction at this
+       cadence. */
+    if (iosStandalone) {
+      try {
+        const last = parseInt(sessionStorage.getItem(HEARTBEAT_KEY) ?? "0", 10);
+        if (last > 0 && Date.now() - last > HEARTBEAT_STALE_MS) {
+          safeMark(MARK_STALE_REVIVE);
+          /* Update the heartbeat BEFORE reloading so the post-reload
+             mount sees a fresh value and doesn't loop. */
+          sessionStorage.setItem(HEARTBEAT_KEY, Date.now().toString());
+          window.location.reload();
+          return;
+        }
+      } catch {
+        /* sessionStorage can throw in some privacy modes; treat as
+           "no signal" and fall through to normal resume handling. */
+      }
+    }
+
+    /* Heartbeat — writes the current time to sessionStorage every
+       HEARTBEAT_INTERVAL_MS while JS is alive. Stops when the
+       useEffect cleans up (component unmount) OR when JS dies (the
+       interval timer dies with the heap). Either way, on the next
+       mount we see a stale gap and reload. */
+    function writeHeartbeat() {
+      try { sessionStorage.setItem(HEARTBEAT_KEY, Date.now().toString()); }
+      catch { /* see comment above */ }
+    }
+    writeHeartbeat();
+    const heartbeatTimer = setInterval(writeHeartbeat, HEARTBEAT_INTERVAL_MS);
 
     function recordHidden() {
       hiddenAt = Date.now();
@@ -151,6 +209,7 @@ export function ResumeHandler() {
     window.addEventListener("pagehide", onPageHide);
     window.addEventListener("pageshow", onPageShow);
     return () => {
+      clearInterval(heartbeatTimer);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("pageshow", onPageShow);
