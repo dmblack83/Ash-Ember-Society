@@ -84,7 +84,8 @@ export default async function PostDetailPage({ params }: Props) {
           pairing_drink, pairing_food, location, occasion,
           smoke_duration_minutes, review_text, photo_urls,
           cigar_id,
-          cigar:cigar_catalog(brand, series, format)
+          cigar:cigar_catalog(brand, series, format),
+          burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
         `)
         .eq("id", smokeLogId)
         .single(),
