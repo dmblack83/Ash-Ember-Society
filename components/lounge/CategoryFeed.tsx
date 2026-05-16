@@ -339,6 +339,15 @@ export function CategoryFeed({
               userId={userId}
               isFeedback={category.is_feedback}
               onDelete={handleDeletePost}
+              /* Welcome/Introductions + General Discussion threads
+                 can run long. Surface them in the feed as scannable
+                 previews — title + first ~4 lines — and let the user
+                 tap into /lounge/[postId] for the full read. Other
+                 categories keep the full inline render. */
+              previewMode={
+                category.slug === "welcome" ||
+                category.slug === "general-discussion"
+              }
             />
           ))}
 

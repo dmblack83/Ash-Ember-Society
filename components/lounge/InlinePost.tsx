@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
+import Link                                    from "next/link";
 import { mutate as swrMutate }                 from "swr";
 import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
@@ -64,6 +65,14 @@ interface Props {
   userId:       string;
   isFeedback:   boolean;
   onDelete:     (postId: string) => void;
+  /* Preview mode: feed surfaces only the subject + first ~4 lines of
+     body, the whole card links to the detail page, no inline comments
+     or like/vote interaction. Used for the Welcome/Introductions and
+     General Discussion rooms where threads can run long and the
+     scannable list matters more than the inline read. Burn-report
+     posts (with smoke_log) keep their existing preview-card render
+     regardless of this flag. */
+  previewMode?: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -414,7 +423,12 @@ const CommentNode = memo(function CommentNode({
 /* InlinePost                                                            */
 /* ------------------------------------------------------------------ */
 
-export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }: Props) {
+export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, previewMode = false }: Props) {
+  /* In preview mode, the entire card links to /lounge/[postId] for
+     reading + interaction. Burn-report posts already render their own
+     preview card with a modal-open tap, so we skip text-preview mode
+     when smoke_log is set. */
+  const isTextPreview = previewMode && !post.smoke_log;
   const supabase = useMemo(() => createClient(), []);
 
   const [liked,              setLiked]              = useState(initialLiked);
@@ -651,20 +665,52 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
           </div>
         </div>
 
-        {/* Title */}
-        <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-          {post.title}
-        </h2>
-
-        {/* Body — burn report card OR text + optional image */}
+        {/* Title + body
+            - Burn-report posts: BurnReportCard (preview-card pattern)
+            - Text-preview mode: title + 4-line clamped body wrapped in a
+              Link to /lounge/[postId]. No image preview, no full body —
+              the user taps in to read.
+            - Default: title + full pre-line body + optional image */}
         {post.smoke_log ? (
-          <BurnReportCard
-            log={post.smoke_log}
-            postAuthorId={post.user_id}
-            viewerId={userId}
-          />
+          <>
+            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+              {post.title}
+            </h2>
+            <BurnReportCard
+              log={post.smoke_log}
+              postAuthorId={post.user_id}
+              viewerId={userId}
+            />
+          </>
+        ) : isTextPreview ? (
+          <Link
+            href={`/lounge/${post.id}`}
+            prefetch={false}
+            style={{ display: "block", textDecoration: "none", color: "inherit" }}
+          >
+            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+              {post.title}
+            </h2>
+            <p
+              className="text-sm leading-relaxed"
+              style={{
+                color:            "var(--foreground)",
+                whiteSpace:       "pre-line",
+                opacity:          0.9,
+                display:          "-webkit-box",
+                WebkitLineClamp:  4,
+                WebkitBoxOrient:  "vertical",
+                overflow:         "hidden",
+              } as React.CSSProperties}
+            >
+              {post.content}
+            </p>
+          </Link>
         ) : (
           <>
+            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+              {post.title}
+            </h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line", opacity: 0.9 }}>
               {post.content}
             </p>
@@ -687,7 +733,44 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
           </>
         )}
 
-        {/* Action bar */}
+        {/* Action bar
+            In text-preview mode this collapses to a static counts row —
+            engagement happens on the detail page after a tap. */}
+        {isTextPreview ? (
+          <Link
+            href={`/lounge/${post.id}`}
+            prefetch={false}
+            className="flex items-center justify-end gap-4 mt-4"
+            style={{ textDecoration: "none" }}
+          >
+            <span
+              className="flex items-center gap-1.5 text-xs font-medium"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <FlameIcon size={16} filled={false} />
+              {post.like_count}
+            </span>
+            <span
+              className="flex items-center gap-1.5 text-xs font-medium"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
+              </svg>
+              {post.comment_count}
+            </span>
+            <span
+              className="text-xs font-medium ml-auto"
+              style={{
+                color:         "var(--gold,#D4A04A)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Read more →
+            </span>
+          </Link>
+        ) : (
         <div className="flex items-center justify-end gap-4 mt-4">
           {isFeedback ? (
             <>
@@ -766,10 +849,11 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete }:
             <span className="text-xs font-medium">{commentCount}</span>
           </button>
         </div>
+        )}
       </div>
 
       {/* Inline comments */}
-      {commentsOpen && (
+      {!isTextPreview && commentsOpen && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
           {commentsLoading ? (
             <div className="flex justify-center py-6">
