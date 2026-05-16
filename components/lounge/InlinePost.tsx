@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import Link                                    from "next/link";
+import { useRouter }                           from "next/navigation";
 import { mutate as swrMutate }                 from "swr";
 import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
@@ -66,12 +67,11 @@ interface Props {
   isFeedback:   boolean;
   onDelete:     (postId: string) => void;
   /* Preview mode: feed surfaces only the subject + first ~4 lines of
-     body, the whole card links to the detail page, no inline comments
-     or like/vote interaction. Used for the Welcome/Introductions and
-     General Discussion rooms where threads can run long and the
-     scannable list matters more than the inline read. Burn-report
-     posts (with smoke_log) keep their existing preview-card render
-     regardless of this flag. */
+     body (or the BurnReportPreviewCard for burn-report posts), the
+     whole card links to the detail page, no inline comments or
+     like/vote interaction. Used for Welcome/Introductions, General
+     Discussion, and Burn Reports where the scannable list matters
+     more than the inline read. */
   previewMode?: boolean;
 }
 
@@ -117,19 +117,28 @@ interface BurnReportCardProps {
      own cigar to your own wishlist is a no-op. */
   postAuthorId: string | null;
   viewerId:     string;
+  /* Preview mode (Burn Reports room): tap routes to /lounge/[postId]
+     instead of opening the inline modal. The modal + photo lightbox
+     are skipped — they live on the detail page. */
+  previewMode?: boolean;
+  postId?:      string;
 }
 
 const BurnReportCard = memo(function BurnReportCard({
   log,
   postAuthorId,
   viewerId,
+  previewMode = false,
+  postId,
 }: BurnReportCardProps) {
+  const router = useRouter();
+
   /* Photo URLs flow into the lightbox so prev/next can tab through
      all of them, not just the one tapped. Filter out null/empty
      entries the way the modal already does — the array passed here
      must match what BurnReportModal renders. */
   const photoUrls = (log.photo_urls ?? []).filter(Boolean);
-  const lightbox  = usePhotoLightbox(photoUrls);
+  const lightbox  = usePhotoLightbox(previewMode ? [] : photoUrls);
   const thirds    = unwrapBurnReport(log.burn_report);
   const [expanded, setExpanded] = useState(false);
 
@@ -138,6 +147,13 @@ const BurnReportCard = memo(function BurnReportCard({
      (legacy logs may not have one). */
   const canWishlist =
     !!log.cigar_id && postAuthorId !== null && postAuthorId !== viewerId;
+
+  /* In preview mode the tap routes to the detail page; otherwise the
+     in-place modal opens as before. */
+  const handleTap =
+    previewMode && postId
+      ? () => router.push(`/lounge/${postId}`)
+      : () => setExpanded(true);
 
   return (
     <div style={{ marginTop: 4 }}>
@@ -151,44 +167,46 @@ const BurnReportCard = memo(function BurnReportCard({
         constructionRating={log.construction_rating}
         flavorRating={log.flavor_rating}
         smokeDurationMinutes={log.smoke_duration_minutes}
-        onTap={() => setExpanded(true)}
+        onTap={handleTap}
       />
 
-      <BurnReportModal
-        open={expanded}
-        onClose={() => setExpanded(false)}
-        cigar={log.cigar}
-        reportNumber={log.report_number ?? null}
-        smokedAt={log.smoked_at}
-        overallRating={log.overall_rating}
-        drawRating={log.draw_rating}
-        burnRating={log.burn_rating}
-        constructionRating={log.construction_rating}
-        flavorRating={log.flavor_rating}
-        reviewText={log.review_text}
-        smokeDurationMinutes={log.smoke_duration_minutes}
-        pairingDrink={log.pairing_drink}
-        occasion={log.occasion}
-        flavorTagNames={log.flavor_tag_names ?? []}
-        photoUrls={photoUrls}
-        thirdsEnabled={thirds?.thirds_enabled ?? false}
-        thirdBeginning={thirds?.third_beginning ?? null}
-        thirdMiddle={thirds?.third_middle ?? null}
-        thirdEnd={thirds?.third_end ?? null}
-        displayName={log.author_display_name ?? null}
-        city={log.author_city ?? null}
-        onPhotoClick={lightbox.open}
-        belowCard={
-          canWishlist ? (
-            <AddCigarToWishlistButton
-              cigarId={log.cigar_id as string}
-              userId={viewerId}
-            />
-          ) : null
-        }
-      />
+      {!previewMode && (
+        <BurnReportModal
+          open={expanded}
+          onClose={() => setExpanded(false)}
+          cigar={log.cigar}
+          reportNumber={log.report_number ?? null}
+          smokedAt={log.smoked_at}
+          overallRating={log.overall_rating}
+          drawRating={log.draw_rating}
+          burnRating={log.burn_rating}
+          constructionRating={log.construction_rating}
+          flavorRating={log.flavor_rating}
+          reviewText={log.review_text}
+          smokeDurationMinutes={log.smoke_duration_minutes}
+          pairingDrink={log.pairing_drink}
+          occasion={log.occasion}
+          flavorTagNames={log.flavor_tag_names ?? []}
+          photoUrls={photoUrls}
+          thirdsEnabled={thirds?.thirds_enabled ?? false}
+          thirdBeginning={thirds?.third_beginning ?? null}
+          thirdMiddle={thirds?.third_middle ?? null}
+          thirdEnd={thirds?.third_end ?? null}
+          displayName={log.author_display_name ?? null}
+          city={log.author_city ?? null}
+          onPhotoClick={lightbox.open}
+          belowCard={
+            canWishlist ? (
+              <AddCigarToWishlistButton
+                cigarId={log.cigar_id as string}
+                userId={viewerId}
+              />
+            ) : null
+          }
+        />
+      )}
 
-      {lightbox.node}
+      {!previewMode && lightbox.node}
     </div>
   );
 });
@@ -424,10 +442,11 @@ const CommentNode = memo(function CommentNode({
 /* ------------------------------------------------------------------ */
 
 export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, previewMode = false }: Props) {
-  /* In preview mode, the entire card links to /lounge/[postId] for
-     reading + interaction. Burn-report posts already render their own
-     preview card with a modal-open tap, so we skip text-preview mode
-     when smoke_log is set. */
+  /* Two preview shapes:
+     - isTextPreview: previewMode + no smoke_log → title + clamped body
+     - previewMode + smoke_log → BurnReportPreviewCard (no modal)
+     Both share the same counts-on-left + Read-more-right action bar
+     and skip the inline comments section. */
   const isTextPreview = previewMode && !post.smoke_log;
   const supabase = useMemo(() => createClient(), []);
 
@@ -672,16 +691,38 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
               the user taps in to read.
             - Default: title + full pre-line body + optional image */}
         {post.smoke_log ? (
-          <>
-            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-              {post.title}
-            </h2>
-            <BurnReportCard
-              log={post.smoke_log}
-              postAuthorId={post.user_id}
-              viewerId={userId}
-            />
-          </>
+          previewMode ? (
+            /* Burn Reports room: title and preview card both link to
+               the detail page. The card's onTap (set inside
+               BurnReportCard) also routes there — defense in depth. */
+            <Link
+              href={`/lounge/${post.id}`}
+              prefetch={false}
+              style={{ display: "block", textDecoration: "none", color: "inherit" }}
+            >
+              <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+                {post.title}
+              </h2>
+              <BurnReportCard
+                log={post.smoke_log}
+                postAuthorId={post.user_id}
+                viewerId={userId}
+                previewMode
+                postId={post.id}
+              />
+            </Link>
+          ) : (
+            <>
+              <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+                {post.title}
+              </h2>
+              <BurnReportCard
+                log={post.smoke_log}
+                postAuthorId={post.user_id}
+                viewerId={userId}
+              />
+            </>
+          )
         ) : isTextPreview ? (
           <Link
             href={`/lounge/${post.id}`}
@@ -734,13 +775,14 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
         )}
 
         {/* Action bar
-            In text-preview mode this collapses to a static counts row —
-            engagement happens on the detail page after a tap. */}
-        {isTextPreview ? (
+            In preview mode (text OR burn-report) this collapses to a
+            static counts row aligned left with a "Read more →" on the
+            right — engagement happens on the detail page after a tap. */}
+        {previewMode ? (
           <Link
             href={`/lounge/${post.id}`}
             prefetch={false}
-            className="flex items-center justify-end gap-4 mt-4"
+            className="flex items-center gap-4 mt-4"
             style={{ textDecoration: "none" }}
           >
             <span
@@ -853,7 +895,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
       </div>
 
       {/* Inline comments */}
-      {!isTextPreview && commentsOpen && (
+      {!previewMode && commentsOpen && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
           {commentsLoading ? (
             <div className="flex justify-center py-6">
