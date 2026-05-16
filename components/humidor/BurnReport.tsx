@@ -104,6 +104,15 @@ interface FormData {
    freeform review. */
 type PersistableForm = Omit<FormData, "photo_files">;
 
+/* Existing-report shape passed to the wizard in edit mode. Mirrors
+   PersistableForm but adds the smoke_log id (so the PATCH endpoint
+   knows what to mutate) and existing photo URLs (read-only in v1 —
+   the edit branch hides the photo picker). */
+export interface BurnReportExisting extends PersistableForm {
+  smoke_log_id: string;
+  photo_urls:   string[];
+}
+
 function defaultForm(): FormData {
   return {
     smoked_at: new Date().toISOString().split("T")[0],
@@ -655,10 +664,17 @@ function Step5({
   form,
   update,
   item,
+  hidePhotos = false,
+  existingPhotoUrls = [],
 }: {
   form: FormData;
   update: (f: Partial<FormData>) => void;
   item: BurnReportItem;
+  /* Edit mode passes hidePhotos=true and supplies existingPhotoUrls
+     so the user sees the photos they originally attached without an
+     add/remove affordance. Photo editing is deferred to a follow-up. */
+  hidePhotos?: boolean;
+  existingPhotoUrls?: string[];
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const label = ratingLabel(form.overall_rating);
@@ -934,7 +950,50 @@ function Step5({
         />
       </div>
 
+      {/* ── Existing photos — read-only preview when editing ──────── */}
+      {hidePhotos && existingPhotoUrls.length > 0 && (
+        <div>
+          <Eyebrow>Photos</Eyebrow>
+          <div
+            style={{
+              display:             "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap:                 10,
+            }}
+          >
+            {existingPhotoUrls.slice(0, 3).map((url, i) => (
+              <div
+                key={url + i}
+                className="overflow-hidden"
+                style={{
+                  aspectRatio:  "1 / 1",
+                  borderRadius: 4,
+                  border:       "1px solid var(--line-strong)",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+          <p
+            style={{
+              fontFamily:    "var(--font-mono)",
+              fontSize:      9,
+              fontWeight:    500,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color:         "var(--paper-dim)",
+              marginTop:     8,
+            }}
+          >
+            Photos cannot be changed when editing
+          </p>
+        </div>
+      )}
+
       {/* ── Photo upload — 3-column square grid ───────────────────── */}
+      {!hidePhotos && (
       <div>
         <Eyebrow optional>Photos (up to 3)</Eyebrow>
         <div
@@ -1032,6 +1091,7 @@ function Step5({
           onChange={(e) => addPhotos(e.target.files)}
         />
       </div>
+      )}
     </div>
   );
 }
@@ -1349,6 +1409,8 @@ export function BurnReport({
   displayName,
   city,
   reportNumber,
+  mode = "create",
+  existing,
 }: {
   item: BurnReportItem;
   flavorTags: FlavorTag[];
@@ -1356,12 +1418,31 @@ export function BurnReport({
   displayName: string | null;
   city: string | null;
   reportNumber: number;
+  /* "edit" turns the wizard into an in-place editor for an already
+     posted report: form pre-fills from `existing`, no draft autosave,
+     PATCH submit, no success screen, footer swaps to Back/Next +
+     Save/Cancel. */
+  mode?: "create" | "edit";
+  existing?: BurnReportExisting;
 }) {
   const router = useRouter();
+  const isEdit = mode === "edit";
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
-  const [form, setForm] = useState<FormData>(defaultForm);
+  /* Lazy init from existing in edit mode so the form paints with the
+     report's current values on first render. Photos stay [] — they're
+     not user-editable here in v1 (existingPhotoUrls renders a
+     read-only thumbnail row inside Step5). */
+  const [form, setForm] = useState<FormData>(() => {
+    if (isEdit && existing) {
+      const { photo_urls: _photo_urls, smoke_log_id: _smoke_log_id, ...rest } = existing;
+      void _photo_urls;
+      void _smoke_log_id;
+      return { ...defaultForm(), ...rest, photo_files: [] };
+    }
+    return defaultForm();
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [stepError,   setStepError]   = useState<string | null>(null);
@@ -1385,8 +1466,12 @@ export function BurnReport({
      Runs in useEffect (not lazy useState init) so SSR markup and
      client first-paint render the same defaultForm — no hydration
      mismatch warning. The brief flash of empty fields is invisible
-     because hydration completes within the first frame on mobile. */
+     because hydration completes within the first frame on mobile.
+     Edit mode skips this — we're editing a posted report, not a
+     draft, and drafts are keyed by humidor_item_id which we may not
+     even have in edit mode. */
   useEffect(() => {
+    if (isEdit) { setDraftReady(true); return; }
     const draft = loadBurnReportDraft<PersistableForm>(item.id);
     if (draft) {
       // Spread persisted fields over defaults; photos stay [] because
@@ -1396,7 +1481,7 @@ export function BurnReport({
       setShowResumed(true);
     }
     setDraftReady(true);
-  }, [item.id]);
+  }, [item.id, isEdit]);
 
   /* Auto-save draft on every form/step change. Debounced to ~500ms
      so a flurry of keystrokes only writes once. We skip while the
@@ -1407,6 +1492,7 @@ export function BurnReport({
      surface can render a draft card without a per-draft Supabase
      round-trip. */
   useEffect(() => {
+    if (isEdit) return;
     if (!draftReady || success) return;
     const t = setTimeout(() => {
       const { photo_files: _photo_files, ...persistable } = form;
@@ -1418,7 +1504,80 @@ export function BurnReport({
       });
     }, 500);
     return () => clearTimeout(t);
-  }, [draftReady, success, form, step, item.id, item.cigar.brand, item.cigar.series, item.cigar.format]);
+  }, [isEdit, draftReady, success, form, step, item.id, item.cigar.brand, item.cigar.series, item.cigar.format]);
+
+  /* Save (edit mode) — PATCH the existing smoke_log + burn_reports
+     child. We send the full editable field set so a single trip
+     reconciles the entire form (the API only writes keys present
+     in the body). Photos are out of scope in v1 edit. */
+  async function handleSaveEdit() {
+    if (!existing) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setStepError(null);
+
+    /* Light validation — same rules as the create flow. Picks the
+       first failing step so we can route the user back to it. */
+    for (const s of [0, 2, 4]) {
+      const err = validateStep(s);
+      if (err) {
+        setStep(s);
+        setStepError(err);
+        setSubmitting(false);
+        return;
+      }
+    }
+
+    const trimmedMins = form.smoke_duration_minutes.trim();
+    const minsNum = trimmedMins ? parseInt(trimmedMins) : null;
+
+    const payload: Record<string, unknown> = {
+      smoked_at:              form.smoked_at,
+      overall_rating:         form.overall_rating,
+      location:               form.location.trim()      || null,
+      occasion:               form.occasion             || null,
+      pairing_drink:          form.pairing_drink.trim() || null,
+      pairing_food:           form.pairing_food.trim()  || null,
+      draw_rating:            form.draw_rating          || null,
+      burn_rating:            form.burn_rating          || null,
+      construction_rating:    form.construction_rating  || null,
+      flavor_rating:          form.flavor_rating        || null,
+      flavor_tag_ids:         form.flavor_tag_ids.length ? form.flavor_tag_ids : null,
+      review_text:            form.review_text.trim()   || null,
+      smoke_duration_minutes: (minsNum != null && !isNaN(minsNum) && minsNum > 0) ? minsNum : null,
+      content_video_id:       form.content_video_id     || null,
+      thirds_enabled:         form.thirds_enabled,
+      third_beginning:        form.third_beginning.trim() || null,
+      third_middle:           form.third_middle.trim()    || null,
+      third_end:              form.third_end.trim()       || null,
+    };
+
+    try {
+      const res = await fetch(`/api/burn-report/${existing.smoke_log_id}`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        setSubmitError((errBody as { error?: string }).error ?? `Save failed (${res.status})`);
+        setSubmitting(false);
+        return;
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Save failed.");
+      setSubmitting(false);
+      return;
+    }
+
+    successHaptic();
+    router.push("/humidor/burn-reports");
+    router.refresh();
+  }
+
+  function handleCancelEdit() {
+    router.push("/humidor/burn-reports");
+  }
 
   /* Save & Exit — explicit user action. Flushes the draft synchronously
      (the debounced autosave may not have fired yet) and routes back to
@@ -1489,7 +1648,11 @@ export function BurnReport({
   function goBack() {
     setStepError(null);
     if (step === 0) {
-      router.push(`/humidor/${item.id}`);
+      /* Edit mode reuses the header's back arrow as "exit edit". The
+         humidor-item route doesn't apply here — we may not even own a
+         humidor_item for this report anymore — so route to the
+         report list instead. */
+      router.push(isEdit ? "/humidor/burn-reports" : `/humidor/${item.id}`);
       return;
     }
     setDirection("back");
@@ -1680,7 +1843,15 @@ export function BurnReport({
       case 1: return <Step2 form={form} update={update} item={item} />;
       case 2: return <Step3 form={form} update={update} item={item} />;
       case 3: return <Step4 form={form} update={update} flavorTags={flavorTags} item={item} />;
-      case 4: return <Step5 form={form} update={update} item={item} />;
+      case 4: return (
+        <Step5
+          form={form}
+          update={update}
+          item={item}
+          hidePhotos={isEdit}
+          existingPhotoUrls={existing?.photo_urls ?? []}
+        />
+      );
       case 5: return (
         <SummaryStep
           form={form}
@@ -1892,8 +2063,52 @@ export function BurnReport({
             <p className="text-sm text-destructive text-center">{stepError ?? submitError}</p>
           )}
 
-          {/* Summary submit */}
-          {isSummary ? (
+          {/* Edit-mode footer: Back/Next step nav row, then a Cancel +
+              Save row. No File Burn Report / Save & Exit / Skip — the
+              user is patching an already-filed report, not running the
+              creation flow. */}
+          {isEdit ? (
+            <>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={goBack}
+                  disabled={submitting || step === 0}
+                  className="btn btn-ghost flex-1 text-sm"
+                  style={{ opacity: step === 0 ? 0.4 : 1 }}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={submitting || step === STEPS.length - 1}
+                  className="btn btn-ghost flex-1 text-sm"
+                  style={{ opacity: step === STEPS.length - 1 ? 0.4 : 1 }}
+                >
+                  Next
+                </button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  disabled={submitting}
+                  className="btn btn-ghost flex-1 text-sm text-muted-foreground"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveEdit}
+                  disabled={submitting}
+                  className="btn btn-primary flex-1"
+                >
+                  {submitting ? "Saving…" : "Save"}
+                </button>
+              </div>
+            </>
+          ) : isSummary ? (
             <>
               <button
                 type="button"
@@ -1911,53 +2126,63 @@ export function BurnReport({
               >
                 Go Back and Edit
               </button>
-            </>
-          ) : (
-            <div className="flex items-center gap-3">
-              {/* Skip — editorial text button with mono uppercase letterspacing */}
-              {SKIPPABLE.has(step) && (
-                <button
-                  type="button"
-                  onClick={goNext}
-                  style={{
-                    fontFamily:    "var(--font-mono)",
-                    fontSize:      11,
-                    fontWeight:    500,
-                    letterSpacing: "0.22em",
-                    textTransform: "uppercase",
-                    color:         "var(--paper-mute)",
-                    background:    "transparent",
-                    border:        "none",
-                    padding:       "0 12px",
-                    cursor:        "pointer",
-                  }}
-                >
-                  Skip
-                </button>
-              )}
-
-              {/* Next */}
               <button
                 type="button"
-                className="btn btn-primary flex-1"
-                onClick={goNext}
+                className="btn btn-ghost w-full text-sm text-muted-foreground"
+                onClick={handleSaveAndExit}
+                disabled={submitting}
               >
-                {step === STEPS.length - 2 ? "Review" : "Next"}
+                Save & Exit
               </button>
-            </div>
-          )}
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-3">
+                {/* Skip — editorial text button with mono uppercase letterspacing */}
+                {SKIPPABLE.has(step) && (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      11,
+                      fontWeight:    500,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color:         "var(--paper-mute)",
+                      background:    "transparent",
+                      border:        "none",
+                      padding:       "0 12px",
+                      cursor:        "pointer",
+                    }}
+                  >
+                    Skip
+                  </button>
+                )}
 
-          {/* Save & Exit — present on every step. Flushes the autosaved
-              draft and routes to /humidor. The draft surfaces on
-              /humidor/burn-reports as a Draft card. */}
-          <button
-            type="button"
-            className="btn btn-ghost w-full text-sm text-muted-foreground"
-            onClick={handleSaveAndExit}
-            disabled={submitting}
-          >
-            Save & Exit
-          </button>
+                {/* Next */}
+                <button
+                  type="button"
+                  className="btn btn-primary flex-1"
+                  onClick={goNext}
+                >
+                  {step === STEPS.length - 2 ? "Review" : "Next"}
+                </button>
+              </div>
+
+              {/* Save & Exit — flushes the autosaved draft and routes to
+                  /humidor. The draft surfaces on /humidor/burn-reports
+                  as a Draft card. */}
+              <button
+                type="button"
+                className="btn btn-ghost w-full text-sm text-muted-foreground"
+                onClick={handleSaveAndExit}
+                disabled={submitting}
+              >
+                Save & Exit
+              </button>
+            </>
+          )}
         </div>
       </footer>
     </div>
