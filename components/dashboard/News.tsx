@@ -61,8 +61,8 @@ function WireHeader() {
           margin:     0,
         }}
       >
-        The{" "}
-        <em style={{ fontStyle: "italic", color: "var(--gold)" }}>Wire</em>
+        Industry{" "}
+        <em style={{ fontStyle: "italic", color: "var(--gold)" }}>News</em>
       </h2>
     </div>
   );
@@ -71,7 +71,7 @@ function WireHeader() {
 export function News({ items }: { items: NewsItem[] }) {
   if (items.length === 0) {
     return (
-      <section aria-label="The Wire">
+      <section aria-label="Industry News">
         <WireHeader />
         <p
           style={{
@@ -88,7 +88,7 @@ export function News({ items }: { items: NewsItem[] }) {
   }
 
   return (
-    <section aria-label="The Wire">
+    <section aria-label="Industry News">
       <WireHeader />
 
       {/* Item list */}
