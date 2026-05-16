@@ -13,7 +13,8 @@
    trash affordance for explicit dismissal.
    ------------------------------------------------------------------ */
 
-import React from "react";
+import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 const STEP_TOTAL = 6;
@@ -57,6 +58,11 @@ export function BurnReportDraftCard({
   onDelete,
 }: BurnReportDraftCardProps) {
   const router = useRouter();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  /* createPortal needs document. Defer rendering the modal node until
+     after mount so SSR / initial-paint don't touch document. */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
 
   const brand = (cigar?.brand ?? "").trim();
   const name  = [cigar?.series, cigar?.format].filter(Boolean).join(" ").trim() || "Untitled cigar";
@@ -69,8 +75,15 @@ export function BurnReportDraftCard({
     router.push(`/humidor/${itemId}/burn-report`);
   }
 
-  function handleDelete(e: React.MouseEvent) {
+  /* Trash icon → open the confirmation. We stopPropagation so the
+     outer button's tap-to-resume doesn't also fire. */
+  function handleDeleteIntent(e: React.MouseEvent | React.KeyboardEvent) {
     e.stopPropagation();
+    setConfirmOpen(true);
+  }
+
+  function handleConfirmDelete() {
+    setConfirmOpen(false);
     onDelete(itemId);
   }
 
@@ -203,11 +216,11 @@ export function BurnReportDraftCard({
           role="button"
           tabIndex={0}
           aria-label="Discard draft"
-          onClick={handleDelete}
+          onClick={handleDeleteIntent}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              handleDelete(e as unknown as React.MouseEvent);
+              handleDeleteIntent(e);
             }
           }}
           style={{
@@ -235,6 +248,86 @@ export function BurnReportDraftCard({
           </svg>
         </span>
       </div>
+      {mounted && confirmOpen && (
+        <ConfirmDiscardModal
+          cigarName={name}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmOpen(false)}
+        />
+      )}
     </button>
+  );
+}
+
+/* ------------------------------------------------------------------
+   ConfirmDiscardModal — mirrors the ConfirmDeleteModal pattern used
+   for filed reports in BurnReportsClient. Kept local since it's the
+   only consumer; copy is draft-specific ("Discard this draft?").
+   ------------------------------------------------------------------ */
+
+function ConfirmDiscardModal({
+  cigarName,
+  onConfirm,
+  onCancel,
+}: {
+  cigarName: string;
+  onConfirm: () => void;
+  onCancel:  () => void;
+}) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    document.addEventListener("keydown", h);
+    return () => document.removeEventListener("keydown", h);
+  }, [onCancel]);
+
+  function stop(e: React.MouseEvent | React.KeyboardEvent) {
+    e.stopPropagation();
+  }
+
+  return createPortal(
+    <div
+      className="fixed inset-0 flex items-center justify-center px-6"
+      style={{ zIndex: 9999, background: "rgba(0,0,0,0.72)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { stop(e); onCancel(); }}
+    >
+      <div
+        className="w-full max-w-xs rounded-2xl p-6 flex flex-col gap-4"
+        style={{ background: "var(--card)", border: "1px solid var(--border)" }}
+        onClick={stop}
+      >
+        <div className="space-y-1">
+          <p className="font-semibold text-foreground" style={{ fontFamily: "var(--font-serif)", fontSize: 17 }}>
+            Discard this draft?
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Your in-progress notes for {cigarName} will be removed. This cannot be undone.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onCancel(); }}
+            className="flex-1 rounded-xl text-sm font-medium py-3 transition-opacity active:opacity-60"
+            style={{ background: "var(--muted, rgba(255,255,255,0.06))", border: "1px solid var(--border)", color: "var(--foreground)", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={(e) => { stop(e); onConfirm(); }}
+            className="flex-1 rounded-xl text-sm font-semibold py-3 transition-opacity active:opacity-60"
+            style={{
+              background: "var(--destructive, #C44536)",
+              color:      "#fff",
+              border:     "none",
+              cursor:     "pointer",
+            } as React.CSSProperties}
+          >
+            Discard
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
