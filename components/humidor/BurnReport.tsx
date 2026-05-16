@@ -657,6 +657,56 @@ function Step4({
 }
 
 /* ------------------------------------------------------------------
+   AutoGrowTextarea — textarea that resizes to fit its content on
+   every keystroke. Used inside the Step 5 Thirds section so each
+   phase note grows as the user writes instead of forcing them to
+   either drag the resize handle or scroll inside a fixed box.
+
+   We measure scrollHeight after resetting height to "auto" so the
+   measurement reflects the current content, not the previous height.
+   `overflow: hidden` suppresses the scrollbar flicker that would
+   otherwise appear for one frame between resets.
+   ------------------------------------------------------------------ */
+
+function AutoGrowTextarea({
+  id,
+  value,
+  onChange,
+  placeholder,
+  rows = 2,
+  minHeight = 64,
+}: {
+  id:          string;
+  value:       string;
+  onChange:    (v: string) => void;
+  placeholder?: string;
+  rows?:       number;
+  minHeight?:  number;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
+  }, [value, minHeight]);
+
+  return (
+    <textarea
+      ref={ref}
+      id={id}
+      className="input resize-none"
+      placeholder={placeholder}
+      rows={rows}
+      style={{ minHeight, overflow: "hidden" }}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+}
+
+/* ------------------------------------------------------------------
    Step 5 — Overall
    ------------------------------------------------------------------ */
 
@@ -896,14 +946,11 @@ function Step5({
                     }}
                   />
                   <Eyebrow htmlFor={id}>{tag}</Eyebrow>
-                  <textarea
+                  <AutoGrowTextarea
                     id={id}
-                    className="input resize-y"
                     placeholder={placeholder}
-                    rows={2}
-                    style={{ minHeight: 64 }}
                     value={value}
-                    onChange={(e) => update({ [key]: e.target.value } as Partial<FormData>)}
+                    onChange={(v) => update({ [key]: v } as Partial<FormData>)}
                   />
                 </div>
               );
