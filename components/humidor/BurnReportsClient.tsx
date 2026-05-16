@@ -390,27 +390,49 @@ function BurnReportCard({
           </div>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setConfirmDelete(true)}
-          disabled={deleting}
-          className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
-          style={{
-            color:       "var(--destructive, #C44536)",
-            background:  "none",
-            border:      "none",
-            cursor:      "pointer",
-            padding:     0,
-            touchAction: "manipulation",
-          } as React.CSSProperties}
-          aria-label="Delete report"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-          </svg>
-          Delete
-        </button>
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/humidor/burn-reports/${report.id}/edit`}
+            className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
+            style={{
+              color:       "var(--paper-mute)",
+              background:  "none",
+              border:      "none",
+              cursor:      "pointer",
+              padding:     0,
+              touchAction: "manipulation",
+              textDecoration: "none",
+            } as React.CSSProperties}
+            aria-label="Edit report"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4 20h4l10-10-4-4L4 16v4z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M14 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            Edit
+          </Link>
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(true)}
+            disabled={deleting}
+            className="flex items-center gap-2 text-sm font-medium transition-opacity active:opacity-60"
+            style={{
+              color:       "var(--destructive, #C44536)",
+              background:  "none",
+              border:      "none",
+              cursor:      "pointer",
+              padding:     0,
+              touchAction: "manipulation",
+            } as React.CSSProperties}
+            aria-label="Delete report"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M3 6h18M8 6V4h8v2M19 6l-1.5 14h-11L5 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 11v6M14 11v6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            Delete
+          </button>
+        </div>
       </div>
     </>
   );
