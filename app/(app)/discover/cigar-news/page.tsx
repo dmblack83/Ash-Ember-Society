@@ -2,7 +2,7 @@ import { getNewsPage }  from "@/lib/data/news";
 import { NewsList }     from "./NewsList";
 
 export const runtime  = "edge";
-export const metadata = { title: "Cigar News — Ash & Ember Society" };
+export const metadata = { title: "Industry News — Ash & Ember Society" };
 
 export default async function NewsIndexPage() {
   const initial = await getNewsPage(0, 20);
@@ -21,7 +21,7 @@ export default async function NewsIndexPage() {
             lineHeight: 1.05,
           }}
         >
-          Cigar{" "}
+          Industry{" "}
           <em
             style={{
               fontStyle:  "italic",
@@ -43,7 +43,7 @@ export default async function NewsIndexPage() {
             marginTop:     6,
           }}
         >
-          From The World
+          From Around The World
         </p>
       </div>
 
