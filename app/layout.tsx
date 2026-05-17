@@ -12,6 +12,7 @@ import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
 import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
+import { StaleBuildNotice } from "@/components/system/StaleBuildNotice";
 import { SWRProvider } from "@/components/SWRProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
@@ -223,6 +224,13 @@ export default function RootLayout({
             stale-chunk window where the user's loaded JS doesn't
             match the new build's chunk URLs. */}
         <ServiceWorkerUpdateNotice />
+        {/* Resume-time version check: compares the SHA inlined in
+            this bundle against /api/version on mount and every
+            visibility/pageshow. Catches deploys that shipped while
+            the PWA was backgrounded — the case SW broadcasts miss
+            because activation already happened before the user
+            returned. */}
+        <StaleBuildNotice />
         {/* Vercel Speed Insights — captures real-user LCP/CLS/INP/FCP/TTFB
             from production traffic. Free tier covers ~10K data points/mo
             on Hobby, 25K on Pro. Disabled automatically in dev. */}
