@@ -15,6 +15,7 @@ const PUBLIC_PATHS = [
   "/terms",         // referenced by Google OAuth consent screen + landing footer
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
+  "/api/cron",      // protected by CRON_SECRET header, not session
 ];
 
 /*
