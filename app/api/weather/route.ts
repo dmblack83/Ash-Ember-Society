@@ -38,10 +38,10 @@ const NWS_HEADERS = {
   Accept:       "application/geo+json",
 };
 
-function getSuitability(tempF: number, humidity: number, windMph: number): Suitability {
-  if (humidity > 85 || humidity < 40 || windMph > 20 || tempF < 40 || tempF > 95) return "indoors";
-  if (humidity >= 65 && humidity <= 72 && tempF >= 65 && tempF <= 80 && windMph < 10)  return "perfect";
-  if (humidity >= 55 && humidity <= 80 && tempF >= 55 && tempF <= 85 && windMph < 15)  return "good";
+function getSuitability(tempF: number, _humidity: number, windMph: number): Suitability {
+  if (windMph > 20 || tempF < 40 || tempF > 95)           return "indoors";
+  if (tempF >= 65 && tempF <= 85 && windMph < 10)         return "perfect";
+  if (tempF >= 55 && tempF <= 85 && windMph < 15)         return "good";
   return "fair";
 }
 
