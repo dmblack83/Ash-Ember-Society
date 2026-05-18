@@ -13,6 +13,7 @@
    ------------------------------------------------------------------ */
 
 import { IntentLink } from "@/components/ui/IntentLink";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 
 interface Props {
   displayName: string;
@@ -104,21 +105,53 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
         >
           {displayName}.
         </em>
+      </h1>
+
+      {/* Welcome description + refresh — refresh sits on the right in
+          line with the description, matching the Humidor toolbar
+          refresh glyph. */}
+      <div
+        style={{
+          display:    "flex",
+          alignItems: "center",
+          gap:        12,
+          marginTop:  12,
+        }}
+      >
         <span
           suppressHydrationWarning
           style={{
-            display:    "block",
-            fontSize:   "clamp(15px, 4vw, 18px)",
-            fontStyle:  "italic",
-            color:      "var(--paper-mute)",
-            fontWeight: 400,
-            marginTop:  12,
+            flex:          1,
+            fontFamily:    "var(--font-serif)",
+            fontSize:      "clamp(15px, 4vw, 18px)",
+            fontStyle:     "italic",
+            color:         "var(--paper-mute)",
+            fontWeight:    400,
             letterSpacing: 0,
+            lineHeight:    1.3,
           }}
         >
           {c.sub}
         </span>
-      </h1>
+        <RefreshButton
+          style={{
+            background:              "none",
+            border:                  "none",
+            color:                   "var(--gold,#D4A04A)",
+            padding:                 8,
+            borderRadius:            999,
+            cursor:                  "pointer",
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+            display:                 "flex",
+            alignItems:              "center",
+            justifyContent:          "center",
+            flexShrink:              0,
+          }}
+          className=""
+          ariaLabel="Refresh home"
+        />
+      </div>
     </div>
     </header>
   );

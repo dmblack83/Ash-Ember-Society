@@ -13,6 +13,7 @@ const NewPostSheet = dynamic(
 );
 import { Toast }                        from "@/components/ui/toast";
 import { ScrollCarets }                 from "@/components/ui/ScrollCarets";
+import { RefreshButton }                from "@/components/ui/RefreshButton";
 
 /* ------------------------------------------------------------------ */
 
@@ -285,6 +286,24 @@ export function LoungeForumClient({
           {/* No global "+ New Post" — composing is scoped to a category.
               Each CategoryCard surfaces its own +New Post (or, for the
               Burn Reports category, a redirect to /humidor). */}
+          <RefreshButton
+            style={{
+              background:              "none",
+              border:                  "none",
+              color:                   "var(--gold,#D4A04A)",
+              padding:                 8,
+              borderRadius:            999,
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              display:                 "flex",
+              alignItems:              "center",
+              justifyContent:          "center",
+              flexShrink:              0,
+            }}
+            className=""
+            ariaLabel="Refresh lounge"
+          />
         </div>
       </div>
 
