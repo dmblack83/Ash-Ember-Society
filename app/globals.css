@@ -719,6 +719,17 @@ html.cold-smoke-active .cold-smoke-overlay {
   position: fixed;
   inset: 0;
   z-index: 99999;
+  /* Anchor across React view transitions. The home page wraps its
+     content in <ViewTransition> (app/(app)/layout.tsx); each Suspense
+     island streaming in fires startViewTransition(), and the
+     ::view-transition-* pseudo-elements paint in the browser top
+     layer above z-index 99999. Without a name here, the overlay
+     would be part of the root snapshot and the new-state pseudo
+     would briefly show the home page rendered on TOP of the smoke.
+     Naming it pulls it into its own group; rules below collapse the
+     group to a no-op so the overlay reads as visually fixed. Same
+     pattern as ae-bottom-nav and ae-side-rail. */
+  view-transition-name: ae-cold-smoke;
   /* Solid background as the universal fallback (Android Chrome PWA,
      non-listed iOS device sizes, desktop installed PWA). The iOS
      splash-image overrides below replace this with the device-matched
@@ -915,6 +926,25 @@ html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay {
 }
 ::view-transition-new(ae-bottom-nav),
 ::view-transition-new(ae-side-rail) {
+  animation: none;
+}
+
+/* Anchor the cold-smoke overlay across view transitions. Without
+   these rules, the home page's Suspense islands streaming in fire
+   ::view-transition-* pseudo-elements that paint above the overlay
+   (browser top layer beats z-index 99999), causing the smoke to
+   "flash" off as the page snapshot appears on top. Pulling the
+   overlay into its own group + collapsing old/new to no-ops keeps
+   it visually fixed for the entire 4 s loader window. z-index sits
+   above the nav groups so the overlay continues to cover the nav. */
+::view-transition-group(ae-cold-smoke) {
+  animation: none;
+  z-index: 99999;
+}
+::view-transition-old(ae-cold-smoke) {
+  display: none;
+}
+::view-transition-new(ae-cold-smoke) {
   animation: none;
 }
 
