@@ -15,6 +15,7 @@ import { usePhotoLightbox }                    from "@/components/ui/PhotoLightb
 import { useEscapeKey }                        from "@/lib/hooks/use-escape-key";
 import { keyFor }                              from "@/lib/data/keys";
 import { fetchPostComments }                   from "@/lib/data/lounge-fetchers";
+import { AddCigarToWishlistButton }            from "./AddCigarToWishlistButton";
 
 /* ------------------------------------------------------------------ */
 /* Exported type — consumed by the server page                          */
@@ -177,7 +178,20 @@ function FlameIcon({ size = 20, filled = false }: { size?: number; filled?: bool
 /* BurnReportCard — wraps the shared <VerdictCard /> + a photo lightbox */
 /* ------------------------------------------------------------------ */
 
-const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData }) {
+interface BurnReportCardProps {
+  log:          SmokeLogData;
+  /* Post author id + viewer id power the "Add to Wishlist" CTA: it's
+     only surfaced when the viewer is reading someone else's report
+     and we know the cigar id (legacy logs may not have one). */
+  postAuthorId: string | null;
+  viewerId:     string;
+}
+
+const BurnReportCard = memo(function BurnReportCard({
+  log,
+  postAuthorId,
+  viewerId,
+}: BurnReportCardProps) {
   /* Photo URLs flow into the shared lightbox so prev/next can tab
      through all of them. The filter() must match what we pass to
      VerdictCard's photoUrls so indices line up. */
@@ -185,10 +199,14 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
   const lightbox  = usePhotoLightbox(photoUrls);
   const thirds    = unwrapBurnReport(log.burn_report);
 
+  const canWishlist =
+    !!log.cigar_id && postAuthorId !== null && postAuthorId !== viewerId;
+
   return (
     <div style={{ marginTop: 12 }}>
       <VerdictCard
         cigar={log.cigar}
+        reportNumber={log.report_number ?? null}
         smokedAt={log.smoked_at}
         overallRating={log.overall_rating}
         drawRating={log.draw_rating}
@@ -209,6 +227,12 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         city={log.author_city ?? null}
         onPhotoClick={lightbox.open}
       />
+      {canWishlist && (
+        <AddCigarToWishlistButton
+          cigarId={log.cigar_id as string}
+          userId={viewerId}
+        />
+      )}
       {lightbox.node}
     </div>
   );
@@ -773,7 +797,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
 
           {/* Body: burn report card OR text content + optional image */}
           {smokeLog ? (
-            <BurnReportCard log={smokeLog} />
+            <BurnReportCard log={smokeLog} postAuthorId={post.user_id} viewerId={userId} />
           ) : (
             <>
               <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
