@@ -17,6 +17,7 @@ const InstallSheet = dynamic(
 );
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
 import { ScrollCarets } from "@/components/ui/ScrollCarets";
+import { RefreshButton } from "@/components/ui/RefreshButton";
 import { getInstallState, useBeforeInstallPrompt, type InstallState } from "@/lib/install-prompt";
 import { resolveBadge, getBadgeOptions } from "@/lib/badge";
 import {
@@ -1596,7 +1597,18 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
           alignItems: "center",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 640, margin: "0 auto", padding: "0 20px" }}>
+        <div
+          style={{
+            width:          "100%",
+            maxWidth:       640,
+            margin:         "0 auto",
+            padding:        "0 20px",
+            display:        "flex",
+            alignItems:     "center",
+            justifyContent: "space-between",
+            gap:            12,
+          }}
+        >
           <h1 style={{
             fontSize: 18,
             fontWeight: 700,
@@ -1605,6 +1617,24 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
           }}>
             Account
           </h1>
+          <RefreshButton
+            style={{
+              background:              "none",
+              border:                  "none",
+              color:                   "var(--gold,#D4A04A)",
+              padding:                 8,
+              borderRadius:            999,
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              display:                 "flex",
+              alignItems:              "center",
+              justifyContent:          "center",
+              flexShrink:              0,
+            }}
+            className=""
+            ariaLabel="Refresh account"
+          />
         </div>
       </div>
 

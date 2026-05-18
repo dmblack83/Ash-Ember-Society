@@ -20,6 +20,7 @@ const NewPostSheet = dynamic(
 );
 import { Toast }             from "@/components/ui/toast";
 import { ScrollCarets }      from "@/components/ui/ScrollCarets";
+import { RefreshButton }     from "@/components/ui/RefreshButton";
 
 /* ------------------------------------------------------------------ */
 
@@ -279,13 +280,15 @@ export function CategoryFeed({
         )}
 
         {/* Filter — segmented control. Two options for now ("All" /
-            "My Posts"); the union widens once follow-user lands. */}
+            "My Posts"); the union widens once follow-user lands.
+            Refresh button sits opposite, in line with the pill. */}
         <div
           className="px-4 pt-3 w-full md:max-w-[50%] md:mx-auto"
-          role="tablist"
-          aria-label="Post filter"
+          style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}
         >
           <div
+            role="tablist"
+            aria-label="Post filter"
             style={{
               display:         "inline-flex",
               padding:         2,
@@ -306,6 +309,25 @@ export function CategoryFeed({
               label="My Posts"
             />
           </div>
+          <RefreshButton
+            style={{
+              background:              "none",
+              border:                  "none",
+              color:                   "var(--gold,#D4A04A)",
+              padding:                 8,
+              borderRadius:            999,
+              cursor:                  "pointer",
+              touchAction:             "manipulation",
+              WebkitTapHighlightColor: "transparent",
+              display:                 "flex",
+              alignItems:              "center",
+              justifyContent:          "center",
+              flexShrink:              0,
+            }}
+            className=""
+            onRefresh={async () => { await mutateFeed(); }}
+            ariaLabel="Refresh posts"
+          />
         </div>
 
         {/* Posts */}
