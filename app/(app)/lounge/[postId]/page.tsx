@@ -54,25 +54,12 @@ export default async function PostDetailPage({ params }: Props) {
     user_id: string; parent_comment_id: string | null;
   }>;
 
-  const allUserIds = [
-    ...new Set(
-      [postAuthorId, ...commentRows.map((c) => c.user_id)].filter(Boolean) as string[]
-    ),
-  ];
-
-  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
-  if (allUserIds.length > 0) {
-    const { data: profileRows } = await supabase
-      .from("profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier")
-      .in("id", allUserIds);
-    for (const p of profileRows ?? []) {
-      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
-    }
-  }
-
-  // Fetch full smoke log if linked
+  // Fetch full smoke log if linked. Done before profiles so we can include
+  // the log author's id (which may differ from the post author for legacy
+  // rows) in the single profile query below.
   let smokeLog: SmokeLogData | null = null;
+  let logAuthorId: string | null = null;
+  let flavorTagIds: string[] = [];
   if (raw.smoke_log_id) {
     const smokeLogId = raw.smoke_log_id as string;
     const [logRes, reportNumberMap] = await Promise.all([
@@ -83,7 +70,7 @@ export default async function PostDetailPage({ params }: Props) {
           draw_rating, burn_rating, construction_rating, flavor_rating,
           pairing_drink, pairing_food, location, occasion,
           smoke_duration_minutes, review_text, photo_urls,
-          cigar_id,
+          cigar_id, flavor_tag_ids, user_id,
           cigar:cigar_catalog(brand, series, format),
           burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
         `)
@@ -92,11 +79,50 @@ export default async function PostDetailPage({ params }: Props) {
       computeReportNumbers(supabase, [smokeLogId]),
     ]);
     if (logRes.data) {
+      const logData = logRes.data as any;
+      logAuthorId  = (logData.user_id as string | null) ?? null;
+      flavorTagIds = (logData.flavor_tag_ids as string[] | null) ?? [];
       smokeLog = {
-        ...(logRes.data as unknown as SmokeLogData),
+        ...(logData as SmokeLogData),
         report_number: reportNumberMap[smokeLogId] ?? null,
       };
     }
+  }
+
+  const allUserIds = [
+    ...new Set(
+      [postAuthorId, logAuthorId, ...commentRows.map((c) => c.user_id)].filter(Boolean) as string[]
+    ),
+  ];
+
+  // `city` is needed for the verdict-card byline on burn-report posts.
+  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+  if (allUserIds.length > 0) {
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id, display_name, avatar_url, badge, membership_tier, city")
+      .in("id", allUserIds);
+    for (const p of profileRows ?? []) {
+      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null, city: p.city ?? null };
+    }
+  }
+
+  // Resolve flavor tag IDs → names so VerdictCard renders the italic
+  // "tasting notes" line below the verdict article.
+  if (smokeLog && flavorTagIds.length > 0) {
+    const { data: tagRows } = await supabase
+      .from("flavor_tags")
+      .select("id, name")
+      .in("id", flavorTagIds);
+    const tagMap = Object.fromEntries((tagRows ?? []).map((t: { id: string; name: string }) => [t.id, t.name]));
+    smokeLog.flavor_tag_names = flavorTagIds.map((id) => tagMap[id]).filter(Boolean);
+  }
+
+  // Thread log-author display name + city onto the smoke log for the
+  // verdict-card byline ("DAVE · SALT LAKE CITY").
+  if (smokeLog && logAuthorId) {
+    smokeLog.author_display_name = nameMap[logAuthorId]?.display_name ?? null;
+    smokeLog.author_city         = nameMap[logAuthorId]?.city         ?? null;
   }
 
   const post = {
