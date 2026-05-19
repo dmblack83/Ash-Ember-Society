@@ -1,7 +1,7 @@
 import { redirect }            from "next/navigation";
 import { getServerUser }       from "@/lib/auth/server-user";
 import { getProfileLite }      from "@/lib/data/profile";
-import { createServiceClient } from "@/utils/supabase/service";
+import { createServiceClientFor } from "@/utils/supabase/service";
 import { AdminTasksWidget }  from "@/components/admin/AdminTasksWidget";
 import type { PendingSubmission } from "@/components/admin/AdminTasksWidget";
 
@@ -17,7 +17,10 @@ export default async function AdminPage() {
   if (!profile?.is_admin) redirect("/home");
 
   /* ── Fetch pending submissions (service role to bypass RLS) ───── */
-  const admin = createServiceClient();
+  const admin = createServiceClientFor(
+    "page:admin",
+    "admin moderation queue read — is_admin gate runs before this call"
+  );
 
   const { data: rows } = await admin
     .from("cigar_image_submissions")

@@ -34,7 +34,7 @@
    ------------------------------------------------------------------ */
 
 import webpush from "web-push";
-import { createServiceClient } from "@/utils/supabase/service";
+import { createServiceClientFor } from "@/utils/supabase/service";
 import { isCategoryEnabled, type NotificationCategory } from "@/lib/notification-categories";
 
 export interface PushPayload {
@@ -86,7 +86,7 @@ export interface PushSendLogParams {
 }
 
 export async function logPushSend(
-  supabase: ReturnType<typeof createServiceClient>,
+  supabase: ReturnType<typeof createServiceClientFor>,
   params:   PushSendLogParams,
 ): Promise<void> {
   try {
@@ -166,7 +166,10 @@ export async function sendPushToUser(
     throw new Error("VAPID env vars missing — see startup log for details.");
   }
 
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "lib:push",
+    "read profile notification_preferences + push_subscriptions; called from cron handlers across users"
+  );
 
   /* Gate on the user's category preference BEFORE pulling
      subscriptions — saves the round-trip on opted-out users. */
