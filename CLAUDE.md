@@ -53,3 +53,38 @@ git fetch origin main && git checkout main && git merge --ff-only origin/main
 Then branch off the freshly-synced `main`. The Cowork sandbox routinely starts with a stale local `main` (commits sometimes 50+ behind). Building off stale `main` produces PRs that target deleted files or duplicate already-merged work.
 
 Verify before committing: `git log --oneline main..origin/main` should print nothing.
+
+# Task-observer (skill improvement loop), ACTIVE EVERY SESSION
+
+At the start of any task-oriented session, any interaction where you will use tools and produce deliverables, invoke the `task-observer` skill before beginning work. This captures skill improvement opportunities throughout the session.
+
+When loading any skill, check the observation log for OPEN observations tagged to that skill. Apply their insights to the current work, even if the skill file hasn't been updated yet.
+
+## Workspace folder override
+
+For this project, `[workspace folder]` resolves to:
+
+```
+/Users/dave.black/.claude/projects/-Users-dave-black-Documents-the-humidor
+```
+
+Observations live at `[workspace folder]/skill-observations/log.md`. Cross-cutting principles live at `[workspace folder]/skill-observations/cross-cutting-principles.md`. This survives worktree teardown and sits alongside the existing auto-memory directory.
+
+## Memory vs observer boundary
+
+Two parallel systems serve different purposes. Route signals correctly:
+
+- **auto-memory** (`~/.claude/projects/.../memory/`): facts about Dave, the project, preferences, and references. Loaded into every conversation. Examples: "no em dashes", "PR workflow rules", "service-client audit results", project state snapshots.
+- **task-observer** (`~/.claude/projects/.../skill-observations/`): skill-edit candidates. Reviewed on a cadence (Mon/Wed/Fri), then applied as skill changes or filed upstream. Examples: "the gsd-plan-phase skill should add a verification step for X", "a new skill should exist for reviewing Supabase RLS policies".
+
+Rule of thumb: if the signal is "Claude should know this on load", it goes to memory. If the signal is "a skill should change to encode this", it goes to the observation log.
+
+## GSD skills are upstream
+
+GSD skills live at `~/.claude/get-shit-done/` and get overwritten by `/gsd-update`. Observations targeting GSD methodology are improvement candidates Dave can later file as issues against the GSD project. Do not edit GSD skill files in place. Local behavior overrides flow through this CLAUDE.md or memory.
+
+# Close-pattern restore, ACTIVE EVERY SESSION
+
+At session start, check for `/Users/dave.black/.claude/projects/-Users-dave-black-Documents-the-humidor/session-logs/LAST.md`. If present, read it. Surface the "Pick up" line briefly in your first response so Dave knows the prior session's state was captured. Read the full log only if Dave signals he wants to resume that work specifically.
+
+The `close-pattern` skill produces these files at session end. Run it via `/close` or `/close-pattern`.
