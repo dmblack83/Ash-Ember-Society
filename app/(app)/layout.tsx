@@ -234,6 +234,12 @@ function ScrollReset() {
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  /* Hide both navs on /onboarding — the route lives inside the (app)
+     group so the layout wraps it, but a user mid-onboarding shouldn't
+     see destination chrome they can't yet use. */
+  const pathname = usePathname();
+  const hideNav = pathname.startsWith("/onboarding");
+
   return (
     <>
       {/* Page content — bottom padding clears the nav bar.
@@ -247,10 +253,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <PersistentStorageRequest />
       <main
         id="main-content"
-        className="flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0"
+        className={
+          hideNav
+            ? "flex-1 app-container"
+            : "flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0"
+        }
         style={{
           touchAction: "pan-y",
-          marginLeft:  "var(--app-content-left)",
+          marginLeft: hideNav ? 0 : "var(--app-content-left)",
         }}
       >
         {/* View Transition wrapper — animates the main content swap
@@ -265,8 +275,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </ViewTransition>
       </main>
-      <BottomNav />
-      <SideRailNav />
+      {!hideNav && <BottomNav />}
+      {!hideNav && <SideRailNav />}
     </>
   );
 }
