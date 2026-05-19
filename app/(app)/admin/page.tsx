@@ -4,6 +4,8 @@ import { getProfileLite }      from "@/lib/data/profile";
 import { createServiceClientFor } from "@/utils/supabase/service";
 import { AdminTasksWidget }  from "@/components/admin/AdminTasksWidget";
 import type { PendingSubmission } from "@/components/admin/AdminTasksWidget";
+import { CigarEditSuggestionsWidget } from "@/components/admin/CigarEditSuggestionsWidget";
+import type { PendingEditSuggestion } from "@/components/admin/CigarEditSuggestionsWidget";
 
 export const runtime = "edge";
 export const dynamic = "force-dynamic";
@@ -57,6 +59,36 @@ export default async function AdminPage() {
     })
   );
 
+  /* ── Fetch pending edit suggestions ──────────────────────────── */
+  const { data: editRows } = await admin
+    .from("cigar_edit_suggestions")
+    .select(`
+      id,
+      cigar_id,
+      current,
+      suggested,
+      created_at,
+      cigar:cigar_catalog (brand, series),
+      submitter:profiles!cigar_edit_suggestions_suggested_by_fkey (display_name)
+    `)
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+
+  const editSuggestions: PendingEditSuggestion[] = (editRows ?? []).map((row) => {
+    const cigar     = Array.isArray(row.cigar)     ? row.cigar[0]     : row.cigar;
+    const submitter = Array.isArray(row.submitter) ? row.submitter[0] : row.submitter;
+    return {
+      id:           row.id,
+      cigar_id:     row.cigar_id,
+      cigar_brand:  cigar?.brand  ?? null,
+      cigar_series: cigar?.series ?? null,
+      submitter:    submitter?.display_name ?? null,
+      current:      (row.current   as Record<string, unknown>) ?? {},
+      suggested:    (row.suggested as Record<string, unknown>) ?? {},
+      created_at:   row.created_at,
+    };
+  });
+
   return (
     <div className="px-4 sm:px-6 pt-6 pb-10 flex flex-col gap-6 max-w-2xl mx-auto">
 
@@ -84,6 +116,9 @@ export default async function AdminPage() {
 
       {/* Tasks widget */}
       <AdminTasksWidget initialSubmissions={submissions} />
+
+      {/* Edit suggestions widget */}
+      <CigarEditSuggestionsWidget initialSuggestions={editSuggestions} />
 
     </div>
   );

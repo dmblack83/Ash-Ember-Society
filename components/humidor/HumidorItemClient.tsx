@@ -11,6 +11,7 @@ import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
+import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
@@ -532,13 +533,15 @@ function SmokeModal({
 export function HumidorItemClient({
   item: initialItem,
   initialSmokeLogs,
-  hasPending  = false,
-  hasApproved = false,
+  hasPending     = false,
+  hasApproved    = false,
+  hasPendingEdit = false,
 }: {
   item: HumidorItemDetail;
   initialSmokeLogs: SmokeLog[];
-  hasPending?:  boolean;
-  hasApproved?: boolean;
+  hasPending?:      boolean;
+  hasApproved?:     boolean;
+  hasPendingEdit?:  boolean;
 }) {
   const router = useRouter();
 
@@ -720,6 +723,24 @@ export function HumidorItemClient({
               <Chip label="Filler" value={c.filler_countries.map(countryName).join(", ")} />
             )}
           </div>
+
+          {/* Suggest-edit button — same outline-style as Contribute a Photo */}
+          <CigarEditSuggestButton
+            cigar={{
+              id:                item.cigar_id,
+              brand:             c.brand,
+              series:            c.series,
+              format:            c.format,
+              ring_gauge:        c.ring_gauge,
+              length_inches:     c.length_inches,
+              shade:             c.shade,
+              wrapper:           c.wrapper,
+              wrapper_country:   c.wrapper_country,
+              binder_country:    c.binder_country,
+              filler_countries:  c.filler_countries,
+            }}
+            hasPending={hasPendingEdit}
+          />
         </div>
       </section>
 
