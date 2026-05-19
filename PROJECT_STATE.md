@@ -185,7 +185,7 @@ Applied to:
 
 ## Known Issues / Decisions
 
-- **No em dashes** anywhere in the app or content — Dave flagged this repeatedly. Use plain alternatives.
+- **No em dashes in user-facing copy** — app UI strings, marketing copy, blog/news synopses, push notifications, email body, anything that lands in front of a customer. Use plain alternatives (comma, colon, semicolon, period, parens). Internal docs, code, comments, memory files, planning docs, skill files, and commit messages are exempt.
 - **Mobile zoom on text input** — Fixed with `font-size: 16px` on inputs (prevents iOS auto-zoom).
 - **Toast above nav** — Toasts must use z-index above the bottom nav bar.
 - **Cigar catalog search** — Shows top 20 by usage_count by default (not blank until user types).
