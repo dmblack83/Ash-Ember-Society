@@ -19,6 +19,7 @@ export interface CigarDetail {
   wrapper_country: string | null;
   binder_country: string | null;
   filler_countries: string[] | null;
+  shade: string | null;
   ring_gauge: number | null;
   length_inches: number | null;
   image_url: string | null;
@@ -72,24 +73,33 @@ export default async function HumidorItemPage({
 
   if (error || !item) notFound();
 
-  // Step 2: image-submission status and the user's smoke logs for this
-  // cigar are independent — fetch in parallel.
-  const [{ data: submission }, { data: smokeLogs }] = await Promise.all([
-    supabase
-      .from("cigar_image_submissions")
-      .select("status")
-      .eq("cigar_id", item.cigar_id)
-      .in("status", ["pending", "approved"])
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    supabase
-      .from("smoke_logs")
-      .select("id, smoked_at, overall_rating, review_text, content_video_id")
-      .eq("user_id", user.id)
-      .eq("cigar_id", item.cigar_id)
-      .order("smoked_at", { ascending: false }),
-  ]);
+  // Step 2: image-submission status, edit-suggestion status, and the user's
+  // smoke logs for this cigar are independent — fetch in parallel.
+  // (RLS on cigar_edit_suggestions scopes the read to this user automatically.)
+  const [{ data: submission }, { data: editSuggestion }, { data: smokeLogs }] =
+    await Promise.all([
+      supabase
+        .from("cigar_image_submissions")
+        .select("status")
+        .eq("cigar_id", item.cigar_id)
+        .in("status", ["pending", "approved"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("cigar_edit_suggestions")
+        .select("status")
+        .eq("cigar_id", item.cigar_id)
+        .eq("status", "pending")
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from("smoke_logs")
+        .select("id, smoked_at, overall_rating, review_text, content_video_id")
+        .eq("user_id", user.id)
+        .eq("cigar_id", item.cigar_id)
+        .order("smoked_at", { ascending: false }),
+    ]);
 
   // Fetch video data for any logs that have a linked video
   const videoIds = (smokeLogs ?? [])
@@ -118,6 +128,7 @@ export default async function HumidorItemPage({
       initialSmokeLogs={normalizedLogs}
       hasPending={submission?.status === "pending"}
       hasApproved={submission?.status === "approved"}
+      hasPendingEdit={editSuggestion !== null}
     />
   );
 }
