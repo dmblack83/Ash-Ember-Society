@@ -130,8 +130,45 @@
 
 ## Traceability
 
-(Filled by roadmapper — maps each REQ-ID to its phase number.)
+| REQ-ID | Category | Phase | Status |
+|---|---|---|---|
+| INFRA-01 | Test Infrastructure | 1 | Pending |
+| INFRA-02 | Test Infrastructure | 1 | Pending |
+| ONB-01 | Onboarding Polish | 1 | Pending |
+| ONB-02 | Onboarding Polish | 1 | Pending |
+| SEC-01 | Security | 2 | Pending |
+| SEC-02 | Security | 2 | Pending |
+| PWA-01 | Service Worker | 3 | Pending |
+| PROD-01 | Product | 4 | Pending |
+| PROD-02 | Product | 4 | Pending |
+| PROD-03 | Product | 4 | Pending |
+| PROD-04 | Product | 4 | Pending |
+| PROD-05 | Product | 4 | Pending |
+| PWA-02 | Service Worker | 5 | Pending |
+| PWA-03 | Service Worker | 5 | Pending |
+| PWA-04 | Service Worker | 5 | Pending |
+| PWA-05 | Service Worker | 5 | Pending |
+| AI-01 | AI / Vision | 6a | Pending |
+| AI-02 | AI / Vision | 6a | Pending |
+| AI-03 | AI / Vision | 6b | Pending |
+| AI-04 | AI / Vision | 6b | Pending |
+| AI-05 | AI / Vision | 6b | Pending |
+| DATA-01 | Schema | 7 | Pending |
+| CI-01 | CI | 8 | Pending |
+| CI-02 | CI | 8 | Pending |
+| SEC-03 | Security | 9 | Pending |
+| CACHE-01 | Caching | 10 | Pending |
+| CACHE-02 | Caching | 10 | Pending |
+| CACHE-03 | Caching | 10 | Pending |
+| CI-03 | CI | 11 | Pending |
+| CI-04 | CI | 11 | Pending |
+| A11Y-01 | Accessibility | 12 | Pending |
+| A11Y-02 | Accessibility | 12 | Pending |
+| DIAG-01 | Diagnostics | 13 | Pending |
+| DIAG-02 | Diagnostics | 13 | Pending |
+
+**Coverage:** 34/34 v1 REQs mapped to exactly one phase. No orphans.
 
 ---
 
-*Last updated: 2026-05-19 after GSD bootstrap (auto mode + 4 ADR decisions).*
+*Last updated: 2026-05-19 — roadmap created; traceability filled by roadmapper.*
