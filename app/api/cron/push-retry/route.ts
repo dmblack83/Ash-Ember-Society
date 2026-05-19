@@ -29,7 +29,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import webpush                       from "web-push";
-import { createServiceClient }       from "@/utils/supabase/service";
+import { createServiceClientFor }    from "@/utils/supabase/service";
 import {
   isCategoryEnabled,
   type NotificationCategory,
@@ -98,7 +98,7 @@ interface Subscription {
 }
 
 async function processRow(
-  supabase: ReturnType<typeof createServiceClient>,
+  supabase: ReturnType<typeof createServiceClientFor>,
   row:      OutboxRow,
 ): Promise<"sent" | "retried" | "dead"> {
   const now = new Date().toISOString();
@@ -272,7 +272,10 @@ async function handle(req: NextRequest) {
 
   const run = await startCronRun("push-retry", "0 * * * *");
   try {
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "cron:push-retry",
+    "process push_outbox retry queue across users; admin observability"
+  );
   const now      = new Date().toISOString();
 
   const { data: rows, error } = await supabase

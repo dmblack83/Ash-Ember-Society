@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag }             from "next/cache";
 import { createClient }             from "@/utils/supabase/server";
 import { getServerUser }            from "@/lib/auth/server-user";
-import { createServiceClient }      from "@/utils/supabase/service";
+import { createServiceClientFor }   from "@/utils/supabase/service";
 
 export const runtime = "edge";
 
@@ -60,7 +60,10 @@ export async function PATCH(
     return NextResponse.json({ error: "action must be approve or reject" }, { status: 400 });
   }
 
-  const admin = createServiceClient();
+  const admin = createServiceClientFor(
+    "api/admin/submissions",
+    "approve/reject cigar image submission — is_admin gate runs before this call"
+  );
 
   // 3. Fetch the submission
   const { data: submission, error: fetchError } = await admin

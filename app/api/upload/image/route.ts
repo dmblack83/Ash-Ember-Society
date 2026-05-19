@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
-import { createServiceClient }      from "@/utils/supabase/service";
+import { createServiceClientFor }   from "@/utils/supabase/service";
 import { checkImageSafety }         from "@/lib/vision-safety";
 
 const ALLOWED_FOLDERS = ["forum-posts", "burn-reports"] as const;
@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
   const ext  = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   const path = `${folder}/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
-  const admin = createServiceClient();
+  const admin = createServiceClientFor(
+    "api/upload/image",
+    "post-images bucket write; path scoped to authenticated user.id under folder allowlist"
+  );
   const { error: uploadError } = await admin.storage
     .from("post-images")
     .upload(path, bytes, { contentType: file.type, upsert: false });

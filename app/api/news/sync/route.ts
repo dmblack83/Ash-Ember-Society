@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse }   from "next/server";
 import { revalidateTag }                from "next/cache";
 import { XMLParser }                    from "fast-xml-parser";
-import { createServiceClient }          from "@/utils/supabase/service";
+import { createServiceClientFor }       from "@/utils/supabase/service";
 import { NEWS_FEEDS, type NewsFeed }    from "@/lib/news-feeds";
 import { startCronRun, finishCronRun }  from "@/lib/cron-log";
 
@@ -219,7 +219,10 @@ async function handle(req: NextRequest) {
 
   const run = await startCronRun("news-sync", "0 */3 * * *");
   try {
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "cron:news-sync",
+    "upsert news_items from external RSS feeds; no user context"
+  );
 
   const perFeed: { slug: string; fetched: number; upserted: number; error?: string }[] = [];
   let totalUpserted = 0;

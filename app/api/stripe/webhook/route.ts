@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe, tierFromPriceId } from "@/lib/stripe";
-import { createServiceClient } from "@/utils/supabase/service";
+import { createServiceClientFor } from "@/utils/supabase/service";
 import type Stripe from "stripe";
 
 /**
@@ -53,7 +53,10 @@ export async function POST(req: NextRequest) {
   }
 
   /* ── Service-role Supabase client (bypasses RLS) ───────────── */
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "stripe:webhook",
+    "external Stripe webhook with no authenticated user context; signature-verified above"
+  );
 
   /* ── Idempotency: INSERT-first dedup by Stripe event_id ────────
      Stripe retries failed webhooks aggressively (5 attempts up to

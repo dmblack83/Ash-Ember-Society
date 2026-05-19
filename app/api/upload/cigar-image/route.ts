@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
-import { createServiceClient }      from "@/utils/supabase/service";
+import { createServiceClientFor }   from "@/utils/supabase/service";
 import { checkImageSafety }         from "@/lib/vision-safety";
 
 /**
@@ -66,7 +66,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createServiceClient();
+  const admin = createServiceClientFor(
+    "api/upload/cigar-image",
+    "cigar-photos-pending bucket write + cigar_image_submissions row; user.id from auth"
+  );
 
   // 4. Check for existing pending submission on this cigar
   const { data: existing } = await admin

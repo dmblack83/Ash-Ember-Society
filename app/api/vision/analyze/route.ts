@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ImageAnnotatorClient }      from "@google-cloud/vision";
 import { createClient }              from "@/utils/supabase/server";
 import { getServerUser }             from "@/lib/auth/server-user";
-import { createServiceClient }       from "@/utils/supabase/service";
+import { createServiceClientFor }    from "@/utils/supabase/service";
 import { checkRateLimit }            from "@/lib/rate-limit";
 
 /* ------------------------------------------------------------------
@@ -195,7 +195,10 @@ export async function POST(req: NextRequest) {
 
   /* ── Log to moderation_log ────────────────────────────────────── */
   try {
-    const service = createServiceClient();
+    const service = createServiceClientFor(
+      "api/vision/analyze",
+      "insert moderation_log row scoped to authenticated user.id"
+    );
     await service.from("moderation_log").insert({
       user_id:       user.id,
       type,

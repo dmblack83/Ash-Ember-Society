@@ -42,7 +42,7 @@
    ------------------------------------------------------------------ */
 
 import { NextRequest, NextResponse }            from "next/server";
-import { createServiceClient }                   from "@/utils/supabase/service";
+import { createServiceClientFor }                from "@/utils/supabase/service";
 import { sendPushToUser }                        from "@/lib/push";
 import { startCronRun, finishCronRun }           from "@/lib/cron-log";
 
@@ -96,7 +96,10 @@ async function handle(req: NextRequest) {
   try {
   const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD UTC
 
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "cron:aging-ready",
+    "fan-out aging-ready push notifications across all users; RLS would scope to caller"
+  );
   const { data: rows, error } = await supabase
     .from("humidor_items")
     .select("id, user_id, cigar:cigar_catalog(brand, series, format)")

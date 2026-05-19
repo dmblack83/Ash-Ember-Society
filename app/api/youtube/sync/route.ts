@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse }   from "next/server";
-import { createServiceClient }          from "@/utils/supabase/service";
+import { createServiceClientFor }       from "@/utils/supabase/service";
 import { startCronRun, finishCronRun }  from "@/lib/cron-log";
 
 // Node.js runtime — consistency with the news sync route, and avoids
@@ -43,7 +43,7 @@ async function ytFetch(path: string, params: Record<string, string>) {
    ------------------------------------------------------------------ */
 
 async function syncChannel(
-  supabase: ReturnType<typeof createServiceClient>,
+  supabase: ReturnType<typeof createServiceClientFor>,
   channelRow: {
     id:                  string;
     youtube_channel_id:  string;
@@ -197,7 +197,10 @@ async function handler(req: NextRequest) {
 
   const run = await startCronRun("youtube-sync", "0 */3 * * *");
   try {
-  const supabase = createServiceClient();
+  const supabase = createServiceClientFor(
+    "cron:youtube-sync",
+    "upsert content_videos / content_channels from external YouTube API; no user context"
+  );
   const url      = new URL(req.url);
   const handle   = url.searchParams.get("handle");
   /* Optional `section` param controls which list the channel renders

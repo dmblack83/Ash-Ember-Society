@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
-import { createServiceClient }      from "@/utils/supabase/service";
+import { createServiceClientFor }   from "@/utils/supabase/service";
 import { checkImageSafety }         from "@/lib/vision-safety";
 
 /**
@@ -63,7 +63,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const admin = createServiceClient();
+  const admin = createServiceClientFor(
+    "api/avatar",
+    "Supabase storage write to avatars bucket; path scoped to authenticated user.id"
+  );
   const ext   = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
   // Unique filename per upload so CDN never serves a stale cached version
   const path  = `${user.id}/avatar_${Date.now()}.${ext}`;

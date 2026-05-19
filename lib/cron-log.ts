@@ -33,7 +33,7 @@
    ------------------------------------------------------------------ */
 
 import * as Sentry from "@sentry/nextjs";
-import { createServiceClient } from "@/utils/supabase/service";
+import { createServiceClientFor } from "@/utils/supabase/service";
 
 export interface CronRunHandle {
   id:           string;
@@ -82,7 +82,10 @@ export async function startCronRun(
   }
 
   try {
-    const supabase = createServiceClient();
+    const supabase = createServiceClientFor(
+      "lib:cron-log:start",
+      "insert cron_run_log row at cron start; service-level observability, no user context"
+    );
     const { data, error } = await supabase
       .from("cron_run_log")
       .insert({ name })
@@ -130,7 +133,10 @@ export async function finishCronRun(
   if (!handle.id) return;
 
   try {
-    const supabase = createServiceClient();
+    const supabase = createServiceClientFor(
+      "lib:cron-log:finish",
+      "update cron_run_log row at cron finish; service-level observability, no user context"
+    );
     await supabase
       .from("cron_run_log")
       .update({
