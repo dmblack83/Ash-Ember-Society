@@ -276,7 +276,7 @@ Three independent mechanisms layered to recover from launch hangs (an indefinite
 
 2. **SW navigation strategy upgrade** — Phase 2 uses `NetworkFirst` for navigation requests; the obvious next step is `StaleWhileRevalidate` for instant repeat loads. Not a one-liner: even with Phase 1's shell decomposition, the streamed HTML still contains the islands' rendered content. Caching that under one URL key means a shared browser could briefly serve User A's cached HTML to User B post-sign-in. Real fix requires either a cookie-aware cache key (Serwist supports this via a custom plugin) or a sign-out hook that clears the `navigations` cache. Worth doing — but as its own scoped PR, not a strategy swap.
 
-3. **Performance budget in CI** — RUM (Speed Insights) shipped in #265; the budget half is deferred. Setting up a budget gate needs CI infrastructure first (no `.github/workflows` exists today). Decision: GH Actions vs Vercel Build vs pre-commit.
+3. **Performance budget in CI** — RUM (Speed Insights) shipped in #265; the budget half is deferred. `.github/workflows/ci.yml` is now in place (typecheck-only — runs `tsc --noEmit` on main + `tsconfig.sw.json`). Missing: bundle-size gate, lint gate, Lighthouse / perf budget. Improvement path: add a `bundle-size` job to `ci.yml` running `npm run analyze` and diffing against `BUNDLE_BASELINE.md`.
 
 4. **Humidor fixed header** — Fixed header: tabs row + title/button row + sort/view toggle row.
 
