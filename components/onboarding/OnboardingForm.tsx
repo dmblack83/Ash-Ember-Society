@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 
 /* ===================================================================
@@ -112,7 +111,6 @@ const selectClass = "flex-1 input appearance-none cursor-pointer";
    applies to every account, regardless of provider.
    =================================================================== */
 export function OnboardingForm() {
-  const router = useRouter();
 
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -286,8 +284,14 @@ export function OnboardingForm() {
         },
       });
 
-      router.refresh();
-      router.push("/home");
+      // updateUser changes the user on Supabase, but the JWT in the
+      // browser cookie still encodes the OLD metadata. refreshSession
+      // forces a new JWT (with onboarding_completed: true) into the
+      // cookie. Then a hard navigation ensures the proxy reads the
+      // fresh cookie on the request to /home — router.push alone races
+      // the cookie write and lets the proxy bounce the user back here.
+      await supabase.auth.refreshSession();
+      window.location.href = "/home";
     } catch (err) {
       console.error("Failed to save profile:", err);
       setFormError("Something went wrong. Please check your connection and try again.");
