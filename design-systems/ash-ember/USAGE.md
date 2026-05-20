@@ -15,14 +15,19 @@ hand back for implementation with no recolor step.
 
 ## Loading it into Open Design
 
-Either:
+Use the folder-drop method — it loads this curated system verbatim:
 
-1. **GitHub import** — point Open Design's design-system GitHub import at
-   `dmblack83/Ash-Ember-Society`, path `design-systems/ash-ember`.
-2. **Local folder** — copy this `ash-ember/` folder into the Open Design
-   app's `design-systems/` directory, then **Rescan** in Settings.
+1. Copy this entire `ash-ember/` folder into the Open Design app's
+   design-systems directory (inside the installed app's user-data
+   folder, e.g. `~/Library/Application Support/...` on macOS).
+2. **Rescan** in Settings, then pick **Ash & Ember Society** from the
+   top-bar Design system dropdown.
 
-Then pick **Ash & Ember Society** from the top-bar Design system dropdown.
+Do NOT use the app's "Import from GitHub" / "Import an existing local
+project" feature for this folder. That feature is an auto-extractor: it
+scans a whole codebase's CSS and generates a new, normalized design
+system. It does not accept a subfolder path, and it would not load this
+hand-authored system as written — it would synthesize a generic one.
 
 ## Keeping it in sync
 
