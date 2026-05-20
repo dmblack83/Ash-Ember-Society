@@ -1,6 +1,17 @@
 @AGENTS.md
 @PROJECT_STATE.md
 
+# Development methodology — ACTIVE EVERY SESSION
+
+**Superpowers is the active development methodology for this project.** Its skills (brainstorming, writing-plans, test-driven-development, subagent-driven-development, verification-before-completion, systematic-debugging, etc.) drive plan → execute → verify. Let them trigger as designed.
+
+**GSD (get-shit-done) is dormant here.** It stays installed but is NOT the active workflow:
+- Do NOT drive `/gsd-*` commands or auto-invoke GSD discuss/plan/execute/verify.
+- `.planning/` is **reference-only**: `.planning/codebase/*.md` are useful verified codebase docs; `.planning/ROADMAP.md` is a backlog of ideas, NOT an active phase machine. Read them for context; do not "execute phases" from them.
+- GSD's hooks remain in user settings and are harmless; leave them.
+
+Decision rationale and the GSD-vs-Superpowers evaluation: 2026-05-20 session. Fully reversible — GSD is still installed if the call is revisited.
+
 # Engineering principles — ACTIVE EVERY TASK. Quality over speed.
 
 ## Diagnose before fixing
