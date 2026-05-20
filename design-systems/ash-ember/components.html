@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ash &amp; Ember Society - reference components</title>
+    <meta name="description" content="Reference fixture for design-systems/ash-ember: a warm, dark, mobile-first cigar-lounge design system with amber accent, brass-edged surfaces, and Inter type." />
+    <style>
+      :root {
+        --bg: #15110b;
+        --surface: #241710;
+        --surface-warm: #3d2e23;
+        --fg: #f5e6d3;
+        --fg-2: #d4c3a8;
+        --muted: #a69080;
+        --meta: #8a7e76;
+        --border: rgba(214, 184, 118, 0.22);
+        --border-soft: rgba(212, 160, 74, 0.10);
+        --accent: #c17817;
+        --accent-on: #ffffff;
+        --accent-hover: color-mix(in oklab, var(--accent), white 10%);
+        --accent-active: color-mix(in oklab, var(--accent), black 10%);
+        --success: #8a9a5f;
+        --warn: #d4a04a;
+        --danger: #c44536;
+        --ember: #e8642c;
+        --gold: #d4a04a;
+        --brass: #d6b876;
+        --font-display: "Inter", system-ui, -apple-system, sans-serif;
+        --font-body: "Inter", system-ui, -apple-system, sans-serif;
+        --font-mono: ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
+        --text-xs: 11px;
+        --text-sm: 13px;
+        --text-base: 15px;
+        --text-lg: 18px;
+        --text-xl: 24px;
+        --text-2xl: 30px;
+        --text-3xl: 36px;
+        --text-4xl: 48px;
+        --leading-body: 1.65;
+        --leading-tight: 1.15;
+        --tracking-display: -0.02em;
+        --space-1: 4px;
+        --space-2: 8px;
+        --space-3: 12px;
+        --space-4: 16px;
+        --space-5: 20px;
+        --space-6: 24px;
+        --space-8: 32px;
+        --space-12: 48px;
+        --section-y-desktop: 80px;
+        --section-y-tablet: 56px;
+        --section-y-phone: 40px;
+        --radius-sm: 12px;
+        --radius-md: 16px;
+        --radius-lg: 20px;
+        --radius-pill: 9999px;
+        --elev-flat: none;
+        --elev-ring: inset 0 1px 0 rgba(214, 184, 118, 0.06);
+        --elev-raised: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+        --focus-ring: 0 0 0 3px rgba(193, 120, 23, 0.30);
+        --motion-fast: 150ms;
+        --motion-base: 200ms;
+        --ease-standard: ease;
+        --container-max: 720px;
+        --container-gutter-desktop: 24px;
+        --container-gutter-tablet: 20px;
+        --container-gutter-phone: 16px;
+      }
+
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      html {
+        background-color: var(--bg);
+        background-image: radial-gradient(ellipse at 50% 35%, #2d1f18 0%, #15110b 55%, #0f0b09 100%);
+        background-attachment: fixed;
+        color-scheme: dark;
+      }
+      body {
+        min-height: 100vh;
+        color: var(--fg);
+        font-family: var(--font-body);
+        font-size: var(--text-base);
+        line-height: var(--leading-body);
+        -webkit-font-smoothing: antialiased;
+        position: relative;
+      }
+      /* Tactile leather/wood-grain noise — the lounge atmosphere. */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+        opacity: 0.035;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .container {
+        position: relative;
+        z-index: 1;
+        max-width: var(--container-max);
+        margin-inline: auto;
+        padding-inline: var(--container-gutter-desktop);
+        padding-block: var(--section-y-desktop);
+      }
+      @media (max-width: 639px) {
+        .container { padding-inline: var(--container-gutter-phone); padding-block: var(--section-y-phone); }
+      }
+      h1, h2, h3, p { margin: 0; }
+      h1, h2, h3 { font-family: var(--font-display); line-height: var(--leading-tight); letter-spacing: var(--tracking-display); color: var(--fg); }
+      h1 { font-size: var(--text-3xl); font-weight: 700; }
+      h2 { font-size: var(--text-xl); font-weight: 600; }
+      h3 { font-size: var(--text-lg); font-weight: 600; }
+      .eyebrow { color: var(--meta); font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+      .lead { color: var(--fg-2); font-size: var(--text-lg); }
+      .stack > * + * { margin-block-start: var(--space-4); }
+
+      /* ── Buttons ─────────────────────────────────────────────── */
+      .actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block-start: var(--space-6); }
+      .btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-height: 44px; padding: 0 var(--space-5);
+        border: 1px solid transparent; border-radius: var(--radius-sm);
+        font: 500 var(--text-sm)/1 var(--font-body);
+        text-decoration: none; cursor: pointer;
+        transition: filter var(--motion-base) var(--ease-standard),
+                    background-position var(--motion-base) var(--ease-standard),
+                    border-color var(--motion-base) var(--ease-standard);
+      }
+      .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+      .btn-primary { background: var(--accent); color: var(--accent-on); }
+      .btn-primary:hover { filter: brightness(1.12); }
+      .btn-secondary { background: var(--surface-warm); color: var(--fg); border-color: var(--border); }
+      .btn-secondary:hover { filter: brightness(1.18); }
+      .btn-gold {
+        background-image: linear-gradient(135deg, #c17817 0%, #d4a04a 50%, #c17817 100%);
+        background-size: 200% auto; color: #1a1210; font-weight: 600;
+      }
+      .btn-gold:hover { background-position: right center; box-shadow: 0 0 20px rgba(212, 160, 74, 0.2); }
+
+      /* ── Cards ───────────────────────────────────────────────── */
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); margin-block-start: var(--space-6); }
+      @media (max-width: 639px) { .grid { grid-template-columns: 1fr; } }
+      .card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-md); box-shadow: var(--elev-ring);
+        padding: var(--space-5);
+        transition: transform var(--motion-base) var(--ease-standard), border-color var(--motion-base) var(--ease-standard);
+      }
+      .card-interactive { cursor: pointer; }
+      .card-interactive:hover { transform: translateY(-2px); border-color: rgba(214, 184, 118, 0.34); }
+      .card-premium { border-color: rgba(212, 160, 74, 0.45); box-shadow: var(--elev-ring), 0 0 24px rgba(212, 160, 74, 0.08); }
+      .card p { color: var(--muted); font-size: var(--text-sm); margin-block-start: var(--space-2); }
+
+      /* ── Badges ──────────────────────────────────────────────── */
+      .badges { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-block-start: var(--space-4); }
+      .badge {
+        display: inline-flex; align-items: center;
+        border-radius: var(--radius-pill); padding: 3px 10px;
+        font: 500 var(--text-xs)/1.4 var(--font-body); letter-spacing: 0.02em;
+        background: var(--surface-warm); color: var(--muted);
+      }
+      .badge-mild { background: rgba(16, 85, 50, 0.28); color: rgba(120, 210, 150, 0.85); }
+      .badge-medium { background: rgba(120, 70, 10, 0.30); color: rgba(210, 155, 65, 0.85); }
+      .badge-full { background: rgba(100, 20, 15, 0.35); color: rgba(210, 85, 75, 0.85); }
+      .badge-member { background: rgba(193, 120, 23, 0.20); color: var(--accent); }
+      .badge-premium {
+        background-image: linear-gradient(135deg, rgba(193,120,23,0.2), rgba(212,160,74,0.2));
+        color: var(--gold); border: 1px solid rgba(212, 160, 74, 0.3);
+      }
+
+      /* ── Input ───────────────────────────────────────────────── */
+      .field { display: grid; gap: var(--space-2); margin-block-start: var(--space-5); }
+      label { color: var(--fg-2); font-size: var(--text-sm); font-weight: 600; }
+      input {
+        width: 100%; min-height: 46px; padding: 0 var(--space-4);
+        background: var(--surface-warm); border: 1px solid var(--border);
+        border-radius: var(--radius-sm); color: var(--fg);
+        font: var(--text-base)/1 var(--font-body);
+      }
+      input::placeholder { color: var(--muted); }
+      input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+
+      /* ── Swatches ────────────────────────────────────────────── */
+      .swatches { display: flex; gap: var(--space-2); margin-block-start: var(--space-4); }
+      .swatch { width: 36px; height: 36px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+      .sw-bg { background: var(--bg); } .sw-surface { background: var(--surface); }
+      .sw-accent { background: var(--accent); } .sw-ember { background: var(--ember); }
+      .sw-gold { background: var(--gold); } .sw-fg { background: var(--fg); }
+    </style>
+  </head>
+  <body>
+    <main class="container">
+      <div class="stack">
+        <p class="eyebrow">Ash &amp; Ember Society design system</p>
+        <h1>An exclusive cigar lounge, after dark</h1>
+        <p class="lead">Warm walnut surfaces, brass hairlines, amber light. A members' club rendered for the phone.</p>
+        <div class="actions" aria-label="Reference actions">
+          <a class="btn btn-primary" href="#">Add to humidor</a>
+          <a class="btn btn-secondary" href="#">View catalog</a>
+          <a class="btn btn-gold" href="#">Upgrade to Premium</a>
+        </div>
+      </div>
+
+      <div class="grid">
+        <article class="card card-interactive" aria-label="Cigar card">
+          <p class="eyebrow">Humidor</p>
+          <h3>Padron 1964 Anniversary</h3>
+          <p>Maduro wrapper, Nicaragua. Aging since March 2026.</p>
+          <div class="badges">
+            <span class="badge badge-full">Full bodied</span>
+            <span class="badge">Toro · 6 x 52</span>
+          </div>
+        </article>
+        <article class="card card-premium" aria-label="Membership card">
+          <p class="eyebrow">Membership</p>
+          <h3>Society Premium</h3>
+          <p>Exclusive events, 15% partner discount, priority access.</p>
+          <div class="badges">
+            <span class="badge badge-member">Member</span>
+            <span class="badge badge-premium">Premium</span>
+          </div>
+        </article>
+      </div>
+
+      <article class="card" aria-label="Form preview">
+        <p class="eyebrow">Burn report</p>
+        <h2>Log a smoke</h2>
+        <div class="field">
+          <label for="ae-pairing">Pairing drink</label>
+          <input id="ae-pairing" placeholder="Macallan 12, neat" />
+        </div>
+        <div class="swatches" aria-label="Palette swatches">
+          <span class="swatch sw-bg" title="Background"></span>
+          <span class="swatch sw-surface" title="Surface"></span>
+          <span class="swatch sw-accent" title="Accent / amber"></span>
+          <span class="swatch sw-ember" title="Ember"></span>
+          <span class="swatch sw-gold" title="Gold"></span>
+          <span class="swatch sw-fg" title="Foreground"></span>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>
