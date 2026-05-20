@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       success_url: `${origin}/account/membership/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${origin}/membership`,
 
-      // Allow switching between monthly and annual before confirming
+      // Enable Stripe promotion code entry on checkout
       allow_promotion_codes: true,
     });
 

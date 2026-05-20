@@ -11,7 +11,6 @@ import { getServerUser } from "@/lib/auth/server-user";
  *
  * The portal lets users:
  *   - Cancel their subscription
- *   - Switch between monthly / annual billing
  *   - Update payment method
  *   - View invoice history
  *

@@ -7,16 +7,14 @@
  * Setup checklist:
  *  1. Create products and prices in the Stripe Dashboard:
  *       https://dashboard.stripe.com/products
- *     — "Member Monthly"  → $9.99/mo  recurring
- *     — "Member Annual"   → $99/yr    recurring
- *     — "Premium Monthly" → $19.99/mo recurring
- *     — "Premium Annual"  → $179/yr   recurring
+ *     — "Standard" → $3.99/mo recurring
+ *     — "Premium"  → $6.99/mo recurring
  *
  *  2. Copy each price ID (price_xxx) into .env.local:
- *       STRIPE_MEMBER_MONTHLY_PRICE_ID=price_xxx
- *       STRIPE_MEMBER_ANNUAL_PRICE_ID=price_xxx
+ *       STRIPE_MEMBER_MONTHLY_PRICE_ID=price_xxx   (Standard tier — internal enum is `member`)
  *       STRIPE_PREMIUM_MONTHLY_PRICE_ID=price_xxx
- *       STRIPE_PREMIUM_ANNUAL_PRICE_ID=price_xxx
+ *     STRIPE_MEMBER_ANNUAL_PRICE_ID + STRIPE_PREMIUM_ANNUAL_PRICE_ID
+ *     were retired 2026-05-19 when annual billing was dropped.
  *
  *  3. Set up the webhook endpoint in Stripe Dashboard:
  *       https://dashboard.stripe.com/webhooks
@@ -46,22 +44,23 @@ export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 });
 
 /* ------------------------------------------------------------------
-   Price ID helpers — map tier+interval → Stripe price ID
+   Price ID helpers — map tier → Stripe price ID
+
+   Monthly-only as of 2026-05-19 (annual options dropped along with
+   the price update). Internal tier enum stays "free" | "member" |
+   "premium"; "member" surfaces as "Standard" in the UI.
    ------------------------------------------------------------------ */
 
 export type MembershipTier = "free" | "member" | "premium";
-export type BillingInterval = "month" | "year";
 
-/** Returns the Stripe price ID for a given tier + billing interval. */
-export function getPriceId(tier: Exclude<MembershipTier, "free">, interval: BillingInterval): string {
-  const map: Record<string, string | undefined> = {
-    "member:month":  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID,
-    "member:year":   process.env.STRIPE_MEMBER_ANNUAL_PRICE_ID,
-    "premium:month": process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
-    "premium:year":  process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID,
+/** Returns the Stripe price ID for a paid tier. */
+export function getPriceId(tier: Exclude<MembershipTier, "free">): string {
+  const map: Record<Exclude<MembershipTier, "free">, string | undefined> = {
+    member:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID,
+    premium: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
   };
-  const id = map[`${tier}:${interval}`];
-  if (!id) throw new Error(`Missing price ID for ${tier}/${interval}`);
+  const id = map[tier];
+  if (!id) throw new Error(`Missing price ID for ${tier}`);
   return id;
 }
 
@@ -70,15 +69,7 @@ export function getPriceId(tier: Exclude<MembershipTier, "free">, interval: Bill
  * Falls back to "free" if the price ID doesn't match any known price.
  */
 export function tierFromPriceId(priceId: string): MembershipTier {
-  const memberIds = [
-    process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID,
-    process.env.STRIPE_MEMBER_ANNUAL_PRICE_ID,
-  ];
-  const premiumIds = [
-    process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
-    process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID,
-  ];
-  if (memberIds.includes(priceId))  return "member";
-  if (premiumIds.includes(priceId)) return "premium";
+  if (priceId === process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID)  return "member";
+  if (priceId === process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID) return "premium";
   return "free";
 }

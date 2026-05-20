@@ -60,11 +60,9 @@ export async function POST(req: NextRequest) {
         cancel_at_period_end: true,
       });
     } else {
-      /* Switch to member price at same billing interval, no proration */
-      const currentInterval = subscription.items.data[0]?.price?.recurring?.interval;
-      const memberPriceId = currentInterval === "year"
-        ? process.env.STRIPE_MEMBER_ANNUAL_PRICE_ID
-        : process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID;
+      /* Switch to the Standard (internal: member) price, no proration.
+         Monthly-only since 2026-05-19; annual was retired. */
+      const memberPriceId = process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID;
 
       if (!memberPriceId) {
         return NextResponse.json({ error: "Member price ID not configured." }, { status: 500 });

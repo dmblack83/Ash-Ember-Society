@@ -49,7 +49,6 @@ export default async function AccountPage() {
   const hasStripeCustomer = !!(profile?.stripe_customer_id);
 
   let nextBillingDate: string | null  = null;
-  let billingInterval: "month" | "year" | null = null;
   let currentPeriodEnd: number | null = null;
 
   if (currentTier !== "free" && profile?.stripe_subscription_id) {
@@ -64,8 +63,6 @@ export default async function AccountPage() {
           year: "numeric", month: "long", day: "numeric",
         });
       }
-      const interval = sub.items.data[0]?.price?.recurring?.interval;
-      if (interval === "month" || interval === "year") billingInterval = interval;
     } catch {
       // Non-fatal
     }
@@ -100,13 +97,10 @@ export default async function AccountPage() {
         currentTier,
         hasStripeCustomer,
         nextBillingDate,
-        billingInterval,
         currentPeriodEnd,
         priceIds: {
           memberMonthly:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID  ?? "",
-          memberAnnual:   process.env.STRIPE_MEMBER_ANNUAL_PRICE_ID   ?? "",
           premiumMonthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID ?? "",
-          premiumAnnual:  process.env.STRIPE_PREMIUM_ANNUAL_PRICE_ID  ?? "",
         },
       }}
       legal={{
