@@ -302,12 +302,18 @@ function BottomSheet({
       <div
         className="fixed z-50 flex flex-col overflow-hidden rounded-2xl animate-fade-in"
         style={{
-          top:             "50%",
+          /* dvh (dynamic viewport height) instead of vh so iOS Safari's
+             collapsing URL bar can't push the modal past the visible
+             area. Pairs with `top: 50dvh` for the same reason — `50%`
+             on a fixed element tracks the largest viewport, not the
+             currently-visible one. Project pattern; see AddCigarSheet,
+             HumidorItemClient, NewPostSheet, etc. */
+          top:             "50dvh",
           left:            "50%",
           transform:       "translate(-50%, -50%)",
           width:           "calc(100% - 32px)",
           maxWidth:        520,
-          maxHeight:       "85vh",
+          maxHeight:       "85dvh",
           backgroundColor: "var(--card)",
           border:          "1px solid var(--border)",
         }}
