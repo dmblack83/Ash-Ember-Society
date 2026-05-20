@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Toast } from "@/components/ui/toast";
-import { TIER_DISPLAY, PLAN_PRICING } from "@/lib/membership";
+import { TIER_DISPLAY, PLAN_PRICING, TIER_DESCRIPTION } from "@/lib/membership";
 import type { MembershipTier } from "@/lib/stripe";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
@@ -11,39 +11,25 @@ import { useEscapeKey } from "@/lib/hooks/use-escape-key";
    Feature comparison table
    ------------------------------------------------------------------ */
 
-type FeatureValue = boolean | string;
+/* Feature comparison rows. Limits per tier mirror the descriptions
+   in TIER_DESCRIPTION; enforcement of these caps is a planned
+   follow-up (membership-tier-update PR was display-only). */
 interface Feature {
-  label:  string;
-  free:   FeatureValue;
-  member: FeatureValue;
+  label:   string;
+  free:    string;
+  member:  string;
+  premium: string;
 }
 
 const FEATURES: Feature[] = [
-  { label: "Humidor",                free: "5 Cigars",     member: "Unlimited"   },
-  { label: "Cigar Catalog & Search", free: true,           member: true          },
-  { label: "Cigar Scanner",          free: false,          member: "25 scans/mo" },
-  { label: "Wishlist",               free: "5 Cigars",     member: "Unlimited"   },
-  { label: "Smoke Logs",             free: true,           member: true          },
-  { label: "Burn Reports",           free: false,          member: "Unlimited"   },
-  { label: "Lounge Access",          free: "10 posts/mo",  member: "Unlimited"   },
+  { label: "Unique Cigars",         free: "10",          member: "25",          premium: "Unlimited" },
+  { label: "Burn Reports / month",  free: "5",           member: "15",          premium: "Unlimited" },
+  { label: "Cigar Catalog & Search", free: "Full",       member: "Full",        premium: "Full"      },
+  { label: "Smoke Logs",             free: "Full",       member: "Full",        premium: "Full"      },
+  { label: "Lounge Access",          free: "Read-only",  member: "Posts + comments", premium: "Posts + comments" },
 ];
 
-function FeatureCell({ value }: { value: FeatureValue }) {
-  if (value === true) return (
-    <div className="flex justify-center">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Included">
-        <circle cx="8" cy="8" r="7" fill="rgba(193,120,23,0.15)" />
-        <path d="M4.5 8L6.5 10L11.5 5" stroke="var(--primary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </div>
-  );
-  if (value === false) return (
-    <div className="flex justify-center">
-      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Not included">
-        <path d="M5 5L11 11M11 5L5 11" stroke="var(--muted-foreground)" strokeWidth="1.5" strokeLinecap="round" opacity="0.4"/>
-      </svg>
-    </div>
-  );
+function FeatureCell({ value }: { value: string }) {
   return <p className="text-center text-xs font-semibold" style={{ color: "var(--primary)" }}>{value}</p>;
 }
 
@@ -65,7 +51,7 @@ function DowngradeModal({ targetTier, currentTier, nextBillingDate, onConfirm, o
      the modal's full lifetime. */
   useEscapeKey(true, onCancel);
 
-  const targetLabel  = targetTier === "free" ? "Free" : "Member";
+  const targetLabel  = TIER_DISPLAY[targetTier].label;
   const currentLabel = TIER_DISPLAY[currentTier].label;
 
   return (
@@ -88,7 +74,7 @@ function DowngradeModal({ targetTier, currentTier, nextBillingDate, onConfirm, o
           <p className="text-sm leading-relaxed" style={{ color: "var(--muted-foreground)" }}>
             {targetTier === "free"
               ? `Your ${currentLabel} subscription will cancel on ${nextBillingDate ?? "your next billing date"}. You keep your current benefits until then.`
-              : "Your plan will switch to Member. No charge or credit will be applied for the current billing period."
+              : `Your plan will switch to ${TIER_DISPLAY.member.label}. No charge or credit will be applied for the current billing period.`
             }
           </p>
         </div>
@@ -138,17 +124,14 @@ const ACTION_TEXT_BASE: React.CSSProperties = {
    ------------------------------------------------------------------ */
 
 interface Props {
-  userId:           string;
-  currentTier:      MembershipTier;
+  userId:            string;
+  currentTier:       MembershipTier;
   hasStripeCustomer: boolean;
-  nextBillingDate:  string | null;
-  billingInterval:  "month" | "year" | null;
-  currentPeriodEnd: number | null;
+  nextBillingDate:   string | null;
+  currentPeriodEnd:  number | null;
   priceIds: {
     memberMonthly:  string;
-    memberAnnual:   string;
     premiumMonthly: string;
-    premiumAnnual:  string;
   };
 }
 
@@ -156,12 +139,10 @@ export function MembershipTab({
   currentTier,
   hasStripeCustomer,
   nextBillingDate,
-  billingInterval,
   priceIds,
 }: Props) {
   const router = useRouter();
 
-  const [billingCycle,     setBillingCycle]     = useState<"month" | "year">(billingInterval ?? "month");
   const [upgrading,        setUpgrading]        = useState(false);
   const [portalLoading,    setPortalLoading]    = useState(false);
   const [downgradeTarget,  setDowngradeTarget]  = useState<"free" | "member" | null>(null);
@@ -174,9 +155,7 @@ export function MembershipTab({
 
   /* ── Upgrade ─────────────────────────────────────────────────── */
   async function handleUpgrade(tier: "member" | "premium") {
-    const priceId = tier === "member"
-      ? (billingCycle === "year" ? priceIds.memberAnnual  : priceIds.memberMonthly)
-      : (billingCycle === "year" ? priceIds.premiumAnnual : priceIds.premiumMonthly);
+    const priceId = tier === "member" ? priceIds.memberMonthly : priceIds.premiumMonthly;
 
     if (!priceId) { setToast("Price not configured."); return; }
 
@@ -225,7 +204,7 @@ export function MembershipTab({
       if (data.error) throw new Error(data.error);
       setToast(downgradeTarget === "free"
         ? `Subscription will cancel on ${data.effectiveDate}.`
-        : "Plan switched to Member.");
+        : `Plan switched to ${TIER_DISPLAY.member.label}.`);
       setDowngradeTarget(null);
     } catch (err) {
       setToast(err instanceof Error ? err.message : "Downgrade failed.");
@@ -236,9 +215,7 @@ export function MembershipTab({
 
   /* ── Pricing helper ──────────────────────────────────────────── */
   const pricingLabel = (tier: "member" | "premium") =>
-    billingCycle === "year"
-      ? PLAN_PRICING[tier].annual.label
-      : PLAN_PRICING[tier].monthly.label;
+    PLAN_PRICING[tier].monthly.label;
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -294,39 +271,6 @@ export function MembershipTab({
         )}
       </section>
 
-      {/* ── Billing cycle toggle (free users only) ─────────────── */}
-      {!isPaid && (
-        <section className="flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setBillingCycle("month")}
-            className="px-4 py-2 rounded-full text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: billingCycle === "month" ? "var(--primary)" : "var(--secondary)",
-              color:           billingCycle === "month" ? "#fff" : "var(--muted-foreground)",
-              border: "none", minHeight: 36, touchAction: "manipulation",
-            }}
-          >
-            Monthly
-          </button>
-          <button
-            type="button"
-            onClick={() => setBillingCycle("year")}
-            className="px-4 py-2 rounded-full text-sm font-medium transition-colors"
-            style={{
-              backgroundColor: billingCycle === "year" ? "var(--primary)" : "var(--secondary)",
-              color:           billingCycle === "year" ? "#fff" : "var(--muted-foreground)",
-              border: "none", minHeight: 36, touchAction: "manipulation",
-            }}
-          >
-            Annual
-            <span className="ml-1.5 text-[10px] font-bold" style={{ color: billingCycle === "year" ? "var(--accent)" : "var(--muted-foreground)" }}>
-              SAVE 17%
-            </span>
-          </button>
-        </section>
-      )}
-
       {/* ── Tier cards ─────────────────────────────────────────── */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
@@ -344,8 +288,9 @@ export function MembershipTab({
               }}
             >
               <div>
-                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Free</p>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>{info.label}</p>
                 <p className="text-sm text-muted-foreground mt-0.5">Free forever</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{TIER_DESCRIPTION.free}</p>
               </div>
 
               {isCurrent ? (
@@ -386,8 +331,9 @@ export function MembershipTab({
               }}
             >
               <div>
-                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Member</p>
-                <p className="text-sm text-muted-foreground mt-0.5">$4.99/mo</p>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>{info.label}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{PLAN_PRICING.member.monthly.label}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{TIER_DESCRIPTION.member}</p>
               </div>
 
               {isCurrent ? (
@@ -444,21 +390,38 @@ export function MembershipTab({
               style={{
                 backgroundColor: isCurrent ? "var(--secondary)" : "var(--card)",
                 border: isCurrent ? `2px solid ${info.color}` : "1px solid var(--border)",
-                opacity: isCurrent ? 1 : 0.65,
                 minHeight: 120,
               }}
             >
               <div>
-                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>Premium</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  {isCurrent ? pricingLabel("premium") : "Coming soon"}
-                </p>
+                <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>{info.label}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{PLAN_PRICING.premium.monthly.label}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{TIER_DESCRIPTION.premium}</p>
               </div>
 
-              {isCurrent && (
+              {isCurrent ? (
                 <span style={{ ...ACTION_TEXT_BASE, color: info.color }}>Current Plan</span>
+              ) : (
+                /* Upgrade — real button (free → premium OR member → premium) */
+                <button
+                  type="button"
+                  onClick={() => handleUpgrade("premium")}
+                  disabled={upgrading}
+                  style={{
+                    ...ACTION_TEXT_BASE,
+                    backgroundColor:         info.color,
+                    color:                   "#fff",
+                    borderRadius:            10,
+                    border:                  "none",
+                    cursor:                  upgrading ? "not-allowed" : "pointer",
+                    opacity:                 upgrading ? 0.7 : 1,
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  {upgrading ? "…" : "Upgrade"}
+                </button>
               )}
-              {/* No button when not current — Coming Soon state */}
             </div>
           );
         })()}
@@ -520,10 +483,7 @@ export function MembershipTab({
             >
               <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>{f.label}</p>
               <div style={{ flexShrink: 0, marginLeft: 12 }}>
-                {featureTier === "premium"
-                  ? <p className="text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
-                  : <FeatureCell value={f[featureTier as "free" | "member"]} />
-                }
+                <FeatureCell value={f[featureTier]} />
               </div>
             </div>
           ))}
@@ -533,15 +493,12 @@ export function MembershipTab({
         <div className="hidden sm:block">
           <div className="grid grid-cols-4 px-4 py-3 border-b" style={{ borderColor: "var(--border)" }}>
             <p className="text-[11px] uppercase tracking-widest font-medium text-muted-foreground">Feature</p>
-            {(["free", "member"] as MembershipTier[]).map(t => (
+            {(["free", "member", "premium"] as MembershipTier[]).map(t => (
               <p key={t} className="text-[11px] uppercase tracking-widest font-medium text-center"
                 style={{ color: currentTier === t ? TIER_DISPLAY[t].color : "var(--muted-foreground)" }}>
                 {TIER_DISPLAY[t].label}
               </p>
             ))}
-            <p className="text-[11px] uppercase tracking-widest font-medium text-center text-muted-foreground">
-              Premium
-            </p>
           </div>
 
           {FEATURES.map((f, i) => (
@@ -553,7 +510,7 @@ export function MembershipTab({
               <p className="text-xs text-muted-foreground pr-2">{f.label}</p>
               <FeatureCell value={f.free} />
               <FeatureCell value={f.member} />
-              <p className="text-center text-xs text-muted-foreground" style={{ opacity: 0.5 }}>N/A</p>
+              <FeatureCell value={f.premium} />
             </div>
           ))}
         </div>

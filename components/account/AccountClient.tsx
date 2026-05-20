@@ -46,13 +46,10 @@ export interface MembershipData {
   currentTier:       MembershipTier;
   hasStripeCustomer: boolean;
   nextBillingDate:   string | null;
-  billingInterval:   "month" | "year" | null;
   currentPeriodEnd:  number | null;
   priceIds: {
     memberMonthly:  string;
-    memberAnnual:   string;
     premiumMonthly: string;
-    premiumAnnual:  string;
   };
 }
 

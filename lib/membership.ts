@@ -4,10 +4,15 @@
  * Centralises all tier-based access logic so feature gates stay consistent
  * across server components, API routes, and client-side checks.
  *
- * Tiers:
- *   free    — default, limited to 25 humidor items, read-only feed
- *   member  — $4.99/mo or $50/yr — unlimited items, community posting
- *   premium — $9.99/mo or $100/yr — all Member features + future premium perks
+ * Tiers (internal enum stays "free" | "member" | "premium" — the
+ * "member" enum value surfaces as "Standard" in the UI):
+ *   free    — 10 unique cigars, 5 Burn Reports/month
+ *   member  — $3.99/mo, 25 unique cigars, 15 Burn Reports/month (UI label: "Standard")
+ *   premium — $6.99/mo, unlimited unique cigars, unlimited burn reports
+ *
+ * Enforcement of these limits is a planned follow-up; the
+ * canAccess() and FEATURE_TIER tables below predate the new caps
+ * and still gate on the old "5 humidor items" rule.
  */
 
 import type { MembershipTier } from "@/lib/stripe";
@@ -110,19 +115,34 @@ export function isAtHumidorLimit(
    Display helpers
    ------------------------------------------------------------------ */
 
+/* TIER_DISPLAY surfaces tier names in the UI. Internal `member` enum
+   value is displayed as "Standard" per the 2026-05-19 pricing update;
+   keeping the internal enum stable avoids touching the DB enum,
+   webhook mapping, and every canAccess() callsite (enforcement is
+   a separate follow-up). */
 export const TIER_DISPLAY: Record<MembershipTier, { label: string; color: string }> = {
-  free:    { label: "Free",    color: "var(--muted-foreground)" },
-  member:  { label: "Member",  color: "var(--primary)" },
-  premium: { label: "Premium", color: "var(--accent)" },
+  free:    { label: "Free",     color: "var(--muted-foreground)" },
+  member:  { label: "Standard", color: "var(--primary)" },
+  premium: { label: "Premium",  color: "var(--accent)" },
 };
 
+/* Monthly-only as of 2026-05-19; annual options were dropped along
+   with the price update. If annual ships again, add back the
+   `annual` branches and the AnnualToggle in MembershipTab. */
 export const PLAN_PRICING = {
   member: {
-    monthly: { cents: 499,   label: "$4.99/month"  },
-    annual:  { cents: 5000,  label: "$50/year"      },
+    monthly: { cents: 399, label: "$3.99/month" },
   },
   premium: {
-    monthly: { cents: 999,   label: "$9.99/month"  },
-    annual:  { cents: 10000, label: "$100/year"     },
+    monthly: { cents: 699, label: "$6.99/month" },
   },
 } as const;
+
+/* Short, single-line tier descriptions surfaced on each tier card.
+   Mirror the descriptions Dave specified 2026-05-19. Enforcement of
+   these limits is a planned follow-up. */
+export const TIER_DESCRIPTION: Record<MembershipTier, string> = {
+  free:    "10 unique cigars, 5 Burn Reports/month",
+  member:  "25 unique cigars, 15 Burn Reports/month",
+  premium: "Unlimited unique cigars, unlimited burn reports",
+};
