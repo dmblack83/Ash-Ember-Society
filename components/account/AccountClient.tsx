@@ -293,33 +293,33 @@ function BottomSheet({
   };
 
   return (
-    <>
+    <div
+      /* Single fixed inset:0 container that doubles as backdrop AND
+         flex-centering box. We do NOT use `top: 50% + transform` to
+         center anymore — the body-scroll-lock above sets
+         `document.body.style.position = "fixed"` (the iOS-only
+         momentum-stopper) and on iOS Safari that pattern breaks the
+         containing block for fixed descendants. The modal then anchors
+         to the shifted body instead of the viewport, ending up at the
+         bottom of the screen with the top clipped. Flex-centering on
+         `inset:0` sidesteps it entirely: the outer box is always the
+         viewport, the modal is just a flex child sized by its content
+         + max constraints. */
+      className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 animate-fade-in"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+    >
       <div
-        className="fixed inset-0 z-50 bg-black/70 animate-fade-in"
-        onClick={onClose}
-        aria-hidden="true"
-      />
-      <div
-        className="fixed z-50 flex flex-col overflow-hidden rounded-2xl animate-fade-in"
+        className="flex flex-col overflow-hidden rounded-2xl w-full"
+        onClick={(e) => e.stopPropagation()}
         style={{
-          /* dvh (dynamic viewport height) instead of vh so iOS Safari's
-             collapsing URL bar can't push the modal past the visible
-             area. Pairs with `top: 50dvh` for the same reason — `50%`
-             on a fixed element tracks the largest viewport, not the
-             currently-visible one. Project pattern; see AddCigarSheet,
-             HumidorItemClient, NewPostSheet, etc. */
-          top:             "50dvh",
-          left:            "50%",
-          transform:       "translate(-50%, -50%)",
-          width:           "calc(100% - 32px)",
           maxWidth:        520,
           maxHeight:       "85dvh",
           backgroundColor: "var(--card)",
           border:          "1px solid var(--border)",
         }}
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
       >
         {/* Header */}
         <div
@@ -374,7 +374,7 @@ function BottomSheet({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
