@@ -33,19 +33,25 @@ export const SHADES: OptionWithDescription[] = [
    Wrapper varietals
    ------------------------------------------------------------------ */
 
-export const WRAPPERS: OptionWithDescription[] = [
-  { name: "Habano",                 description: "Spicy / Bold" },
-  { name: "Corojo",                 description: "Peppery / Zesty" },
-  { name: "Connecticut Shade",      description: "Mild / Creamy" },
-  { name: "Connecticut Broadleaf",  description: "Sweet / Earthy" },
-  { name: "Sumatra",                description: "Floral / Cinnamon" },
-  { name: "Criollo",                description: "Nutty / Savory" },
-  { name: "Cameroon",               description: "Toasted / Sweet" },
-  { name: "San Andrés Negro",       description: "Chocolate / Espresso" },
-  { name: "Mata Fina",              description: "Natural Sweetness" },
-  { name: "Arapiraca",              description: "Tangy / Dark" },
-  { name: "Pennsylvania Broadleaf", description: "Bold / Earthy" },
-  { name: "Besuki / Java",          description: "Mild / Herbal" },
+/* Wrappers are surfaced in the AddCigar + SuggestEdit forms as
+   plain name dropdowns — descriptions were dropped 2026-05-19 per
+   Dave's call. Shape stays `string[]` so the dead description field
+   doesn't accumulate. WRAPPER_COUNTRIES + SHADES keep their
+   descriptions; their dropdowns still surface them. */
+export const WRAPPERS: string[] = [
+  "Habano",
+  "Corojo",
+  "Connecticut Shade",
+  "Connecticut Broadleaf",
+  "Sumatra",
+  "Criollo",
+  "Cameroon",
+  "Honduran",
+  "San Andrés Negro",
+  "Mata Fina",
+  "Arapiraca",
+  "Pennsylvania Broadleaf",
+  "Besuki / Java",
 ];
 
 /* ------------------------------------------------------------------

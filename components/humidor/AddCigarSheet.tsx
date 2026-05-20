@@ -532,9 +532,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                         >
                           <option value="">Choose…</option>
                           {WRAPPERS.map((w) => (
-                            <option key={w.name} value={w.name}>
-                              {w.name} — {w.description}
-                            </option>
+                            <option key={w} value={w}>{w}</option>
                           ))}
                         </select>
                       </div>
