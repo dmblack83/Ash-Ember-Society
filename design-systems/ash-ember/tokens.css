@@ -1,0 +1,133 @@
+/* ─────────────────────────────────────────────────────────────────────────
+ * design-systems/ash-ember/tokens.css
+ *
+ * Structured token bindings for "Ash & Ember Society" — the design
+ * system of the Ash & Ember cigar-lounge PWA. This file is the
+ * machine-readable form of the values described in DESIGN.md.
+ *
+ * Agents generating artifacts against this design system paste the
+ * :root { … } block verbatim into the first <style> of the artifact,
+ * then reference tokens via var(--name).
+ *
+ * Source of truth: the live app's app/globals.css. When that file
+ * changes, mirror the change here so generated mockups stay faithful.
+ *
+ * Standard token names follow the open-design schema (see
+ * design-systems/default/tokens.css). Brand tokens (--ember, --gold,
+ * --brass) are documented in DESIGN.md §Color and are part of the
+ * lounge identity — they are not decorative inventions.
+ * ─────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* ─── Surface (3 levels) ──────────────────────────────────────────
+   * A deep cognac-black page; cards lift one stop warmer. There is no
+   * light theme — the lounge is always dark. */
+  --bg: #15110b;            /* page — deep cognac-black */
+  --surface: #241710;       /* cards, panels — warm walnut */
+  --surface-warm: #3d2e23;  /* chips, secondary buttons — dark leather */
+
+  /* ─── Foreground ramp (4 levels) ─────────────────────────────────
+   * Warm cream on the dark canvas, stepping down to aged tobacco. */
+  --fg: #f5e6d3;            /* primary text, headings — warm cream */
+  --fg-2: #d4c3a8;          /* secondary text — dimmer cream */
+  --muted: #a69080;         /* captions, metadata — aged tobacco */
+  --meta: #8a7e76;          /* faint labels, timestamps — ash */
+
+  /* ─── Border (2 levels) ──────────────────────────────────────────
+   * Card edges are a low-opacity brass hairline, never a hard line.
+   * --border-soft is for internal dividers and row separators. */
+  --border: rgba(214, 184, 118, 0.22);
+  --border-soft: rgba(212, 160, 74, 0.10);
+
+  /* ─── Accent ──────────────────────────────────────────────────────
+   * Amber — "whiskey held to the light". Primary CTAs, active states,
+   * links. One hero accent + one CTA accent per screen. */
+  --accent: #c17817;
+  --accent-on: #ffffff;
+  --accent-hover: color-mix(in oklab, var(--accent), white 10%);
+  --accent-active: color-mix(in oklab, var(--accent), black 10%);
+
+  /* ─── Semantic ────────────────────────────────────────────────────
+   * State, not decoration. Muted and sophisticated — never neon. */
+  --success: #8a9a5f;       /* moss */
+  --warn: #d4a04a;          /* gold */
+  --danger: #c44536;        /* dimmed brick red */
+
+  /* ─── Brand tokens — lounge identity (see DESIGN.md §Color) ───────
+   * --ember : notifications, active nav indicator, "live" cues
+   * --gold  : premium/membership elements, editorial hairlines
+   * --brass : surface chrome — the 1px card top-edge highlight */
+  --ember: #e8642c;
+  --gold:  #d4a04a;
+  --brass: #d6b876;
+
+  /* ─── Typography ──────────────────────────────────────────────────
+   * Inter is the single app typeface. Playfair Display was retired
+   * (readability) — there is no serif face. Headings carry weight and
+   * tight tracking, not a different family. */
+  --font-display: "Inter", system-ui, -apple-system, sans-serif;
+  --font-body:    "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono:    ui-monospace, "SF Mono", "Menlo", "Cascadia Mono", monospace;
+
+  /* Type scale (px) — mobile-first; tighter than a desktop scale. */
+  --text-xs: 11px;          /* eyebrow / meta labels (uppercase, mono) */
+  --text-sm: 13px;
+  --text-base: 15px;        /* body copy */
+  --text-lg: 18px;          /* h3 */
+  --text-xl: 24px;          /* h2 */
+  --text-2xl: 30px;
+  --text-3xl: 36px;         /* h1 */
+  --text-4xl: 48px;
+
+  --leading-body: 1.65;
+  --leading-tight: 1.15;
+  --tracking-display: -0.02em;
+
+  /* ─── Spacing (4px base) ─────────────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  --section-y-desktop: 80px;
+  --section-y-tablet: 56px;
+  --section-y-phone: 40px;
+
+  /* ─── Radius ──────────────────────────────────────────────────────
+   * Generous and soft — the lounge has no sharp corners. */
+  --radius-sm: 12px;        /* buttons, inputs */
+  --radius-md: 16px;        /* cards, panels */
+  --radius-lg: 20px;        /* large featured surfaces */
+  --radius-pill: 9999px;    /* badges, chips, avatars */
+
+  /* ─── Elevation ───────────────────────────────────────────────────
+   * Surfaces lift via a warm fill + brass hairline + a 1px brass
+   * top-edge inset — NOT via cast shadow. The page reads as one
+   * continuous editorial sheet. Only true overlays (toasts, sheets)
+   * cast a drop shadow. */
+  --elev-flat: none;
+  --elev-ring: inset 0 1px 0 rgba(214, 184, 118, 0.06);
+  --elev-raised: 0 10px 30px -5px rgba(0, 0, 0, 0.5);
+
+  /* ─── Focus ring ──────────────────────────────────────────────────
+   * Keyboard-focus indicator. Amber glow, layered as box-shadow so it
+   * does not affect layout. */
+  --focus-ring: 0 0 0 3px rgba(193, 120, 23, 0.30);
+
+  /* ─── Motion ──────────────────────────────────────────────────────
+   * Short, warm, unhurried. Hover/active on buttons via brightness. */
+  --motion-fast: 150ms;
+  --motion-base: 200ms;
+  --ease-standard: ease;
+
+  /* ─── Layout ──────────────────────────────────────────────────────
+   * Mobile-first PWA. Content column stays narrow even on desktop. */
+  --container-max: 720px;
+  --container-gutter-desktop: 24px;
+  --container-gutter-tablet: 20px;
+  --container-gutter-phone: 16px;
+}

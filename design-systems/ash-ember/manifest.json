@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "od-design-system-project/v1",
+  "id": "ash-ember",
+  "name": "Ash & Ember Society",
+  "category": "Dark Luxury",
+  "description": "Warm, dark, mobile-first cigar-lounge design system. Espresso-black canvas, amber accent, brass-edged surfaces, Inter type. Mirrors the live Ash & Ember Society PWA.",
+  "source": {
+    "type": "bundled",
+    "origin": "hand-authored"
+  },
+  "files": {
+    "design": "DESIGN.md",
+    "tokens": "tokens.css",
+    "components": "components.html"
+  },
+  "usage": "USAGE.md",
+  "importMode": "normalized",
+  "craft": {
+    "applies": [],
+    "suggested": [
+      "color",
+      "accessibility-baseline"
+    ],
+    "exemptions": []
+  }
+}
