@@ -20,6 +20,9 @@ const eslintConfig = defineConfig([
     "public/sw.js.map",
     "public/swe-worker-*.js",
     "public/swe-worker-*.js.map",
+    // Reference design-system library (nexu-io/open-design). Portable
+    // spec material, not project source — excluded from build/lint.
+    "design-systems/**",
   ]),
 ]);
 
