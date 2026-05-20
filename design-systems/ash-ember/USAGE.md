@@ -29,11 +29,20 @@ scans a whole codebase's CSS and generates a new, normalized design
 system. It does not accept a subfolder path, and it would not load this
 hand-authored system as written — it would synthesize a generic one.
 
+## Refining existing screens
+
+`reference-screens/` holds snapshots of the live app (HTML + screenshot
+per screen). To refine a real screen rather than design from scratch,
+drag its `.png` into an Open Design prompt as reference. See
+`reference-screens/README.md` for the screen list and how to refresh it.
+
 ## Keeping it in sync
 
 The source of truth is the app's `app/globals.css`. If a token there
 changes (palette, type scale, radius), mirror the change in `tokens.css`
 and `components.html` so generated mockups stay faithful to production.
+Re-run `scripts/capture-screens.mjs` after UI changes to refresh
+`reference-screens/`.
 
 ## Handoff back to implementation
 
