@@ -66,7 +66,85 @@ export const WRAPPER_COUNTRIES: OptionWithDescription[] = [
   { name: "Costa Rica",         description: "Mild / Smooth" },
   { name: "Panama",             description: "Balanced / Refined" },
   { name: "Peru",               description: "Sweet / Earthy" },
+  /* Added 2026-05-19 to cover the long tail of binder + filler
+     origins in the catalog. Descriptions are short placeholder
+     tasting hints; tune per Dave's editorial pass. */
+  { name: "Philippines",        description: "Mild / Earthy" },
+  { name: "Colombia",           description: "Mild / Sweet" },
+  { name: "Italy",              description: "Bold / Toasted" },
+  { name: "Paraguay",           description: "Sweet / Mild" },
+  { name: "Zimbabwe",           description: "Robust / Earthy" },
+  { name: "Spain",              description: "Mild / Sweet" },
 ];
+
+/* ------------------------------------------------------------------
+   Country code aliases.
+
+   Some cigar_catalog rows still carry ISO codes ("NI", "DO") rather
+   than the canonical dropdown names ("Nicaragua", "Dominican
+   Republic"). The 2026-04-11 migrate-wrapper-country-leak.ts
+   normalized wrapper_country only; binder_country + filler_countries
+   were left behind. The 2026-05-19 SQL migration cleans the data;
+   this map is the runtime safety net so any code that ever reaches
+   client state (e.g. via a future ad-hoc SQL insert) is still
+   rendered + edited as its canonical name.
+
+   `canonicalCountry()` returns the canonical name for any input that
+   matches a known code; otherwise returns the input unchanged. Safe
+   to call on already-canonical values (no-op).
+
+   Note: HVA is a one-off typo found in the catalog audit, mapped to
+   Cuba (most likely "Havana" intent). US → USA matches the dropdown
+   name (not `lib/country-name.ts`'s "United States" display form).
+   ------------------------------------------------------------------ */
+
+const COUNTRY_CODE_ALIASES: Record<string, string> = {
+  NI:  "Nicaragua",
+  DO:  "Dominican Republic",
+  HN:  "Honduras",
+  CU:  "Cuba",
+  ID:  "Indonesia",
+  EC:  "Ecuador",
+  BR:  "Brazil",
+  MX:  "Mexico",
+  CR:  "Costa Rica",
+  CM:  "Cameroon",
+  PE:  "Peru",
+  PA:  "Panama",
+  US:  "USA",
+  PH:  "Philippines",
+  CO:  "Colombia",
+  IT:  "Italy",
+  PY:  "Paraguay",
+  ZW:  "Zimbabwe",
+  ES:  "Spain",
+  HVA: "Cuba",
+};
+
+export function canonicalCountry(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return COUNTRY_CODE_ALIASES[trimmed.toUpperCase()] ?? trimmed;
+}
+
+/* Apply canonicalCountry to every element of a string array, then
+   dedupe while preserving first-seen order. Use for filler_countries
+   pre-fill so a row like ["NI", "Nicaragua"] doesn't toggle as two
+   distinct entries in the multi-select. */
+export function canonicalCountryList(values: readonly string[] | null | undefined): string[] {
+  if (!values || values.length === 0) return [];
+  const seen = new Set<string>();
+  const out:  string[] = [];
+  for (const v of values) {
+    const canonical = canonicalCountry(v);
+    if (canonical && !seen.has(canonical)) {
+      seen.add(canonical);
+      out.push(canonical);
+    }
+  }
+  return out;
+}
 
 /* ------------------------------------------------------------------
    Format / vitola — single flat list (per Dave's call: option 3)

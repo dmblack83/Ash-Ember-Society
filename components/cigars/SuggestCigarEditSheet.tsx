@@ -10,6 +10,8 @@ import {
   FORMATS,
   LENGTHS,
   RING_GAUGES,
+  canonicalCountry,
+  canonicalCountryList,
 } from "@/lib/cigar-taxonomy";
 
 /* ------------------------------------------------------------------
@@ -60,17 +62,23 @@ interface FormState {
 }
 
 function toFormState(c: CurrentCigar): FormState {
+  /* Country columns may still carry ISO codes ("NI", "DO") rather
+     than canonical dropdown names ("Nicaragua", "Dominican Republic")
+     even after the 2026-05-19 normalization migration — any future
+     ad-hoc SQL insert could reintroduce them. Canonicalize at pre-fill
+     so the multi-select toggle compares apples to apples; the form
+     state and the submitted diff are always canonical strings. */
   return {
     brand:             c.brand   ?? "",
     series:            c.series  ?? "",
     format:            c.format  ?? "",
     ring_gauge:        c.ring_gauge    !== null ? String(c.ring_gauge)    : "",
     length_inches:     c.length_inches !== null ? String(c.length_inches) : "",
-    shade:             c.shade           ?? "",
-    wrapper:           c.wrapper         ?? "",
-    wrapper_country:   c.wrapper_country ?? "",
-    binder_country:    c.binder_country  ?? "",
-    filler_countries:  c.filler_countries ?? [],
+    shade:             c.shade                       ?? "",
+    wrapper:           c.wrapper                     ?? "",
+    wrapper_country:   canonicalCountry(c.wrapper_country) ?? "",
+    binder_country:    canonicalCountry(c.binder_country)  ?? "",
+    filler_countries:  canonicalCountryList(c.filler_countries),
   };
 }
 
