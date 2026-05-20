@@ -7,7 +7,11 @@ import type { ReactNode } from "react";
    ------------------------------------------------------------------ */
 
 const S = {
-  serif: "'Playfair Display', Georgia, serif",
+  /* Playfair Display retired 2026-05-20 (readability) — `serif` now
+     aliases Inter so the field-guide article display elements match
+     the rest of the app. Key kept as `serif` to avoid churning every
+     S.serif reference in this file. */
+  serif: "Inter, system-ui, sans-serif",
   sans:  "Inter, system-ui, sans-serif",
   gold:  "var(--gold)",
   ember: "var(--ember)",

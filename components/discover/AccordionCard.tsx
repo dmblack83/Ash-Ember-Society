@@ -44,7 +44,7 @@ export function AccordionCard({ title }: { title: string }) {
             color:      "var(--foreground)",
             fontSize:   16,
             fontWeight: 600,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            fontFamily: "var(--font-playfair)",
           }}
         >
           {title}

@@ -977,7 +977,7 @@ function Step5({
         />
       </div>
 
-      {/* ── Smoke duration — italic Playfair numeral inside field ── */}
+      {/* ── Smoke duration — italic numeral inside field ── */}
       <div>
         <Eyebrow htmlFor="br-duration">Smoke Duration (minutes)</Eyebrow>
         <input

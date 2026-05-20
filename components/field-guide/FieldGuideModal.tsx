@@ -10,7 +10,10 @@ import { Vol04Content } from "@/components/field-guide/content/Vol04Content";
 import { FieldGuideComments } from "@/components/field-guide/FieldGuideComments";
 
 const S = {
-  serif: "'Playfair Display', Georgia, serif",
+  /* Playfair Display retired 2026-05-20 (readability) — `serif` now
+     aliases Inter. Key kept as `serif` to avoid churning every
+     S.serif reference in this file. */
+  serif: "Inter, system-ui, sans-serif",
   sans:  "Inter, system-ui, sans-serif",
   gold:  "var(--gold)",
   ember: "var(--ember)",

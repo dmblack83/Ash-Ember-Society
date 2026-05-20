@@ -26,7 +26,7 @@ export default function ContentPage() {
           style={{
             fontSize:   22,
             fontWeight: 700,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            fontFamily: "var(--font-playfair)",
             color:      "var(--foreground)",
             margin:     0,
           }}

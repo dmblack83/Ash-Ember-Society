@@ -3,7 +3,7 @@
 
    Props
    ─────
-   title        Section heading rendered in Playfair Display / gold.
+   title        Section heading rendered in the app serif token / gold.
    children     Section content.
    className    Extra classes on the outer <section>.
    sectionIndex Staggered fade-in delay: each step adds 80 ms.

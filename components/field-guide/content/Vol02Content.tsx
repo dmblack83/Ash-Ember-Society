@@ -9,7 +9,7 @@ import {
 } from "@/components/field-guide/article-components";
 
 const S = {
-  serif: "'Playfair Display', Georgia, serif",
+  serif: "Inter, system-ui, sans-serif",
   sans:  "Inter, system-ui, sans-serif",
   gold:  "var(--gold)",
   ember: "var(--ember)",

@@ -383,7 +383,7 @@ function CommentSheet({
             style={{
               fontSize:   17,
               fontWeight: 700,
-              fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+              fontFamily: "var(--font-playfair)",
               color:      "var(--foreground)",
             }}
           >
@@ -841,7 +841,7 @@ function ChannelSection({
               style={{
                 fontSize:   16,
                 fontWeight: 700,
-                fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+                fontFamily: "var(--font-playfair)",
                 color:      "var(--foreground)",
                 whiteSpace: "nowrap",
                 overflow:   "hidden",
@@ -1043,7 +1043,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
           style={{
             fontSize:   22,
             fontWeight: 700,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            fontFamily: "var(--font-playfair)",
             color:      "var(--foreground)",
             marginBottom: 8,
           }}
@@ -1072,7 +1072,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
           style={{
             fontSize:   22,
             fontWeight: 700,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            fontFamily: "var(--font-playfair)",
             color:      "var(--foreground)",
             margin:     0,
           }}
@@ -1116,7 +1116,7 @@ function ChannelsRenderer({ channels, userId, tier }: RendererProps) {
           style={{
             fontSize:   22,
             fontWeight: 700,
-            fontFamily: "var(--font-playfair, 'Playfair Display'), serif",
+            fontFamily: "var(--font-playfair)",
             color:      "var(--foreground)",
             margin:     0,
           }}
