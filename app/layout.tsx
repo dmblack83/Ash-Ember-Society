@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Cormorant_Garamond } from "next/font/google";
 
 /* Supabase API + Storage origin for resource-hint preconnect.
    Read at module load — process.env.NEXT_PUBLIC_SUPABASE_URL is
@@ -22,14 +22,17 @@ import { HYDRATION_WATCHDOG_SCRIPT } from "@/components/system/hydration-watchdo
 import "./globals.css";
 
 /*
- * Inter — the single app typeface for headings, body copy, and UI.
- * Playfair Display was retired 2026-05-20 (readability); `--font-serif`
- * and `--font-playfair` now both alias Inter in globals.css, so every
- * `var(--font-serif)` / `var(--font-playfair)` consumer renders Inter
- * with no per-component change.
+ * Cormorant Garamond — the display face for headings and the wordmark.
+ * Self-hosted via next/font (no Google CDN request). `--font-serif` and
+ * `--font-playfair` in globals.css both bind to this variable, so every
+ * `var(--font-serif)` / `var(--font-playfair)` consumer picks it up with
+ * no per-component change. Display use only — body copy and UI render in
+ * the native system sans stack (--font-sans), so there is no body
+ * webfont to download.
  */
-const inter = Inter({
-  variable: "--font-inter",
+const cormorant = Cormorant_Garamond({
+  variable: "--font-cormorant",
+  weight: ["600", "700"],
   subsets: ["latin"],
   display: "swap",
 });
@@ -123,14 +126,14 @@ export default function RootLayout({
      * to <html> on the client before hydration, which would otherwise cause
      * a mismatch warning.
      *
-     * Inter's variable is injected here for the globals.css token mapping.
-     * `--font-serif` and `--font-playfair` are defined in globals.css and
-     * both alias `--font-inter` since Playfair Display was retired.
+     * Cormorant's variable is injected here for the globals.css token
+     * mapping. `--font-serif` and `--font-playfair` are defined in
+     * globals.css and both bind to `--font-cormorant`.
      */
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} h-full antialiased`}
+      className={`${cormorant.variable} h-full antialiased`}
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
