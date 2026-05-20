@@ -143,15 +143,17 @@
   --color-ash: var(--ash);
   --color-gold: var(--gold);
 
-  /* Typography — Inter is the single app typeface. Playfair Display was
-     retired 2026-05-20 (readability). `--font-serif` and `--font-playfair`
-     are kept as names but both alias Inter, so every existing
-     `var(--font-serif)` / `var(--font-playfair)` consumer renders Inter
-     with no per-component change. `--font-inter` is injected on <html>
-     by next/font. */
-  --font-serif: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-playfair: var(--font-inter), system-ui, -apple-system, sans-serif;
+  /* Typography — Cormorant Garamond is the display face (headings,
+     wordmark); the body/UI face is the native system sans stack, so
+     there is no body webfont to download. `--font-serif` and
+     `--font-playfair` both bind to Cormorant, so every existing
+     `var(--font-serif)` / `var(--font-playfair)` consumer renders the
+     display face with no per-component change. `--font-cormorant` is
+     injected on <html> by next/font. Cormorant is display-only: never
+     route body copy or small UI labels through --font-serif. */
+  --font-serif: var(--font-cormorant), "Iowan Old Style", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-playfair: var(--font-cormorant), "Iowan Old Style", Georgia, serif;
 
   /* Animation tokens */
   --animate-fade-in: fade-in 300ms ease-out both;

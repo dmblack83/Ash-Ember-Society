@@ -46,11 +46,14 @@ Never pure black. Never a cool gray — every neutral is warm.
 
 ## Typography Rules
 
-- **Display / headings:** `'Inter', system-ui, sans-serif`, weight 600–700,
-  tracking `-0.02em`. There is no serif face — Playfair Display was retired
-  for readability. Headings carry weight and tight tracking, not a
-  different family.
-- **Body:** `'Inter', system-ui, sans-serif`, weight 400, line-height 1.65.
+- **Display / headings:** `'Cormorant Garamond', 'Iowan Old Style', Georgia, serif`,
+  weight 600-700, tracking `-0.02em`. A high-contrast serif used for
+  headings, the wordmark, pull quotes, and stat numerals. Display only:
+  it is delicate at small sizes, so never set body copy or small UI
+  labels in it.
+- **Body:** the native system sans stack
+  (`-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif`),
+  weight 400, line-height 1.65. No body webfont to download.
 - **Eyebrow / meta:** mono stack, 11px, uppercase, letter-spacing ~0.12em,
   color `--meta`. The lounge's "small caps" voice.
 - Scale (px): 11 · 13 · 15 · 18 · 24 · 30 · 36 · 48. Body is 15px.
@@ -102,7 +105,7 @@ No neumorphism. No glassmorphism beyond the existing subtle smoke blur.
 - ✅ Sentence case for UI copy; reserve title case for brand names.
 - ❌ No em dashes in any user-facing copy (a hard brand rule).
 - ❌ No pure black `#000` and no cool gray.
-- ❌ No serif headings — Inter only.
+- ❌ No Cormorant in body copy or small UI labels — display sizes only.
 - ❌ No neon or high-saturation status colors.
 
 ## Responsive Behavior
