@@ -15,7 +15,7 @@
 
    The handoff specifies Cormorant Garamond + JetBrains Mono and a
    custom palette; per project guidance we map onto existing tokens —
-   --font-serif (Playfair) for italic editorial, --font-mono for
+   --font-serif (Inter) for italic editorial, --font-mono for
    monospace, --card / --gold / --paper-mute / --line / --line-soft
    for the surface and chrome.
    ------------------------------------------------------------------ */

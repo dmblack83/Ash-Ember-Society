@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Playfair_Display, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 
 /* Supabase API + Storage origin for resource-hint preconnect.
    Read at module load — process.env.NEXT_PUBLIC_SUPABASE_URL is
@@ -22,18 +22,11 @@ import { HYDRATION_WATCHDOG_SCRIPT } from "@/components/system/hydration-watchdo
 import "./globals.css";
 
 /*
- * Playfair Display — the editorial serif for headings, the brand name,
- * and anywhere the lounge-menu feel is needed.
- */
-const playfairDisplay = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-/*
- * Inter — clean, readable sans-serif for body copy and UI elements.
- * At small sizes it stays crisp in the dark environment.
+ * Inter — the single app typeface for headings, body copy, and UI.
+ * Playfair Display was retired 2026-05-20 (readability); `--font-serif`
+ * and `--font-playfair` now both alias Inter in globals.css, so every
+ * `var(--font-serif)` / `var(--font-playfair)` consumer renders Inter
+ * with no per-component change.
  */
 const inter = Inter({
   variable: "--font-inter",
@@ -130,15 +123,14 @@ export default function RootLayout({
      * to <html> on the client before hydration, which would otherwise cause
      * a mismatch warning.
      *
-     * Font variables are injected here so they're available to the
-     * @theme inline mapping in globals.css:
-     *   --font-serif → var(--font-playfair)
-     *   --font-sans  → var(--font-inter)
+     * Inter's variable is injected here for the globals.css token mapping.
+     * `--font-serif` and `--font-playfair` are defined in globals.css and
+     * both alias `--font-inter` since Playfair Display was retired.
      */
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${playfairDisplay.variable} ${inter.variable} h-full antialiased`}
+      className={`${inter.variable} h-full antialiased`}
     >
       <head>
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />

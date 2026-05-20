@@ -143,9 +143,15 @@
   --color-ash: var(--ash);
   --color-gold: var(--gold);
 
-  /* Typography — variables are injected by next/font/google on <html> */
-  --font-serif: var(--font-playfair), Georgia, 'Times New Roman', serif;
+  /* Typography — Inter is the single app typeface. Playfair Display was
+     retired 2026-05-20 (readability). `--font-serif` and `--font-playfair`
+     are kept as names but both alias Inter, so every existing
+     `var(--font-serif)` / `var(--font-playfair)` consumer renders Inter
+     with no per-component change. `--font-inter` is injected on <html>
+     by next/font. */
+  --font-serif: var(--font-inter), system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-playfair: var(--font-inter), system-ui, -apple-system, sans-serif;
 
   /* Animation tokens */
   --animate-fade-in: fade-in 300ms ease-out both;
