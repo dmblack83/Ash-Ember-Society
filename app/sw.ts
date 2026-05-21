@@ -182,7 +182,17 @@ const authPartitionPlugin: SerwistPlugin = {
 
 /* ── Initialise Serwist with the precache manifest ───────────────── */
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: [
+    ...self.__SW_MANIFEST,
+    /* /offline is NOT included in the build manifest because
+       `serwist.config.mjs` sets `precachePrerendered: false` (required
+       to prevent auth-gated routes from breaking SW install). Add it
+       explicitly so the NetworkFirst fallback has something to serve
+       when the network is unreachable on cold load. revision:null
+       treats the URL as already-versioned; the offline page rarely
+       changes and the SW fully re-installs on every deploy anyway. */
+    { url: "/offline", revision: null },
+  ],
   /*
    * Skip waiting + clientsClaim mirror the old sw.js behaviour, so
    * a deployed update takes effect on the user's next page load
@@ -343,6 +353,12 @@ const serwist = new Serwist({
     {
       matcher: ({ request }) => request.mode === "navigate",
       handler: new NetworkFirst({
+        /* After 3 s without a network response, fall back to the
+           navigations cache (or /offline if no cache entry). Prevents
+           indefinite white-page hangs on slow networks. 3 s matches
+           the proxy's Supabase auth timeout so the two failure modes
+           align — both resolve within the same budget. */
+        networkTimeoutSeconds: 3,
         cacheName: "navigations",
         plugins: [
           authPartitionPlugin,
@@ -359,9 +375,9 @@ const serwist = new Serwist({
 
   /*
    * Offline fallback for navigation requests that can't be served
-   * from network OR cache. The /offline page itself is precached
-   * because it's prerendered at build time (see
-   * `precachePrerendered: true` in serwist.config.mjs).
+   * from network OR cache. /offline is added to precacheEntries
+   * explicitly above (not via precachePrerendered, which is disabled
+   * to prevent auth-gated routes from crashing SW install).
    */
   fallbacks: {
     entries: [

@@ -7,10 +7,18 @@
    existing import path (@/components/cold-open-smoke/ColdOpenSmoke).
    ------------------------------------------------------------------ */
 
-/** Minimum gap between cold-smoke shows. iOS aggressively kills PWAs
-    when external links are tapped; without this, the loader replays
-    every time the user returns from a news/video link. */
-export const COLD_SMOKE_THROTTLE_MS = 30 * 60 * 1000;
+/** Minimum gap between cold-smoke shows.
+ *
+ *  iOS kills the PWA process under memory pressure (~5 min background).
+ *  When the process is killed and the user taps the home-screen icon,
+ *  the page fully reloads — that IS a cold launch and the overlay
+ *  should show.
+ *
+ *  The throttle prevents the overlay replaying on quick external-link
+ *  round-trips (user opens a link, reads it, returns within ~1-2 min
+ *  while iOS kills the process anyway). 5 min covers that case without
+ *  suppressing genuine cold launches after the process has been killed. */
+export const COLD_SMOKE_THROTTLE_MS = 5 * 60 * 1000;
 
 /** Inline script — runs synchronously in <head> before the body paints.
     Adds `cold-smoke-active` to <html> when conditions are met, which
