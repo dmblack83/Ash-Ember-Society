@@ -114,17 +114,23 @@ export default async function LoungeCategoryPage({ params }: Props) {
   const smokeLogIds = allFetched.map((p) => p.smoke_log_id).filter(Boolean) as string[];
   const smokeLogMap: Record<string, SmokeLogData> = {};
   if (smokeLogIds.length > 0) {
-    const { data: logs } = await supabase
-      .from("smoke_logs")
-      .select(`
-        id, smoked_at, overall_rating, draw_rating, burn_rating,
-        construction_rating, flavor_rating, pairing_drink, pairing_food,
-        location, occasion, smoke_duration_minutes, review_text, photo_urls,
-        content_video_id, flavor_tag_ids, user_id, cigar_id,
-        cigar:cigar_catalog(brand, series, format),
-        burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
-      `)
-      .in("id", smokeLogIds);
+    /* smoke_logs fetch and report-number computation are independent —
+       both only need smokeLogIds. Run in parallel to save one serial
+       Supabase round-trip. */
+    const [{ data: logs }, reportNumberMap] = await Promise.all([
+      supabase
+        .from("smoke_logs")
+        .select(`
+          id, smoked_at, overall_rating, draw_rating, burn_rating,
+          construction_rating, flavor_rating, pairing_drink, pairing_food,
+          location, occasion, smoke_duration_minutes, review_text, photo_urls,
+          content_video_id, flavor_tag_ids, user_id, cigar_id,
+          cigar:cigar_catalog(brand, series, format),
+          burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+        `)
+        .in("id", smokeLogIds),
+      computeReportNumbers(supabase, smokeLogIds),
+    ]);
 
     const rawLogs = (logs ?? []) as Array<Record<string, unknown> & { id: string; flavor_tag_ids: string[] | null; user_id: string | null; burn_report: Array<Record<string, unknown>> | null }>;
 
@@ -140,11 +146,6 @@ export default async function LoungeCategoryPage({ params }: Props) {
         if (allTagIds.has(t.id)) tagNameMap[t.id] = t.name;
       }
     }
-
-    /* Per-author 1-indexed report numbers. The handoff card shows
-       "NO. 45" reflecting the AUTHOR's lifetime count of burn
-       reports up to and including this one. */
-    const reportNumberMap = await computeReportNumbers(supabase, smokeLogIds);
 
     for (const log of rawLogs) {
       const author = log.user_id ? nameMap[log.user_id as string] : null;

@@ -1,0 +1,96 @@
+'use server'
+
+import { createClient }    from '@/lib/supabase/server'
+import { redirect }        from 'next/navigation'
+import { checkRateLimit }  from '@/lib/rate-limit'
+
+const SAFE_AUTH_ERRORS: Record<string, string> = {
+  "Invalid login credentials":                 "Invalid email or password.",
+  "Email not confirmed":                        "Please confirm your email before signing in.",
+  "User already registered":                   "An account with this email already exists.",
+  "Password should be at least 6 characters":  "Password must be at least 8 characters.",
+  "Signup requires a valid password":           "Please enter a valid password.",
+};
+
+function sanitizeAuthError(message: string): string {
+  return SAFE_AUTH_ERRORS[message] ?? "Authentication failed. Please try again.";
+}
+
+export async function signUp(formData: FormData) {
+  const email    = (formData.get('email')    as string ?? '').trim().toLowerCase();
+  const password = (formData.get('password') as string ?? '');
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return redirect('/signup?error=Please+enter+a+valid+email+address.');
+  }
+  if (!password || password.length < 8) {
+    return redirect('/signup?error=Password+must+be+at+least+8+characters.');
+  }
+  if (password.length > 128) {
+    return redirect('/signup?error=Password+is+too+long.');
+  }
+
+  const rl = await checkRateLimit(email, { limit: 10, window: "1 h", prefix: "auth-signup" });
+  if (!rl.ok && rl.reason !== "rate_limit_unavailable") {
+    return redirect('/signup?error=Too+many+attempts.+Try+again+later.');
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signUp({ email, password })
+
+  if (error) {
+    return redirect(`/signup?error=${encodeURIComponent(sanitizeAuthError(error.message))}`)
+  }
+
+  return redirect('/onboarding')
+}
+
+export async function signIn(formData: FormData) {
+  const email    = (formData.get('email')    as string ?? '').trim().toLowerCase();
+  const password = (formData.get('password') as string ?? '');
+
+  if (!email || !password) {
+    return redirect('/login?error=Email+and+password+are+required.');
+  }
+  if (email.length > 254 || password.length > 128) {
+    return redirect('/login?error=Invalid+email+or+password.');
+  }
+
+  const rl = await checkRateLimit(email, { limit: 10, window: "15 m", prefix: "auth-signin" });
+  if (!rl.ok && rl.reason !== "rate_limit_unavailable") {
+    return redirect('/login?error=Too+many+attempts.+Try+again+later.');
+  }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+  if (error) {
+    return redirect(`/login?error=${encodeURIComponent(sanitizeAuthError(error.message))}`)
+  }
+
+  return redirect('/dashboard')
+}
+
+export async function signInWithGoogle() {
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ashember.vip'
+
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${siteUrl}/auth/callback`,
+    },
+  })
+
+  if (error || !data.url) {
+    return redirect(`/login?error=${encodeURIComponent("OAuth sign-in failed. Please try again.")}`)
+  }
+
+  return redirect(data.url)
+}
+
+export async function signOut() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  return redirect('/login')
+}

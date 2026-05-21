@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -518,7 +518,7 @@ export function HumidorClient({
   }, [view]);
 
   /* Derived — sorted */
-  const displayed = sortItems(items, sort);
+  const displayed = useMemo(() => sortItems(items, sort), [items, sort]);
 
   /* Stats */
   const totalCount = items.reduce((s, i) => s + i.quantity, 0);

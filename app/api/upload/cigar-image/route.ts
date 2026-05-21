@@ -87,7 +87,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 5. Upload to cigar-photos-pending
-  const ext          = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXTS.has(ext)) {
+    return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+  }
   const storagePath  = `${cigarId}/${user.id}/${Date.now()}.${ext}`;
 
   const { error: uploadError } = await admin.storage

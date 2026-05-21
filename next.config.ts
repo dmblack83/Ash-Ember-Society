@@ -71,7 +71,12 @@ const SECURITY_HEADERS = [
      stops. The correct enforce-mode policy needs nonce-based
      script-src or `'strict-dynamic'`; that's a real piece of work,
      not a header-name flip. Keep Report-Only until that lands. */
+  /* Full policy stays in Report-Only until nonce-based script-src lands
+     (RSC inline scripts can't be hash-pinned per-request — see PR #326).
+     The non-script directives are safe to enforce now and provide
+     meaningful clickjacking + injection protection. */
   { key: "Content-Security-Policy-Report-Only", value: CSP },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
   /* Two-year HSTS with subdomains and preload eligibility. Caller
      can submit to https://hstspreload.org once the domain is stable. */
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
