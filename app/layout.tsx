@@ -162,7 +162,23 @@ export default function RootLayout({
          */}
         <style
           dangerouslySetInnerHTML={{
-            __html: "html,body{background-color:#15110b;}",
+            __html: [
+              /* Brand background — bridges the gap before globals.css loads.
+                 Must use a literal hex; var(--background) is undefined until
+                 the external sheet arrives. */
+              "html,body{background-color:#15110b}",
+              /* Cold-smoke overlay critical rules — inlined so the overlay
+                 is visible from the very first paint even if globals.css is
+                 still in flight. The overlay div is server-rendered; the
+                 init script above adds `cold-smoke-active` to <html>
+                 synchronously; these rules make it visible immediately.
+                 The full set of rules (view-transition-name, iOS splash
+                 background-images, animation keyframes) stays in globals.css
+                 — only display/position/z-index are critical-path. */
+              ".cold-smoke-overlay{display:none}",
+              "html.cold-smoke-active .cold-smoke-overlay{display:block;position:fixed;inset:0;z-index:99999;background-color:#15110b}",
+              "html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay{opacity:0;transition:opacity 1s linear}",
+            ].join(""),
           }}
         />
         {/* Stale-chunk recovery — captures `error` events from the
