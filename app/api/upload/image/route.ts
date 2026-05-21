@@ -89,7 +89,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 4. Upload to post-images bucket
-  const ext  = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXTS.has(ext)) {
+    return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+  }
   const path = `${folder}/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
   const admin = createServiceClientFor(

@@ -67,7 +67,11 @@ export async function POST(request: NextRequest) {
     "api/avatar",
     "Supabase storage write to avatars bucket; path scoped to authenticated user.id"
   );
-  const ext   = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+  const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!ALLOWED_EXTS.has(ext)) {
+    return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
+  }
   // Unique filename per upload so CDN never serves a stale cached version
   const path  = `${user.id}/avatar_${Date.now()}.${ext}`;
 
