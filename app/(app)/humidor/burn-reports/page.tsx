@@ -37,7 +37,8 @@ export default async function BurnReportsPage() {
         burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
       `)
       .eq("user_id", user.id)
-      .order("smoked_at", { ascending: false }),
+      .order("smoked_at", { ascending: false })
+      .limit(50),
     /* Cached cross-request — see lib/data/flavor-tags.ts. The full
        category column is in the cached payload but BurnReportsClient
        only uses { id, name }, so we narrow at the boundary. */

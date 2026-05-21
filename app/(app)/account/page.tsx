@@ -2,7 +2,6 @@ import { createClient }  from "@/utils/supabase/server";
 import { getServerUser } from "@/lib/auth/server-user";
 import { redirect } from "next/navigation";
 import { getMembershipTier } from "@/lib/membership";
-import { stripe } from "@/lib/stripe";
 import { AccountClient } from "@/components/account/AccountClient";
 import type { MembershipTier } from "@/lib/stripe";
 import { readFileSync } from "fs";
@@ -48,25 +47,8 @@ export default async function AccountPage() {
   const currentTier       = getMembershipTier(profile) as MembershipTier;
   const hasStripeCustomer = !!(profile?.stripe_customer_id);
 
-  let nextBillingDate: string | null  = null;
-  let currentPeriodEnd: number | null = null;
-
-  if (currentTier !== "free" && profile?.stripe_subscription_id) {
-    try {
-      const sub = await stripe.subscriptions.retrieve(
-        profile.stripe_subscription_id as string
-      );
-      const periodEnd = sub.items.data[0]?.current_period_end ?? null;
-      if (periodEnd) {
-        currentPeriodEnd = periodEnd;
-        nextBillingDate  = new Date(periodEnd * 1000).toLocaleDateString("en-US", {
-          year: "numeric", month: "long", day: "numeric",
-        });
-      }
-    } catch {
-      // Non-fatal
-    }
-  }
+  /* Billing date loads client-side via /api/stripe/subscription-status
+     so this page renders without waiting for the Stripe API. */
 
   /* Read legal markdown at build/request time — never fetched from network */
   const readLegal = (file: string) => {
@@ -96,8 +78,8 @@ export default async function AccountPage() {
       membership={{
         currentTier,
         hasStripeCustomer,
-        nextBillingDate,
-        currentPeriodEnd,
+        nextBillingDate:  null,
+        currentPeriodEnd: null,
         priceIds: {
           memberMonthly:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID  ?? "",
           premiumMonthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID ?? "",
