@@ -7,7 +7,6 @@ import {
 } from "@/components/field-guide/article-components";
 
 export const runtime = "edge";
-export const dynamic = "force-dynamic";
 
 const S = {
   serif: "Inter, system-ui, sans-serif",

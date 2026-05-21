@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Toast } from "@/components/ui/toast";
 import { TIER_DISPLAY, PLAN_PRICING, TIER_DESCRIPTION } from "@/lib/membership";
@@ -138,7 +138,7 @@ interface Props {
 export function MembershipTab({
   currentTier,
   hasStripeCustomer,
-  nextBillingDate,
+  nextBillingDate: nextBillingDateProp,
   priceIds,
 }: Props) {
   const router = useRouter();
@@ -149,6 +149,18 @@ export function MembershipTab({
   const [downgradeLoading, setDowngradeLoading] = useState(false);
   const [toast,            setToast]            = useState<string | null>(null);
   const [featureTier,      setFeatureTier]      = useState<MembershipTier>(currentTier);
+  const [nextBillingDate,  setNextBillingDate]  = useState<string | null>(nextBillingDateProp);
+
+  /* Fetch billing date asynchronously — does not block page render. */
+  useEffect(() => {
+    if (currentTier === "free") return;
+    fetch("/api/stripe/subscription-status")
+      .then((r) => r.json())
+      .then((d: { nextBillingDate: string | null }) => {
+        if (d.nextBillingDate) setNextBillingDate(d.nextBillingDate);
+      })
+      .catch(() => { /* non-fatal */ });
+  }, [currentTier]);
 
   const isPaid   = currentTier !== "free";
   const tierInfo = TIER_DISPLAY[currentTier];

@@ -1,8 +1,13 @@
 "use client";
 
 import { useMemo } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import dynamic from "next/dynamic";
 import type { MembershipTier } from "@/lib/stripe";
+
+const QRCodeSVG = dynamic(
+  () => import("qrcode.react").then((m) => ({ default: m.QRCodeSVG })),
+  { ssr: false },
+);
 
 /* ------------------------------------------------------------------
    Props
