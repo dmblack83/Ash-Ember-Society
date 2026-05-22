@@ -24,7 +24,7 @@
  *
  * Strategy table
  * ──────────────
- *   Navigation requests      → NetworkFirst, /offline fallback
+ *   Navigation requests      → StaleWhileRevalidate, /offline fallback
  *   /_next/static/*          → CacheFirst, immutable
  *   Same-origin images       → SWR, capped 50 entries / 30d
  *   Supabase Storage public  → SWR, capped 100 entries / 7d
@@ -35,7 +35,6 @@
 import {
   Serwist,
   CacheFirst,
-  NetworkFirst,
   NetworkOnly,
   StaleWhileRevalidate,
   ExpirationPlugin,
@@ -326,39 +325,38 @@ const serwist = new Serwist({
       }),
     },
 
-    /* ── Navigation (page) requests: NetworkFirst, partitioned ─────
+    /* ── Navigation (page) requests: StaleWhileRevalidate, partitioned ─
      *
-     * NetworkFirst (reverted from SWR — see PR #271 / this commit):
-     * always tries network first, falls back to cache only when the
-     * network fetch fails (offline / total network failure). Combined
-     * with `navigationPreload: true` above, the network fetch starts
-     * in parallel with SW boot, so the perceived perf cost vs SWR is
-     * small — and Phase 1's shell + Suspense islands paint quickly
-     * once the fresh HTML arrives.
+     * Root cause of PWA cold-load white screen: NetworkFirst always hit
+     * the network on cold launch. After 20+ min idle, iOS kills both the
+     * PWA and SW processes. WKWebView restarts and sends a navigation
+     * request to Vercel, where proxy.ts runs supabase.auth.getUser() on
+     * a cold connection — adding 2-4s of TTFB before first byte of HTML
+     * arrives. Users saw 4-8s of white BEFORE the cold smoke overlay
+     * appeared, because the overlay (server-rendered) hadn't been
+     * delivered yet.
      *
-     * Why not SWR: SWR returned the CACHED HTML first, which after a
-     * deploy embedded chunk URLs (`/_next/static/chunks/...HASH.js`)
-     * that no longer existed on origin → 404 → React never hydrated
-     * → indefinite white screen. The resilience layer (#288 chunk
-     * recovery, #289 watchdog) caught this reactively, but the user
-     * still saw a multi-second hang before auto-reload. NetworkFirst
-     * makes that class of bug impossible: the cache is consulted
-     * only when offline, and stale cached HTML offline is acceptable
-     * because the offline fallback is `/offline` if the cache misses.
+     * StaleWhileRevalidate serves the cached navigation HTML immediately
+     * on cold launch, eliminating the TTFB white screen. The cache is
+     * then revalidated in the background on every request so content
+     * stays current.
      *
-     * Cache is still consulted as the offline fallback, so the
-     * authPartitionPlugin stays in place: User A's offline-cached
-     * HTML must never be served to User B on a shared device.
+     * Prior SWR revert (PR #271): SWR was previously reverted because
+     * stale cached HTML after a deploy embedded old chunk hashes that
+     * 404'd on origin. The stale-chunk-recovery script (PR #288) now
+     * catches those 404s automatically (cache nuke + SW unregister +
+     * reload), making SWR safe to restore. One reload per deploy is
+     * acceptable; 4-8s of white on every cold launch is not.
+     *
+     * Auth partitioning: authPartitionPlugin partitions the navigations
+     * cache by user identity (stable `sub` claim from Supabase JWT),
+     * preventing User A's cached HTML from being served to User B on a
+     * shared device. A cache miss for the current user falls through to
+     * a live network fetch.
      */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: new NetworkFirst({
-        /* After 3 s without a network response, fall back to the
-           navigations cache (or /offline if no cache entry). Prevents
-           indefinite white-page hangs on slow networks. 3 s matches
-           the proxy's Supabase auth timeout so the two failure modes
-           align — both resolve within the same budget. */
-        networkTimeoutSeconds: 3,
+      handler: new StaleWhileRevalidate({
         cacheName: "navigations",
         plugins: [
           authPartitionPlugin,
