@@ -41,13 +41,33 @@ export function getPushPermission(): PushPermission {
   return Notification.permission as PushPermission;
 }
 
-/* How long to wait for an active service worker before giving up
-   and treating this device as having no subscription. Five seconds
-   covers a normal cold-launch SW install (typically <1s) with a
-   comfortable margin; if it's still pending past that, something
-   is wrong with the SW lifecycle and the user shouldn't be stuck
-   staring at "Checking this device…" indefinitely. */
-const SW_READY_TIMEOUT_MS = 5000;
+/* How long to wait for the SW to install + activate from scratch.
+   Only applies when there is no active controller yet (first install
+   or post-stale-chunk-recovery reinstall). The fast path below
+   bypasses this entirely when a controller is already in place. */
+const SW_READY_TIMEOUT_MS = 12000;
+
+/* Returns the active ServiceWorkerRegistration, or rejects on timeout.
+   Fast path: if the SW is already controlling this page, getRegistration()
+   returns immediately — no need to wait for the `ready` promise to
+   walk through the full install → activate lifecycle. This eliminates
+   the timeout errors that occur when push is accessed while a new SW
+   is still precaching its manifest entries (which can take >5s). */
+async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
+  if (navigator.serviceWorker.controller) {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (reg?.active) return reg;
+  }
+  return Promise.race([
+    navigator.serviceWorker.ready,
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("ServiceWorker ready timed out")),
+        SW_READY_TIMEOUT_MS,
+      ),
+    ),
+  ]);
+}
 
 /* Returns the active PushSubscription for THIS browser, or null if
    the user hasn't opted in, the SW isn't registered yet, or the SW
@@ -60,15 +80,7 @@ const SW_READY_TIMEOUT_MS = 5000;
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
   try {
-    const reg = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("ServiceWorker ready timed out")),
-          SW_READY_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+    const reg = await getActiveRegistration();
     return await reg.pushManager.getSubscription();
   } catch (err) {
     console.warn("[push] getCurrentSubscription:", err);
@@ -114,20 +126,7 @@ export async function subscribe(): Promise<SubscribeResult> {
 
   let subscription: PushSubscription;
   try {
-    /* Race `serviceWorker.ready` against a timeout, same pattern PR
-       #362 applied to getCurrentSubscription. On iOS PWA, `ready` can
-       pend indefinitely if the SW is wedged — which left the toggle
-       stuck "busy" forever, no toast, no recovery. Surface a concrete
-       error instead so the UI can recover. */
-    const reg = await Promise.race([
-      navigator.serviceWorker.ready,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("ServiceWorker ready timed out")),
-          SW_READY_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+    const reg = await getActiveRegistration();
     /* getSubscription() first — if there's already a live one, reuse
        it. PushManager.subscribe() with a different applicationServerKey
        than the existing one throws InvalidStateError, so we always
