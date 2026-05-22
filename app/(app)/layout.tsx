@@ -84,7 +84,7 @@ function BottomNav() {
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderTop: "1px solid var(--border)",
-        paddingBottom: "env(safe-area-inset-bottom)",
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)",
         willChange: "transform",
         /* Anchored across view transitions — paired with the
            `::view-transition-group(ae-bottom-nav)` rule in
@@ -256,7 +256,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         className={
           hideNav
             ? "flex-1 app-container"
-            : "flex-1 app-container pb-[calc(72px+env(safe-area-inset-bottom))] lg:pb-0"
+            : "flex-1 app-container pb-[calc(88px+env(safe-area-inset-bottom))] lg:pb-0"
         }
         style={{
           touchAction: "pan-y",
