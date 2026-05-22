@@ -410,18 +410,29 @@ serwist.addEventListeners();
    ignored. See components/system/ServiceWorkerUpdateNotice.tsx.
 
    Multiple activate listeners coexist; this runs alongside (not in
-   place of) Serwist's built-in activate behavior wired up above. */
-self.addEventListener("activate", (event) => {
-  event.waitUntil((async () => {
-    const clients = await self.clients.matchAll({ includeUncontrolled: true });
-    for (const client of clients) {
-      try {
-        client.postMessage({ type: "SW_UPDATED" });
-      } catch {
-        /* postMessage can throw on detached clients; non-fatal. */
+   place of) Serwist's built-in activate behavior wired up above.
+
+   IMPORTANT: Do NOT use event.waitUntil() here. self.clients.matchAll()
+   hangs indefinitely on iOS Safari during a fresh install (no prior SW
+   in place), which prevents the SW from ever reaching "activated" state.
+   navigator.serviceWorker.ready then never resolves, and push subscribe
+   times out. PR #381 identified this pattern; PR #427 fixes it by making
+   the postMessage fire-and-forget so activation is never blocked. */
+self.addEventListener("activate", () => {
+  void (async () => {
+    try {
+      const clients = await self.clients.matchAll({ includeUncontrolled: true });
+      for (const client of clients) {
+        try {
+          client.postMessage({ type: "SW_UPDATED" });
+        } catch {
+          /* postMessage can throw on detached clients; non-fatal. */
+        }
       }
+    } catch {
+      /* matchAll can fail on iOS; non-fatal. */
     }
-  })());
+  })();
 });
 
 /* ──────────────────────────────────────────────────────────────────
