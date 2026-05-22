@@ -86,6 +86,12 @@ export const metadata: Metadata = {
      head alongside Next's W3C-standard one. */
   other: {
     "apple-mobile-web-app-capable": "yes",
+    /* color-scheme: dark makes the WKWebView (iOS PWA) use a dark
+       canvas background before ANY CSS or HTML is painted. Without
+       this, the browser's default white canvas shows during the
+       render-blocking CSS load window — producing the white flash
+       between the splash image and the first paint. */
+    "color-scheme": "dark",
   },
   appleWebApp: {
     capable: true,
