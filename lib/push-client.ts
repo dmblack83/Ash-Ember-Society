@@ -41,18 +41,33 @@ export function getPushPermission(): PushPermission {
   return Notification.permission as PushPermission;
 }
 
-/* How long to wait for the SW to install + activate from scratch.
-   Only applies when there is no active controller yet (first install
-   or post-stale-chunk-recovery reinstall). The fast path below
-   bypasses this entirely when a controller is already in place. */
-const SW_READY_TIMEOUT_MS = 12000;
+/* Timeout for pushManager.subscribe() itself — this call can hang
+   indefinitely on iOS when the browser is in certain states (PR #380).
+   12s is generous for an API call that should be near-instant once the
+   SW is active. */
+const PUSH_SUBSCRIBE_TIMEOUT_MS = 12_000;
 
-/* Returns the active ServiceWorkerRegistration, or rejects on timeout.
-   Fast path: if the SW is already controlling this page, getRegistration()
-   returns immediately — no need to wait for the `ready` promise to
-   walk through the full install → activate lifecycle. This eliminates
-   the timeout errors that occur when push is accessed while a new SW
-   is still precaching its manifest entries (which can take >5s). */
+/* Timeout for the slow-path SW install wait inside subscribe().
+   On a fresh install the SW must download and precache every
+   /_next/static/* entry in __SW_MANIFEST before it can activate.
+   On a slow mobile connection this takes 30-90s. The fast path
+   (controller already set) bypasses this entirely. This large value
+   is only for genuine first-time installs; it is NOT the UX wait
+   time — the busy subtitle in AccountClient tells the user to hold on. */
+const SW_INSTALL_TIMEOUT_MS = 120_000;
+
+/* Returns the active ServiceWorkerRegistration for subscribe(), or
+   rejects on timeout.
+
+   Fast path: SW is already controlling this page — getRegistration()
+   returns immediately. No need to walk the full install lifecycle.
+
+   Slow path: fresh install (no controller yet). The SW needs time to
+   download + precache all static assets; navigator.serviceWorker.ready
+   resolves once that finishes. We allow up to SW_INSTALL_TIMEOUT_MS
+   so a slow mobile connection has time to complete the precache pass.
+   After PR #427, the activate handler no longer blocks activation on
+   iOS, so the promise WILL eventually resolve. */
 async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
   if (navigator.serviceWorker.controller) {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -63,24 +78,24 @@ async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
     new Promise<never>((_, reject) =>
       setTimeout(
         () => reject(new Error("ServiceWorker ready timed out")),
-        SW_READY_TIMEOUT_MS,
+        SW_INSTALL_TIMEOUT_MS,
       ),
     ),
   ]);
 }
 
-/* Returns the active PushSubscription for THIS browser, or null if
-   the user hasn't opted in, the SW isn't registered yet, or the SW
-   failed to activate within SW_READY_TIMEOUT_MS.
+/* Returns the active PushSubscription for THIS browser, or null.
 
-   Falling through to null on timeout is intentional: the calling UI
-   should resolve to "off" and let the user retry by toggling. The
-   subscribe() path runs its own SW-ready wait and will surface a
-   concrete error toast if the SW is genuinely broken. */
+   Short-circuits immediately when no SW is controlling the page:
+   no controller means no subscription can exist yet (push requires
+   an active SW per spec). This lets the UI show "off" state on fresh
+   install without waiting for SW install to complete. */
 export async function getCurrentSubscription(): Promise<PushSubscription | null> {
   if (!isPushSupported()) return null;
+  if (!navigator.serviceWorker.controller) return null;
   try {
-    const reg = await getActiveRegistration();
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg?.active) return null;
     return await reg.pushManager.getSubscription();
   } catch (err) {
     console.warn("[push] getCurrentSubscription:", err);
@@ -151,7 +166,7 @@ export async function subscribe(): Promise<SubscribeResult> {
         new Promise<never>((_, reject) =>
           setTimeout(
             () => reject(new Error("pushManager.subscribe timed out")),
-            SW_READY_TIMEOUT_MS,
+            PUSH_SUBSCRIBE_TIMEOUT_MS,
           ),
         ),
       ]);

@@ -1212,6 +1212,7 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
   /* Visual subtitle for the row — explains what the toggle does in
      each state. Kept short to fit the row pattern. */
   const subtitle =
+    busy                         ? "Setting up, this takes a moment on first install." :
     state === "loading"          ? "Checking this device…" :
     state === "needs-mobile-pwa" ? "Only available on mobile when installed to your home screen." :
     state === "denied"           ? "Blocked. Re-enable in your device settings." :
