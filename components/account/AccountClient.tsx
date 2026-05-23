@@ -53,18 +53,11 @@ export interface MembershipData {
   };
 }
 
-export interface LegalData {
-  termsContent:   string;
-  privacyContent: string;
-  eulaContent:    string;
-}
-
 interface Props {
   userId:      string;
   email:       string;
   profile:     ProfileData;
   membership:  MembershipData;
-  legal:       LegalData;
   memberSince: string | null;
   badge:       string | null;
 }
@@ -1373,11 +1366,10 @@ interface AccountSectionProps {
   userId:     string;
   email:      string;
   membership: MembershipData;
-  legal:      LegalData;
   onToast:    (msg: string) => void;
 }
 
-function AccountSection({ userId, email, membership, legal, onToast }: AccountSectionProps) {
+function AccountSection({ userId, email, membership, onToast }: AccountSectionProps) {
   const [sheet,     setSheet]    = useState<"membership" | "privacy" | null>(null);
   const [pwOpen,    setPwOpen]   = useState(false);
   const [currentPw, setCurrentPw] = useState("");
@@ -1561,11 +1553,7 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
 
       {sheet === "privacy" && (
         <BottomSheet title="Terms & Legal" onClose={() => setSheet(null)}>
-          <LegalTab
-            termsContent={legal.termsContent}
-            privacyContent={legal.privacyContent}
-            eulaContent={legal.eulaContent}
-          />
+          <LegalTab />
         </BottomSheet>
       )}
     </>
@@ -1574,7 +1562,7 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
 
 /* ─── Main ───────────────────────────────────────────────────────────── */
 
-export function AccountClient({ userId, email, profile, membership, legal, memberSince, badge }: Props) {
+export function AccountClient({ userId, email, profile, membership, memberSince, badge }: Props) {
   const router = useRouter();
   const [toast,         setToast]       = useState<string | null>(null);
   const [signingOut,    setSigningOut]  = useState(false);
@@ -1690,7 +1678,6 @@ export function AccountClient({ userId, email, profile, membership, legal, membe
             userId={userId}
             email={email}
             membership={membership}
-            legal={legal}
             onToast={setToast}
           />
 
