@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import { getMembershipTier } from "@/lib/membership";
 import { AccountClient } from "@/components/account/AccountClient";
 import type { MembershipTier } from "@/lib/stripe";
-import { readFileSync } from "fs";
-import { join } from "path";
 
 export const metadata = { title: "Account — Ash & Ember Society" };
 export const dynamic  = "force-dynamic";
@@ -50,15 +48,6 @@ export default async function AccountPage() {
   /* Billing date loads client-side via /api/stripe/subscription-status
      so this page renders without waiting for the Stripe API. */
 
-  /* Read legal markdown at build/request time — never fetched from network */
-  const readLegal = (file: string) => {
-    try {
-      return readFileSync(join(process.cwd(), "content/legal", file), "utf-8");
-    } catch {
-      return "# Document\n\nContent coming soon.";
-    }
-  };
-
   return (
     <AccountClient
       userId={user.id}
@@ -84,11 +73,6 @@ export default async function AccountPage() {
           memberMonthly:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID  ?? "",
           premiumMonthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID ?? "",
         },
-      }}
-      legal={{
-        termsContent:   readLegal("terms-of-service.md"),
-        privacyContent: readLegal("privacy-policy.md"),
-        eulaContent:    readLegal("eula.md"),
       }}
     />
   );
