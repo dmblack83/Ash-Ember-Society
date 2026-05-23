@@ -84,7 +84,7 @@ export function Navbar() {
             </a>
           ))}
           <a
-            href="#join"
+            href="/signup"
             style={{
               padding:        "10px 20px",
               fontSize:       14,
@@ -157,7 +157,7 @@ export function Navbar() {
                 </a>
               ))}
               <a
-                href="#join"
+                href="/signup"
                 onClick={() => setIsMobileMenuOpen(false)}
                 style={{
                   marginTop:       12,
@@ -284,7 +284,7 @@ export function Hero() {
           style={{ gap: 14, justifyContent: "center", alignItems: "stretch" }}
         >
           <a
-            href="#join"
+            href="/signup"
             style={{
               padding:         "15px 32px",
               backgroundColor: "var(--primary)",
@@ -299,7 +299,7 @@ export function Hero() {
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
           >
-            Request Invitation
+            Join the Society
           </a>
           <a
             href="#philosophy"
@@ -869,59 +869,27 @@ export function CallToAction() {
             <em style={{ fontStyle: "italic", color: "rgba(193,120,23,0.9)" }}>Awaits</em>
           </h2>
           <p style={{ color: "var(--muted-foreground)", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 300, margin: "0 auto 40px", maxWidth: 480 }}>
-            Join the waitlist today to secure early access and lock in founder
-            pricing before our public launch.
+            Join the early access Beta and lock in special pricing.
           </p>
 
-          {/* Form: stacks on mobile, side-by-side on sm+ */}
-          <form
-            onSubmit={(e) => e.preventDefault()}
-            className="flex flex-col sm:flex-row"
-            style={{ gap: 12, maxWidth: 520, margin: "0 auto" }}
+          <a
+            href="/signup"
+            style={{
+              display:         "inline-block",
+              padding:         "15px 40px",
+              backgroundColor: "var(--primary)",
+              color:           "#fff",
+              fontWeight:      500,
+              textDecoration:  "none",
+              borderRadius:    "2px",
+              fontSize:        15,
+              transition:      "background-color 0.3s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
           >
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              required
-              style={{
-                flex:            "1 1 auto",
-                backgroundColor: "var(--card)",
-                border:          "1px solid rgba(255,255,255,0.1)",
-                color:           "var(--foreground)",
-                padding:         "15px 20px",
-                borderRadius:    "2px",
-                fontSize:        16,
-                outline:         "none",
-                transition:      "border-color 0.2s",
-                minWidth:        0,
-              }}
-              onFocus={(e) => (e.currentTarget.style.borderColor = "rgba(193,120,23,0.5)")}
-              onBlur={(e)  => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
-            />
-            <button
-              type="submit"
-              style={{
-                flex:            "0 0 auto",
-                padding:         "15px 28px",
-                backgroundColor: "var(--primary)",
-                color:           "#fff",
-                fontWeight:      500,
-                borderRadius:    "2px",
-                border:          "none",
-                cursor:          "pointer",
-                fontSize:        15,
-                transition:      "background-color 0.3s",
-                whiteSpace:      "nowrap",
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "var(--gold)")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "var(--primary)")}
-            >
-              Request Access
-            </button>
-          </form>
-          <p style={{ fontSize: 12, color: "rgba(166,144,128,0.5)", marginTop: 14 }}>
-            By joining, you agree to our terms of service. No spam, ever.
-          </p>
+            Join the Society
+          </a>
         </motion.div>
       </div>
     </section>
