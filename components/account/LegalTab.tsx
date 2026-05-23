@@ -142,12 +142,13 @@ function LegalRow({ label, onTap }: { label: string; onTap: () => void }) {
    ------------------------------------------------------------------ */
 
 interface Props {
-  termsContent: string;
-  eulaContent:  string;
+  termsContent:   string;
+  privacyContent: string;
+  eulaContent:    string;
 }
 
-export function LegalTab({ termsContent, eulaContent }: Props) {
-  const [open, setOpen] = useState<"terms" | "eula" | null>(null);
+export function LegalTab({ termsContent, privacyContent, eulaContent }: Props) {
+  const [open, setOpen] = useState<"terms" | "privacy" | "eula" | null>(null);
 
   return (
     <div className="animate-fade-in pb-10">
@@ -155,23 +156,16 @@ export function LegalTab({ termsContent, eulaContent }: Props) {
         className="rounded-2xl overflow-hidden"
         style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
       >
-        <LegalRow
-          label="Terms of Service"
-          onTap={() => setOpen("terms")}
-        />
+        <LegalRow label="Terms of Service"            onTap={() => setOpen("terms")} />
         <div style={{ height: 1, backgroundColor: "var(--border)" }} />
-        <LegalRow
-          label="End User License Agreement"
-          onTap={() => setOpen("eula")}
-        />
+        <LegalRow label="Privacy Policy"              onTap={() => setOpen("privacy")} />
+        <div style={{ height: 1, backgroundColor: "var(--border)" }} />
+        <LegalRow label="End User License Agreement"  onTap={() => setOpen("eula")} />
       </div>
 
-      {open === "terms" && (
-        <LegalModal title="Terms of Service" content={termsContent} onClose={() => setOpen(null)} />
-      )}
-      {open === "eula" && (
-        <LegalModal title="End User License Agreement" content={eulaContent} onClose={() => setOpen(null)} />
-      )}
+      {open === "terms"   && <LegalModal title="Terms of Service"            content={termsContent}   onClose={() => setOpen(null)} />}
+      {open === "privacy" && <LegalModal title="Privacy Policy"              content={privacyContent} onClose={() => setOpen(null)} />}
+      {open === "eula"    && <LegalModal title="End User License Agreement"  content={eulaContent}    onClose={() => setOpen(null)} />}
     </div>
   );
 }
