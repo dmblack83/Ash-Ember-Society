@@ -1,13 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-
 function LegalRow({ label, href }: { label: string; href: string }) {
-  const router = useRouter();
   return (
     <button
       type="button"
-      onClick={() => router.push(href)}
+      onClick={() => window.open(href, "_blank", "noopener,noreferrer")}
       className="w-full flex items-center justify-between px-4 py-4 transition-colors active:opacity-70"
       style={{
         touchAction: "manipulation",
