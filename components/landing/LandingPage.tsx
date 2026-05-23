@@ -22,7 +22,7 @@ export function Navbar() {
   const navLinks = [
     { name: "About",      href: "#philosophy" },
     { name: "Features",   href: "#features"   },
-    { name: "Membership", href: "#membership" },
+    // { name: "Membership", href: "#membership" }, // hidden — section not live yet
     // { name: "Community",  href: "#community"  }, // hidden — coming soon
   ];
 
