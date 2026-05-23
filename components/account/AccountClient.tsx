@@ -54,8 +54,9 @@ export interface MembershipData {
 }
 
 export interface LegalData {
-  termsContent: string;
-  eulaContent:  string;
+  termsContent:   string;
+  privacyContent: string;
+  eulaContent:    string;
 }
 
 interface Props {
@@ -1491,9 +1492,9 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
 
           <RowDivider />
 
-          {/* Privacy */}
+          {/* Terms */}
           <button type="button" onClick={() => setSheet("privacy")} style={rowBase}>
-            <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>Privacy</p>
+            <p style={{ fontSize: 14, fontWeight: 500, color: "var(--foreground)" }}>Terms</p>
             <ChevronRight />
           </button>
 
@@ -1559,8 +1560,12 @@ function AccountSection({ userId, email, membership, legal, onToast }: AccountSe
       )}
 
       {sheet === "privacy" && (
-        <BottomSheet title="Privacy & Legal" onClose={() => setSheet(null)}>
-          <LegalTab termsContent={legal.termsContent} eulaContent={legal.eulaContent} />
+        <BottomSheet title="Terms & Legal" onClose={() => setSheet(null)}>
+          <LegalTab
+            termsContent={legal.termsContent}
+            privacyContent={legal.privacyContent}
+            eulaContent={legal.eulaContent}
+          />
         </BottomSheet>
       )}
     </>

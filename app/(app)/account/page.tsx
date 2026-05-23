@@ -86,8 +86,9 @@ export default async function AccountPage() {
         },
       }}
       legal={{
-        termsContent: readLegal("terms-of-service.md"),
-        eulaContent:  readLegal("eula.md"),
+        termsContent:   readLegal("terms-of-service.md"),
+        privacyContent: readLegal("privacy-policy.md"),
+        eulaContent:    readLegal("eula.md"),
       }}
     />
   );
