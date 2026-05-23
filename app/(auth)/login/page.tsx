@@ -3,6 +3,7 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
@@ -82,16 +83,18 @@ function LoginForm() {
             ? "Invalid email or password. Please try again."
             : authError.message
         );
+        setLoading(false);
         return;
       }
 
+      // Keep loading=true through navigation — component unmounts before
+      // setLoading(false) could fire, so the button never flips back to idle.
       // router.refresh() flushes the server-component cache so the proxy
       // sees the new session cookie on the next navigation.
       router.refresh();
       router.push(next);
     } catch {
       setError("Something went wrong. Please check your connection and try again.");
-    } finally {
       setLoading(false);
     }
   }
@@ -178,9 +181,10 @@ function LoginForm() {
 
           <button
             type="submit"
-            className="btn btn-primary w-full mt-1"
+            className="btn btn-primary w-full mt-1 flex items-center justify-center gap-2"
             disabled={loading}
           >
+            {loading && <Loader2 size={16} className="animate-spin" />}
             {loading ? "Signing in…" : "Log in"}
           </button>
         </form>
