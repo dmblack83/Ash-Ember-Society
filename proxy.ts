@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
   "/manifest.webmanifest",
   "/privacy",       // referenced by Google OAuth consent screen + landing footer
   "/terms",         // referenced by Google OAuth consent screen + landing footer
+  "/eula",          // end user license agreement — public legal doc
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
   "/api/cron",      // protected by CRON_SECRET header, not session
@@ -167,7 +168,8 @@ export async function proxy(request: NextRequest) {
       pathname !== "/onboarding" &&
       !pathname.startsWith("/onboarding/") &&
       pathname !== "/privacy" &&
-      pathname !== "/terms"
+      pathname !== "/terms" &&
+      pathname !== "/eula"
     ) {
       const url = request.nextUrl.clone();
       url.pathname = "/onboarding";
