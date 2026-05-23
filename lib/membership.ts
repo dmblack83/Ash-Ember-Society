@@ -46,7 +46,7 @@ const FEATURE_TIER: Record<Feature, MembershipTier> = {
   burn_report:        "free",
   stats:              "free",
   unlimited_humidor:  "member",
-  community_posting:  "member",
+  community_posting:  "free",
   advanced_stats:     "premium",
 };
 

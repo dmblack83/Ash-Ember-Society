@@ -26,7 +26,7 @@ const FEATURES: Feature[] = [
   { label: "Burn Reports / month",  free: "5",           member: "15",          premium: "Unlimited" },
   { label: "Cigar Catalog & Search", free: "Full",       member: "Full",        premium: "Full"      },
   { label: "Smoke Logs",             free: "Full",       member: "Full",        premium: "Full"      },
-  { label: "Lounge Access",          free: "Read-only",  member: "Posts + comments", premium: "Posts + comments" },
+  { label: "Lounge Access",          free: "Full",       member: "Full",             premium: "Full"             },
 ];
 
 function FeatureCell({ value }: { value: string }) {
