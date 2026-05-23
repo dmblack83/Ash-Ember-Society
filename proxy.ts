@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/privacy",       // referenced by Google OAuth consent screen + landing footer
   "/terms",         // referenced by Google OAuth consent screen + landing footer
   "/eula",          // end user license agreement — public legal doc
+  "/api/stripe/webhook", // protected by Stripe signature, not session
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
   "/api/cron",      // protected by CRON_SECRET header, not session
