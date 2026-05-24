@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
 import { createClient }             from "@/utils/supabase/server";
 import { createServiceClientFor }   from "@/utils/supabase/service";
-import { checkImageSafety }         from "@/lib/vision-safety";
 
 const ALLOWED_FOLDERS = ["forum-posts", "burn-reports"] as const;
 type Folder = (typeof ALLOWED_FOLDERS)[number];
@@ -11,19 +10,6 @@ type Folder = (typeof ALLOWED_FOLDERS)[number];
  * POST /api/upload/image
  *
  * Server-side image upload for lounge posts and burn reports.
- *
- * Forum posts pass through Google Vision SafeSearch (strict) before
- * writing to storage — those go on the public lounge feed.
- *
- * Burn-report uploads do NOT go through Vision. SafeSearch returns
- * VERY_LIKELY for adult and racy on legitimate cigar close-ups
- * (skin in frame), even at multi-channel agreement, so the gate was
- * blocking real users on real cigar photos. Burn reports are personal
- * smoke-log entries (the user authored the cigar entry, owns the
- * humidor item, and is logged in); when shared to the lounge they go
- * through a separate flow that re-applies the strict policy. Skipping
- * Vision here trades a low-value automated gate for letting real
- * users actually log their smokes.
  *
  * Body (multipart/form-data):
  *   file   — the image file
@@ -72,33 +58,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Image must be under 10 MB" }, { status: 400 });
   }
 
-  const bytes  = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString("base64");
+  const bytes = await file.arrayBuffer();
 
-  /*
-   * 3. Content moderation.
-   *
-   * Forum posts: strict Vision SafeSearch (public lounge feed).
-   * Burn reports: skipped — Vision is unreliable on cigar close-ups
-   *   even at multi-channel agreement. See route-level jsdoc above.
-   */
-  if (folder === "forum-posts") {
-    try {
-      const safety = await checkImageSafety(base64, "strict");
-      if (!safety.passed) {
-        return NextResponse.json(
-          { error: safety.reason ?? "Image did not pass content moderation." },
-          { status: 400 }
-        );
-      }
-    } catch (err) {
-      // Vision API unavailable — log and allow the upload rather than
-      // blocking all photo posts while the external service is down.
-      console.warn("[upload/image] Vision SafeSearch unavailable, skipping moderation:", err);
-    }
-  }
-
-  // 4. Upload to post-images bucket
+  // 3. Upload to post-images bucket
   const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXTS.has(ext)) {

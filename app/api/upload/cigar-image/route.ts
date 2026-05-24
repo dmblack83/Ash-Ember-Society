@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
 import { createServiceClientFor }   from "@/utils/supabase/service";
-import { checkImageSafety }         from "@/lib/vision-safety";
 
 /**
  * POST /api/upload/cigar-image
  *
- * Accepts a user-submitted cigar photo. Runs content moderation,
- * stores the image in the private cigar-photos-pending bucket,
- * and inserts a cigar_image_submissions record with status=pending.
+ * Accepts a user-submitted cigar photo, stores it in the private
+ * cigar-photos-pending bucket, and inserts a cigar_image_submissions
+ * record with status=pending.
  *
  * Body (multipart/form-data):
  *   file     — the image file
@@ -47,31 +46,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Image must be under 10 MB" }, { status: 400 });
   }
 
-  const bytes  = await file.arrayBuffer();
-  const base64 = Buffer.from(bytes).toString("base64");
-
-  // 3. Content moderation
-  try {
-    const safety = await checkImageSafety(base64, "strict");
-    if (!safety.passed) {
-      return NextResponse.json(
-        { error: safety.reason ?? "Image did not pass content moderation." },
-        { status: 400 }
-      );
-    }
-  } catch {
-    return NextResponse.json(
-      { error: "Content moderation unavailable. Please try again." },
-      { status: 503 }
-    );
-  }
+  const bytes = await file.arrayBuffer();
 
   const admin = createServiceClientFor(
     "api/upload/cigar-image",
     "cigar-photos-pending bucket write + cigar_image_submissions row; user.id from auth"
   );
 
-  // 4. Check for existing pending submission on this cigar
+  // 3. Check for existing pending submission on this cigar
   const { data: existing } = await admin
     .from("cigar_image_submissions")
     .select("id")
@@ -86,7 +68,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // 5. Upload to cigar-photos-pending
+  // 4. Upload to cigar-photos-pending
   const ALLOWED_EXTS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!ALLOWED_EXTS.has(ext)) {
@@ -102,7 +84,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  // 6. Insert submission record
+  // 5. Insert submission record
   const { data: submission, error: dbError } = await admin
     .from("cigar_image_submissions")
     .insert({
