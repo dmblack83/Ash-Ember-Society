@@ -32,6 +32,7 @@ export interface ProfileLite {
   city:            string | null;
   zip_code:        string | null;
   badge:           string | null;
+  assigned_badges: string[] | null;
   membership_tier: MembershipTier | null;
   is_admin:        boolean | null;
 }
@@ -40,7 +41,7 @@ export const getProfileLite = cache(async (userId: string): Promise<ProfileLite 
   const supabase = await createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("display_name, first_name, city, zip_code, badge, membership_tier, is_admin")
+    .select("display_name, first_name, city, zip_code, badge, assigned_badges, membership_tier, is_admin")
     .eq("id", userId)
     .single();
   return data ?? null;

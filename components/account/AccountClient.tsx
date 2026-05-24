@@ -54,12 +54,13 @@ export interface MembershipData {
 }
 
 interface Props {
-  userId:      string;
-  email:       string;
-  profile:     ProfileData;
-  membership:  MembershipData;
-  memberSince: string | null;
-  badge:       string | null;
+  userId:         string;
+  email:          string;
+  profile:        ProfileData;
+  membership:     MembershipData;
+  memberSince:    string | null;
+  badge:          string | null;
+  assignedBadges: string[];
 }
 
 /* ─── Helpers ────────────────────────────────────────────────────────── */
@@ -376,16 +377,17 @@ function BottomSheet({
 
 interface AvatarProps {
   userId:    string;
-  avatarUrl: string | null;
-  initials:  string;
-  bgColor:   string;
-  badge:     string | null;
-  tier:      MembershipTier;
-  onUpdated: (url: string) => void;
-  onToast:   (msg: string) => void;
+  avatarUrl:      string | null;
+  initials:       string;
+  bgColor:        string;
+  badge:          string | null;
+  tier:           MembershipTier;
+  assignedBadges: string[];
+  onUpdated:      (url: string) => void;
+  onToast:        (msg: string) => void;
 }
 
-function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, onUpdated, onToast }: AvatarProps) {
+function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, assignedBadges, onUpdated, onToast }: AvatarProps) {
   const router    = useRouter();
   const fileRef   = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -423,7 +425,7 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, onUpd
     }
   }, [onUpdated, onToast, router]);
 
-  const resolvedBadge = resolveBadge(badge, tier);
+  const resolvedBadge = resolveBadge(badge, tier, assignedBadges);
 
   return (
     <>
@@ -485,19 +487,20 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, onUpd
 /* ─── Profile Card ───────────────────────────────────────────────────── */
 
 interface ProfileCardProps {
-  userId:      string;
-  initialName: string | null;
-  tier:        MembershipTier;
-  badge:       string | null;
-  memberSince: string | null;
-  initials:    string;
-  bgColor:     string;
-  avatarUrl:   string | null;
-  onToast:     (msg: string) => void;
+  userId:         string;
+  initialName:    string | null;
+  tier:           MembershipTier;
+  badge:          string | null;
+  assignedBadges: string[];
+  memberSince:    string | null;
+  initials:       string;
+  bgColor:        string;
+  avatarUrl:      string | null;
+  onToast:        (msg: string) => void;
 }
 
 function ProfileCard({
-  userId, initialName, tier, badge, memberSince,
+  userId, initialName, tier, badge, assignedBadges, memberSince,
   initials, bgColor, avatarUrl: initialAvatarUrl, onToast,
 }: ProfileCardProps) {
   const [avatarUrl,  setAvatarUrl]  = useState(initialAvatarUrl);
@@ -572,6 +575,7 @@ function ProfileCard({
           bgColor={bgColor}
           badge={badge}
           tier={tier}
+          assignedBadges={assignedBadges}
           onUpdated={setAvatarUrl}
           onToast={onToast}
         />
@@ -685,21 +689,23 @@ function ProfileCard({
 /* ─── Badge Picker ───────────────────────────────────────────────────── */
 
 interface BadgePickerProps {
-  userId:        string;
-  tier:          MembershipTier;
-  badgeCol:      string | null;
-  initials:      string;
-  bgColor:       string;
-  avatarUrl:     string | null;
-  onToast:       (msg: string) => void;
-  onBadgeChange: (newBadge: string | null) => void;
+  userId:         string;
+  tier:           MembershipTier;
+  badgeCol:       string | null;
+  assignedBadges: string[];
+  initials:       string;
+  bgColor:        string;
+  avatarUrl:      string | null;
+  onToast:        (msg: string) => void;
+  onBadgeChange:  (newBadge: string | null) => void;
 }
 
-function BadgePicker({ userId, tier, badgeCol, initials, bgColor, avatarUrl, onToast, onBadgeChange }: BadgePickerProps) {
+function BadgePicker({ userId, tier, badgeCol, assignedBadges, initials, bgColor, avatarUrl, onToast, onBadgeChange }: BadgePickerProps) {
   const [saving, setSaving] = useState(false);
-  const options         = getBadgeOptions(tier, badgeCol);
-  // Active = the badge type currently displayed on this user's avatar
-  const activeBadgeType = resolveBadge(badgeCol, tier);
+  const options         = getBadgeOptions(tier, badgeCol, assignedBadges);
+  // Active = the badge type currently displayed on this user's avatar.
+  // Guard against displaying an admin badge that was revoked.
+  const activeBadgeType = resolveBadge(badgeCol, tier, assignedBadges);
 
   async function select(opt: typeof options[number]) {
     if (opt.locked) return;
@@ -1562,7 +1568,7 @@ function AccountSection({ userId, email, membership, onToast }: AccountSectionPr
 
 /* ─── Main ───────────────────────────────────────────────────────────── */
 
-export function AccountClient({ userId, email, profile, membership, memberSince, badge }: Props) {
+export function AccountClient({ userId, email, profile, membership, memberSince, badge, assignedBadges }: Props) {
   const router = useRouter();
   const [toast,         setToast]       = useState<string | null>(null);
   const [signingOut,    setSigningOut]  = useState(false);
@@ -1647,6 +1653,7 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
             initialName={profile.display_name}
             tier={membership.currentTier}
             badge={currentBadge}
+            assignedBadges={assignedBadges}
             memberSince={memberSince}
             initials={initials}
             bgColor={bgColor}
@@ -1658,6 +1665,7 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
             userId={userId}
             tier={membership.currentTier}
             badgeCol={currentBadge}
+            assignedBadges={assignedBadges}
             initials={initials}
             bgColor={bgColor}
             avatarUrl={profile.avatar_url}

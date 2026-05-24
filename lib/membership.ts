@@ -22,8 +22,10 @@ import type { MembershipTier } from "@/lib/stripe";
    ------------------------------------------------------------------ */
 
 export interface MembershipProfile {
-  membership_tier: MembershipTier | null;
-  badge?:          string | null;
+  membership_tier:  MembershipTier | null;
+  badge?:           string | null;
+  /** Admin-assigned roles the user owns. Durable across badge display changes. */
+  assigned_badges?: string[] | null;
 }
 
 /* ------------------------------------------------------------------
@@ -65,6 +67,11 @@ const TIER_RANK: Record<MembershipTier, number> = {
  * if the profile has no tier set (e.g. brand-new sign-up).
  */
 export function getMembershipTier(profile: MembershipProfile | null): MembershipTier {
+  // Permission overrides read assigned_badges, NOT badge — display
+  // choice (badge column) must never affect access. Falls back to
+  // legacy badge check for rows not yet backfilled with assigned_badges.
+  const assigned = profile?.assigned_badges ?? [];
+  if (assigned.includes("founder") || assigned.includes("beta_tester")) return "premium";
   if (profile?.badge === "founder" || profile?.badge === "beta_tester") return "premium";
   return profile?.membership_tier ?? "free";
 }

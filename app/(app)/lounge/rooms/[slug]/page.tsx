@@ -183,7 +183,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
   /* ---- User membership tier ---- */
   const { data: profile } = await supabase
     .from("profiles")
-    .select("membership_tier, badge")
+    .select("membership_tier, badge, assigned_badges")
     .eq("id", user.id)
     .single();
 
