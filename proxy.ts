@@ -98,18 +98,33 @@ export async function proxy(request: NextRequest) {
    */
   const AUTH_TIMEOUT_MS = 5000;
   type AuthResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
+
+  // Diagnostic: track what Supabase eventually returns even after timeout fires.
+  // This tells us whether it's genuinely slow (eventually returns a user/error)
+  // or truly hung. Check Vercel logs for [proxy:late-response] entries.
+  let timedOut = false;
+  const diagStart = Date.now();
+  const supabasePromise = supabase.auth.getUser().then((result) => {
+    if (timedOut) {
+      console.warn("[proxy:late-response]", {
+        pathname: request.nextUrl.pathname,
+        latencyMs: Date.now() - diagStart,
+        hasUser: !!result.data?.user,
+        error: result.error ? `${result.error.name}: ${result.error.message}` : null,
+      });
+    }
+    return result;
+  });
+
   const authResult = await Promise.race<AuthResult>([
-    supabase.auth.getUser(),
+    supabasePromise,
     new Promise<AuthResult>((resolve) =>
       setTimeout(() => {
+        timedOut = true;
         console.warn(
           `[proxy] supabase.auth.getUser() exceeded ${AUTH_TIMEOUT_MS}ms; ` +
-          `treating request as unauthenticated.`,
+          `treating request as unauthenticated. path=${request.nextUrl.pathname}`,
         );
-        // Cast: the timeout branch only needs to satisfy the
-        // shape getUser() returns on no-session. error is filled
-        // so downstream code that branches on it stays consistent
-        // with the real "no user" path.
         resolve({
           data: { user: null },
           error: { name: "AuthTimeout", message: "Auth lookup timed out" },
