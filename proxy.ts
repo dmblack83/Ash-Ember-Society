@@ -96,7 +96,7 @@ export async function proxy(request: NextRequest) {
    * The `user_metadata` shape we read below ([] / Record) survives
    * a null user via the `!user` guards in branches 1, 1b, and 2.
    */
-  const AUTH_TIMEOUT_MS = 3000;
+  const AUTH_TIMEOUT_MS = 5000;
   type AuthResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
   const authResult = await Promise.race<AuthResult>([
     supabase.auth.getUser(),
@@ -122,7 +122,16 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // ── 1. Unauthenticated → protected route ──────────────────────────────
+  // Only redirect HTML navigation requests to /login — API calls and RSC
+  // fetches (Accept: text/x-component, application/json, */*) return 401
+  // instead of a redirect so an auth timeout can't interrupt an in-flight
+  // client-side action (e.g. posting to the lounge).
   if (!user && !isPublic(pathname)) {
+    const accept = request.headers.get("accept") ?? "";
+    const isNavigation = accept.includes("text/html");
+    if (!isNavigation) {
+      return new NextResponse(null, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
