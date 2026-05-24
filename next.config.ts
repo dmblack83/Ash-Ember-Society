@@ -96,6 +96,22 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   /*
+   * @google-cloud/vision brings a full gRPC stack (grpc-js, google-gax,
+   * protobufjs, google-auth-library) that was being bundled into the
+   * shared [root-of-server] chunk — ~3MB parsed on every cold start, even
+   * for page renders that never call Vision. Marking these as external
+   * loads them from node_modules at runtime, scoped to the two API routes
+   * that actually use them (/api/vision/analyze, /api/avatar).
+   */
+  serverExternalPackages: [
+    "@google-cloud/vision",
+    "@grpc/grpc-js",
+    "@grpc/proto-loader",
+    "google-gax",
+    "google-auth-library",
+    "protobufjs",
+  ],
+  /*
    * Tree-shake well-known barrel-export packages so unused exports
    * don't get pulled into client bundles.
    *
