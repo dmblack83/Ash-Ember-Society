@@ -91,11 +91,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    } catch {
-      return NextResponse.json(
-        { error: "Content moderation unavailable. Please try again." },
-        { status: 503 }
-      );
+    } catch (err) {
+      // Vision API unavailable — log and allow the upload rather than
+      // blocking all photo posts while the external service is down.
+      console.warn("[upload/image] Vision SafeSearch unavailable, skipping moderation:", err);
     }
   }
 
