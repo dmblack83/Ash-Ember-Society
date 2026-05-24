@@ -51,9 +51,11 @@ interface FetchArgs {
   isFeedback: boolean;
   pageIndex:  number;
   pageSize:   number;
-  /* "all"  → every post in the category (default)
-     "mine" → only posts authored by `userId` */
-  filter?:    "all" | "mine";
+  /* "all"    → every post in the category (default)
+     "mine"   → only posts authored by `userId`
+     "open"   → feedback: only open posts
+     "closed" → feedback: only closed posts */
+  filter?:    "all" | "mine" | "open" | "closed";
 }
 
 export async function fetchCategoryFeedPage({
@@ -71,20 +73,16 @@ export async function fetchCategoryFeedPage({
   let postsQuery = supabase
     .from("forum_posts")
     .select(
-      "id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, " +
+      "id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, status, " +
       "forum_post_likes(count), forum_comments(count)"
     )
     .eq("category_id", categoryId)
     .eq("is_system",   false)
     .neq("is_pinned",  true);
 
-  /* "mine" filter scopes the result to the viewer's own posts. The
-     RLS policy on forum_posts already allows reading the user's own
-     rows; this just narrows the query so we don't pull others' posts
-     and discard them client-side. */
-  if (filter === "mine") {
-    postsQuery = postsQuery.eq("user_id", userId);
-  }
+  if (filter === "mine")   postsQuery = postsQuery.eq("user_id", userId);
+  if (filter === "open")   postsQuery = postsQuery.eq("status",  "open");
+  if (filter === "closed") postsQuery = postsQuery.eq("status",  "closed");
 
   const { data: rawPosts, error: postsError } = await postsQuery
     .order("created_at", { ascending: false })
@@ -102,6 +100,7 @@ export async function fetchCategoryFeedPage({
     is_locked:         boolean;
     is_system:         boolean;
     smoke_log_id:      string | null;
+    status:            string | null;
     forum_post_likes:  { count: number }[];
     forum_comments:    { count: number }[];
   };
@@ -232,6 +231,7 @@ export async function fetchCategoryFeedPage({
       upvotes:       v.upvotes,
       downvotes:     v.downvotes,
       user_vote:     v.userVote,
+      status:        (p.status === "closed" ? "closed" : "open") as "open" | "closed",
     };
   });
 

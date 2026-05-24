@@ -26,11 +26,7 @@ import { RefreshButton }     from "@/components/ui/RefreshButton";
 
 const PAGE_SIZE = 15;
 
-/* Segmented control filter — "all" shows every post in the category,
-   "mine" scopes to the viewer's authored posts only. Defaults to
-   "all". Future: extend the union to include "following" when the
-   follow-user feature lands. */
-type PostFilter = "all" | "mine";
+type PostFilter = "all" | "mine" | "open" | "closed";
 
 interface CategoryInfo {
   id:          string;
@@ -57,6 +53,7 @@ interface Props {
   initialLikedIds:    string[];
   userId:             string;
   membershipTier:     string;
+  isFounder?:         boolean;
   hasMore:            boolean;
 }
 
@@ -64,15 +61,12 @@ interface Props {
 
 export function CategoryFeed({
   category, allCategories, initialPosts, initialPinnedPosts, initialLikedIds,
-  userId, membershipTier, hasMore: initialHasMore,
+  userId, membershipTier, isFounder = false, hasMore: initialHasMore,
 }: Props) {
   const router = useRouter();
 
-  /* Active filter for the post list. The server-rendered initial page
-     is always the "all" view, so toggling to "mine" forces a fresh
-     fetch (different SWR key). Toggling back to "all" reuses the
-     seeded cache instantly. */
-  const [postFilter, setPostFilter] = useState<PostFilter>("all");
+  const defaultFilter: PostFilter = category.is_feedback ? "open" : "all";
+  const [postFilter, setPostFilter] = useState<PostFilter>(defaultFilter);
 
   /*
    * Posts list — paginated, infinite-scroll. useSWRInfinite keeps
@@ -122,12 +116,10 @@ export function CategoryFeed({
         filter:     filter as PostFilter,
       }),
     {
-      /* fallbackData applies to the initial key only. We pass the
-         server-rendered seed when the filter is "all" (matches the
-         server's query); switching to "mine" produces a different
-         key with no fallback, so SWR fetches. */
-      fallbackData:        postFilter === "all" ? [seedPage] : undefined,
-      revalidateOnMount:   postFilter !== "all",
+      /* fallbackData seeds the initial filter (matches server render).
+         Any other filter produces a different key — SWR fetches fresh. */
+      fallbackData:        postFilter === defaultFilter ? [seedPage] : undefined,
+      revalidateOnMount:   postFilter !== defaultFilter,
       revalidateFirstPage: false,
     },
   );
@@ -189,6 +181,14 @@ export function CategoryFeed({
       { revalidate: false },
     );
     setPinnedPosts((prev) => prev.filter((p) => p.id !== postId));
+  }
+
+  /* Remove closed post from "open" filter view — same pattern as delete. */
+  function handleClosePost(postId: string) {
+    mutateFeed(
+      pages.map((page) => ({ ...page, posts: page.posts.filter((p) => p.id !== postId) })),
+      { revalidate: false },
+    );
   }
 
   /* Advance pagination by one page. useSWRInfinite handles the fetch
@@ -298,16 +298,17 @@ export function CategoryFeed({
               gap:             2,
             }}
           >
-            <FilterPill
-              active={postFilter === "all"}
-              onClick={() => setPostFilter("all")}
-              label="All"
-            />
-            <FilterPill
-              active={postFilter === "mine"}
-              onClick={() => setPostFilter("mine")}
-              label="My Posts"
-            />
+            {category.is_feedback ? (
+              <>
+                <FilterPill active={postFilter === "open"}   onClick={() => setPostFilter("open")}   label="Open" />
+                <FilterPill active={postFilter === "closed"} onClick={() => setPostFilter("closed")} label="Closed" />
+              </>
+            ) : (
+              <>
+                <FilterPill active={postFilter === "all"}  onClick={() => setPostFilter("all")}  label="All" />
+                <FilterPill active={postFilter === "mine"} onClick={() => setPostFilter("mine")} label="My Posts" />
+              </>
+            )}
           </div>
           <RefreshButton
             style={{
@@ -360,7 +361,9 @@ export function CategoryFeed({
               initialLiked={likedIds.has(post.id)}
               userId={userId}
               isFeedback={category.is_feedback}
+              isFounder={isFounder}
               onDelete={handleDeletePost}
+              onClose={category.is_feedback ? handleClosePost : undefined}
               /* Welcome/Introductions, General Discussion, and Burn
                  Reports all surface as scannable previews — subject +
                  first ~4 lines (text), or the BurnReportPreviewCard

@@ -51,18 +51,23 @@ export default async function LoungeCategoryPage({ params }: Props) {
   if (!category) notFound();
 
   /* ---- First page of posts (excluding pinned, fetched separately) ---- */
+  const postSelect = "id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, status, forum_post_likes(count), forum_comments(count)";
+
+  let mainQ = supabase
+    .from("forum_posts")
+    .select(postSelect)
+    .eq("category_id", category.id)
+    .eq("is_system", false)
+    .neq("is_pinned", true)
+    .order("created_at", { ascending: false })
+    .limit(PAGE_SIZE);
+  if (category.is_feedback) mainQ = mainQ.eq("status", "open");
+
   const [{ data: rawPosts }, { data: rawPinned }] = await Promise.all([
+    mainQ,
     supabase
       .from("forum_posts")
-      .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
-      .eq("category_id", category.id)
-      .eq("is_system", false)
-      .neq("is_pinned", true)
-      .order("created_at", { ascending: false })
-      .limit(PAGE_SIZE),
-    supabase
-      .from("forum_posts")
-      .select("id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, forum_post_likes(count), forum_comments(count)")
+      .select(postSelect)
       .eq("category_id", category.id)
       .eq("is_system", false)
       .eq("is_pinned", true)
@@ -180,12 +185,14 @@ export default async function LoungeCategoryPage({ params }: Props) {
     }
   }
 
-  /* ---- User membership tier ---- */
+  /* ---- User membership tier + founder status ---- */
   const { data: profile } = await supabase
     .from("profiles")
     .select("membership_tier, badge, assigned_badges")
     .eq("id", user.id)
     .single();
+
+  const isFounder = (profile?.assigned_badges ?? []).includes("founder");
 
   /* ---- Normalize posts ---- */
   function normalize(p: any): PostItem {
@@ -206,6 +213,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
       upvotes:       v.upvotes,
       downvotes:     v.downvotes,
       user_vote:     v.userVote,
+      status:        (p.status === "closed" ? "closed" : "open") as "open" | "closed",
     };
   }
 
@@ -228,6 +236,7 @@ export default async function LoungeCategoryPage({ params }: Props) {
       initialLikedIds={[...likedSet]}
       userId={user.id}
       membershipTier={getMembershipTier(profile)}
+      isFounder={isFounder}
       hasMore={posts.length >= PAGE_SIZE}
     />
   );
