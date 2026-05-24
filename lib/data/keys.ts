@@ -40,7 +40,7 @@ export const keyFor = {
     categoryId: string,
     page:       number,
     userId:     string,
-    filter:     "all" | "mine" = "all",
+    filter:     "all" | "mine" | "open" | "closed" = "all",
   ) => ["lounge-feed", categoryId, page, userId, filter] as const,
   loungePost:   (postId: string) => ["lounge-post", postId] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,

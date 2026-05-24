@@ -43,6 +43,7 @@ export interface PostItem {
   upvotes:       number;
   downvotes:     number;
   user_vote:     0 | 1 | -1;
+  status:        "open" | "closed";
 }
 
 interface Comment {
@@ -65,7 +66,9 @@ interface Props {
   initialLiked: boolean;
   userId:       string;
   isFeedback:   boolean;
+  isFounder?:   boolean;
   onDelete:     (postId: string) => void;
+  onClose?:     (postId: string) => void;
   /* Preview mode: feed surfaces only the subject + first ~4 lines of
      body (or the BurnReportPreviewCard for burn-report posts), the
      whole card links to the detail page, no inline comments or
@@ -350,7 +353,7 @@ const CommentNode = memo(function CommentNode({
 /* InlinePost                                                            */
 /* ------------------------------------------------------------------ */
 
-export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, previewMode = false }: Props) {
+export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder = false, onDelete, onClose, previewMode = false }: Props) {
   /* Two preview shapes:
      - isTextPreview: previewMode + no smoke_log → title + clamped body
      - previewMode + smoke_log → BurnReportPreviewCard (no modal)
@@ -375,6 +378,8 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
   const [commentError,       setCommentError]       = useState<string | null>(null);
   const [showDeletePost,     setShowDeletePost]     = useState(false);
   const [deletingPost,       setDeletingPost]       = useState(false);
+  const [postStatus,         setPostStatus]         = useState<"open" | "closed">(post.status);
+  const [closingPost,        setClosingPost]        = useState(false);
   const [mounted,            setMounted]            = useState(false);
 
   /* Escape-key dismissal for the inline delete-post confirmation.
@@ -519,6 +524,17 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
     onDelete(post.id);
   }
 
+  async function handleClosePost() {
+    if (closingPost) return;
+    setClosingPost(true);
+    const res = await fetch(`/api/lounge/posts/${post.id}/close`, { method: "PATCH" });
+    setClosingPost(false);
+    if (res.ok) {
+      setPostStatus("closed");
+      onClose?.(post.id);
+    }
+  }
+
   const topLevel  = (comments ?? []).filter((c) => c.parent_comment_id === null);
   const repliesOf = (parentId: string) => (comments ?? []).filter((c) => c.parent_comment_id === parentId);
 
@@ -579,6 +595,29 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, onDelete, p
                 style={{ background: "rgba(193,120,23,0.15)", color: "var(--primary)", border: "1px solid rgba(193,120,23,0.25)" }}>
                 Burn Report
               </span>
+            )}
+            {isFeedback && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={postStatus === "closed"
+                  ? { background: "rgba(160,160,160,0.12)", color: "var(--muted-foreground)", border: "1px solid rgba(160,160,160,0.25)" }
+                  : { background: "rgba(74,222,128,0.12)", color: "#4ade80", border: "1px solid rgba(74,222,128,0.25)" }}>
+                {postStatus === "closed" ? "Closed" : "Open"}
+              </span>
+            )}
+            {isFeedback && isFounder && postStatus === "open" && (
+              <button type="button" onClick={handleClosePost} disabled={closingPost}
+                aria-label="Close post"
+                className="flex items-center justify-center"
+                style={{ width: 32, height: 32, background: "none", border: "none", color: "var(--muted-foreground)", cursor: closingPost ? "default" : "pointer", touchAction: "manipulation", WebkitTapHighlightColor: "transparent" }}>
+                {closingPost
+                  ? <span className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin" style={{ width: 12, height: 12 }} />
+                  : (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3" />
+                      <path d="M5 8l2 2 4-4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  )}
+              </button>
             )}
             {post.user_id === userId && (
               <button type="button" onClick={() => setShowDeletePost(true)} aria-label="Delete post"
