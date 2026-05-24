@@ -79,60 +79,28 @@ export async function proxy(request: NextRequest) {
   );
 
   /*
-   * getUser() validates the JWT with the Supabase Auth server and refreshes
-   * the session if needed. user.user_metadata comes from auth.users — no
-   * extra DB query required to check onboarding status.
+   * Use getSession() instead of getUser() for route protection.
    *
-   * Race against a 3-second timeout. If Supabase Auth is slow or down,
-   * a hung await on every request would block the entire document
-   * response — the browser shows a blank/dark screen indefinitely
-   * (see warm-resume hang investigation).
+   * getUser() always makes a network round-trip to the Supabase Auth server
+   * to validate the JWT. The Supabase JS client serializes concurrent token
+   * refreshes — if one refresh is in-flight, every other concurrent getUser()
+   * call waits for it. A slow Supabase Auth response (20-30 s observed in
+   * production) blocks every simultaneous request in the app.
    *
-   * 3 s is ~10× the median getUser response. On the slow path we
-   * fall through with `user = null` — the protected-route check
-   * below redirects to /login, where the user can re-auth. Annoying
-   * but recoverable; an indefinite hang is not.
+   * getSession() validates the JWT signature locally with no network call.
+   * When the access token is expired it still refreshes once (network call),
+   * but that only happens once per hour and the result is cached in the
+   * cookie for all subsequent requests until the next expiry.
    *
-   * The `user_metadata` shape we read below ([] / Record) survives
-   * a null user via the `!user` guards in branches 1, 1b, and 2.
+   * Trade-off: we lose real-time server-side session revocation. If a user is
+   * disabled in Supabase, they retain access until their JWT expires (~1 hour).
+   * Acceptable for this app; not acceptable for banking/healthcare.
+   *
+   * user_metadata (onboarding_completed) is embedded in the JWT payload and
+   * available on session.user — no extra round-trip required.
    */
-  const AUTH_TIMEOUT_MS = 5000;
-  type AuthResult = Awaited<ReturnType<typeof supabase.auth.getUser>>;
-
-  // Diagnostic: track what Supabase eventually returns even after timeout fires.
-  // This tells us whether it's genuinely slow (eventually returns a user/error)
-  // or truly hung. Check Vercel logs for [proxy:late-response] entries.
-  let timedOut = false;
-  const diagStart = Date.now();
-  const supabasePromise = supabase.auth.getUser().then((result) => {
-    if (timedOut) {
-      console.warn("[proxy:late-response]", {
-        pathname: request.nextUrl.pathname,
-        latencyMs: Date.now() - diagStart,
-        hasUser: !!result.data?.user,
-        error: result.error ? `${result.error.name}: ${result.error.message}` : null,
-      });
-    }
-    return result;
-  });
-
-  const authResult = await Promise.race<AuthResult>([
-    supabasePromise,
-    new Promise<AuthResult>((resolve) =>
-      setTimeout(() => {
-        timedOut = true;
-        console.warn(
-          `[proxy] supabase.auth.getUser() exceeded ${AUTH_TIMEOUT_MS}ms; ` +
-          `treating request as unauthenticated. path=${request.nextUrl.pathname}`,
-        );
-        resolve({
-          data: { user: null },
-          error: { name: "AuthTimeout", message: "Auth lookup timed out" },
-        } as unknown as AuthResult);
-      }, AUTH_TIMEOUT_MS),
-    ),
-  ]);
-  const { data: { user } } = authResult;
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
 
   const { pathname } = request.nextUrl;
 
