@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
+import { createClient }             from "@/utils/supabase/server";
 import { createServiceClientFor }   from "@/utils/supabase/service";
 import { checkImageSafety }         from "@/lib/vision-safety";
 
@@ -31,10 +32,20 @@ type Folder = (typeof ALLOWED_FOLDERS)[number];
  * Returns: { url: string }
  */
 export async function POST(request: NextRequest) {
-  // 1. Auth
-  const user = await getServerUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // 1. Auth — read proxy-forwarded headers first (fast, no Supabase round-trip).
+  // Fall back to a direct Supabase auth call when the proxy timed out and
+  // didn't set x-ae-* headers (e.g. slow auth during image upload).
+  let userId: string;
+  const proxyUser = await getServerUser();
+  if (proxyUser) {
+    userId = proxyUser.id;
+  } else {
+    const supabase = await createClient();
+    const { data: { user: sbUser } } = await supabase.auth.getUser();
+    if (!sbUser) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    userId = sbUser.id;
   }
 
   // 2. Parse form data
@@ -80,11 +91,10 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-    } catch {
-      return NextResponse.json(
-        { error: "Content moderation unavailable. Please try again." },
-        { status: 503 }
-      );
+    } catch (err) {
+      // Vision API unavailable — log and allow the upload rather than
+      // blocking all photo posts while the external service is down.
+      console.warn("[upload/image] Vision SafeSearch unavailable, skipping moderation:", err);
     }
   }
 
@@ -94,7 +104,7 @@ export async function POST(request: NextRequest) {
   if (!ALLOWED_EXTS.has(ext)) {
     return NextResponse.json({ error: "Unsupported file type." }, { status: 400 });
   }
-  const path = `${folder}/${user.id}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const path = `${folder}/${userId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
 
   const admin = createServiceClientFor(
     "api/upload/image",
