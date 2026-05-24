@@ -1,3 +1,4 @@
+import { createRemoteJWKSet, jwtVerify, errors as joseErrors } from "jose";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
@@ -41,66 +42,144 @@ function isPublic(pathname: string): boolean {
   );
 }
 
+const SUPABASE_URL  = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+/*
+ * JWKS for local JWT verification.
+ *
+ * jwtVerify() validates the signature locally against keys fetched once from
+ * Supabase's public JWKS endpoint and cached for the lifetime of the module.
+ * No Supabase Auth network call occurs for tokens that are still valid.
+ *
+ * The only code path that calls Supabase Auth is the expired-token fallback
+ * below — which fires at most once per user per ~1 hour — versus the previous
+ * getSession()/getUser() approach that made a network call on every request.
+ */
+const JWKS = createRemoteJWKSet(
+  new URL(`${SUPABASE_URL}/auth/v1/.well-known/jwks.json`)
+);
+
+// Derived the same way @supabase/supabase-js derives it from the project URL.
+const PROJECT_REF       = new URL(SUPABASE_URL).hostname.split(".")[0];
+const AUTH_COOKIE_KEY   = `sb-${PROJECT_REF}-auth-token`;
+const BASE64URL_PREFIX  = "base64-";
+
+/*
+ * Decode a base64url string to a UTF-8 JavaScript string.
+ * Works in both Node.js and Edge runtimes (no Buffer dependency).
+ */
+function fromBase64url(str: string): string {
+  const padded = str + "=".repeat((4 - (str.length % 4)) % 4);
+  const base64 = padded.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(base64);
+  const bytes  = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+/*
+ * Extract the Supabase access token (a JWT) from the request cookies.
+ *
+ * @supabase/ssr 0.9.x stores the session JSON as a base64url-encoded value
+ * prefixed with "base64-", split into 3 180-byte chunks when the value is too
+ * large for a single cookie.
+ */
+function extractTokenFromCookies(request: NextRequest): string | null {
+  let raw = request.cookies.get(AUTH_COOKIE_KEY)?.value ?? null;
+
+  if (!raw) {
+    const parts: string[] = [];
+    for (let i = 0; ; i++) {
+      const chunk = request.cookies.get(`${AUTH_COOKIE_KEY}.${i}`)?.value;
+      if (!chunk) break;
+      parts.push(chunk);
+    }
+    if (parts.length > 0) raw = parts.join("");
+  }
+
+  if (!raw) return null;
+
+  const jsonStr = raw.startsWith(BASE64URL_PREFIX)
+    ? fromBase64url(raw.slice(BASE64URL_PREFIX.length))
+    : raw;
+
+  try {
+    return (JSON.parse(jsonStr) as { access_token?: string }).access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+interface VerifiedUser {
+  id:                  string;
+  email:               string | undefined;
+  onboardingCompleted: boolean;
+}
+
 export async function proxy(request: NextRequest) {
   /*
    * Strip any client-supplied x-ae-* headers immediately. We re-add the
-   * verified values below if (and only if) Supabase confirms the session.
+   * verified values below if (and only if) identity is confirmed.
    */
   const forwardHeaders = new Headers(request.headers);
   for (const h of FORWARDED_USER_HEADERS) forwardHeaders.delete(h);
 
   /*
-   * supabaseResponse must be the object we return so that any Set-Cookie
-   * headers written by the Supabase client (session refresh) are forwarded.
-   * Never discard or replace it after setAll has run — copy its cookies onto
-   * a new response if you need to attach more request headers afterward.
+   * supabaseResponse is only written to in the expired-token fallback path.
+   * It carries any Set-Cookie headers written during a token refresh so the
+   * refreshed session cookie reaches the browser.
    */
   let supabaseResponse = NextResponse.next({ request: { headers: forwardHeaders } });
+  let user: VerifiedUser | null = null;
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          supabaseResponse = NextResponse.next({ request: { headers: forwardHeaders } });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          );
-        },
-      },
+  const token = extractTokenFromCookies(request);
+
+  if (token) {
+    try {
+      // Fast path: JWKS verification with no Supabase Auth network call.
+      const { payload } = await jwtVerify(token, JWKS);
+      if (payload.sub) {
+        const meta = payload["user_metadata"] as Record<string, unknown> | undefined;
+        user = {
+          id:                  payload.sub,
+          email:               payload["email"] as string | undefined,
+          onboardingCompleted: Boolean(meta?.onboarding_completed),
+        };
+      }
+    } catch (err) {
+      if (err instanceof joseErrors.JWTExpired) {
+        // Slow path: access token expired — delegate to Supabase for a single
+        // refresh network call. Fires at most once per user per ~1 hour.
+        const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON, {
+          cookies: {
+            getAll() {
+              return request.cookies.getAll();
+            },
+            setAll(cookiesToSet) {
+              cookiesToSet.forEach(({ name, value }) =>
+                request.cookies.set(name, value)
+              );
+              supabaseResponse = NextResponse.next({ request: { headers: forwardHeaders } });
+              cookiesToSet.forEach(({ name, value, options }) =>
+                supabaseResponse.cookies.set(name, value, options)
+              );
+            },
+          },
+        });
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          user = {
+            id:                  session.user.id,
+            email:               session.user.email,
+            onboardingCompleted: Boolean(
+              session.user.user_metadata?.onboarding_completed
+            ),
+          };
+        }
+      }
+      // Other errors (bad signature, malformed token, etc.) → user stays null.
     }
-  );
-
-  /*
-   * Use getSession() instead of getUser() for route protection.
-   *
-   * getUser() always makes a network round-trip to the Supabase Auth server
-   * to validate the JWT. The Supabase JS client serializes concurrent token
-   * refreshes — if one refresh is in-flight, every other concurrent getUser()
-   * call waits for it. A slow Supabase Auth response (20-30 s observed in
-   * production) blocks every simultaneous request in the app.
-   *
-   * getSession() validates the JWT signature locally with no network call.
-   * When the access token is expired it still refreshes once (network call),
-   * but that only happens once per hour and the result is cached in the
-   * cookie for all subsequent requests until the next expiry.
-   *
-   * Trade-off: we lose real-time server-side session revocation. If a user is
-   * disabled in Supabase, they retain access until their JWT expires (~1 hour).
-   * Acceptable for this app; not acceptable for banking/healthcare.
-   *
-   * user_metadata (onboarding_completed) is embedded in the JWT payload and
-   * available on session.user — no extra round-trip required.
-   */
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user ?? null;
+  }
 
   const { pathname } = request.nextUrl;
 
@@ -141,14 +220,12 @@ export async function proxy(request: NextRequest) {
   }
 
   if (user) {
-    const onboardingComplete = Boolean(
-      (user.user_metadata as Record<string, unknown>)?.onboarding_completed
-    );
+    const { onboardingCompleted } = user;
 
     // ── 2. Authenticated on a public auth page ─────────────────────────
     if (isPublicAuthPage(pathname)) {
       const url = request.nextUrl.clone();
-      url.pathname = onboardingComplete ? "/home" : "/onboarding";
+      url.pathname = onboardingCompleted ? "/home" : "/onboarding";
       url.search = "";
       return NextResponse.redirect(url);
     }
@@ -157,7 +234,7 @@ export async function proxy(request: NextRequest) {
     // /privacy and /terms are exempt so users can read the policies
     // without being bounced back to onboarding mid-read.
     if (
-      !onboardingComplete &&
+      !onboardingCompleted &&
       pathname !== "/onboarding" &&
       !pathname.startsWith("/onboarding/") &&
       pathname !== "/privacy" &&
@@ -178,7 +255,7 @@ export async function proxy(request: NextRequest) {
      */
     forwardHeaders.set("x-ae-user-id", user.id);
     if (user.email) forwardHeaders.set("x-ae-user-email", user.email);
-    forwardHeaders.set("x-ae-onboarding-completed", onboardingComplete ? "1" : "0");
+    forwardHeaders.set("x-ae-onboarding-completed", onboardingCompleted ? "1" : "0");
 
     const enriched = NextResponse.next({ request: { headers: forwardHeaders } });
     for (const c of supabaseResponse.cookies.getAll()) enriched.cookies.set(c);
