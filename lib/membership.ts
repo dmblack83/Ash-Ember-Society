@@ -65,7 +65,7 @@ const TIER_RANK: Record<MembershipTier, number> = {
  * if the profile has no tier set (e.g. brand-new sign-up).
  */
 export function getMembershipTier(profile: MembershipProfile | null): MembershipTier {
-  if (profile?.badge === "founder") return "premium";
+  if (profile?.badge === "founder" || profile?.badge === "beta_tester") return "premium";
   return profile?.membership_tier ?? "free";
 }
 
