@@ -95,11 +95,14 @@ export function ResumeHandler() {
         const last = parseInt(sessionStorage.getItem(HEARTBEAT_KEY) ?? "0", 10);
         if (last > 0 && Date.now() - last > HEARTBEAT_STALE_MS) {
           safeMark(MARK_STALE_REVIVE);
-          /* Update the heartbeat BEFORE reloading so the post-reload
-             mount sees a fresh value and doesn't loop. */
           sessionStorage.setItem(HEARTBEAT_KEY, Date.now().toString());
-          window.location.reload();
-          return;
+          /* Fire-and-forget: useEffect is synchronous, so we can't await here.
+             Both are best-effort — the heartbeat timer and event listeners
+             below don't depend on auth state. */
+          void supabase.auth.refreshSession().catch(() => {});
+          router.refresh();
+          /* No return — let the heartbeat timer and event listeners
+             set up normally below. */
         }
       } catch {
         /* sessionStorage can throw in some privacy modes; treat as
@@ -139,18 +142,20 @@ export function ResumeHandler() {
          DevTools shows the blank-screen window starting here. */
       safeMark(MARK_RESUME);
 
-      /* iOS standalone + long background gap: hard reload. The JS
-         heap is likely dead; no router-level recovery will help.
-         Skip the rest of the resume path (token refresh, SW update,
-         router.refresh) because the reload will redo all of it
-         from a fresh context. */
+      /* iOS standalone + long background gap: soft recovery. The JS
+         heap is likely dead; attempt graceful auth + DOM refresh
+         instead of a full hard reload. */
       if (
         iosStandalone &&
         hiddenAt !== null &&
         now - hiddenAt > IOS_RELOAD_THRESHOLD_MS
       ) {
         safeMark(MARK_IOS_RELOAD);
-        window.location.reload();
+        /* Fire-and-forget: same pattern as stale heartbeat block above.
+           useEffect is synchronous; heartbeat timer/listeners don't depend
+           on auth state. return prevents double-call with the block below. */
+        void supabase.auth.refreshSession().catch(() => {});
+        router.refresh();
         return;
       }
 
