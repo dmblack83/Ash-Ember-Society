@@ -204,6 +204,26 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      /*
+       * Bare domain → www permanent redirect.
+       *
+       * iOS does not follow HTTP redirects when fetching
+       * apple-touch-startup-image files — a 307 from Vercel's bare-domain
+       * redirect causes iOS to give up and cache nothing, producing a black
+       * screen on PWA launch. A permanent (308) redirect here ensures
+       * browsers and crawlers always land on the canonical www domain, so
+       * every static asset (including splash PNGs) is fetched from the
+       * non-redirecting host.
+       *
+       * Existing PWA installs on the bare domain still have bad cached
+       * state and must be removed + re-added from www.ashember.vip.
+       */
+      {
+        source:      "/:path*",
+        has:         [{ type: "host", value: "ashember.vip" }],
+        destination: "https://www.ashember.vip/:path*",
+        permanent:   true,
+      },
       {
         source:      "/dashboard",
         destination: "/home",
