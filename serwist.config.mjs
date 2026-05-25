@@ -44,4 +44,36 @@ export default await serwist({
    * realistic offline impact is nil.
    */
   precachePrerendered: false,
+  /*
+   * Exclude app-store and splash assets from the precache manifest.
+   *
+   * Root cause of push notification hang on fresh install:
+   * The default `public/**\/*` glob sweeps in 150+ binary files from
+   * `public/appstore-images/` — 16 iOS splash PNGs (7.4 MB), ~60
+   * Windows Store image variants (~1.7 MB), and ~30 Android/iOS icon
+   * sizes. These files are NEVER fetched by the running web app:
+   *   - iOS uses splash PNGs at the OS level before WKWebView starts
+   *   - Windows/Android store images are only used in platform stores
+   * Because they land in the SW precache manifest, the SW's `install`
+   * event must download all ~9 MB before the SW can activate. iOS
+   * throttles SW background downloads and serialises them — on mobile
+   * this takes 60-120 s.  `navigator.serviceWorker.ready` stays
+   * pending for the entire duration, so `getActiveRegistration()`
+   * blocks and the push-subscribe flow appears completely frozen.
+   *
+   * Excluding them drops the precache from ~226 → ~70 entries and
+   * from ~10 MB → ~1-2 MB — SW install now completes in ~5-10 s on
+   * mobile and push subscription works on first install.
+   *
+   * The `public/.appstore-images-bak/` entry covers the local backup
+   * directory (not deployed, but belt-and-suspenders).
+   *
+   * Patterns match against paths relative to the project root
+   * (`globDirectory = cwd`), matching the `public/**\/*` glob's
+   * base.
+   */
+  globIgnores: [
+    "public/appstore-images/**",
+    "public/.appstore-images-bak/**",
+  ],
 });
