@@ -72,8 +72,7 @@ export default async function AccountPage() {
         nextBillingDate:  null,
         currentPeriodEnd: null,
         priceIds: {
-          memberMonthly:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID  ?? "",
-          premiumMonthly: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID ?? "",
+          memberMonthly: process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID ?? "",
         },
       }}
     />
