@@ -100,6 +100,8 @@ export const metadata: Metadata = {
     startupImage: [
       /* iPhones — portrait. Listed largest to smallest so iOS picks
          the most specific match (it evaluates top-down). */
+      iosSplash(440, 956, 3),  // 16 Pro Max
+      iosSplash(402, 874, 3),  // 16 Pro
       iosSplash(430, 932, 3),  // 15 Pro Max, 14 Pro Max
       iosSplash(428, 926, 3),  // 14 Plus
       iosSplash(393, 852, 3),  // 15 Pro, 14 Pro
