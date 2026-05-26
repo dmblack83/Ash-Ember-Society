@@ -8,6 +8,7 @@ import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
 import { OutboxManager } from "@/components/system/OutboxManager";
 import { PersistentStorageRequest } from "@/components/system/PersistentStorageRequest";
+import { A2HSBanner } from "@/components/system/A2HSBanner";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -275,6 +276,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </ViewTransition>
       </main>
+      {!hideNav && <A2HSBanner />}
       {!hideNav && <BottomNav />}
       {!hideNav && <SideRailNav />}
     </>
