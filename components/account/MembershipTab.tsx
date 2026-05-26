@@ -226,8 +226,8 @@ export function MembershipTab({
   }
 
   /* ── Pricing helper ──────────────────────────────────────────── */
-  const pricingLabel = (tier: "member" | "premium") =>
-    PLAN_PRICING[tier].monthly.label;
+  const pricingLabel = (_tier: "member" | "premium") =>
+    PLAN_PRICING.member.monthly.label;
 
   return (
     <div className="space-y-8 animate-fade-in pb-10">
@@ -407,7 +407,7 @@ export function MembershipTab({
             >
               <div>
                 <p className="font-semibold text-base" style={{ color: info.color, fontFamily: "var(--font-serif)" }}>{info.label}</p>
-                <p className="text-sm text-muted-foreground mt-0.5">{PLAN_PRICING.premium.monthly.label}</p>
+                <p className="text-sm text-muted-foreground mt-0.5">{PLAN_PRICING.member.monthly.label}</p>
                 <p className="text-xs text-muted-foreground mt-1.5 leading-snug">{TIER_DESCRIPTION.premium}</p>
               </div>
 
