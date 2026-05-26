@@ -46,6 +46,10 @@ BG_COLOR = (21, 17, 11)  # #15110b
 #   https://www.iosfontsizes.com/
 # Cross-referenced against PWA splash guides.
 SIZES = [
+    # iPhone 16 Pro Max
+    (1320, 2868),
+    # iPhone 16 Pro
+    (1206, 2622),
     # iPhone 15 Pro Max, 14 Pro Max
     (1290, 2796),
     # iPhone 15 Pro, 14 Pro
