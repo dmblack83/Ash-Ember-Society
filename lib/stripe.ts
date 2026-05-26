@@ -12,9 +12,6 @@
  *
  *  2. Copy each price ID (price_xxx) into .env.local:
  *       STRIPE_MEMBER_MONTHLY_PRICE_ID=price_xxx   (Standard tier — internal enum is `member`)
- *       STRIPE_PREMIUM_MONTHLY_PRICE_ID=price_xxx
- *     STRIPE_MEMBER_ANNUAL_PRICE_ID + STRIPE_PREMIUM_ANNUAL_PRICE_ID
- *     were retired 2026-05-19 when annual billing was dropped.
  *
  *  3. Set up the webhook endpoint in Stripe Dashboard:
  *       https://dashboard.stripe.com/webhooks
@@ -55,13 +52,12 @@ export type MembershipTier = "free" | "member" | "premium";
 
 /** Returns the Stripe price ID for a paid tier. */
 export function getPriceId(tier: Exclude<MembershipTier, "free">): string {
-  const map: Record<Exclude<MembershipTier, "free">, string | undefined> = {
-    member:  process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID,
-    premium: process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID,
-  };
-  const id = map[tier];
-  if (!id) throw new Error(`Missing price ID for ${tier}`);
-  return id;
+  if (tier === "member") {
+    const id = process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID;
+    if (!id) throw new Error("Missing STRIPE_MEMBER_MONTHLY_PRICE_ID");
+    return id;
+  }
+  throw new Error(`No price ID for tier: ${tier}`);
 }
 
 /**
@@ -69,7 +65,6 @@ export function getPriceId(tier: Exclude<MembershipTier, "free">): string {
  * Falls back to "free" if the price ID doesn't match any known price.
  */
 export function tierFromPriceId(priceId: string): MembershipTier {
-  if (priceId === process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID)  return "member";
-  if (priceId === process.env.STRIPE_PREMIUM_MONTHLY_PRICE_ID) return "premium";
+  if (priceId === process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID) return "member";
   return "free";
 }
