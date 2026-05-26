@@ -100,6 +100,8 @@ export const metadata: Metadata = {
     startupImage: [
       /* iPhones — portrait. Listed largest to smallest so iOS picks
          the most specific match (it evaluates top-down). */
+      iosSplash(440, 956, 3),  // 16 Pro Max
+      iosSplash(402, 874, 3),  // 16 Pro
       iosSplash(430, 932, 3),  // 15 Pro Max, 14 Pro Max
       iosSplash(428, 926, 3),  // 14 Plus
       iosSplash(393, 852, 3),  // 15 Pro, 14 Pro
@@ -173,6 +175,7 @@ export default function RootLayout({
                  Must use a literal hex; var(--background) is undefined until
                  the external sheet arrives. */
               "html,body{background-color:#15110b}",
+              ":root{color-scheme:dark}",
               /* Cold-smoke overlay critical rules — inlined so the overlay
                  is visible from the very first paint even if globals.css is
                  still in flight. The overlay div is server-rendered; the
@@ -187,6 +190,10 @@ export default function RootLayout({
             ].join(""),
           }}
         />
+        {/* Cold-smoke init — runs synchronously at parse time so the
+            overlay (rendered server-side below) is visible from the
+            very first frame on cold PWA launch. No flash of dashboard. */}
+        <script dangerouslySetInnerHTML={{ __html: COLD_SMOKE_INIT_SCRIPT }} />
         {/* Stale-chunk recovery — captures `error` events from the
             very first <script>/<link> tags Next emits, so a stale
             SW cache pointing at deleted /_next/static/ chunks after
@@ -194,10 +201,6 @@ export default function RootLayout({
             reload) instead of hanging forever. Rate-limited to two
             cache-bust attempts per session. See file for details. */}
         <script dangerouslySetInnerHTML={{ __html: STALE_CHUNK_RECOVERY_SCRIPT }} />
-        {/* Cold-smoke init — runs synchronously at parse time so the
-            overlay (rendered server-side below) is visible from the
-            very first frame on cold PWA launch. No flash of dashboard. */}
-        <script dangerouslySetInnerHTML={{ __html: COLD_SMOKE_INIT_SCRIPT }} />
         {/* Hydration watchdog — starts a 15s timer at parse time;
             forces ONE reload if `window.__AE_HYDRATED` isn't set
             by then. Catches silent hydration crashes / hangs that
