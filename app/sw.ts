@@ -238,7 +238,7 @@ const serwist = new Serwist({
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
             maxEntries:    100,
-            maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
+            maxAgeSeconds: 60 * 60 * 24 * 6, // 6 days — expires before iOS 7-day eviction window
             purgeOnQuotaError: true,
           }),
         ],
@@ -363,7 +363,7 @@ const serwist = new Serwist({
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
             maxEntries:    60,
-            maxAgeSeconds: 60 * 60 * 24 * 7,
+            maxAgeSeconds: 60 * 60 * 24 * 6, // 6 days — expires before iOS 7-day eviction window
             purgeOnQuotaError: true,
           }),
         ],
@@ -388,6 +388,23 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+/* ──────────────────────────────────────────────────────────────────
+   Storage quota diagnostic — passive, non-blocking.
+
+   Logs available and used storage quota to the console on every SW
+   install. Useful for identifying if real-world devices approach iOS's
+   50MB cap. No behavioral change. */
+self.addEventListener("install", () => {
+  void (async () => {
+    try {
+      const est   = await navigator.storage.estimate();
+      const used  = Math.round((est.usage  ?? 0) / 1024 / 1024 * 10) / 10;
+      const quota = Math.round((est.quota  ?? 0) / 1024 / 1024);
+      console.log(`[sw] storage: ${used}MB used / ${quota}MB quota`);
+    } catch { /* estimate() may be unavailable in some contexts; non-fatal */ }
+  })();
+});
 
 /* ──────────────────────────────────────────────────────────────────
    SW update notification — tell open clients when a new SW activates
