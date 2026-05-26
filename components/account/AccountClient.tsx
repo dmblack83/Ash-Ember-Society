@@ -48,8 +48,7 @@ export interface MembershipData {
   nextBillingDate:   string | null;
   currentPeriodEnd:  number | null;
   priceIds: {
-    memberMonthly:  string;
-    premiumMonthly: string;
+    memberMonthly: string;
   };
 }
 
@@ -87,14 +86,12 @@ function hashColor(s: string): string {
 }
 
 function tierLabel(tier: MembershipTier): string {
-  if (tier === "premium") return "Premium";
-  if (tier === "member")  return "Member";
+  if (tier !== "free") return "Member";
   return "Free";
 }
 
 function tierColor(tier: MembershipTier): string {
-  if (tier === "premium") return "var(--accent, #D4A04A)";
-  if (tier === "member")  return "var(--primary, #C17817)";
+  if (tier !== "free") return "var(--primary, #C17817)";
   return "var(--muted-foreground)";
 }
 
