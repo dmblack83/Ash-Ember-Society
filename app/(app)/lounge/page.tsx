@@ -1,90 +1,27 @@
-import { createClient }        from "@/utils/supabase/server";
-import { getServerUser }        from "@/lib/auth/server-user";
-import { getProfileLite }       from "@/lib/data/profile";
+import { Suspense }            from "react";
 import { redirect }             from "next/navigation";
-import { LoungeForumClient }    from "@/components/lounge/LoungeForumClient";
-import { getMembershipTier }    from "@/lib/membership";
-import {
-  getAllForumCategories,
-  getForumCategoryStats,
-} from "@/lib/data/forum";
+import { getServerUser }        from "@/lib/auth/server-user";
+import { LoungeDataIsland }     from "./_islands";
+import { LoungeShellSkeleton }  from "./_skeletons";
 
+/*
+ * Edge runtime: faster cold start than the Node serverless target.
+ * No `force-dynamic` — the data island is implicitly dynamic (per-user
+ * queries) but the shell here is static, so removing the flag lets the
+ * static portion be served from the edge cache where possible.
+ *
+ * Pattern mirrors `app/(app)/home/` and `app/(app)/humidor/`.
+ */
 export const runtime  = "edge";
-export const dynamic  = "force-dynamic";
 export const metadata = { title: "The Lounge — Ash & Ember Society" };
 
 export default async function LoungePage() {
-  const supabase = await createClient();
-  const user     = await getServerUser();
+  const user = await getServerUser();
   if (!user) redirect("/login");
 
-  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-  const [categories, stats, profile, rulesPostRes, todayRes] = await Promise.all([
-    getAllForumCategories(),
-    getForumCategoryStats(),
-    /* React.cache()-deduped — see lib/data/profile.ts. The
-       getMembershipTier() call below reads .membership_tier; the
-       projection in getProfileLite includes it. */
-    getProfileLite(user.id),
-    supabase
-      .from("forum_posts")
-      .select("id, title, content")
-      .eq("is_system", true)
-      .eq("is_pinned", true)
-      .single(),
-    supabase
-      .from("forum_posts")
-      .select("category_id")
-      .eq("is_system", false)
-      .gte("created_at", since24h),
-  ]);
-
-  const rulesPost = rulesPostRes.data;
-
-  const statsMap: Record<string, { post_count: number; last_post_at: string | null }> = {};
-  for (const s of stats) {
-    statsMap[s.category_id] = { post_count: s.post_count, last_post_at: s.last_post_at };
-  }
-
-  const todayCounts: Record<string, number> = {};
-  for (const row of todayRes.data ?? []) {
-    todayCounts[row.category_id] = (todayCounts[row.category_id] ?? 0) + 1;
-  }
-
-  const categoriesWithCount = categories.map((c) => ({
-    ...c,
-    post_count:   statsMap[c.id]?.post_count   ?? 0,
-    last_post_at: statsMap[c.id]?.last_post_at ?? null,
-    today_count:  todayCounts[c.id]            ?? 0,
-  }));
-
-  // Check if user has unlocked + total agreement count
-  let hasUnlocked    = false;
-  let agreementCount = 0;
-  if (rulesPost) {
-    const [userLikeRes, totalLikeRes] = await Promise.all([
-      supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
-        .eq("user_id", user.id).eq("post_id", rulesPost.id),
-      supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
-        .eq("post_id", rulesPost.id),
-    ]);
-    hasUnlocked    = (userLikeRes.count  ?? 0) > 0;
-    agreementCount = (totalLikeRes.count ?? 0);
-  }
-
-  const displayName    = profile?.display_name ?? user.email?.split("@")[0] ?? "Member";
-  const membershipTier = getMembershipTier(profile);
-
   return (
-    <LoungeForumClient
-      categories={categoriesWithCount}
-      rulesPost={rulesPost ?? null}
-      hasUnlocked={hasUnlocked}
-      agreementCount={agreementCount}
-      userId={user.id}
-      displayName={displayName}
-      membershipTier={membershipTier}
-    />
+    <Suspense fallback={<LoungeShellSkeleton />}>
+      <LoungeDataIsland userId={user.id} userEmail={user.email} />
+    </Suspense>
   );
 }
