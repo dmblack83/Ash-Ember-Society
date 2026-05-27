@@ -28,6 +28,7 @@ import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
 import { getMembershipTier }       from "@/lib/membership";
 import { getAllForumCategories }   from "@/lib/data/forum";
+import { getProfileLite }          from "@/lib/data/profile";
 
 const PAGE_SIZE = 15;
 
@@ -39,22 +40,32 @@ interface Props {
 export async function CategoryFeedDataIsland({ slug, userId }: Props) {
   const supabase = await createClient();
 
-  /* ---- Guard: user must have agreed to rules ---- */
-  const { data: rulesPost } = await supabase
-    .from("forum_posts")
-    .select("id")
-    .eq("is_system", true)
-    .eq("is_pinned", true)
-    .maybeSingle();
+  /* ---- Guard: user must have agreed to rules ----
+     Previously two serial Supabase round-trips: find rules post, then
+     count this user's like on its id (~100 ms total).
 
-  if (rulesPost) {
-    const { count } = await supabase
+     Now two parallel round-trips. The second uses a PostgREST inner
+     join on `forum_posts` so it can filter by `is_system + is_pinned`
+     without needing the post id ahead of time. Either query failing
+     leaves the user in the "not agreed" bucket; the rare "rules post
+     doesn't exist" case still allows access (preserves prior behaviour). */
+  const [rulesPostRes, hasAgreedRes] = await Promise.all([
+    supabase
+      .from("forum_posts")
+      .select("id")
+      .eq("is_system", true)
+      .eq("is_pinned", true)
+      .maybeSingle(),
+    supabase
       .from("forum_post_likes")
-      .select("*", { count: "exact", head: true })
+      .select("post_id, forum_posts!inner(is_system, is_pinned)")
       .eq("user_id", userId)
-      .eq("post_id", rulesPost.id);
-    if ((count ?? 0) === 0) redirect("/lounge");
-  }
+      .eq("forum_posts.is_system", true)
+      .eq("forum_posts.is_pinned", true)
+      .maybeSingle(),
+  ]);
+
+  if (rulesPostRes.data && !hasAgreedRes.data) redirect("/lounge");
 
   /* ---- Categories: cached fetch + slug lookup in one shot ---- */
   const allCategories = await getAllForumCategories();
@@ -75,7 +86,13 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
     .limit(PAGE_SIZE);
   if (category.is_feedback) mainQ = mainQ.eq("status", "open");
 
-  const [{ data: rawPosts }, { data: rawPinned }] = await Promise.all([
+  /* ---- Phase 1: posts + pinned + viewer's own profile ----
+         Posts and pinned posts have always run in parallel; the viewer's
+         profile fetch doesn't depend on either, so hoist it into the
+         same batch. Uses getProfileLite for React.cache() dedup with
+         any other server component that fetches the same profile on
+         this render. */
+  const [{ data: rawPosts }, { data: rawPinned }, profile] = await Promise.all([
     mainQ,
     supabase
       .from("forum_posts")
@@ -84,72 +101,95 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
       .eq("is_system", false)
       .eq("is_pinned", true)
       .order("created_at", { ascending: false }),
+    getProfileLite(userId),
   ]);
 
   const posts        = (rawPosts  ?? []) as any[];
   const pinnedPosts  = (rawPinned ?? []) as any[];
   const allFetched   = [...pinnedPosts, ...posts];
 
-  /* ---- Author profiles. `city` is included so the verdict-card
-         byline on shared burn-report posts uses the post author's
-         city, not the viewer's. ---- */
   const authorIds = [...new Set(allFetched.map((p) => p.user_id).filter(Boolean) as string[])];
-  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+  const postIds   = allFetched.map((p) => p.id) as string[];
+  const smokeLogIds = allFetched.map((p) => p.smoke_log_id).filter(Boolean) as string[];
 
-  if (authorIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier, city")
-      .in("id", authorIds);
-    for (const p of profiles ?? []) {
-      nameMap[p.id] = {
-        display_name:    p.display_name,
-        avatar_url:      p.avatar_url,
-        badge:           p.badge           ?? null,
-        membership_tier: p.membership_tier ?? null,
-        city:            p.city            ?? null,
-      };
-    }
+  /* ---- Phase 2: all post-dependent reads in parallel ----
+         Previously profiles, likes, smokeLogs+reportNumbers, getFlavorTags,
+         and votes ran as a serial chain (~5 round-trips back-to-back).
+         All of them only need the IDs computed above (or no input at all,
+         in flavor tags' case), so they can all fire concurrently. Optional
+         queries resolve to `null` / `undefined` when their input slice is
+         empty, keeping the destructure positional and the downstream
+         loops simple. `getFlavorTags` is cached at the data layer; pulling
+         it here speculatively (instead of inside the smokeLogIds block)
+         removes one serial dependency without changing the final tagNameMap. */
+  const [
+    profilesRes,
+    likesRes,
+    smokeLogsRes,
+    reportNumberMap,
+    flavorTagsList,
+    votesRes,
+  ] = await Promise.all([
+    authorIds.length > 0
+      ? supabase
+          .from("profiles")
+          .select("id, display_name, avatar_url, badge, membership_tier, city")
+          .in("id", authorIds)
+      : Promise.resolve({ data: null }),
+    postIds.length > 0
+      ? supabase
+          .from("forum_post_likes")
+          .select("post_id")
+          .eq("user_id", userId)
+          .in("post_id", postIds)
+      : Promise.resolve({ data: null }),
+    smokeLogIds.length > 0
+      ? supabase
+          .from("smoke_logs")
+          .select(`
+            id, smoked_at, overall_rating, draw_rating, burn_rating,
+            construction_rating, flavor_rating, pairing_drink, pairing_food,
+            location, occasion, smoke_duration_minutes, review_text, photo_urls,
+            content_video_id, flavor_tag_ids, user_id, cigar_id,
+            cigar:cigar_catalog(brand, series, format),
+            burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+          `)
+          .in("id", smokeLogIds)
+      : Promise.resolve({ data: null }),
+    smokeLogIds.length > 0
+      ? computeReportNumbers(supabase, smokeLogIds)
+      : Promise.resolve({} as Record<string, number>),
+    smokeLogIds.length > 0 ? getFlavorTags() : Promise.resolve([]),
+    category.is_feedback && postIds.length > 0
+      ? supabase
+          .from("forum_post_votes")
+          .select("post_id, user_id, value")
+          .in("post_id", postIds)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  /* ---- Profiles: id → display info (incl. city for verdict-card byline) ---- */
+  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+  for (const p of profilesRes.data ?? []) {
+    nameMap[p.id] = {
+      display_name:    p.display_name,
+      avatar_url:      p.avatar_url,
+      badge:           p.badge           ?? null,
+      membership_tier: p.membership_tier ?? null,
+      city:            p.city            ?? null,
+    };
   }
 
   /* ---- Liked post IDs ---- */
-  const postIds   = allFetched.map((p) => p.id) as string[];
-  const likedSet  = new Set<string>();
-
-  if (postIds.length > 0) {
-    const { data: likes } = await supabase
-      .from("forum_post_likes")
-      .select("post_id")
-      .eq("user_id", userId)
-      .in("post_id", postIds);
-    for (const l of likes ?? []) likedSet.add(l.post_id);
-  }
+  const likedSet = new Set<string>();
+  for (const l of likesRes.data ?? []) likedSet.add(l.post_id);
 
   /* ---- Smoke logs (full burn report data). Joins burn_reports for
          thirds and resolves flavor_tag_ids → names so the verdict
          card can render without a second client-side roundtrip. ---- */
-  const smokeLogIds = allFetched.map((p) => p.smoke_log_id).filter(Boolean) as string[];
   const smokeLogMap: Record<string, SmokeLogData> = {};
-  if (smokeLogIds.length > 0) {
-    /* smoke_logs fetch and report-number computation are independent —
-       both only need smokeLogIds. Run in parallel to save one serial
-       Supabase round-trip. */
-    const [{ data: logs }, reportNumberMap] = await Promise.all([
-      supabase
-        .from("smoke_logs")
-        .select(`
-          id, smoked_at, overall_rating, draw_rating, burn_rating,
-          construction_rating, flavor_rating, pairing_drink, pairing_food,
-          location, occasion, smoke_duration_minutes, review_text, photo_urls,
-          content_video_id, flavor_tag_ids, user_id, cigar_id,
-          cigar:cigar_catalog(brand, series, format),
-          burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
-        `)
-        .in("id", smokeLogIds),
-      computeReportNumbers(supabase, smokeLogIds),
-    ]);
-
-    const rawLogs = (logs ?? []) as Array<Record<string, unknown> & { id: string; flavor_tag_ids: string[] | null; user_id: string | null; burn_report: Array<Record<string, unknown>> | null }>;
+  if (smokeLogsRes.data) {
+    const rawLogs = smokeLogsRes.data as Array<Record<string, unknown> & { id: string; flavor_tag_ids: string[] | null; user_id: string | null; burn_report: Array<Record<string, unknown>> | null }>;
 
     /* Resolve flavor tag IDs → names. Reads the cached full catalog
        (lib/data/flavor-tags.ts) and filters to the IDs we need —
@@ -157,11 +197,8 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
        skip the per-request roundtrip. */
     const allTagIds = new Set(rawLogs.flatMap((l) => l.flavor_tag_ids ?? []));
     const tagNameMap: Record<string, string> = {};
-    if (allTagIds.size > 0) {
-      const tags = await getFlavorTags();
-      for (const t of tags) {
-        if (allTagIds.has(t.id)) tagNameMap[t.id] = t.name;
-      }
+    for (const t of flavorTagsList) {
+      if (allTagIds.has(t.id)) tagNameMap[t.id] = t.name;
     }
 
     for (const log of rawLogs) {
@@ -183,26 +220,13 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
 
   /* ---- Vote tallies (only meaningful for feedback category) ---- */
   const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
-  if (category.is_feedback && postIds.length > 0) {
-    const { data: votes } = await supabase
-      .from("forum_post_votes")
-      .select("post_id, user_id, value")
-      .in("post_id", postIds);
-    for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
-      const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
-      if (v.value === 1)  cur.upvotes   += 1;
-      if (v.value === -1) cur.downvotes += 1;
-      if (v.user_id === userId) cur.userVote = v.value as 1 | -1;
-      voteMap[v.post_id] = cur;
-    }
+  for (const v of (votesRes.data ?? []) as { post_id: string; user_id: string; value: number }[]) {
+    const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+    if (v.value === 1)  cur.upvotes   += 1;
+    if (v.value === -1) cur.downvotes += 1;
+    if (v.user_id === userId) cur.userVote = v.value as 1 | -1;
+    voteMap[v.post_id] = cur;
   }
-
-  /* ---- User membership tier + founder status ---- */
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("membership_tier, badge, assigned_badges")
-    .eq("id", userId)
-    .single();
 
   const isFounder = (profile?.assigned_badges ?? []).includes("founder");
 
