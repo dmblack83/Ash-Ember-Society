@@ -39,22 +39,32 @@ interface Props {
 export async function CategoryFeedDataIsland({ slug, userId }: Props) {
   const supabase = await createClient();
 
-  /* ---- Guard: user must have agreed to rules ---- */
-  const { data: rulesPost } = await supabase
-    .from("forum_posts")
-    .select("id")
-    .eq("is_system", true)
-    .eq("is_pinned", true)
-    .maybeSingle();
+  /* ---- Guard: user must have agreed to rules ----
+     Previously two serial Supabase round-trips: find rules post, then
+     count this user's like on its id (~100 ms total).
 
-  if (rulesPost) {
-    const { count } = await supabase
+     Now two parallel round-trips. The second uses a PostgREST inner
+     join on `forum_posts` so it can filter by `is_system + is_pinned`
+     without needing the post id ahead of time. Either query failing
+     leaves the user in the "not agreed" bucket; the rare "rules post
+     doesn't exist" case still allows access (preserves prior behaviour). */
+  const [rulesPostRes, hasAgreedRes] = await Promise.all([
+    supabase
+      .from("forum_posts")
+      .select("id")
+      .eq("is_system", true)
+      .eq("is_pinned", true)
+      .maybeSingle(),
+    supabase
       .from("forum_post_likes")
-      .select("*", { count: "exact", head: true })
+      .select("post_id, forum_posts!inner(is_system, is_pinned)")
       .eq("user_id", userId)
-      .eq("post_id", rulesPost.id);
-    if ((count ?? 0) === 0) redirect("/lounge");
-  }
+      .eq("forum_posts.is_system", true)
+      .eq("forum_posts.is_pinned", true)
+      .maybeSingle(),
+  ]);
+
+  if (rulesPostRes.data && !hasAgreedRes.data) redirect("/lounge");
 
   /* ---- Categories: cached fetch + slug lookup in one shot ---- */
   const allCategories = await getAllForumCategories();
