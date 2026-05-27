@@ -88,10 +88,17 @@ App routes only (API and infrastructure excluded). Below ~200 KB tracks framewor
 
 1. **Server-bundle fix #447 worked.** Top chunk dropped 29%, gRPC/Vision stack no longer shared.
 2. **recharts lazy-load worked.** `/humidor/stats` -9% (-28 KB).
-3. **Public legal pages are 359 KB each.** `/privacy`, `/terms`, `/eula` are unauthenticated static routes but still ship the full (app)-layout shell. Worth checking, should they live outside `(app)` group?
-4. **`/offline` is still 358 KB.** Pulls (app) layout including the auth-gated chrome. Could be moved to its own minimal route.
-5. **Field guide volumes are identical-size duplicates.** Collapsing `vol-01..04` into `[vol]/page.tsx` is a small refactor with measurable bundle win.
-6. **`/discover/vendors` is a placeholder route shipping 376 KB.** Either ship the real feature or stub with a minimal shell.
+3. **Field guide volumes are identical-size duplicates.** Collapsing `vol-01..04` into `[vol]/page.tsx` is a small refactor — maintainability win, modest bundle impact.
+
+## Observations to disregard (analyze.data ≠ shipped JS)
+
+Earlier drafts flagged these as perf opportunities. They aren't — see the Caveats section below. Documented here so future re-baselines don't re-introduce the same misread:
+
+- `/privacy`, `/terms`, `/eula` reporting "359 KB" — these pages already live at `app/privacy/`, `app/terms/`, `app/eula/` (NOT in the `(app)` route group). They render via the tiny `<LegalDocument>` server component over the root layout. The 359 KB is the analyzer's diagnostic data file, not user-downloaded JS.
+- `/offline` reporting "358 KB" — same reason. Already at `app/offline/`, outside `(app)`.
+- `/discover/vendors` reporting "376 KB" — the page itself is 56 lines of pure JSX with no client deps. The analyze.data figure reflects rendered DOM volume + framework chunks, not shippable optimization targets.
+
+**Lesson:** for delta tracking, compare a route's analyze.data size against itself across builds. Don't compare different routes' analyze.data to each other — they have different render volumes that aren't directly translatable to bytes shipped.
 
 ## How to regenerate this baseline
 
@@ -115,6 +122,6 @@ Open the printed URL (default port 4000), treemap viewer shows what's in each ch
 ## Caveats
 
 - **Sizes here are uncompressed.** Real wire weight is gzip/brotli (typically 25-35% of these numbers). Compression ratios vary by content; the relative ranking is what matters for delta tracking.
-- **Per-route `analyze.data` is NOT the JS the user downloads** for that route. It's the analyzer's internal data file. Use the chunk listing above + the interactive viewer for actual route-level shipped JS.
+- **Per-route `analyze.data` is NOT the JS the user downloads** for that route. It's the analyzer's internal data file — bigger when the route renders more DOM, not when it ships more code. Use the chunk listing above + the interactive viewer for actual route-level shipped JS. Comparing two routes' analyze.data figures to each other will mislead; only compare a single route's figure against itself across builds.
 - **Hashes change on every build** even with no source changes (build IDs differ). Compare by route name and total size, not by hash.
 - **The 91% total chunks growth is benign.** Next 16 + Turbopack split code more granularly, which improves cache reuse and parallel download. Per-route bundle size is the right metric for tracking deltas.
