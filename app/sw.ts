@@ -183,14 +183,26 @@ const authPartitionPlugin: SerwistPlugin = {
 const serwist = new Serwist({
   precacheEntries: [
     ...self.__SW_MANIFEST,
-    /* /offline is NOT included in the build manifest because
-       `serwist.config.mjs` sets `precachePrerendered: false` (required
-       to prevent auth-gated routes from breaking SW install). Add it
-       explicitly so the NetworkFirst fallback has something to serve
-       when the network is unreachable on cold load. revision:null
-       treats the URL as already-versioned; the offline page rarely
-       changes and the SW fully re-installs on every deploy anyway. */
+    /* These public routes are NOT in the build manifest because
+       `serwist.config.mjs` sets `precachePrerendered: false` — required
+       to prevent auth-gated routes (/discover/content, /discover/vendors)
+       from 307-redirecting during SW install and breaking activation.
+
+       Adding the unauthenticated routes explicitly here gives them
+       first-visit offline availability without re-enabling the
+       prerendered-route auto-precache. revision:null treats each URL
+       as already-versioned; these pages change rarely and the SW
+       fully re-installs on every deploy anyway.
+
+       /signup/verify is intentionally excluded — its content is a
+       stepwise OTP flow that depends on per-session state, not a
+       static page worth caching. */
     { url: "/offline", revision: null },
+    { url: "/login",   revision: null },
+    { url: "/signup",  revision: null },
+    { url: "/privacy", revision: null },
+    { url: "/terms",   revision: null },
+    { url: "/eula",    revision: null },
   ],
   /*
    * Skip waiting + clientsClaim mirror the old sw.js behaviour, so
