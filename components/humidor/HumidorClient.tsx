@@ -175,7 +175,16 @@ function GridCard({ item }: { item: HumidorItem }) {
     // edge requests + bandwidth on items the user may never tap. Intent-
     // based prefetch (hover / first touch) gives a route-transition head
     // start on the cards the user actually engages with.
-    <IntentLink href={`/humidor/${item.id}`} className="block">
+    <IntentLink
+      href={`/humidor/${item.id}`}
+      className="block"
+      /* content-visibility: auto skips layout/paint for cards outside
+         the viewport. containIntrinsicSize reserves a height so the
+         scroll position stays stable until the card scrolls in.
+         Saves INP on scroll and on SWR list re-renders (large humidors
+         no longer pay the full mount cost for off-screen cards). */
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 320px" }}
+    >
       <div className="card card-interactive relative flex flex-col gap-2 h-full p-0 overflow-hidden">
         {/* Quantity badge */}
         {item.quantity > 1 && (
@@ -239,7 +248,13 @@ function ListRow({ item }: { item: HumidorItem }) {
   const displayName = c.series ?? c.format;
 
   return (
-    <IntentLink href={`/humidor/${item.id}`} className="block">
+    <IntentLink
+      href={`/humidor/${item.id}`}
+      className="block"
+      /* See GridCard for rationale. List rows are denser and fixed-
+         height, so the reserved intrinsic size is much smaller. */
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
+    >
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
