@@ -77,6 +77,13 @@ export function ColdOpenSmoke() {
   return (
     <>
       <div className="cold-smoke-overlay" aria-hidden="true">
+        <img
+          className="cold-smoke-logo"
+          src="/cold-smoke-logo.webp"
+          alt=""
+          width={220}
+          height={220}
+        />
         <div className="cold-smoke-column">
           {WISPS.map((w, i) => (
             <div
