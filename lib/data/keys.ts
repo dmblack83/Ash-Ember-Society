@@ -61,6 +61,11 @@ export const keyFor = {
 
   /* ── Shops directory (public). */
   shop:         (slug: string) => ["shop", slug] as const,
+
+  /* ── Home notifications card (per-user). Keyed by userId so
+   *   switching account on the same browser produces a fresh cache,
+   *   not another user's unseen counts. */
+  notifications: (userId: string) => ["notifications", userId] as const,
 } as const;
 
 /*
