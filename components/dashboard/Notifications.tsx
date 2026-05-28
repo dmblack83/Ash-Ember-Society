@@ -9,17 +9,33 @@ import type { NotificationSummaryRow } from "@/lib/data/notifications";
 
 /* ------------------------------------------------------------------
    Row copy — singular/plural aware. No em dashes (user-facing).
+
+   Unread (unseen_count > 0): the NEW count, e.g. "3 new comments".
+   Read  (unseen_count = 0):  lifetime activity, e.g. "12 comments".
    ------------------------------------------------------------------ */
 function rowCopy(row: NotificationSummaryRow): string {
-  const n = Number(row.unseen_count);
-  if (row.kind === "participated") {
-    return `${n} new repl${n === 1 ? "y" : "ies"} to you`;
+  const unread = Number(row.unseen_count) > 0;
+
+  if (unread) {
+    const n = Number(row.unseen_count);
+    return row.kind === "participated"
+      ? `${n} new repl${n === 1 ? "y" : "ies"} to you`
+      : `${n} new comment${n === 1 ? "" : "s"}`;
   }
-  return `${n} new comment${n === 1 ? "" : "s"}`;
+
+  const n = Number(row.total_count);
+  return row.kind === "participated"
+    ? `${n} repl${n === 1 ? "y" : "ies"}`
+    : `${n} comment${n === 1 ? "" : "s"}`;
 }
 
 /* ------------------------------------------------------------------
-   Single notification row (expanded only). Tapping clears + navigates.
+   Single notification row (expanded only). Tapping marks it read
+   (ember dot clears) and navigates — the row itself is retained.
+
+   Unread rows show an ember dot on the left and a stronger count line;
+   read rows drop the dot and mute the count. A fixed-width dot slot
+   keeps titles aligned across both states.
    ------------------------------------------------------------------ */
 function NotificationRow({
   row,
@@ -28,11 +44,13 @@ function NotificationRow({
   row:   NotificationSummaryRow;
   onTap: (postId: string) => void;
 }) {
+  const unread = Number(row.unseen_count) > 0;
+
   return (
     <button
       type="button"
       onClick={() => onTap(row.post_id)}
-      className="w-full flex items-center justify-between gap-3 text-left transition-opacity active:opacity-70"
+      className="w-full flex items-center gap-3 text-left transition-opacity active:opacity-70"
       style={{
         minHeight:               44,
         touchAction:             "manipulation",
@@ -42,13 +60,30 @@ function NotificationRow({
         padding:                 "10px 0",
         cursor:                  "pointer",
       } as React.CSSProperties}
-      aria-label={`${row.title}: ${rowCopy(row)}`}
+      aria-label={`${row.title}: ${rowCopy(row)}${unread ? " (unread)" : ""}`}
     >
-      <div className="flex flex-col gap-0.5 min-w-0">
+      {/* Unread indicator slot — fixed width so read/unread rows align */}
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink:   0,
+          width:        8,
+          height:       8,
+          borderRadius: "50%",
+          background:   unread ? "var(--ember)" : "transparent",
+        }}
+      />
+      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
         <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground truncate">
           {row.title}
         </p>
-        <p className="text-sm font-semibold text-foreground truncate leading-snug">
+        <p
+          className="text-sm truncate leading-snug"
+          style={{
+            fontWeight: unread ? 600 : 500,
+            color:      unread ? "var(--foreground)" : "var(--paper-mute)",
+          }}
+        >
           {rowCopy(row)}
         </p>
       </div>
@@ -90,10 +125,15 @@ export function Notifications({
   );
 
   function handleTap(postId: string) {
-    // Optimistically drop the tapped row so the count/row vanish with
-    // no flicker. On dismiss failure, focus revalidation restores it.
+    // Optimistically mark the tapped row read (unseen_count -> 0): the
+    // ember dot clears and the unread tally drops, but the row stays in
+    // the list. The dismiss POST persists last_seen_at = now(); on
+    // failure, focus revalidation restores the unread state.
     mutate(
-      (current) => (current ?? []).filter((r) => r.post_id !== postId),
+      (current) =>
+        (current ?? []).map((r) =>
+          r.post_id === postId ? { ...r, unseen_count: 0 } : r,
+        ),
       { revalidate: false },
     );
     fetch("/api/notifications/dismiss", {
@@ -104,8 +144,8 @@ export function Notifications({
     router.push(`/lounge/${postId}`, { scroll: false });
   }
 
-  const count   = items.length;
-  const isEmpty = count === 0;
+  const isEmpty     = items.length === 0;
+  const unreadCount = items.filter((r) => Number(r.unseen_count) > 0).length;
 
   return (
     <section
@@ -208,7 +248,11 @@ export function Notifications({
             margin:     0,
           }}
         >
-          {count === 1 ? "1 thread has new activity." : `${count} threads have new activity.`}
+          {unreadCount === 0
+            ? "No new activity."
+            : unreadCount === 1
+              ? "1 thread has new activity."
+              : `${unreadCount} threads have new activity.`}
         </h2>
 
         <span
