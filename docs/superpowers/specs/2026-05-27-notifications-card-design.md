@@ -15,7 +15,8 @@ Add a "Notifications" card to the Home dashboard that:
 - Shows new comment activity on threads the user authored OR participated in (commented on).
 - Consolidates by thread: one row per post showing a count (e.g. "10 new comments"), not one row per comment.
 - Lets the user tap a row to jump to that post, which also clears that row's unseen count.
-- Hides entirely when there is no new activity (same as the Aging Shelf).
+- Always visible. When there is no new activity it shows a calm empty state ("You're all caught up.") rather than hiding.
+- Surfaces at most the 10 most-recently-active threads; as new activity arrives elsewhere, older threads drop past the cutoff.
 - Costs nothing on the hot path (posting a comment must not get slower).
 
 ## Non-Goals
@@ -142,7 +143,7 @@ as $$
   group by mt.id, mt.title, mt.kind
   having count(c.id) > 0
   order by max(c.created_at) desc
-  limit 20;
+  limit 10;
 $$;
 ```
 
@@ -151,13 +152,13 @@ Decisions:
 - **`security invoker` + `auth.uid()`** — runs as the caller, so existing RLS on `forum_posts` / `forum_comments` still gates readability. No service-role, no privilege escalation. Aligns with the `20260520_secure_rpc_auth_checks` direction.
 - **`kind` drives row copy.** The `union` dedups; `participated` excludes `fp.user_id = auth.uid()`, so a post the user authored appears once as `authored` even if they also commented.
 - **`c.user_id <> auth.uid()`** — the user's own comments never count.
-- **Bounded:** the 60-day window filters on **comment activity** (`c.created_at`), not post age — a long-running thread with a recent comment still surfaces; a thread whose only unseen comments are older than 60 days does not. Plus `LIMIT 20`.
+- **Bounded:** the 60-day window filters on **comment activity** (`c.created_at`), not post age — a long-running thread with a recent comment still surfaces; a thread whose only unseen comments are older than 60 days does not. Plus `LIMIT 10` (most-recently-active threads; older ones fall off as new activity arrives).
 - **`latest_at`** orders the card (most recent on top); not displayed.
 - The migration adds `forum_comments_post_created_idx (post_id, created_at)` to back the RPC's hot join (no prior index covered this access pattern).
 
 ## UI — `components/dashboard/Notifications.tsx`
 
-Mirrors `AgingAlerts` chrome exactly: gold mono eyebrow, italic-serif headline, mono "View/Hide ▾" toggle, collapsible list, same card surface tokens (`--card-bg`, `--card-border`, `--line`, `--gold`). **Collapsed by default**, like the Aging Shelf.
+Mirrors `AgingAlerts` chrome exactly: gold mono eyebrow, italic-serif headline, mono "View/Hide ▾" toggle, collapsible list, same card surface tokens (`--card-bg`, `--card-border`, `--line`, `--gold`). **Collapsed by default**, like the Aging Shelf. **Always visible** — when there is no new activity the eyebrow stays and the body shows an italic-serif, muted empty-state line "You're all caught up." with no toggle and no list.
 
 - **Eyebrow (mono, gold):** `Notifications`
 - **Headline (italic serif), count = number of threads/rows:**
@@ -173,7 +174,7 @@ Mirrors `AgingAlerts` chrome exactly: gold mono eyebrow, italic-serif headline, 
 
 ### Row tap behavior
 
-1. Optimistic SWR `mutate` — drop the row from the cached list immediately (`{ revalidate: false }`); count and row vanish with no flicker. If it was the last row, the card hides.
+1. Optimistic SWR `mutate` — drop the row from the cached list immediately (`{ revalidate: false }`); count and row vanish with no flicker. If it was the last row, the card shows the empty state.
 2. `POST /api/notifications/dismiss { post_id }` (fire-and-forget). On failure, SWR revalidates on next focus and the row reappears — no data lost. Upsert is idempotent.
 3. `router.push('/lounge/' + post_id, { scroll: false })`. Burn reports shared to the lounge are `forum_posts`, so the same `/lounge/[postId]` route handles them — one navigation target.
 
@@ -192,13 +193,13 @@ No em dashes in any user-facing string. All count copy is singular/plural aware.
 
 | Case | Behavior |
 |---|---|
-| Brand-new user, no posts/comments | RPC returns `[]` → card hidden. |
+| Brand-new user, no posts/comments | RPC returns `[]` → card shows empty state ("You're all caught up."). |
 | Authored a post, nobody commented | Not in result (`having count > 0`). |
 | User's own comments on own thread | Excluded (`c.user_id <> auth.uid()`). |
 | Comment deleted after being counted | Count drops on next read — no stored counter to drift. |
 | Post deleted | `notification_views` row cascades away; thread drops from RPC. |
 | Authored AND commented on same post | Appears once as `authored` (`participated` excludes own posts). |
-| >20 active threads | Capped at 20, ordered by most recent activity. |
+| >10 active threads | Capped at 10, ordered by most recent activity; older threads fall off. |
 | Dismiss POST fails | Row reappears on next focus revalidation (SWR). Idempotent upsert, no lost state. |
 | Activity older than 60 days | Outside candidate window — won't surface. |
 | Stale SW serving cached Home HTML | Card data is per-user, fetched in the island, not a cached public asset; SWR revalidates on focus. No cross-user leak. |
@@ -208,7 +209,7 @@ No em dashes in any user-facing string. All count copy is singular/plural aware.
 - **RPC (SQL):** seed a post + another user's comments → assert `unseen_count`; insert a `notification_views` row at `now()` → assert count drops to 0; assert own comments don't count; assert `participated` vs `authored` kind selection.
 - **Component:** singular/plural copy for both kinds; `initialItems=[]` renders `null`; collapsed by default; tap fires optimistic mutate + dismiss POST + navigation.
 - **Dismiss route:** rejects unauthenticated; upserts only `auth.uid()`'s row; idempotent on repeat.
-- **Browser (manual, required per project rules):** two test accounts — B comments on A's burn report; A opens Home, sees the `Notifications` card between Smoking Conditions and Aging Shelf, expands, sees "N new comments", taps → lands on the post; returns Home → row gone, card hidden if it was the last. Check 320/768/1440 widths; confirm Home LCP is unaffected (card streams in like Aging).
+- **Browser (manual, required per project rules):** two test accounts — B comments on A's burn report; A opens Home, sees the `Notifications` card between Smoking Conditions and Aging Shelf, expands, sees "N new comments", taps → lands on the post; returns Home → row gone, empty state shown if it was the last. With no activity at all, confirm the empty-state line renders. Check 320/768/1440 widths; confirm Home LCP is unaffected (card streams in like Aging).
 
 ## Deployment Note (migration drift)
 
