@@ -104,10 +104,8 @@ export function Notifications({
     router.push(`/lounge/${postId}`, { scroll: false });
   }
 
-  // No new activity — hide the section entirely (matches Aging Shelf).
-  if (items.length === 0) return null;
-
-  const count = items.length;
+  const count   = items.length;
+  const isEmpty = count === 0;
 
   return (
     <section
@@ -158,7 +156,28 @@ export function Notifications({
         <span aria-hidden="true" style={{ flex: 1, height: 1, background: "var(--line)" }} />
       </div>
 
+      {/* Empty state — no new activity. Card stays put and reassures. */}
+      {isEmpty && (
+        <p
+          style={{
+            fontFamily: "var(--font-serif)",
+            fontStyle:  "italic",
+            fontWeight: 500,
+            fontSize:   "clamp(18px, 4.5vw, 22px)",
+            lineHeight: 1.2,
+            color:      "var(--paper-mute)",
+            margin:     0,
+            position:   "relative",
+            zIndex:     1,
+          }}
+        >
+          You&apos;re all caught up.
+        </p>
+      )}
+
       {/* Header row — italic title + view/hide toggle */}
+      {!isEmpty && (
+      <>
       <button
         type="button"
         onClick={() => setExpanded((e) => !e)}
@@ -244,6 +263,8 @@ export function Notifications({
           ))}
         </div>
       </div>
+      </>
+      )}
     </section>
   );
 }
