@@ -17,8 +17,14 @@
 -- dismiss route); the row stays in the list until newer threads push
 -- it past the 10-row cap.
 --
--- create-or-replace: forward-only function body change. The
--- notification_views table / RLS (20260527) are unchanged.
+-- This adds the total_count OUT column, which changes the function's
+-- return type — Postgres rejects that via CREATE OR REPLACE
+-- ("cannot change return type of existing function"), so we DROP the
+-- prior definition first. Safe: the function is called only from app
+-- code (Supabase RPC), no SQL object (view / policy) depends on it.
+-- The notification_views table / RLS (20260527) are unchanged.
+
+drop function if exists get_notification_summary();
 
 create or replace function get_notification_summary()
 returns table (
