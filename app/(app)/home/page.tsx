@@ -7,6 +7,7 @@ import { FieldGuide }      from "@/components/dashboard/FieldGuide";
 import {
   MastheadIsland,
   SmokingConditionsIsland,
+  NotificationsIsland,
   AgingIsland,
   NewsIsland,
   LocalShopsIsland,
@@ -15,6 +16,7 @@ import {
 import {
   MastheadSkeleton,
   SmokingConditionsSkeleton,
+  NotificationsSkeleton,
   AgingSkeleton,
   NewsSkeleton,
 } from "./_skeletons";
@@ -58,6 +60,11 @@ export default async function HomePage() {
         {/* ── 2. Smoking conditions strip ──────────────────────────── */}
         <Suspense fallback={<SmokingConditionsSkeleton />}>
           <SmokingConditionsIsland userId={user.id} />
+        </Suspense>
+
+        {/* ── 2.5 Notifications (consolidated comment activity) ─────── */}
+        <Suspense fallback={<NotificationsSkeleton />}>
+          <NotificationsIsland userId={user.id} />
         </Suspense>
 
         {/* ── 3. Aging Shelf ───────────────────────────────────────── */}

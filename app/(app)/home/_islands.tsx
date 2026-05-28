@@ -25,10 +25,12 @@ import { getLatestNews }   from "@/lib/data/news";
 import { Masthead }            from "@/components/dashboard/Masthead";
 import { SmokingConditions }   from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }         from "@/components/dashboard/AgingAlerts";
+import { Notifications }       from "@/components/dashboard/Notifications";
 import { News }                from "@/components/dashboard/News";
 import { LocalShops }          from "@/components/dashboard/LocalShops";
 
 import type { AgingItem } from "@/components/dashboard/AgingAlerts";
+import type { NotificationSummaryRow } from "@/lib/data/notifications";
 
 /* ── Sticky greeting + admin link ────────────────────────────────── */
 export async function MastheadIsland({ userId }: { userId: string }) {
@@ -78,6 +80,25 @@ export async function AgingIsland({ userId }: { userId: string }) {
     .order("aging_target_date", { ascending: true });
 
   return <AgingAlerts initialItems={(data ?? []) as unknown as AgingItem[]} />;
+}
+
+/* ── Notifications card (consolidated comment activity) ──────────────
+ *
+ * Calls the get_notification_summary() RPC (security invoker; scoped
+ * by auth.uid()). Returns up to 20 threads with unseen activity,
+ * already ordered by most-recent. Renders nothing when empty — the
+ * card hides itself. The server result seeds SWR's fallbackData so the
+ * client mounts without a refetch. */
+export async function NotificationsIsland({ userId }: { userId: string }) {
+  const supabase = await createClient();
+  const { data } = await supabase.rpc("get_notification_summary");
+
+  return (
+    <Notifications
+      userId={userId}
+      initialItems={(data ?? []) as unknown as NotificationSummaryRow[]}
+    />
+  );
 }
 
 /* ── News rail (cached at the data layer via unstable_cache) ─────── */

@@ -66,6 +66,19 @@ export function AgingSkeleton() {
   );
 }
 
+/* ── Notifications skeleton — 2-row preview ──────────────────────── */
+export function NotificationsSkeleton() {
+  return (
+    <div className="card animate-pulse" aria-hidden="true">
+      <div className="h-3 bg-muted rounded w-1/4 mb-4" />
+      <div className="space-y-3">
+        <div className="h-10 bg-muted rounded" />
+        <div className="h-10 bg-muted rounded w-5/6" />
+      </div>
+    </div>
+  );
+}
+
 /* ── News skeleton — 5 article rows ──────────────────────────────── */
 export function NewsSkeleton() {
   return (
