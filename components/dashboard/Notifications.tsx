@@ -104,24 +104,18 @@ function NotificationRow({
 /* ------------------------------------------------------------------
    Notifications — main export.
 
-   Receives initial rows from the server island as fallbackData; SWR
-   revalidates on focus and supplies optimistic mutate for dismiss.
-   Chrome matches the Aging Shelf; collapsed by default.
+   Client-fetched via SWR (the RPC scopes by auth.uid(), which only
+   resolves for the browser client — see NotificationsIsland). Fetches
+   on mount and revalidates on focus; optimistic mutate marks a row
+   read on tap. Chrome matches the Aging Shelf; collapsed by default.
    ------------------------------------------------------------------ */
-export function Notifications({
-  userId,
-  initialItems,
-}: {
-  userId:       string;
-  initialItems: NotificationSummaryRow[];
-}) {
+export function Notifications({ userId }: { userId: string }) {
   const router               = useRouter();
   const [expanded, setExpanded] = useState(false);
 
-  const { data: items = initialItems, mutate } = useSWR(
+  const { data, mutate } = useSWR(
     keyFor.notifications(userId),
     () => fetchNotificationSummary(),
-    { fallbackData: initialItems, revalidateOnMount: false },
   );
 
   function handleTap(postId: string) {
@@ -144,7 +138,13 @@ export function Notifications({
     router.push(`/lounge/${postId}`, { scroll: false });
   }
 
-  const isEmpty     = items.length === 0;
+  // Brief initial load before the first client fetch resolves. The
+  // home page's Suspense skeleton covers the gap; render nothing rather
+  // than flash an empty state.
+  if (data === undefined) return null;
+
+  const items       = data;
+  const hasRows     = items.length > 0;
   const unreadCount = items.filter((r) => Number(r.unseen_count) > 0).length;
 
   return (
@@ -196,8 +196,9 @@ export function Notifications({
         <span aria-hidden="true" style={{ flex: 1, height: 1, background: "var(--line)" }} />
       </div>
 
-      {/* Empty state — no new activity. Card stays put and reassures. */}
-      {isEmpty && (
+      {/* No active threads — quiet default. Same wording as the all-read
+          headline so the two states read identically. */}
+      {!hasRows && (
         <p
           style={{
             fontFamily: "var(--font-serif)",
@@ -211,12 +212,12 @@ export function Notifications({
             zIndex:     1,
           }}
         >
-          You&apos;re all caught up.
+          No new activity.
         </p>
       )}
 
       {/* Header row — italic title + view/hide toggle */}
-      {!isEmpty && (
+      {hasRows && (
       <>
       <button
         type="button"

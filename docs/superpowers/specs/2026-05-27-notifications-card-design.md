@@ -17,7 +17,7 @@ Add a "Notifications" card to the Home dashboard that:
 - Retains notifications as a feed. Tapping a row jumps to the post and marks that row **read** (the ember dot clears), but the row stays in the list. Rows are not removed on tap; they only drop off when newer threads push them past the cap.
 - Per-thread read state: an unread row (new comments since the user last viewed it) shows an ember dot and a "N new comments" count; a read row drops the dot and shows lifetime activity ("N comments").
 - The collapsed headline counts **unread** threads.
-- Always visible. When there are no active threads at all it shows a calm empty state ("You're all caught up.") rather than hiding.
+- Always visible. When there is no unread activity it shows "No new activity." (same wording whether the list is empty or all-read), rather than hiding.
 - Surfaces at most the 10 most-recently-active threads; as new activity arrives elsewhere, older threads drop past the cutoff.
 - Costs nothing on the hot path (posting a comment must not get slower).
 
@@ -50,7 +50,9 @@ The card is read only when Home is opened. Comments are posted constantly by any
 
 - A materialized counter (rejected Approach B) makes the card read trivial but fans out a counter update to every thread participant on every comment insert — slowing the most frequent interaction in the app (posting a comment) and hurting INP, the PWA's most-watched interaction metric.
 - An event log (rejected Approach C) has the same write fan-out plus a new table, and overshoots a card-only feature.
-- Approach A does the work only on Home open, as a single bounded aggregate inside a Suspense island that never blocks LCP. Zero impact on the hot path. Optimistic local mutate on tap makes dismissal INP free.
+- Approach A does the work only on Home open, as a single bounded aggregate that never blocks LCP. Zero impact on the hot path. Optimistic local mutate on tap makes dismissal INP free.
+
+**Client-fetched, not server-rendered.** The RPC scopes by `auth.uid()`, which only resolves for the **browser** Supabase client (it carries the user session). The server-side client under this app's proxy/JWKS auth does not establish that session, so a server-side `rpc()` returns `[]`. The card therefore fetches on the client via SWR (`fetchNotificationSummary`) on mount + focus. The server island just renders `<Notifications userId={…} />` with no data. (Earlier revisions server-fetched and seeded `fallbackData`; that produced an empty card until a focus event, which manifested as "tapping a row clears everything" — tap navigated, the next server render re-seeded `[]`, and `revalidateOnMount: false` suppressed the client refetch.)
 
 ## Architecture
 
@@ -58,7 +60,7 @@ The card is read only when Home is opened. Comments are posted constantly by any
 |---|---|---|
 | Table `notification_views` | new migration | Per-(user, post) `last_seen_at`. Writes only on dismiss. |
 | RPC `get_notification_summary()` | same migration | Single round-trip; returns up to 20 rows. |
-| `NotificationsIsland` | `app/(app)/home/_islands.tsx` | Calls the RPC. Streamed via Suspense, mirrors `AgingIsland`. |
+| `NotificationsIsland` | `app/(app)/home/_islands.tsx` | Synchronous; renders `<Notifications userId={…} />`. Does NOT call the RPC server-side (auth.uid() is null there). |
 | `NotificationsSkeleton` | `app/(app)/home/_skeletons.tsx` | Mirrors `AgingSkeleton`. |
 | `Notifications` card | `components/dashboard/Notifications.tsx` | Mirrors `AgingAlerts` chrome. |
 | SWR key `keyFor.notifications(userId)` | `lib/data/keys.ts` | Focus revalidation + optimistic mutate on dismiss. |
@@ -165,7 +167,7 @@ Decisions:
 
 ## UI — `components/dashboard/Notifications.tsx`
 
-Mirrors `AgingAlerts` chrome exactly: gold mono eyebrow, italic-serif headline, mono "View/Hide ▾" toggle, collapsible list, same card surface tokens (`--card-bg`, `--card-border`, `--line`, `--gold`). **Collapsed by default**, like the Aging Shelf. **Always visible** — when there are no active threads at all the eyebrow stays and the body shows an italic-serif, muted empty-state line "You're all caught up." with no toggle and no list.
+Mirrors `AgingAlerts` chrome exactly: gold mono eyebrow, italic-serif headline, mono "View/Hide ▾" toggle, collapsible list, same card surface tokens (`--card-bg`, `--card-border`, `--line`, `--gold`). **Collapsed by default**, like the Aging Shelf. Client-fetched via SWR; renders `null` during the brief initial load. When there are rows, the headline is the toggle and the list follows. When there are no rows, the body shows an italic-serif, muted line "No new activity." with no toggle and no list — the same wording the headline uses when rows exist but all are read, so the two states read identically.
 
 - **Eyebrow (mono, gold):** `Notifications`
 - **Headline (italic serif), count = number of UNREAD threads:**
@@ -204,7 +206,7 @@ No em dashes in any user-facing string. All count copy is singular/plural aware.
 
 | Case | Behavior |
 |---|---|
-| Brand-new user, no posts/comments | RPC returns `[]` → card shows empty state ("You're all caught up."). |
+| Brand-new user, no posts/comments | RPC returns `[]` → card shows "No new activity." (no toggle, no list). |
 | Active threads, all read | Rows retained, no dots, headline "No new activity."; list still expandable. |
 | Tapped (read) thread gets a new comment | `unseen_count` goes back above 0 on next read → row is unread again (dot returns). |
 | Authored a post, nobody commented | Not in result (`having count > 0`). |
@@ -215,15 +217,15 @@ No em dashes in any user-facing string. All count copy is singular/plural aware.
 | >10 active threads | Capped at 10, ordered by most recent activity; older threads fall off. |
 | Dismiss POST fails | Row reappears on next focus revalidation (SWR). Idempotent upsert, no lost state. |
 | Activity older than 60 days | Outside candidate window — won't surface. |
-| Stale SW serving cached Home HTML | Card data is per-user, fetched in the island, not a cached public asset; SWR revalidates on focus. No cross-user leak. |
+| Stale SW serving cached Home HTML | Card data is per-user, client-fetched via SWR (browser session), not part of cached HTML; revalidates on mount + focus. No cross-user leak. |
 
 ## Testing & Verification
 
 - **RPC (SQL):** seed a post + another user's comments → assert `unseen_count` and `total_count`; insert a `notification_views` row at `now()` → assert `unseen_count` drops to 0 but the row **still returns** with `total_count` intact; assert own comments don't count; assert `participated` vs `authored` kind selection.
-- **Component:** unread vs read copy for both kinds (singular/plural); ember dot only when unread; headline counts unread threads ("No new activity." at 0); `initialItems=[]` renders the empty state; collapsed by default; tap marks read optimistically (row retained) + fires dismiss POST + navigates.
+- **Component:** unread vs read copy for both kinds (singular/plural); ember dot only when unread; headline counts unread threads ("No new activity." at 0); no rows renders the "No new activity." line; renders `null` while the first fetch is pending; collapsed by default; tap marks read optimistically (row retained) + fires dismiss POST + navigates.
 - **Dismiss route:** rejects unauthenticated; rejects non-UUID `post_id`; upserts only `auth.uid()`'s row; idempotent on repeat.
-- **Browser (manual, required per project rules):** two test accounts — B comments on A's burn report; A opens Home, sees the `Notifications` card between Smoking Conditions and Aging Shelf with an ember dot + "N new comments"; taps → lands on the post; returns Home → row is still listed but read (no dot, "N comments"), unread tally dropped. B comments again → row goes unread (dot returns). With no active threads at all, confirm the empty-state line renders. Check 320/768/1440 widths; confirm Home LCP is unaffected (card streams in like Aging).
+- **Browser (manual, required per project rules):** two test accounts — B comments on A's burn report; A opens Home, sees the `Notifications` card between Smoking Conditions and Aging Shelf with an ember dot + "N new comments"; taps → lands on the post; returns Home → **row is still listed** but read (no dot, "N comments"), unread tally dropped (the bug this fixes: it must NOT clear all/become empty). B comments again → row goes unread (dot returns). With no active threads at all, confirm "No new activity." renders. Reload several times / background-and-foreground the PWA → the card consistently shows the real data (no need to hard-close). Check 320/768/1440 widths.
 
 ## Deployment Note (migration drift)
 
-Migrations on this project are sometimes applied manually in the Supabase SQL editor and have silently missed production before. The `notification_views` table and `get_notification_summary()` RPC must be confirmed present in production before the card ships, or the RPC call will error and the island will fail to render. Verify in the Supabase SQL editor after merge.
+Migrations on this project are sometimes applied manually in the Supabase SQL editor and have silently missed production before. The `notification_views` table and the current `get_notification_summary()` RPC must be confirmed present in production before the card ships, or the client fetch will error and the card will stay blank. Verify in the Supabase SQL editor after merge.
