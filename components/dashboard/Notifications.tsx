@@ -227,7 +227,7 @@ export function Notifications({
       <div
         id="notifications-list"
         style={{
-          maxHeight:  expanded ? 1000 : 0,
+          maxHeight:  expanded ? 1400 : 0,
           opacity:    expanded ? 1 : 0,
           overflow:   "hidden",
           transition: "max-height 320ms ease, opacity 220ms ease, margin-top 200ms ease, padding-top 200ms ease",

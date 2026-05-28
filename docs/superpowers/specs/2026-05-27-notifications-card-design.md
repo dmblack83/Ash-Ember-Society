@@ -118,14 +118,12 @@ as $$
     select fp.id, fp.title, 'authored'::text as kind
     from forum_posts fp
     where fp.user_id = auth.uid()
-      and fp.created_at > now() - interval '60 days'
     union
     select fp.id, fp.title, 'participated'::text as kind
     from forum_posts fp
     join forum_comments fc on fc.post_id = fp.id
     where fc.user_id = auth.uid()
       and fp.user_id <> auth.uid()
-      and fp.created_at > now() - interval '60 days'
   )
   select
     mt.id,
@@ -140,6 +138,7 @@ as $$
     on c.post_id = mt.id
    and c.user_id <> auth.uid()
    and c.created_at > coalesce(nv.last_seen_at, 'epoch'::timestamptz)
+   and c.created_at > now() - interval '60 days'
   group by mt.id, mt.title, mt.kind
   having count(c.id) > 0
   order by max(c.created_at) desc
@@ -152,9 +151,9 @@ Decisions:
 - **`security invoker` + `auth.uid()`** — runs as the caller, so existing RLS on `forum_posts` / `forum_comments` still gates readability. No service-role, no privilege escalation. Aligns with the `20260520_secure_rpc_auth_checks` direction.
 - **`kind` drives row copy.** The `union` dedups; `participated` excludes `fp.user_id = auth.uid()`, so a post the user authored appears once as `authored` even if they also commented.
 - **`c.user_id <> auth.uid()`** — the user's own comments never count.
-- **Bounded:** 60-day candidate window + `LIMIT 20`.
+- **Bounded:** the 60-day window filters on **comment activity** (`c.created_at`), not post age — a long-running thread with a recent comment still surfaces; a thread whose only unseen comments are older than 60 days does not. Plus `LIMIT 20`.
 - **`latest_at`** orders the card (most recent on top); not displayed.
-- Leans on the existing `forum_comments(post_id, created_at)` index from `20260430_perf_indexes.sql`.
+- The migration adds `forum_comments_post_created_idx (post_id, created_at)` to back the RPC's hot join (no prior index covered this access pattern).
 
 ## UI — `components/dashboard/Notifications.tsx`
 

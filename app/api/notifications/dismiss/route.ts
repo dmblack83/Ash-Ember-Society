@@ -24,8 +24,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  if (typeof postId !== "string" || postId.length === 0) {
-    return NextResponse.json({ error: "post_id is required" }, { status: 400 });
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (typeof postId !== "string" || !UUID_RE.test(postId)) {
+    return NextResponse.json({ error: "post_id must be a valid UUID" }, { status: 400 });
   }
 
   const supabase = await createClient();

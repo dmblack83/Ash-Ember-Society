@@ -73,6 +73,12 @@ comment on table notification_views is
 
 alter table notification_views enable row level security;
 
+-- Supports the hot join in get_notification_summary() below
+-- (forum_comments filtered by post_id + created_at). The RPC introduces
+-- this access pattern; no prior index covers it.
+create index if not exists forum_comments_post_created_idx
+  on forum_comments (post_id, created_at);
+
 create policy "users read their own notification views"
   on notification_views for select to authenticated
   using (auth.uid() = user_id);
@@ -105,7 +111,6 @@ as $$
     select fp.id, fp.title, 'authored'::text as kind
     from forum_posts fp
     where fp.user_id = auth.uid()
-      and fp.created_at > now() - interval '60 days'
     union
     -- posts I commented on but did not author (captures replies to me)
     select fp.id, fp.title, 'participated'::text as kind
@@ -113,7 +118,6 @@ as $$
     join forum_comments fc on fc.post_id = fp.id
     where fc.user_id = auth.uid()
       and fp.user_id <> auth.uid()
-      and fp.created_at > now() - interval '60 days'
   )
   select
     mt.id,
@@ -128,6 +132,10 @@ as $$
     on c.post_id = mt.id
    and c.user_id <> auth.uid()
    and c.created_at > coalesce(nv.last_seen_at, 'epoch'::timestamptz)
+   -- Window applies to comment activity, not post age: a long-running
+   -- thread with a recent comment still surfaces; a thread whose only
+   -- new comments are older than 60 days does not.
+   and c.created_at > now() - interval '60 days'
   group by mt.id, mt.title, mt.kind
   having count(c.id) > 0
   order by max(c.created_at) desc
