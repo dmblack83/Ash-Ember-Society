@@ -30,7 +30,6 @@ import { News }                from "@/components/dashboard/News";
 import { LocalShops }          from "@/components/dashboard/LocalShops";
 
 import type { AgingItem } from "@/components/dashboard/AgingAlerts";
-import type { NotificationSummaryRow } from "@/lib/data/notifications";
 
 /* ── Sticky greeting + admin link ────────────────────────────────── */
 export async function MastheadIsland({ userId }: { userId: string }) {
@@ -84,21 +83,15 @@ export async function AgingIsland({ userId }: { userId: string }) {
 
 /* ── Notifications card (consolidated comment activity) ──────────────
  *
- * Calls the get_notification_summary() RPC (security invoker; scoped
- * by auth.uid()). Returns up to 20 threads with unseen activity,
- * already ordered by most-recent. Renders nothing when empty — the
- * card hides itself. The server result seeds SWR's fallbackData so the
- * client mounts without a refetch. */
-export async function NotificationsIsland({ userId }: { userId: string }) {
-  const supabase = await createClient();
-  const { data } = await supabase.rpc("get_notification_summary");
-
-  return (
-    <Notifications
-      userId={userId}
-      initialItems={(data ?? []) as unknown as NotificationSummaryRow[]}
-    />
-  );
+ * Client-fetched, NOT server-rendered. get_notification_summary() is
+ * scoped by auth.uid(), which only resolves for the browser client
+ * (it carries the user session). The server-side Supabase client under
+ * this app's proxy/JWKS auth does not establish that session, so a
+ * server-side rpc() call returns [] and the card would render empty
+ * until a focus revalidation. The component fetches via SWR on mount
+ * instead; the Suspense skeleton covers the brief initial load. */
+export function NotificationsIsland({ userId }: { userId: string }) {
+  return <Notifications userId={userId} />;
 }
 
 /* ── News rail (cached at the data layer via unstable_cache) ─────── */
