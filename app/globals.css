@@ -742,9 +742,6 @@ html.cold-smoke-active .cold-smoke-overlay {
      below provides the brand mark. No per-device background images —
      branding no longer depends on exact device media-query matching. */
   background-color: var(--background);
-  background-size: cover;
-  background-position: center center;
-  background-repeat: no-repeat;
   overflow: hidden;
   opacity: 1;
 }
