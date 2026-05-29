@@ -21,17 +21,14 @@ export { COLD_SMOKE_INIT_SCRIPT } from "./cold-smoke-init";
    and returns. Without that, every external-link round-trip would
    replay the loader.
 
-   Background continuity: on iOS PWA, the same image iOS used for
-   the apple-touch-startup-image splash is set as the overlay's CSS
-   background-image via per-device media queries in globals.css.
-   That means the splash → cold-smoke handoff is a frame-perfect
-   match — identical logo position, identical dark fill, identical
-   pixel dimensions — with the rising smoke wisps animating on top.
-
-   On Android / desktop / non-listed iOS sizes, the overlay falls
-   back to a solid #15110b background (the Android PWA splash uses
-   the manifest background_color, also #15110b, so the handoff is
-   still color-continuous even without an image).
+   Branding: a single centered logo (.cold-smoke-logo, the optimized
+   /cold-smoke-logo.webp medallion) on the solid #15110b background,
+   with the smoke wisps rising on top. This is device-independent — one
+   element shown on every device, iOS version, and Display-Zoom level —
+   so it does NOT depend on per-device media-query matching, which was
+   failing on newer iPhones (e.g. 16 Pro on iOS 18) and produced a black
+   launch. The apple-touch-startup-image tags in app/layout.tsx remain
+   as a bonus for the cases iOS honors them, but are no longer relied on.
    ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------
@@ -77,6 +74,13 @@ export function ColdOpenSmoke() {
   return (
     <>
       <div className="cold-smoke-overlay" aria-hidden="true">
+        <img
+          className="cold-smoke-logo"
+          src="/cold-smoke-logo.webp"
+          alt=""
+          width={220}
+          height={220}
+        />
         <div className="cold-smoke-column">
           {WISPS.map((w, i) => (
             <div

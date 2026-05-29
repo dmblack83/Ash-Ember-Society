@@ -186,6 +186,7 @@ export default function RootLayout({
                  — only display/position/z-index are critical-path. */
               ".cold-smoke-overlay{display:none}",
               "html.cold-smoke-active .cold-smoke-overlay{display:block;position:fixed;inset:0;z-index:99999;background-color:#15110b}",
+              "html.cold-smoke-active .cold-smoke-logo{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(44vw,220px);height:auto;z-index:4}",
               "html.cold-smoke-active.cold-smoke-fading .cold-smoke-overlay{opacity:0;transition:opacity 1s linear}",
             ].join(""),
           }}

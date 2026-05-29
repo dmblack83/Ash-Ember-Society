@@ -26,7 +26,7 @@ export function ColdOpenSmokeTimer() {
       VISIBLE_MS,
     );
     const tRemove = setTimeout(
-      () => root.classList.remove("cold-smoke-active", "cold-smoke-fading"),
+      () => root.classList.remove("cold-smoke-active", "cold-smoke-fading", "cold-smoke-static"),
       VISIBLE_MS + FADE_MS,
     );
 
