@@ -115,7 +115,12 @@ test.describe("free-tier humidor cap", () => {
 
     await page.goto(`/discover/cigars/${ownedCigarId}`);
     await page.getByRole("button", { name: /add to humidor/i }).first().click();
+    // First submit attempt triggers the "already own this cigar" conflict UI
+    // in AddToHumidorSheet (Add to existing / Add as new entry / Back).
     await page.locator('button[type="submit"]', { hasText: /add to humidor/i }).click();
+    // Choose "Add as new entry" to route through addHumidorItem → the
+    // same-cigar exemption in assertCanAddHumidor should let this through.
+    await page.getByRole("button", { name: /add as new entry/i }).click();
 
     await expect(page.getByText("You've reached your 10-cigar limit")).toHaveCount(0);
 
