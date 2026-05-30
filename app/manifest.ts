@@ -18,7 +18,13 @@ export default function manifest(): MetadataRoute.Manifest {
     name:             "Ash & Ember Society",
     short_name:       "Ash & Ember",
     description:      "The premium cigar enthusiast app",
-    start_url:        "/home",
+    /* Absolute www URL — see app/layout.tsx splash comment. A relative
+       "/home" gets resolved against whatever host the user installed
+       the PWA from. Bare-domain installs then 307 on every cold launch,
+       adding seconds of white screen while the WebView follows the
+       redirect on the main navigation. Pinning to www short-circuits
+       the cascade for every install path. */
+    start_url:        "https://www.ashember.vip/home",
     display:          "standalone",
     background_color: "#15110b",
     theme_color:      "#15110b",
