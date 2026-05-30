@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -1687,12 +1687,14 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
 
           <NotificationsSection onToast={setToast} />
 
-          <AccountSection
-            userId={userId}
-            email={email}
-            membership={membership}
-            onToast={setToast}
-          />
+          <Suspense fallback={null}>
+            <AccountSection
+              userId={userId}
+              email={email}
+              membership={membership}
+              onToast={setToast}
+            />
+          </Suspense>
 
           {/* Sign Out */}
           <button
