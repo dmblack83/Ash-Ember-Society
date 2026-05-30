@@ -145,6 +145,26 @@ test.describe("free-tier humidor cap", () => {
     await expect(page.getByText(/membership/i).first()).toBeVisible();
   });
 
+  test("Manage humidor CTA closes modal and stays on prior page", async ({ page }) => {
+    const { spare } = await seedHumidor(10);
+
+    await page.goto(`/discover/cigars/${spare}`);
+    const cigarDetailUrl = page.url();
+
+    await page.getByRole("button", { name: /add to humidor/i }).first().click();
+    await page.locator('button[type="submit"]', { hasText: /add to humidor/i }).click();
+
+    // Modal opens.
+    await expect(page.getByText("You've reached your 10-cigar limit")).toBeVisible();
+
+    // Click "Manage humidor" — secondary CTA — should just close the modal.
+    await page.getByRole("button", { name: /manage humidor/i }).click();
+
+    // Modal gone, URL unchanged (no forced redirect).
+    await expect(page.getByText("You've reached your 10-cigar limit")).toHaveCount(0);
+    expect(page.url()).toBe(cigarDetailUrl);
+  });
+
   test.afterAll(async () => {
     await admin.from("humidor_items").delete().eq("user_id", USER_ID);
   });
