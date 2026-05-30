@@ -56,6 +56,111 @@ const PUSH_SUBSCRIBE_TIMEOUT_MS = 12_000;
    time — the busy subtitle in AccountClient tells the user to hold on. */
 const SW_INSTALL_TIMEOUT_MS = 120_000;
 
+/* Snapshot the ServiceWorker lifecycle state. Called at the moment of
+   a getActiveRegistration() timeout so we can see WHICH stage hung —
+   no registration at all, installing forever, installed-but-not-active,
+   active-but-no-controller, etc. Each stage points at a completely
+   different underlying cause.
+
+   Best-effort: any individual probe throwing should NOT prevent the
+   surrounding error path from running. Wrap each in try/catch.
+
+   Companion endpoint: app/api/diagnostics/sw-state/route.ts logs the
+   payload to Vercel runtime logs for aggregation. */
+interface SwWorkerSnapshot {
+  state:     ServiceWorkerState;
+  scriptURL: string;
+}
+interface SwDiagnostics {
+  timestamp:      string;
+  documentUrl:    string;
+  documentOrigin: string;
+  userAgent:      string;
+  hasController:  boolean;
+  controller:     SwWorkerSnapshot | null;
+  hasRegistration: boolean;
+  registration:   {
+    scope:          string;
+    updateViaCache: ServiceWorkerUpdateViaCache;
+    installing:     SwWorkerSnapshot | null;
+    waiting:        SwWorkerSnapshot | null;
+    active:         SwWorkerSnapshot | null;
+  } | null;
+  captureError?: string;
+}
+
+function snapshotWorker(w: ServiceWorker | null): SwWorkerSnapshot | null {
+  if (!w) return null;
+  try {
+    return { state: w.state, scriptURL: w.scriptURL };
+  } catch {
+    return null;
+  }
+}
+
+async function captureSwDiagnostics(): Promise<SwDiagnostics> {
+  const base = {
+    timestamp:      new Date().toISOString(),
+    documentUrl:    typeof location !== "undefined" ? location.href   : "",
+    documentOrigin: typeof location !== "undefined" ? location.origin : "",
+    userAgent:      typeof navigator !== "undefined" ? navigator.userAgent : "",
+  };
+
+  try {
+    const sw   = navigator.serviceWorker;
+    const ctrl = sw.controller;
+    let reg: ServiceWorkerRegistration | undefined;
+    try {
+      reg = await sw.getRegistration();
+    } catch (e) {
+      return {
+        ...base,
+        hasController:   !!ctrl,
+        controller:      snapshotWorker(ctrl),
+        hasRegistration: false,
+        registration:    null,
+        captureError:    `getRegistration: ${(e as Error)?.message ?? String(e)}`,
+      };
+    }
+    return {
+      ...base,
+      hasController:   !!ctrl,
+      controller:      snapshotWorker(ctrl),
+      hasRegistration: !!reg,
+      registration:    reg ? {
+        scope:          reg.scope,
+        updateViaCache: reg.updateViaCache,
+        installing:     snapshotWorker(reg.installing),
+        waiting:        snapshotWorker(reg.waiting),
+        active:         snapshotWorker(reg.active),
+      } : null,
+    };
+  } catch (e) {
+    return {
+      ...base,
+      hasController:   false,
+      controller:      null,
+      hasRegistration: false,
+      registration:    null,
+      captureError:    `outer: ${(e as Error)?.message ?? String(e)}`,
+    };
+  }
+}
+
+/* Fire-and-forget POST of the diagnostic payload to the server. The
+   server just console.warns into Vercel logs. We don't await the
+   response — the goal is to surface data, not to block the rejection. */
+function reportSwDiagnostics(reason: string, state: SwDiagnostics): void {
+  try {
+    void fetch("/api/diagnostics/sw-state", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ reason, state }),
+      keepalive: true,
+    }).catch(() => { /* network-only error; the console.warn below is the user-visible record */ });
+  } catch { /* JSON.stringify on a circular ref or fetch throwing — both rare and non-fatal */ }
+}
+
 /* Returns the active ServiceWorkerRegistration for subscribe(), or
    rejects on timeout.
 
@@ -67,7 +172,15 @@ const SW_INSTALL_TIMEOUT_MS = 120_000;
    resolves once that finishes. We allow up to SW_INSTALL_TIMEOUT_MS
    so a slow mobile connection has time to complete the precache pass.
    After PR #427, the activate handler no longer blocks activation on
-   iOS, so the promise WILL eventually resolve. */
+   iOS, so the promise WILL eventually resolve.
+
+   Diagnostic capture (added in diag/sw-state-on-push-timeout): the
+   timeout path now snapshots the SW lifecycle state, console.warns it
+   (visible in Safari Web Inspector), POSTs to /api/diagnostics/sw-state
+   (visible in Vercel logs), and embeds it in the rejected error message
+   (surfaced to Sentry). All three sinks because the failure is rare
+   and we don't want to miss it. NO behavioral change — only the error
+   payload is richer. */
 async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
   if (navigator.serviceWorker.controller) {
     const reg = await navigator.serviceWorker.getRegistration();
@@ -76,10 +189,14 @@ async function getActiveRegistration(): Promise<ServiceWorkerRegistration> {
   return Promise.race([
     navigator.serviceWorker.ready,
     new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("ServiceWorker ready timed out")),
-        SW_INSTALL_TIMEOUT_MS,
-      ),
+      setTimeout(async () => {
+        const diag = await captureSwDiagnostics();
+        console.warn("[push] ServiceWorker ready timed out. State:", diag);
+        reportSwDiagnostics("sw_ready_timeout", diag);
+        reject(new Error(
+          `ServiceWorker ready timed out. State: ${JSON.stringify(diag)}`,
+        ));
+      }, SW_INSTALL_TIMEOUT_MS),
     ),
   ]);
 }
