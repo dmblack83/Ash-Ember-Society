@@ -3,7 +3,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import Image from "next/image";
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
@@ -1374,6 +1374,14 @@ interface AccountSectionProps {
 
 function AccountSection({ userId, email, membership, onToast }: AccountSectionProps) {
   const [sheet,     setSheet]    = useState<"membership" | "privacy" | null>(null);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get("tab") === "membership") {
+      setSheet("membership");
+    }
+  }, [searchParams]);
+
   const [pwOpen,    setPwOpen]   = useState(false);
   const [currentPw, setCurrentPw] = useState("");
   const [newPw,     setNewPw]    = useState("");
