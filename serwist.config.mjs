@@ -75,5 +75,28 @@ export default await serwist({
   globIgnores: [
     "public/appstore-images/**",
     "public/.appstore-images-bak/**",
+    /*
+     * Admin/dev preview tool that lives in `public/` so it can be
+     * iframed by an internal page. proxy.ts auth-gates the URL —
+     * returns 401 in a cookieless context, which is exactly what
+     * the SW install fetch is.
+     *
+     * If Serwist precaches this entry (the default
+     * `public/<asterisk><asterisk>/<asterisk>` glob will sweep it
+     * in unless excluded here), the install step issues a fetch,
+     * gets 401, CacheableResponsePlugin rejects (statuses [0, 200]
+     * only), the precache promise never resolves, install hangs in
+     * "installing" forever, `navigator.serviceWorker.ready` never
+     * resolves on the page, and push notifications time out at the
+     * 120s SW_INSTALL_TIMEOUT_MS in lib/push-client.ts.
+     *
+     * Diagnosed 2026-05-30 with explicit SW-state capture (PR #472)
+     * after 5+ prior fixes targeted the symptom from different angles
+     * and didn't stick. The pattern fits "regression without
+     * detection" — see scripts/check-sw-precache.mjs which now gates
+     * the deployed precache manifest against this exact failure mode
+     * on every push to main.
+     */
+    "public/badge-preview.html",
   ],
 });
