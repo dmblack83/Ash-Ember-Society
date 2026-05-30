@@ -43,11 +43,13 @@ export async function assertCanAddHumidor(
   userId:   string,
   cigarId:  string,
 ): Promise<void> {
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("membership_tier, badge, assigned_badges")
     .eq("id", userId)
     .single<MembershipProfile>();
+
+  if (profileError) throw profileError;
 
   if (getMembershipTier(profile) !== "free") return;
 
