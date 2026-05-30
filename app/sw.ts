@@ -183,26 +183,33 @@ const authPartitionPlugin: SerwistPlugin = {
 const serwist = new Serwist({
   precacheEntries: [
     ...self.__SW_MANIFEST,
-    /* These public routes are NOT in the build manifest because
-       `serwist.config.mjs` sets `precachePrerendered: false` — required
-       to prevent auth-gated routes (/discover/content, /discover/vendors)
-       from 307-redirecting during SW install and breaking activation.
+    /* HISTORICAL: this list previously also included /offline, /login,
+       /signup, /privacy, /terms, /eula — public routes precached for
+       first-visit offline. They were removed 2026-05-30 because the
+       SW install context fetches without cookies, and any one of those
+       routes returning non-200 (a proxy.ts redirect, an RSC cookie
+       branch, a transient server error) fails the entire precache step.
+       CacheableResponsePlugin only accepts 200, so a single bad
+       response rejects install, the SW never activates, and
+       navigator.serviceWorker.ready hangs for the full 120s timeout
+       window. That bug surfaced as a multi-week "push notifications
+       won't turn on" complaint with 5+ targeted fixes that didn't
+       stick — pattern indicating an architectural problem (the
+       explicit list is fragile in ways the build doesn't catch).
 
-       Adding the unauthenticated routes explicitly here gives them
-       first-visit offline availability without re-enabling the
-       prerendered-route auto-precache. revision:null treats each URL
-       as already-versioned; these pages change rarely and the SW
-       fully re-installs on every deploy anyway.
+       Only hashed /_next/static/* entries (from __SW_MANIFEST) are
+       precached now. Those are immutable, always 200, and can't fail
+       in the SW context. Offline-on-first-visit for /login etc. is
+       lost — comment in serwist.config.mjs already accepts that
+       trade-off ("realistic offline impact is nil"). The
+       NetworkFirst-ish runtime nav cache (StaleWhileRevalidate below)
+       still captures these on first online visit, so subsequent
+       offline loads work the same as before for any user who's
+       visited the page at least once.
 
-       /signup/verify is intentionally excluded — its content is a
-       stepwise OTP flow that depends on per-session state, not a
-       static page worth caching. */
-    { url: "/offline", revision: null },
-    { url: "/login",   revision: null },
-    { url: "/signup",  revision: null },
-    { url: "/privacy", revision: null },
-    { url: "/terms",   revision: null },
-    { url: "/eula",    revision: null },
+       DO NOT add explicit URL entries back here without ALSO adding
+       a CI smoke test that fetches each one without cookies and
+       asserts 200. See docs/superpowers/specs/2026-05-30-* . */
   ],
   /*
    * Skip waiting + clientsClaim mirror the old sw.js behaviour, so
