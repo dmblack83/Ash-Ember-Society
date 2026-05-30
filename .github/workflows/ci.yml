@@ -61,3 +61,67 @@ jobs:
 
       - name: Type check (service worker)
         run: npx tsc --project tsconfig.sw.json --noEmit
+
+      # PWA URL absoluteness — static source check. Catches the regression
+      # where someone makes apple-touch-startup-image or manifest start_url
+      # relative again. Fixed in fix/pwa-cold-launch-redirect-cascade after
+      # bare-domain installs hit a 5-10s black screen on every cold launch.
+      # See scripts/check-pwa-urls.mjs for the rule + reasoning.
+      - name: PWA URL absoluteness
+        run: npm run check:pwa
+
+  # Post-deploy smoke check — runs on push to main only, against the live
+  # production URLs. Verifies PWA-critical static assets serve 200 from
+  # BOTH hosts (bare ashember.vip + www.ashember.vip). If the bare-domain
+  # redirect ever becomes catch-all again (re-broken next.config.ts), this
+  # job fails and we know within minutes of the deploy.
+  #
+  # Splash URL chosen: iPhone 16 Pro (1206x2622). Any committed splash file
+  # would work; this one is the most common modern iPhone.
+  pwa-smoke:
+    name: PWA URL smoke (prod)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 3
+    needs: typecheck
+
+    steps:
+      - name: Splash image — bare host returns 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://ashember.vip/appstore-images/ios-splash/1206x2622.png")
+          if [ "$code" != "200" ]; then
+            echo "::error::bare host splash returned $code (expected 200). Bare-domain redirect may have re-caught static assets."
+            exit 1
+          fi
+          echo "OK: bare host splash → 200"
+
+      - name: Splash image — www host returns 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://www.ashember.vip/appstore-images/ios-splash/1206x2622.png")
+          if [ "$code" != "200" ]; then
+            echo "::error::www host splash returned $code (expected 200)."
+            exit 1
+          fi
+          echo "OK: www host splash → 200"
+
+      - name: Manifest — bare host returns 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://ashember.vip/manifest.webmanifest")
+          if [ "$code" != "200" ]; then
+            echo "::error::bare host manifest returned $code (expected 200)."
+            exit 1
+          fi
+          echo "OK: bare host manifest → 200"
+
+      - name: Manifest — www host returns 200
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://www.ashember.vip/manifest.webmanifest")
+          if [ "$code" != "200" ]; then
+            echo "::error::www host manifest returned $code (expected 200)."
+            exit 1
+          fi
+          echo "OK: www host manifest → 200"
