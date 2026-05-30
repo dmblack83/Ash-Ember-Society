@@ -5,6 +5,8 @@ import { createClient }      from "@/utils/supabase/client";
 import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 import { useEscapeKey }      from "@/lib/hooks/use-escape-key";
+import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
+import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import {
   SHADES,
   WRAPPERS,
@@ -83,6 +85,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   /* ── Submit state ─────────────────────────────────────────── */
   const [submitting,  setSubmitting]  = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   /* ── Layout state ─────────────────────────────────────────── */
   const [isDesktop,       setIsDesktop]       = useState(false);
@@ -195,20 +198,27 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
       if (!user) { setSubmitError("Not authenticated."); return; }
 
       const priceCents = priceStr ? Math.round(parseFloat(priceStr) * 100) : null;
-      const { error: insertErr } = await supabase.from("humidor_items").insert({
-        user_id:           user.id,
-        cigar_id:          cigarId,
-        quantity,
-        purchase_date:     purchaseDate     || null,
-        price_paid_cents:  isNaN(priceCents ?? NaN) ? null : priceCents,
-        source:            source.trim()    || null,
-        aging_start_date:  agingStart       || null,
-        aging_target_date: agingTarget      || null,
-        notes:             notes.trim()     || null,
-        is_wishlist:       false,
-      });
-
-      if (insertErr) { setSubmitError(insertErr.message); return; }
+      try {
+        await addHumidorItem(supabase, {
+          user_id:           user.id,
+          cigar_id:          cigarId,
+          quantity,
+          purchase_date:     purchaseDate     || null,
+          price_paid_cents:  isNaN(priceCents ?? NaN) ? null : priceCents,
+          source:            source.trim()    || null,
+          aging_start_date:  agingStart       || null,
+          aging_target_date: agingTarget      || null,
+          notes:             notes.trim()     || null,
+          is_wishlist:       false,
+        });
+      } catch (e) {
+        if (e instanceof HumidorLimitError) {
+          setShowLimitModal(true);
+          return;
+        }
+        setSubmitError(e instanceof Error ? e.message : "Something went wrong.");
+        return;
+      }
 
       if (selected) {
         await supabase
@@ -790,6 +800,11 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
         </div>
       </div>
+
+      <UpgradeLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+      />
     </>
   );
 }
