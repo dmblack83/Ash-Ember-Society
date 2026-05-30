@@ -58,13 +58,23 @@ export const viewport: Viewport = {
    dimensions in `device-width`/`device-height` + the matching pixel
    ratio MUST be exact.
 
+   The URL must be ABSOLUTE to www.ashember.vip. PWAs installed when
+   the user was on the bare ashember.vip host store the splash URL
+   relative to that host; iOS then fetches it from bare, which 307s
+   to www, and iOS does NOT follow 307 redirects for
+   apple-touch-startup-image requests (documented WKWebView quirk).
+   Result: 5-10s of black launch screen on every cold open.
+   Absolute www URL bypasses the redirect entirely. Do NOT make this
+   relative again. See docs/superpowers/specs/2026-05-30-* for the
+   full investigation.
+
    Generation: `python3 scripts/generate-ios-splash.py`. Re-run after
    any logo or brand-color change. */
 const iosSplash = (deviceW: number, deviceH: number, dpr: 2 | 3, orientation: "portrait" | "landscape" = "portrait") => {
   const w = orientation === "portrait" ? deviceW * dpr : deviceH * dpr;
   const h = orientation === "portrait" ? deviceH * dpr : deviceW * dpr;
   return {
-    url:   `/appstore-images/ios-splash/${w}x${h}.png`,
+    url:   `https://www.ashember.vip/appstore-images/ios-splash/${w}x${h}.png`,
     media: `(device-width: ${deviceW}px) and (device-height: ${deviceH}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: ${orientation})`,
   };
 };
