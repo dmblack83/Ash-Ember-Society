@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
+import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
+import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 
 /* ------------------------------------------------------------------
    Types
@@ -52,6 +54,7 @@ export function AddToHumidorSheet({
   const [existingItems, setExistingItems] = useState<ExistingItem[]>([]);
   const [showConflict, setShowConflict] = useState(false);
   const [checkingExisting, setCheckingExisting] = useState(false);
+  const [showLimitModal, setShowLimitModal] = useState(false);
 
   /* Reset form and check for existing entries whenever the sheet opens */
   useEffect(() => {
@@ -134,26 +137,30 @@ export function AddToHumidorSheet({
         ? Math.round(parseFloat(priceDollars) * 100)
         : null;
 
-    const { error: insertError } = await supabase.from("humidor_items").insert({
-      user_id: user.id,
-      cigar_id: cigarId,
-      is_wishlist: false,
-      quantity,
-      purchase_quantity: quantity,
-      purchase_date: purchaseDate || null,
-      price_paid_cents: isNaN(priceCents!) ? null : priceCents,
-      source: source.trim() || null,
-      aging_start_date: agingStartDate || null,
-      notes: notes.trim() || null,
-    });
-
-    setSubmitting(false);
-
-    if (insertError) {
-      setError(insertError.message);
+    try {
+      await addHumidorItem(supabase, {
+        user_id: user.id,
+        cigar_id: cigarId,
+        is_wishlist: false,
+        quantity,
+        purchase_quantity: quantity,
+        purchase_date: purchaseDate || null,
+        price_paid_cents: isNaN(priceCents!) ? null : priceCents,
+        source: source.trim() || null,
+        aging_start_date: agingStartDate || null,
+        notes: notes.trim() || null,
+      });
+    } catch (e) {
+      setSubmitting(false);
+      if (e instanceof HumidorLimitError) {
+        setShowLimitModal(true);
+        return;
+      }
+      setError(e instanceof Error ? e.message : "Something went wrong.");
       return;
     }
 
+    setSubmitting(false);
     onSuccess();
     onClose();
   }
@@ -461,6 +468,11 @@ export function AddToHumidorSheet({
         </div>
         </div>{/* end inner scrollable */}
       </div>
+
+      <UpgradeLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+      />
     </>
   );
 }
