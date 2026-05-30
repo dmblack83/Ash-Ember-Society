@@ -125,3 +125,35 @@ jobs:
             exit 1
           fi
           echo "OK: www host manifest → 200"
+
+  # SW precache cookieless-200 gate — runs on push to main, against
+  # the live production SW. Verifies every URL in the deployed precache
+  # manifest returns 200 from a cookieless context. Catches the regression
+  # where an auth-gated route or admin file in public/ gets auto-included
+  # in the Serwist precache manifest, hangs SW install, and times out
+  # push subscriptions at 120s.
+  #
+  # The exact bug this gates: PR #472's diagnostic showed SW stuck in
+  # "installing" because /public/badge-preview returned 401 cookieless.
+  # Six prior PRs targeted the symptom from different angles without
+  # detecting the actual cause.
+  sw-precache-check:
+    name: SW precache cookieless-200 gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    timeout-minutes: 3
+    needs: typecheck
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Verify every precache URL returns 200 cookieless
+        run: node scripts/check-sw-precache.mjs
+        env:
+          SW_PRECACHE_BASE_URL: https://www.ashember.vip
