@@ -16,6 +16,7 @@ import {
 } from "@/lib/burn-report-draft";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
+import { compressImage } from "@/lib/image-compress";
 
 /* ------------------------------------------------------------------
    Constants
@@ -1711,8 +1712,13 @@ export function BurnReport({
     if (form.photo_files.length === 0) return [];
     const urls: string[] = [];
     for (const file of form.photo_files) {
+      /* Compress before upload — iPhone photos commonly exceed Vercel's
+         4.5 MB function payload limit, which surfaces on iOS PWAs as a
+         TLS error mid-upload. compressImage caps long edge at 1600px and
+         re-encodes as JPEG q=0.85 (~200-500 KB typical). */
+      const uploadFile = await compressImage(file);
       const fd = new FormData();
-      fd.append("file",   file);
+      fd.append("file",   uploadFile);
       fd.append("folder", "burn-reports");
       const res = await fetch("/api/upload/image", { method: "POST", body: fd });
       if (res.ok) {

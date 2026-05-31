@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { createPortal }     from "react-dom";
 import { useEscapeKey }     from "@/lib/hooks/use-escape-key";
+import { compressImage }    from "@/lib/image-compress";
 
 interface Props {
   cigarId:   string;
@@ -35,8 +36,14 @@ export function SubmitCigarPhotoSheet({ cigarId, cigarName, onClose }: Props) {
     setSubmitting(true);
     setError(null);
 
+    /* Compress before upload — iPhone photos commonly exceed Vercel's
+       4.5 MB function payload limit, which surfaces on iOS PWAs as a
+       TLS error mid-upload. compressImage caps long edge at 1600px and
+       re-encodes as JPEG q=0.85 (~200-500 KB typical). */
+    const uploadFile = await compressImage(file);
+
     const fd = new FormData();
-    fd.append("file",     file);
+    fd.append("file",     uploadFile);
     fd.append("cigar_id", cigarId);
 
     const res = await fetch("/api/upload/cigar-image", { method: "POST", body: fd });
