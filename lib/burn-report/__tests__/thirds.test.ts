@@ -26,6 +26,13 @@ describe("roundUpToQuarter", () => {
   it("handles zero", () => {
     expect(roundUpToQuarter(0)).toBe(0);
   });
+  it("returns 0 for NaN", () => {
+    expect(roundUpToQuarter(Number.NaN)).toBe(0);
+  });
+  it("returns 0 for Infinity (negative direction handled by the cap, positive returns 5)", () => {
+    expect(roundUpToQuarter(-Infinity)).toBe(0);
+    expect(roundUpToQuarter(Infinity)).toBe(5);
+  });
 });
 
 describe("averageThirdsToQuarter", () => {
@@ -52,5 +59,17 @@ describe("averageThirdsToQuarter", () => {
     expect(result.construction_rating).toBe(4.5);
     // flavor: (5+4+5)/3 = 4.666... → 4.75
     expect(result.flavor_rating).toBe(4.75);
+  });
+  it("works at the low end (all 1s)", () => {
+    const r = averageThirdsToQuarter([t(1, 1, 1, 1), t(1, 1, 1, 1), t(1, 1, 1, 1)]);
+    expect(r).toEqual({ draw_rating: 1, burn_rating: 1, construction_rating: 1, flavor_rating: 1 });
+  });
+  it("returns all zeros for an empty array (guards the early-return branch)", () => {
+    const r = averageThirdsToQuarter([]);
+    expect(r).toEqual({ draw_rating: 0, burn_rating: 0, construction_rating: 0, flavor_rating: 0 });
+  });
+  it("handles a single-third input without special casing", () => {
+    const r = averageThirdsToQuarter([t(3, 2, 4, 1)]);
+    expect(r).toEqual({ draw_rating: 3, burn_rating: 2, construction_rating: 4, flavor_rating: 1 });
   });
 });

@@ -27,7 +27,7 @@ export interface AveragedRatings {
 
 /* Round up to the nearest quarter (0.25). Capped at 5.0. */
 export function roundUpToQuarter(value: number): number {
-  if (value <= 0) return 0;
+  if (Number.isNaN(value) || value <= 0) return 0;
   if (value >= 5) return 5;
   return Math.min(5, Math.ceil(value * 4) / 4);
 }
