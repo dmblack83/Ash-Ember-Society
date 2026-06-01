@@ -43,9 +43,20 @@ export function ServiceWorkerUpdateNotice() {
     const hadController = navigator.serviceWorker.controller !== null;
     if (!hadController) return;
 
+    /* DIAG: confirm the controller-state gate. If the cycle bug is
+       happening because hadController is true on the reloaded page
+       AND SW_UPDATED is re-broadcast, this log shows both halves. */
+    console.log(
+      "[sw-update-notice] mount, hadController =",
+      hadController,
+      "at",
+      new Date().toISOString(),
+    );
+
     function onMessage(event: MessageEvent) {
       const data = event.data;
       if (data && typeof data === "object" && (data as { type?: unknown }).type === "SW_UPDATED") {
+        console.log("[sw-update-notice] SW_UPDATED received at", new Date().toISOString());
         setAvailable(true);
       }
     }
