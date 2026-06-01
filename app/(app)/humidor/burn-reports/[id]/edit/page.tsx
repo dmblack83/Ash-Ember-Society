@@ -2,11 +2,31 @@ import { createClient }  from "@/utils/supabase/server";
 import { getServerUser } from "@/lib/auth/server-user";
 import { getProfileLite } from "@/lib/data/profile";
 import { getFlavorTags }  from "@/lib/data/flavor-tags";
+import { getBurnReportThirds, type BurnReportThirdRow } from "@/lib/data/burn-report-thirds";
 import { notFound, redirect } from "next/navigation";
 import { BurnReport, type BurnReportExisting } from "@/components/humidor/BurnReport";
+import type { PerThirdData } from "@/lib/burn-report/thirds";
 import type { BurnReportItem, PartnerVideo, FlavorTag } from "@/app/(app)/humidor/[id]/burn-report/page";
 
 export const runtime = "edge";
+
+function rowsToFormThirds(
+  rows: BurnReportThirdRow[],
+): [PerThirdData | null, PerThirdData | null, PerThirdData | null] {
+  const out: (PerThirdData | null)[] = [null, null, null];
+  for (const row of rows) {
+    if (row.third_index < 1 || row.third_index > 3) continue;
+    out[row.third_index - 1] = {
+      notes:               row.notes,
+      draw_rating:         row.draw_rating,
+      burn_rating:         row.burn_rating,
+      construction_rating: row.construction_rating,
+      flavor_rating:       row.flavor_rating,
+      flavor_tag_ids:      row.flavor_tag_ids,
+    };
+  }
+  return [out[0], out[1], out[2]];
+}
 
 /* ------------------------------------------------------------------
    Edit page — server component
@@ -56,7 +76,7 @@ export default async function EditBurnReportPage({
       smoke_duration_minutes,
       content_video_id,
       cigar:cigar_catalog(id, brand, series, format, image_url, wrapper),
-      burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+      burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
     `)
     .eq("id",      id)
     .eq("user_id", user.id)
@@ -89,8 +109,10 @@ export default async function EditBurnReportPage({
   };
 
   /* The 1:1 burn_reports child returns as an array via PostgREST. */
-  const thirdsRaw = report.burn_report;
-  const thirds    = Array.isArray(thirdsRaw) ? thirdsRaw[0] : thirdsRaw;
+  const thirdsRaw    = report.burn_report;
+  const thirds       = Array.isArray(thirdsRaw) ? thirdsRaw[0] : thirdsRaw;
+  const burnReportId = thirds?.id ?? null;
+  const thirdsRows   = burnReportId ? await getBurnReportThirds(burnReportId) : [];
 
   /* Compute the report's display number from chronological position
      so the header shows the same "NO. X" the user saw in the list.
@@ -130,7 +152,7 @@ export default async function EditBurnReportPage({
     third_beginning:        thirds?.third_beginning ?? "",
     third_middle:           thirds?.third_middle    ?? "",
     third_end:              thirds?.third_end       ?? "",
-    thirds:                 [null, null, null],
+    thirds:                 rowsToFormThirds(thirdsRows),
   };
 
   return (
