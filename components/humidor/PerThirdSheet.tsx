@@ -82,7 +82,10 @@ export function PerThirdSheet({
         aria-label={tag.eyebrow}
         style={{
           position:       "fixed",
-          inset:          0,
+          top:            0,
+          right:          0,
+          bottom:         0,
+          left:           "var(--app-content-left, 0px)",
           zIndex:         50,
           background:     "rgba(0,0,0,0.55)",
           display:        "flex",
@@ -97,6 +100,10 @@ export function PerThirdSheet({
             borderTopLeftRadius:  16,
             borderTopRightRadius: 16,
             maxHeight:            "95vh",
+            width:                "100%",
+            maxWidth:             560,
+            marginLeft:           "auto",
+            marginRight:          "auto",
             display:              "flex",
             flexDirection:        "column",
             overflow:             "hidden",
