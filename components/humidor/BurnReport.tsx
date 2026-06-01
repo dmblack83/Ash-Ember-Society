@@ -17,6 +17,7 @@ import {
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
+import type { PerThirdData } from "@/lib/burn-report/thirds";
 
 /* ------------------------------------------------------------------
    Constants
@@ -97,6 +98,10 @@ interface FormData {
   third_beginning: string;
   third_middle: string;
   third_end: string;
+  /* New per-third payload — collected via PerThirdSheet when
+     thirds_enabled is true. Indexed by third_index (1, 2, 3) but
+     stored as a fixed-length tuple for easier serialization. */
+  thirds: [PerThirdData | null, PerThirdData | null, PerThirdData | null];
 }
 
 /* The shape we serialize for the localStorage draft. Photos are
@@ -135,6 +140,7 @@ function defaultForm(): FormData {
     third_beginning: "",
     third_middle:    "",
     third_end:       "",
+    thirds: [null, null, null],
   };
 }
 

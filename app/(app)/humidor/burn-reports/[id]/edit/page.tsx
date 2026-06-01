@@ -130,6 +130,7 @@ export default async function EditBurnReportPage({
     third_beginning:        thirds?.third_beginning ?? "",
     third_middle:           thirds?.third_middle    ?? "",
     third_end:              thirds?.third_end       ?? "",
+    thirds:                 [null, null, null],
   };
 
   return (
