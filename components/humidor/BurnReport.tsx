@@ -1591,18 +1591,11 @@ export function BurnReport({
         if (form.construction_rating === 0) return "Please rate the build.";
         if (form.flavor_rating === 0)       return "Please rate the flavor.";
       } else {
-        for (let i = 0; i < 3; i++) {
-          const t = form.thirds[i];
-          if (
-            !t ||
-            !t.notes.trim() ||
-            !t.draw_rating ||
-            !t.burn_rating ||
-            !t.construction_rating ||
-            !t.flavor_rating
-          ) {
-            return "Complete all three thirds to submit.";
-          }
+        /* Per-third validation is wired in Task 12 once PerThirdSheet
+           populates form.thirds. Until then, fall back to the legacy
+           text-only thirds check (matches the pre-redesign behavior). */
+        if (!form.third_beginning.trim() || !form.third_middle.trim() || !form.third_end.trim()) {
+          return "Add notes for all three thirds to continue.";
         }
       }
       if (!form.review_text.trim()) return "Review is required.";
