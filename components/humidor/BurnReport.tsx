@@ -17,6 +17,23 @@ import {
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
+import type { PerThirdData } from "@/lib/burn-report/thirds";
+import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
+import { PerThirdSheet } from "./PerThirdSheet";
+import { StarRating as StarRatingInput } from "./StarRating";
+
+/* ------------------------------------------------------------------
+   Helpers (module-scope)
+   ------------------------------------------------------------------ */
+
+function ratingWord(val: number): string {
+  if (val < 1) return "—";
+  if (val === 1) return "Poor";
+  if (val === 2) return "Below Average";
+  if (val === 3) return "Average";
+  if (val === 4) return "Good";
+  return "Excellent";
+}
 
 /* ------------------------------------------------------------------
    Constants
@@ -25,13 +42,11 @@ import { compressImage } from "@/lib/image-compress";
 const STEPS = [
   "The Basics",
   "Pairing",
-  "Rating",
-  "Flavor Profile",
   "Overall",
   "Summary",
 ] as const;
 
-const SKIPPABLE = new Set([1, 3]); // Pairing (1), Flavor Profile (3)
+const SKIPPABLE = new Set([1]); // Pairing (1)
 
 const OCCASIONS = [
   "Celebration",
@@ -97,6 +112,10 @@ interface FormData {
   third_beginning: string;
   third_middle: string;
   third_end: string;
+  /* New per-third payload — collected via PerThirdSheet when
+     thirds_enabled is true. Indexed by third_index (1, 2, 3) but
+     stored as a fixed-length tuple for easier serialization. */
+  thirds: [PerThirdData | null, PerThirdData | null, PerThirdData | null];
 }
 
 /* The shape we serialize for the localStorage draft. Photos are
@@ -135,6 +154,7 @@ function defaultForm(): FormData {
     third_beginning: "",
     third_middle:    "",
     third_end:       "",
+    thirds: [null, null, null],
   };
 }
 
@@ -158,7 +178,7 @@ function ratingLabel(v: number): string {
 }
 
 /* ------------------------------------------------------------------
-   ProgressRail — 6-tick editorial progress, gold-deep done /
+   ProgressRail — editorial progress (tick per step), gold-deep done /
    gold current (extra-wide) / line future. Replaces the previous dot
    row for the Burn Report visual refresh.
    ------------------------------------------------------------------ */
@@ -560,104 +580,6 @@ function Step2({
 }
 
 /* ------------------------------------------------------------------
-   Step 3 — Rating
-   ------------------------------------------------------------------ */
-
-function Step3({
-  form,
-  update,
-  item,
-}: {
-  form: FormData;
-  update: (f: Partial<FormData>) => void;
-  item: BurnReportItem;
-}) {
-  const hairline = (
-    <div style={{ height: 1, background: "var(--line)", margin: "22px 0" }} aria-hidden="true" />
-  );
-  return (
-    <div>
-      <CigarContext item={item} />
-      <StarRating
-        value={form.draw_rating}
-        onChange={(v) => update({ draw_rating: v })}
-        label="How was the draw?"
-      />
-      {hairline}
-      <StarRating
-        value={form.burn_rating}
-        onChange={(v) => update({ burn_rating: v })}
-        label="How even was the burn?"
-      />
-      {hairline}
-      <StarRating
-        value={form.construction_rating}
-        onChange={(v) => update({ construction_rating: v })}
-        label="How was the construction?"
-      />
-      {hairline}
-      <StarRating
-        value={form.flavor_rating}
-        onChange={(v) => update({ flavor_rating: v })}
-        label="How was the flavor?"
-      />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Step 4 — Flavor Profile
-   ------------------------------------------------------------------ */
-
-function Step4({
-  form,
-  update,
-  flavorTags,
-  item,
-}: {
-  form: FormData;
-  update: (f: Partial<FormData>) => void;
-  flavorTags: FlavorTag[];
-  item: BurnReportItem;
-}) {
-  const grouped = CATEGORY_ORDER.reduce<Record<string, FlavorTag[]>>((acc, cat) => {
-    const tags = flavorTags.filter((t) => t.category === cat);
-    if (tags.length) acc[cat] = tags;
-    return acc;
-  }, {});
-
-  function toggleTag(id: string) {
-    const ids = form.flavor_tag_ids.includes(id)
-      ? form.flavor_tag_ids.filter((t) => t !== id)
-      : [...form.flavor_tag_ids, id];
-    update({ flavor_tag_ids: ids });
-  }
-
-  return (
-    <div className="space-y-6">
-      <CigarContext item={item} />
-
-      {Object.entries(grouped).map(([cat, tags]) => (
-        <div key={cat}>
-          <Eyebrow>{CATEGORY_DISPLAY[cat]}</Eyebrow>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Chip
-                key={tag.id}
-                active={form.flavor_tag_ids.includes(tag.id)}
-                onClick={() => toggleTag(tag.id)}
-              >
-                {tag.name}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
    AutoGrowTextarea — textarea that resizes to fit its content on
    every keystroke. Used inside the Step 5 Thirds section so each
    phase note grows as the user writes instead of forcing them to
@@ -715,12 +637,24 @@ function Step5({
   form,
   update,
   item,
+  flavorTags,
+  onOpenThird,
+  onRemovePhoto,
   hidePhotos = false,
   existingPhotoUrls = [],
 }: {
   form: FormData;
   update: (f: Partial<FormData>) => void;
   item: BurnReportItem;
+  flavorTags: FlavorTag[];
+  /* Per-third Begin/Review button click handler — opens the
+     PerThirdSheet for the given third (1|2|3). Wired by the parent. */
+  onOpenThird: (i: 1 | 2 | 3) => void;
+  /* Remove a photo from the shared Overall list. The wizard owns this
+     because removing a photo that was sourced from a third also needs
+     to clear that third's photo slot, and only the wizard has access
+     to the thirdPhotos state. */
+  onRemovePhoto: (i: number) => void;
   /* Edit mode passes hidePhotos=true and supplies existingPhotoUrls
      so the user sees the photos they originally attached without an
      add/remove affordance. Photo editing is deferred to a follow-up. */
@@ -737,10 +671,6 @@ function Step5({
       next.push(files[i]);
     }
     update({ photo_files: next });
-  }
-
-  function removePhoto(i: number) {
-    update({ photo_files: form.photo_files.filter((_, idx) => idx !== i) });
   }
 
   return (
@@ -906,54 +836,63 @@ function Step5({
           </span>
         </button>
 
-        {/* Three thirds — only rendered when toggled on. We deliberately
-            unmount when off rather than CSS-hide, so the input order in
-            the DOM stays linear when navigating with a keyboard. State
-            for the three text fields lives on `form` so it survives
-            toggle off→on cycles. */}
+        {/* Three thirds — when enabled, render Begin/Review buttons
+            that open the PerThirdSheet. Each button's state reflects
+            whether that third has any saved notes yet (completed =
+            gold accent, otherwise primary). */}
         {form.thirds_enabled && (
-          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
-            {([
-              { id: "br-third-beginning", key: "third_beginning", tag: "First Third · Beginning",
-                placeholder: "Opening notes, light, first impressions…" },
-              { id: "br-third-middle",    key: "third_middle",    tag: "Second Third · Middle",
-                placeholder: "How it's developing — flavor shifts, draw, burn…" },
-              { id: "br-third-end",       key: "third_end",       tag: "Final Third · End",
-                placeholder: "Finish, complexity, lingering notes…" },
-            ] as const).map(({ id, key, tag, placeholder }) => {
-              const value      = form[key];
-              const hasContent = value.trim().length > 0;
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            {([1, 2, 3] as const).map((idx) => {
+              const eyebrow = idx === 1 ? "First Third · Beginning"
+                            : idx === 2 ? "Second Third · Middle"
+                            : "Final Third · End";
+              const data      = form.thirds[idx - 1];
+              const completed = !!data && data.notes.trim().length > 0;
               return (
-                <div
-                  key={id}
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => onOpenThird(idx)}
                   style={{
-                    position:    "relative",
-                    paddingLeft: 14,
-                    borderLeft:  "2px solid var(--line)",
+                    display:        "flex",
+                    alignItems:     "center",
+                    justifyContent: "space-between",
+                    padding:        "12px 16px 12px 28px",
+                    borderRadius:   10,
+                    border:         `1px solid ${completed ? "rgba(212,160,74,0.5)" : "rgba(193,120,23,0.6)"}`,
+                    background:     completed ? "rgba(212,160,74,0.1)" : "rgba(193,120,23,0.18)",
+                    color:          completed ? "var(--gold)" : "var(--foreground)",
+                    cursor:         "pointer",
+                    textAlign:      "left",
+                    position:       "relative",
                   }}
                 >
-                  {/* 8px circular indicator — fills gold once any text */}
                   <span
                     aria-hidden="true"
                     style={{
                       position:     "absolute",
-                      top:          0,
-                      left:         -5,
+                      top:          "50%",
+                      left:         12,
+                      transform:    "translateY(-50%)",
                       width:        8,
                       height:       8,
                       borderRadius: 999,
-                      background:   hasContent ? "var(--gold)" : "var(--line-strong)",
-                      transition:   "background 200ms ease",
+                      background:   completed ? "var(--gold)" : "rgba(245,230,211,0.25)",
                     }}
                   />
-                  <Eyebrow htmlFor={id}>{tag}</Eyebrow>
-                  <AutoGrowTextarea
-                    id={id}
-                    placeholder={placeholder}
-                    value={value}
-                    onChange={(v) => update({ [key]: v } as Partial<FormData>)}
-                  />
-                </div>
+                  <span
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      9,
+                      fontWeight:    500,
+                      letterSpacing: "0.28em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {eyebrow}
+                  </span>
+                  <span style={{ fontSize: 12, opacity: 0.85 }}>{completed ? "Review ›" : "Begin ›"}</span>
+                </button>
               );
             })}
           </div>
@@ -977,6 +916,88 @@ function Step5({
           onChange={(e) => update({ review_text: e.target.value })}
         />
       </div>
+
+      {/* ── Tasting Notes + Ratings — inlined when thirds is off.
+            When thirds is on, both are collected per-third via the
+            PerThirdSheet and the overall values are derived at submit
+            (Task 13), so the inline UI is hidden to avoid double-entry. */}
+      {!form.thirds_enabled && (
+        <>
+          <div>
+            <Eyebrow optional>Tasting Notes</Eyebrow>
+            {CATEGORY_ORDER.map((cat) => {
+              const tags = flavorTags.filter((t) => t.category === cat);
+              if (!tags.length) return null;
+              return (
+                <div key={cat} style={{ marginBottom: 10 }}>
+                  <Eyebrow>{CATEGORY_DISPLAY[cat]}</Eyebrow>
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Chip
+                        key={tag.id}
+                        active={form.flavor_tag_ids.includes(tag.id)}
+                        onClick={() => {
+                          const ids = form.flavor_tag_ids.includes(tag.id)
+                            ? form.flavor_tag_ids.filter((id) => id !== tag.id)
+                            : [...form.flavor_tag_ids, tag.id];
+                          update({ flavor_tag_ids: ids });
+                        }}
+                      >
+                        {tag.name}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div>
+            <Eyebrow>Ratings</Eyebrow>
+            {([
+              ["How was the draw?",         form.draw_rating,         "draw_rating"]         as const,
+              ["How even was the burn?",     form.burn_rating,         "burn_rating"]         as const,
+              ["How was the construction?",  form.construction_rating, "construction_rating"] as const,
+              ["How was the flavor?",        form.flavor_rating,       "flavor_rating"]       as const,
+            ]).map(([label, val, key]) => (
+              <div key={label} style={{ marginBottom: 12 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontStyle:  "italic",
+                    fontSize:   15,
+                    color:      "var(--foreground)",
+                    margin:     "0 0 6px",
+                  }}
+                >
+                  {label}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <StarRatingInput
+                    mode="input"
+                    value={val}
+                    size={22}
+                    onChange={(v) => update({ [key]: v } as Partial<FormData>)}
+                    ariaLabel={label}
+                  />
+                  <span
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      9,
+                      fontWeight:    500,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color:         val > 0 ? "var(--gold)" : "var(--paper-dim)",
+                    }}
+                  >
+                    {ratingWord(val)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
 
       {/* ── Smoke duration — italic numeral inside field ── */}
       <div>
@@ -1072,7 +1093,7 @@ function Step5({
                   />
                   <button
                     type="button"
-                    onClick={() => removePhoto(i)}
+                    onClick={() => onRemovePhoto(i)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
                     aria-label="Remove photo"
@@ -1175,11 +1196,38 @@ function SummaryStep({
     .filter((t) => form.flavor_tag_ids.includes(t.id))
     .map((t) => t.name);
 
+  const thirdsTaggedRows = form.thirds_enabled
+    ? form.thirds
+        .map((t, i) =>
+          t
+            ? {
+                index: (i + 1) as 1 | 2 | 3,
+                flavor_tag_names: flavorTags
+                  .filter((ft) => t.flavor_tag_ids.includes(ft.id))
+                  .map((ft) => ft.name),
+              }
+            : null,
+        )
+        .filter((r): r is { index: 1 | 2 | 3; flavor_tag_names: string[] } => r !== null)
+    : [];
+
   // In-flight callers carry photos as File objects (no URL yet);
   // VerdictCard expects URL strings. Convert at the boundary so the
   // shared component stays simple. Blob URLs are fine for the
   // preview lifetime — they're discarded once the user navigates.
   const photoUrls = form.photo_files.map((f) => URL.createObjectURL(f));
+
+  // When thirds is enabled, the four top-level rating fields are still
+  // 0 (server averages on submit). Compute averaged values client-side
+  // so the in-flight Summary preview shows accurate stars + decimals.
+  const previewRatings = form.thirds_enabled && form.thirds.every((t) => t !== null)
+    ? averageThirdsToQuarter(form.thirds as PerThirdData[])
+    : null;
+
+  const previewDraw  = previewRatings ? previewRatings.draw_rating         : form.draw_rating;
+  const previewBurn  = previewRatings ? previewRatings.burn_rating         : form.burn_rating;
+  const previewBuild = previewRatings ? previewRatings.construction_rating : form.construction_rating;
+  const previewFlav  = previewRatings ? previewRatings.flavor_rating       : form.flavor_rating;
 
   return (
     <div>
@@ -1188,10 +1236,10 @@ function SummaryStep({
         reportNumber={reportNumber}
         smokedAt={form.smoked_at}
         overallRating={form.overall_rating}
-        drawRating={form.draw_rating}
-        burnRating={form.burn_rating}
-        constructionRating={form.construction_rating}
-        flavorRating={form.flavor_rating}
+        drawRating={previewDraw}
+        burnRating={previewBurn}
+        constructionRating={previewBuild}
+        flavorRating={previewFlav}
         reviewText={form.review_text}
         smokeDurationMinutes={form.smoke_duration_minutes}
         pairingDrink={form.pairing_drink}
@@ -1202,6 +1250,7 @@ function SummaryStep({
         thirdBeginning={form.third_beginning}
         thirdMiddle={form.third_middle}
         thirdEnd={form.third_end}
+        thirdsTaggedRows={thirdsTaggedRows}
         displayName={displayName}
         city={city}
       />
@@ -1506,6 +1555,15 @@ export function BurnReport({
   const [draftReady, setDraftReady] = useState(false);
   const [showResumed, setShowResumed] = useState(false);
 
+  /* Per-third UI state — the index (1|2|3) of the currently-open
+     PerThirdSheet, or null when closed. */
+  const [openThird, setOpenThird] = useState<1 | 2 | 3 | null>(null);
+  /* Per-third photo files (parallel to form.thirds, by index 0/1/2
+     for thirds 1/2/3). Lives outside FormData because File objects
+     can't be JSON-serialized and aren't part of the draft payload.
+     Shared-list sync to form.photo_files happens in Task 13. */
+  const [thirdPhotos, setThirdPhotos] = useState<(File | null)[]>([null, null, null]);
+
   const scrollRef = useRef<HTMLElement>(null);
   const [shadowTop,    setShadowTop]    = useState(false);
   const [shadowBottom, setShadowBottom] = useState(false);
@@ -1525,7 +1583,11 @@ export function BurnReport({
       // Spread persisted fields over defaults; photos stay [] because
       // PersistableForm omits them and the spread can't fill them in.
       setForm((prev) => ({ ...prev, ...draft.form }));
-      setStep(draft.step);
+      // Clamp persisted step to current wizard range. Drafts written
+      // before the Rating + Flavor Profile steps were merged into
+      // Overall may carry step indices that no longer exist (the old
+      // 6-step wizard topped out at 5; the new one tops out at 3).
+      setStep(Math.min(draft.step, STEPS.length - 1));
       setShowResumed(true);
     }
     setDraftReady(true);
@@ -1566,7 +1628,7 @@ export function BurnReport({
 
     /* Light validation — same rules as the create flow. Picks the
        first failing step so we can route the user back to it. */
-    for (const s of [0, 2, 4]) {
+    for (const s of [0, 2]) {
       const err = validateStep(s);
       if (err) {
         setStep(s);
@@ -1665,17 +1727,66 @@ export function BurnReport({
     setStepError(null);
   }, []);
 
+  /* Sync per-third photo files into the shared Overall photo list.
+     Invariant: form.photo_files = [...thirdPhotos.filter(Boolean), ...manualOnly]
+     capped at 3. "manualOnly" = files currently in form.photo_files that
+     are NOT sourced from a third (i.e. user added them from the Overall
+     page). The equality check guards against an infinite update loop;
+     `update` is a stable useCallback reference so it's safe in the dep array. */
+  useEffect(() => {
+    const fromThirds = thirdPhotos.filter((f): f is File => !!f);
+    const manualOnly = form.photo_files.filter((f) => !thirdPhotos.includes(f));
+    const merged = [...fromThirds, ...manualOnly].slice(0, 3);
+    if (
+      merged.length !== form.photo_files.length ||
+      merged.some((f, i) => f !== form.photo_files[i])
+    ) {
+      update({ photo_files: merged });
+    }
+  }, [thirdPhotos, form.photo_files, update]);
+
+  /* Remove a photo from the Overall list. If the photo came from a
+     third (the same File object lives in thirdPhotos), also clear it
+     from that third so its per-third sheet photo slot resets. The
+     useEffect above will reconcile form.photo_files, but we still
+     update it here so the immediate render doesn't flash the removed
+     photo before the effect runs. */
+  const handleRemovePhoto = useCallback((i: number) => {
+    const file = form.photo_files[i];
+    const thirdIdx = thirdPhotos.indexOf(file);
+    if (thirdIdx !== -1) {
+      const nextThirds = [...thirdPhotos];
+      nextThirds[thirdIdx] = null;
+      setThirdPhotos(nextThirds);
+    }
+    update({ photo_files: form.photo_files.filter((_, idx) => idx !== i) });
+  }, [form.photo_files, thirdPhotos, update]);
+
   function validateStep(s: number): string | null {
     if (s === 0) {
       if (!form.location.trim()) return "Location is required.";
     }
     if (s === 2) {
-      if (form.draw_rating === 0)        return "Please rate the draw.";
-      if (form.burn_rating === 0)        return "Please rate the burn.";
-      if (form.construction_rating === 0) return "Please rate the construction.";
-      if (form.flavor_rating === 0)      return "Please rate the flavor.";
-    }
-    if (s === 4) {
+      // Overall step now owns the rating validation (the standalone
+      // Rating and Flavor Profile steps were folded in). When thirds
+      // mode is enabled, the four ratings are derived from per-third
+      // entries instead of being collected directly, so the gate
+      // switches to "all three thirds complete".
+      if (!form.thirds_enabled) {
+        if (form.draw_rating === 0)         return "Please rate the draw.";
+        if (form.burn_rating === 0)         return "Please rate the burn.";
+        if (form.construction_rating === 0) return "Please rate the build.";
+        if (form.flavor_rating === 0)       return "Please rate the flavor.";
+      } else {
+        /* Per-third validation — each third needs notes and all four
+           ratings. Photos are optional. Tasting Notes are optional. */
+        for (let i = 0; i < 3; i++) {
+          const t = form.thirds[i];
+          if (!t || !t.notes.trim() || !t.draw_rating || !t.burn_rating || !t.construction_rating || !t.flavor_rating) {
+            return "Complete all three thirds to submit.";
+          }
+        }
+      }
       if (!form.review_text.trim()) return "Review is required.";
       const mins = parseInt(form.smoke_duration_minutes);
       if (!form.smoke_duration_minutes.trim() || isNaN(mins) || mins <= 0)
@@ -1801,6 +1912,34 @@ export function BurnReport({
     if (form.third_middle.trim())        payload.third_middle        = form.third_middle.trim();
     if (form.third_end.trim())           payload.third_end           = form.third_end.trim();
 
+    /* When thirds is enabled and all three are populated, build the
+       new per-third payload. Each third's photo_index resolves to its
+       position in form.photo_files (which the useEffect keeps in sync
+       with thirdPhotos in 1st→2nd→3rd order). Headline rating fields
+       and flavor_tag_ids are derived server-side from thirds[] in this
+       mode, so strip them to keep the request shape clean. */
+    if (form.thirds_enabled && form.thirds.every((t) => t !== null)) {
+      payload.thirds = form.thirds.map((t, i) => {
+        const thirdPhoto = thirdPhotos[i];
+        const photoIndex = thirdPhoto ? form.photo_files.indexOf(thirdPhoto) : -1;
+        return {
+          index:               (i + 1) as 1 | 2 | 3,
+          notes:               t!.notes,
+          draw_rating:         t!.draw_rating,
+          burn_rating:         t!.burn_rating,
+          construction_rating: t!.construction_rating,
+          flavor_rating:       t!.flavor_rating,
+          flavor_tag_ids:      t!.flavor_tag_ids,
+          ...(photoIndex >= 0 ? { photo_index: photoIndex } : {}),
+        };
+      });
+      delete payload.draw_rating;
+      delete payload.burn_rating;
+      delete payload.construction_rating;
+      delete payload.flavor_rating;
+      delete payload.flavor_tag_ids;
+    }
+
     /* Submit. */
     try {
       const res = await fetch("/api/burn-report", {
@@ -1894,18 +2033,19 @@ export function BurnReport({
     switch (step) {
       case 0: return <Step1 form={form} update={update} item={item} />;
       case 1: return <Step2 form={form} update={update} item={item} />;
-      case 2: return <Step3 form={form} update={update} item={item} />;
-      case 3: return <Step4 form={form} update={update} flavorTags={flavorTags} item={item} />;
-      case 4: return (
+      case 2: return (
         <Step5
           form={form}
           update={update}
           item={item}
+          flavorTags={flavorTags}
+          onOpenThird={(i) => setOpenThird(i)}
+          onRemovePhoto={handleRemovePhoto}
           hidePhotos={isEdit}
           existingPhotoUrls={existing?.photo_urls ?? []}
         />
       );
-      case 5: return (
+      case 3: return (
         <SummaryStep
           form={form}
           flavorTags={flavorTags}
@@ -2014,7 +2154,7 @@ export function BurnReport({
             </p>
           </div>
 
-          {/* 6-tick progress rail */}
+          {/* Step-tick progress rail */}
           <div className="pb-3">
             <ProgressRail current={step} />
           </div>
@@ -2238,6 +2378,50 @@ export function BurnReport({
           )}
         </div>
       </footer>
+
+      {/* ── Per-third slide-up sheet ──────────────────────────────────
+          Mounted at the wizard's root so it overlays the entire flow.
+          Opens when the user taps a Begin/Review button in Step5; on
+          Save we commit the per-third payload into form.thirds and
+          mirror notes onto the legacy denormalized columns so the
+          submit/edit paths stay backwards-compatible until Task 13. */}
+      {openThird !== null && (
+        <PerThirdSheet
+          open
+          index={openThird}
+          initial={form.thirds[openThird - 1]}
+          initialPhoto={thirdPhotos[openThird - 1]}
+          flavorTags={flavorTags}
+          onCancel={() => setOpenThird(null)}
+          onSave={(payload) => {
+            const nextThirds = [...form.thirds] as typeof form.thirds;
+            nextThirds[openThird - 1] = {
+              notes:               payload.notes,
+              draw_rating:         payload.draw_rating,
+              burn_rating:         payload.burn_rating,
+              construction_rating: payload.construction_rating,
+              flavor_rating:       payload.flavor_rating,
+              flavor_tag_ids:      payload.flavor_tag_ids,
+            };
+            /* Mirror notes onto legacy denormalized columns. */
+            const beginning = nextThirds[0]?.notes ?? "";
+            const middle    = nextThirds[1]?.notes ?? "";
+            const end       = nextThirds[2]?.notes ?? "";
+            update({
+              thirds:          nextThirds,
+              third_beginning: beginning,
+              third_middle:    middle,
+              third_end:       end,
+            });
+            /* Photo handling — store in parallel array; shared-list
+               sync to form.photo_files happens in Task 13. */
+            const nextPhotos = [...thirdPhotos];
+            nextPhotos[openThird - 1] = payload.photo_file ?? null;
+            setThirdPhotos(nextPhotos);
+            setOpenThird(null);
+          }}
+        />
+      )}
     </div>
   );
 }

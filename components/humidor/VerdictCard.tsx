@@ -19,6 +19,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { StarRating } from "./StarRating";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -85,21 +86,18 @@ function SubRatingCell({ label, val }: { label: string; val: number }) {
         {label}
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-        <StarRow val={val} />
+        <StarRating mode="display" value={val} size={16} ariaLabel={`${label} ${val.toFixed(2)} out of 5`} />
       </div>
       <p
         style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      9,
-          fontWeight:    500,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color:         "var(--gold-deep)",
-          margin:        "6px 0 0",
-          minHeight:     11,
+          fontFamily: "var(--font-serif)",
+          fontStyle:  "italic",
+          fontSize:   13,
+          color:      "var(--paper-mute)",
+          margin:     "4px 0 0",
         }}
       >
-        {val > 0 ? STAR_LABELS[val] : "—"}
+        {Number.isInteger(val) ? val.toFixed(1) : val.toFixed(2)}
       </p>
     </div>
   );
@@ -274,6 +272,13 @@ export interface VerdictCardProps {
   thirdBeginning?:  string | null;
   thirdMiddle?:     string | null;
   thirdEnd?:        string | null;
+  /* Per-third flavor chips. Caller resolves tag IDs → names before
+     passing so VerdictCard stays pure. Optional — omitting it (or
+     passing an empty array) suppresses the chips entirely. */
+  thirdsTaggedRows?: Array<{
+    index:            1 | 2 | 3;
+    flavor_tag_names: string[];
+  }>;
 
   /* Byline. Both optional; if both null, the byline line is dropped.
      `displayName` should be the AUTHOR of the report (in the lounge
@@ -305,10 +310,11 @@ export function VerdictCard({
   occasion,
   flavorTagNames,
   photoUrls,
-  thirdsEnabled  = false,
-  thirdBeginning = null,
-  thirdMiddle    = null,
-  thirdEnd       = null,
+  thirdsEnabled     = false,
+  thirdBeginning    = null,
+  thirdMiddle       = null,
+  thirdEnd          = null,
+  thirdsTaggedRows  = [],
   displayName,
   city,
   onPhotoClick,
@@ -517,6 +523,12 @@ export function VerdictCard({
               ["Final Third · End",       thirdEnd],
             ] as const).map(([tag, text]) => {
               const t = text?.trim() ?? "";
+              const thirdIdx: 1 | 2 | 3 =
+                tag === "First Third · Beginning" ? 1
+                : tag === "Second Third · Middle" ? 2
+                : 3;
+              const chipNames =
+                thirdsTaggedRows.find((r) => r.index === thirdIdx)?.flavor_tag_names ?? [];
               return (
                 <div key={tag} style={{ marginBottom: 14 }}>
                   <p
@@ -545,6 +557,32 @@ export function VerdictCard({
                   >
                     {t || "—"}
                   </p>
+                  {chipNames.length > 0 && (
+                    <p
+                      style={{
+                        fontFamily:   "var(--font-serif)",
+                        fontStyle:    "italic",
+                        fontSize:     13,
+                        lineHeight:   1.5,
+                        color:        "var(--paper-mute)",
+                        margin:       "6px 0 0",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {chipNames.map((name, i) => (
+                        <span key={name}>
+                          {name.toLowerCase()}
+                          {i < chipNames.length - 1 && (
+                            <>
+                              {" "}
+                              <span style={{ color: "var(--gold)" }}>·</span>
+                              {" "}
+                            </>
+                          )}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
               );
             })}
@@ -633,32 +671,59 @@ export function VerdictCard({
           gives the browser line-break opportunities; CSS margin on
           inline elements does not. */}
       {flavorTagNames.length > 0 && (
-        <p
-          style={{
-            fontFamily:   "var(--font-serif)",
-            fontStyle:    "italic",
-            fontSize:     17,
-            lineHeight:   1.5,
-            color:        "var(--paper-mute)",
-            textAlign:    "center",
-            margin:       "22px 0 0",
-            padding:      "0 12px",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {flavorTagNames.map((name, i) => (
-            <span key={name}>
-              {name.toLowerCase()}
-              {i < flavorTagNames.length - 1 && (
-                <>
-                  {" "}
-                  <span style={{ color: "var(--gold)" }}>·</span>
-                  {" "}
-                </>
-              )}
-            </span>
-          ))}
-        </p>
+        <>
+          <div
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            10,
+              margin:         "22px 0 0",
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 20, height: 1, background: "var(--gold-deep, var(--gold))", flexShrink: 0 }} />
+            <p
+              style={{
+                fontFamily:    "var(--font-mono)",
+                fontSize:      9,
+                fontWeight:    500,
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color:         "var(--gold)",
+                margin:        0,
+              }}
+            >
+              Tasting Notes
+            </p>
+            <span aria-hidden="true" style={{ width: 20, height: 1, background: "var(--gold-deep, var(--gold))", flexShrink: 0 }} />
+          </div>
+          <p
+            style={{
+              fontFamily:   "var(--font-serif)",
+              fontStyle:    "italic",
+              fontSize:     17,
+              lineHeight:   1.5,
+              color:        "var(--paper-mute)",
+              textAlign:    "center",
+              margin:       "8px 0 0",
+              padding:      "0 12px",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {flavorTagNames.map((name, i) => (
+              <span key={name}>
+                {name.toLowerCase()}
+                {i < flavorTagNames.length - 1 && (
+                  <>
+                    {" "}
+                    <span style={{ color: "var(--gold)" }}>·</span>
+                    {" "}
+                  </>
+                )}
+              </span>
+            ))}
+          </p>
+        </>
       )}
     </div>
   );

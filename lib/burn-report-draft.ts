@@ -16,6 +16,11 @@
    requires IndexedDB, and dropped photos are usually less painful to
    re-add than retyping a freeform review. If photo persistence becomes
    a real complaint, upgrade to IndexedDB + structured-clone.
+
+   Per-third metadata (notes, ratings, tasting tag ids) persists with
+   the rest of the draft. Per-third photo `File` objects share the
+   same restriction as the main photo array — they're dropped on
+   draft restore. Tag selections survive.
    ------------------------------------------------------------------ */
 
 const STORAGE_PREFIX = "burn_report_draft:";

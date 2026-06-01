@@ -22,10 +22,17 @@ import { AddCigarToWishlistButton }            from "./AddCigarToWishlistButton"
 /* ------------------------------------------------------------------ */
 
 export interface BurnReportThirds {
-  thirds_enabled:  boolean;
-  third_beginning: string | null;
-  third_middle:    string | null;
-  third_end:       string | null;
+  thirds_enabled:     boolean;
+  third_beginning:    string | null;
+  third_middle:       string | null;
+  third_end:          string | null;
+  /* Populated by the server fetcher for thirds-enabled reports.
+     Per-third flavor tag NAMES already resolved so VerdictCard's
+     `thirdsTaggedRows` prop renders with no extra join. */
+  thirds_tagged_rows?: Array<{
+    index:            1 | 2 | 3;
+    flavor_tag_names: string[];
+  }>;
 }
 
 /* Normalize the join shape — PostgREST may return the 1:1 child as
@@ -223,6 +230,7 @@ const BurnReportCard = memo(function BurnReportCard({
         thirdBeginning={thirds?.third_beginning ?? null}
         thirdMiddle={thirds?.third_middle ?? null}
         thirdEnd={thirds?.third_end ?? null}
+        thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
         onPhotoClick={lightbox.open}

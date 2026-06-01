@@ -195,6 +195,7 @@ const BurnReportCard = memo(function BurnReportCard({
           thirdBeginning={thirds?.third_beginning ?? null}
           thirdMiddle={thirds?.third_middle ?? null}
           thirdEnd={thirds?.third_end ?? null}
+          thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
           displayName={log.author_display_name ?? null}
           city={log.author_city ?? null}
           onPhotoClick={lightbox.open}

@@ -21,12 +21,20 @@ import {
 
 /* Thirds joined from the burn_reports child table. PostgREST returns
    the child as an array even though the FK is UNIQUE (1:1) — we read
-   index 0 at the boundary. */
+   index 0 at the boundary.
+   `thirds_tagged_rows` is populated by the server fetcher when the
+   report is thirds-enabled: per-third flavor tag NAMES already
+   resolved so the verdict card can render `thirdsTaggedRows` with
+   no client-side join. */
 export interface BurnReportThirds {
-  thirds_enabled:  boolean;
-  third_beginning: string | null;
-  third_middle:    string | null;
-  third_end:       string | null;
+  thirds_enabled:     boolean;
+  third_beginning:    string | null;
+  third_middle:       string | null;
+  third_end:          string | null;
+  thirds_tagged_rows?: Array<{
+    index:            1 | 2 | 3;
+    flavor_tag_names: string[];
+  }>;
 }
 
 export interface BurnReportRow {
@@ -473,6 +481,7 @@ function BurnReportCard({
         thirdBeginning={thirds?.third_beginning ?? null}
         thirdMiddle={thirds?.third_middle ?? null}
         thirdEnd={thirds?.third_end ?? null}
+        thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
         displayName={displayName}
         city={city}
         onPhotoClick={(url) => {
