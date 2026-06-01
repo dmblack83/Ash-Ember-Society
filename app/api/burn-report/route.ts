@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
        Keeps the existing "filter reports by tag" read paths working
        without thirds-aware joins. */
     const tagSet = new Set<string>();
-    for (const t of body.thirds!) for (const id of t.flavor_tag_ids) tagSet.add(id);
+    for (const t of body.thirds!) for (const id of (t.flavor_tag_ids ?? [])) tagSet.add(id);
     if (tagSet.size) smokeLogPayload.flavor_tag_ids = Array.from(tagSet);
   } else {
     if (body.draw_rating)         smokeLogPayload.draw_rating         = body.draw_rating;
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
       for (const inserted of insertedThirds) {
         const sourceThird = body.thirds.find((t) => t.index === inserted.third_index);
         if (!sourceThird) continue;
-        for (const tagId of sourceThird.flavor_tag_ids) {
+        for (const tagId of (sourceThird.flavor_tag_ids ?? [])) {
           joinRows.push({ third_id: inserted.id, flavor_tag_id: tagId });
         }
       }
