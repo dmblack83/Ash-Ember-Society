@@ -53,17 +53,49 @@ const STAR_LABELS = ["", "Poor", "Below Average", "Average", "Good", "Excellent"
    Sub-components — hoisted so React doesn't recreate them per render
    ------------------------------------------------------------------ */
 
+/* Per-star fill percent. Whole-number lights up; fractional value
+   spills into the next star. e.g. val=4.75 → stars 1-4 full, star 5
+   filled 75% from the left, then empty. */
+function starFillPct(s: number, val: number): number {
+  if (s <= Math.floor(val))                                return 100;
+  if (s === Math.ceil(val) && val > Math.floor(val))       return Math.round((val - Math.floor(val)) * 100);
+  return 0;
+}
+
+const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
+
 function StarRow({ val }: { val: number }) {
+  /* Unique-per-instance prefix so multiple StarRows on the same page
+     don't share clipPath IDs. */
+  const reactId = React.useId();
   return (
     <div className="flex" style={{ gap: 2 }}>
-      {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-            fill={s <= val ? "var(--gold)" : "rgba(245,230,211,0.18)"}
-          />
-        </svg>
-      ))}
+      {[1, 2, 3, 4, 5].map((s) => {
+        const pct = starFillPct(s, val);
+        if (pct === 100 || pct === 0) {
+          return (
+            <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d={STAR_PATH} fill={pct === 100 ? "var(--gold)" : "rgba(245,230,211,0.18)"} />
+            </svg>
+          );
+        }
+        /* Partial-fill: paint the grey base, then overlay a gold copy
+           clipped to `pct`% of the star's width using a clipPath rect.
+           Hard cutoff (no gradient softening) for crisp edges at the
+           tiny 12px render size. */
+        const clipId = `star-fill-${reactId}-${s}`;
+        return (
+          <svg key={s} width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <defs>
+              <clipPath id={clipId}>
+                <rect x="0" y="0" width={(24 * pct) / 100} height="24" />
+              </clipPath>
+            </defs>
+            <path d={STAR_PATH} fill="rgba(245,230,211,0.18)" />
+            <path d={STAR_PATH} fill="var(--gold)" clipPath={`url(#${clipId})`} />
+          </svg>
+        );
+      })}
     </div>
   );
 }
