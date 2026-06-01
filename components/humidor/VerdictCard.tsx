@@ -19,6 +19,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { StarRating } from "./StarRating";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -85,21 +86,18 @@ function SubRatingCell({ label, val }: { label: string; val: number }) {
         {label}
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-        <StarRow val={val} />
+        <StarRating mode="display" value={val} size={16} ariaLabel={`${label} ${val.toFixed(2)} out of 5`} />
       </div>
       <p
         style={{
-          fontFamily:    "var(--font-mono)",
-          fontSize:      9,
-          fontWeight:    500,
-          letterSpacing: "0.18em",
-          textTransform: "uppercase",
-          color:         "var(--gold-deep)",
-          margin:        "6px 0 0",
-          minHeight:     11,
+          fontFamily: "var(--font-serif)",
+          fontStyle:  "italic",
+          fontSize:   13,
+          color:      "var(--paper-mute)",
+          margin:     "4px 0 0",
         }}
       >
-        {val > 0 ? STAR_LABELS[val] : "—"}
+        {Number.isInteger(val) ? val.toFixed(1) : val.toFixed(2)}
       </p>
     </div>
   );
