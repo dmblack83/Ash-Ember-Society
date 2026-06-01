@@ -89,21 +89,20 @@ export function PerThirdSheet({
         role="dialog"
         aria-modal="true"
         aria-label={tag.eyebrow}
+        className="flex flex-col justify-end sm:justify-center sm:items-center"
         style={{
-          position:       "fixed",
-          top:            0,
-          right:          0,
-          bottom:         0,
-          left:           "var(--app-content-left, 0px)",
-          zIndex:         50,
-          background:     "rgba(0,0,0,0.55)",
-          display:        "flex",
-          flexDirection:  "column",
-          justifyContent: "flex-end",
+          position:   "fixed",
+          top:        0,
+          right:      0,
+          bottom:     0,
+          left:       "var(--app-content-left, 0px)",
+          zIndex:     50,
+          background: "rgba(0,0,0,0.55)",
         }}
         onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
       >
         <div
+          className="sm:rounded-2xl sm:max-h-[90vh]"
           style={{
             background:           "var(--background, #1A1210)",
             borderTopLeftRadius:  16,
