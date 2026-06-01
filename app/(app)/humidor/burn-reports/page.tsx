@@ -2,6 +2,7 @@ import { createClient }       from "@/utils/supabase/server";
 import { getServerUser }      from "@/lib/auth/server-user";
 import { getProfileLite }     from "@/lib/data/profile";
 import { getFlavorTags }      from "@/lib/data/flavor-tags";
+import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds";
 import { BurnReportsClient }  from "@/components/humidor/BurnReportsClient";
 import type { BurnReportRow, FlavorTag } from "@/components/humidor/BurnReportsClient";
 
@@ -34,7 +35,7 @@ export default async function BurnReportsPage() {
         review_text,
         content_video_id,
         cigar:cigar_catalog(id, brand, series, format, wrapper, image_url),
-        burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+        burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
       `)
       .eq("user_id", user.id)
       .order("smoked_at", { ascending: false })
@@ -51,9 +52,42 @@ export default async function BurnReportsPage() {
   const reports    = (logsRes.data ?? []) as unknown as BurnReportRow[];
   const flavorTags = flavorTagsAll.map((t) => ({ id: t.id, name: t.name })) as FlavorTag[];
 
+  /* Resolve per-third tag NAMES for any thirds-enabled reports, so
+     the My Reports modal renders <VerdictCard /> with the same
+     `thirdsTaggedRows` shape the in-flight Summary uses. The single
+     batched query reads burn_report_thirds + the per-third flavor
+     join keyed off each report's burn_reports.id. */
+  const burnReportIds: string[] = [];
+  for (const r of reports) {
+    const br = Array.isArray(r.burn_report) ? r.burn_report[0] : r.burn_report;
+    const id = (br as { id?: string } | null)?.id;
+    if (id && br?.thirds_enabled) burnReportIds.push(id);
+  }
+  const tagNameMap: Record<string, string> =
+    Object.fromEntries(flavorTagsAll.map((t) => [t.id, t.name]));
+  const taggedByReportId = await getBurnReportThirdsTaggedBatch(
+    supabase, burnReportIds, tagNameMap,
+  );
+
+  /* Attach per-row so the client component can read it without
+     another lookup. The BurnReportThirds type already declares
+     thirds_tagged_rows? optional, so this is a no-op for non-thirds
+     reports. */
+  const reportsWithThirds: BurnReportRow[] = reports.map((r) => {
+    const brArr = Array.isArray(r.burn_report) ? r.burn_report : (r.burn_report ? [r.burn_report] : null);
+    if (!brArr || brArr.length === 0) return r;
+    const br = brArr[0] as { id?: string };
+    const rows = br.id ? taggedByReportId[br.id] : undefined;
+    if (!rows) return r;
+    return {
+      ...r,
+      burn_report: brArr.map((b) => ({ ...b, thirds_tagged_rows: rows })),
+    };
+  });
+
   return (
     <BurnReportsClient
-      reports={reports}
+      reports={reportsWithThirds}
       flavorTags={flavorTags}
       displayName={profile?.display_name ?? null}
       city={profile?.city ?? null}

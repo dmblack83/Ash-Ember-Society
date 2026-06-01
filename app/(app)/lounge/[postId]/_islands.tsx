@@ -24,6 +24,7 @@ import { redirect }           from "next/navigation";
 import { PostDetailClient }   from "@/components/lounge/PostDetailClient";
 import type { SmokeLogData }  from "@/components/lounge/PostDetailClient";
 import { computeReportNumbers } from "@/lib/data/burn-report-number";
+import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds";
 
 interface Props {
   postId: string;
@@ -87,7 +88,7 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
           smoke_duration_minutes, review_text, photo_urls,
           cigar_id, flavor_tag_ids, user_id,
           cigar:cigar_catalog(brand, series, format),
-          burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+          burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
         `)
         .eq("id", smokeLogId)
         .single(),
@@ -138,6 +139,33 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
   if (smokeLog && logAuthorId) {
     smokeLog.author_display_name = nameMap[logAuthorId]?.display_name ?? null;
     smokeLog.author_city         = nameMap[logAuthorId]?.city         ?? null;
+  }
+
+  /* If this report is thirds-enabled, resolve per-third flavor tag
+     NAMES so the verdict card renders the per-third tasting notes.
+     The burn_reports.id flows in via the embedded join above. */
+  if (smokeLog && smokeLog.burn_report) {
+    const brArr = Array.isArray(smokeLog.burn_report) ? smokeLog.burn_report : [smokeLog.burn_report];
+    const br    = brArr[0] as { id?: string; thirds_enabled?: boolean } | null;
+    if (br?.id && br.thirds_enabled) {
+      // Resolve names for whatever flavor_tags we already loaded in
+      // the flavor_tag_ids step PLUS any new ones referenced by the
+      // per-third joins. The DB has them all under flavor_tags; a
+      // small extra fetch is cheap.
+      const { data: allTagRows } = await supabase
+        .from("flavor_tags")
+        .select("id, name");
+      const tagNameMap: Record<string, string> = Object.fromEntries(
+        (allTagRows ?? []).map((t: { id: string; name: string }) => [t.id, t.name]),
+      );
+      const taggedByReport = await getBurnReportThirdsTaggedBatch(
+        supabase, [br.id], tagNameMap,
+      );
+      const rows = taggedByReport[br.id];
+      if (rows) {
+        smokeLog.burn_report = brArr.map((b) => ({ ...b, thirds_tagged_rows: rows })) as typeof smokeLog.burn_report;
+      }
+    }
   }
 
   const post = {

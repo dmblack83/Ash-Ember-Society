@@ -22,6 +22,7 @@
 import { createClient }            from "@/utils/supabase/server";
 import { getFlavorTags }           from "@/lib/data/flavor-tags";
 import { computeReportNumbers }    from "@/lib/data/burn-report-number";
+import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds";
 import { redirect, notFound }      from "next/navigation";
 import { CategoryFeed }            from "@/components/lounge/CategoryFeed";
 import type { PostItem }           from "@/components/lounge/InlinePost";
@@ -152,7 +153,7 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
             location, occasion, smoke_duration_minutes, review_text, photo_urls,
             content_video_id, flavor_tag_ids, user_id, cigar_id,
             cigar:cigar_catalog(brand, series, format),
-            burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+            burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
           `)
           .in("id", smokeLogIds)
       : Promise.resolve({ data: null }),
@@ -215,6 +216,35 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
         author_city:         author?.city         ?? null,
         report_number:       reportNumberMap[log.id] ?? null,
       };
+    }
+
+    /* Resolve per-third tasting notes for thirds-enabled reports in
+       this batch so VerdictCard can render `thirdsTaggedRows` server-
+       side. Use the full flavor_tags map (covers the per-third tags
+       which may not overlap the headline flavor_tag_ids). */
+    const burnReportIds: string[] = [];
+    const reportIdToSmokeLogId: Record<string, string> = {};
+    for (const log of rawLogs) {
+      const brArr = Array.isArray(log.burn_report) ? log.burn_report : [];
+      const br    = brArr[0] as { id?: string; thirds_enabled?: boolean } | undefined;
+      if (br?.id && br.thirds_enabled) {
+        burnReportIds.push(br.id);
+        reportIdToSmokeLogId[br.id] = log.id;
+      }
+    }
+    if (burnReportIds.length > 0) {
+      const fullTagMap: Record<string, string> =
+        Object.fromEntries(flavorTagsList.map((t) => [t.id, t.name]));
+      const taggedByReport = await getBurnReportThirdsTaggedBatch(
+        supabase, burnReportIds, fullTagMap,
+      );
+      for (const [brId, rows] of Object.entries(taggedByReport)) {
+        const slid = reportIdToSmokeLogId[brId];
+        const cur  = smokeLogMap[slid];
+        if (!cur) continue;
+        const brArr = Array.isArray(cur.burn_report) ? cur.burn_report : (cur.burn_report ? [cur.burn_report] : []);
+        cur.burn_report = brArr.map((b) => ({ ...b, thirds_tagged_rows: rows })) as typeof cur.burn_report;
+      }
     }
   }
 

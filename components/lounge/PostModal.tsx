@@ -10,6 +10,7 @@ import { AvatarFrame }                          from "@/components/ui/AvatarFram
 import { resolveBadge }                         from "@/lib/badge";
 import { VerdictCard }                          from "@/components/humidor/VerdictCard";
 import { unwrapBurnReport }                     from "./PostDetailClient";
+import { getBurnReportThirdsTaggedBatch }       from "@/lib/data/burn-report-thirds";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
@@ -174,6 +175,7 @@ const BurnReportCard = memo(function BurnReportCard({ log }: { log: SmokeLogData
         thirdBeginning={thirds?.third_beginning ?? null}
         thirdMiddle={thirds?.third_middle ?? null}
         thirdEnd={thirds?.third_end ?? null}
+        thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
         displayName={log.author_display_name ?? null}
         city={log.author_city ?? null}
         onPhotoClick={(url) => setLightboxSrc(url)}
@@ -488,7 +490,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
             location, occasion, smoke_duration_minutes, review_text, photo_urls,
             content_video_id, flavor_tag_ids, user_id,
             cigar:cigar_catalog(brand, series, format),
-            burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
+            burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
           `)
           .eq("id", raw.smoke_log_id as string)
           .single();
@@ -507,13 +509,34 @@ export function PostModal({ postId, userId, onClose }: Props) {
             flavor_tag_names = (flavor_tag_ids as string[]).map((id) => tagMap[id]).filter(Boolean);
           }
 
+          // Resolve per-third tasting tags if this report uses thirds
+          // mode, so VerdictCard can render the per-third notes.
+          let burnReportWithThirds = burn_report;
+          const brArr = Array.isArray(burn_report) ? burn_report : (burn_report ? [burn_report] : []);
+          const br    = brArr[0] as { id?: string; thirds_enabled?: boolean } | undefined;
+          if (br?.id && br.thirds_enabled) {
+            const { data: allTagRows } = await supabase
+              .from("flavor_tags")
+              .select("id, name");
+            const tagNameMap: Record<string, string> = Object.fromEntries(
+              (allTagRows ?? []).map((t: { id: string; name: string }) => [t.id, t.name]),
+            );
+            const taggedByReport = await getBurnReportThirdsTaggedBatch(
+              supabase, [br.id], tagNameMap,
+            );
+            const rows = taggedByReport[br.id];
+            if (rows) {
+              burnReportWithThirds = brArr.map((b) => ({ ...b, thirds_tagged_rows: rows }));
+            }
+          }
+
           const author = logAuthorId ? nameMap[logAuthorId] : null;
           // Pass burn_report through as-is (array OR object); the
           // SmokeLogData type accepts both shapes and the render side
           // calls unwrapBurnReport() to flatten.
           sl = {
             ...(rest as SmokeLogData),
-            burn_report,
+            burn_report: burnReportWithThirds,
             flavor_tag_names,
             author_display_name: author?.display_name ?? null,
             author_city:         author?.city         ?? null,
