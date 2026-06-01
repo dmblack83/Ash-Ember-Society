@@ -26,13 +26,11 @@ import type { PerThirdData } from "@/lib/burn-report/thirds";
 const STEPS = [
   "The Basics",
   "Pairing",
-  "Rating",
-  "Flavor Profile",
   "Overall",
   "Summary",
 ] as const;
 
-const SKIPPABLE = new Set([1, 3]); // Pairing (1), Flavor Profile (3)
+const SKIPPABLE = new Set([1]); // Pairing (1)
 
 const OCCASIONS = [
   "Celebration",
@@ -164,7 +162,7 @@ function ratingLabel(v: number): string {
 }
 
 /* ------------------------------------------------------------------
-   ProgressRail — 6-tick editorial progress, gold-deep done /
+   ProgressRail — editorial progress (tick per step), gold-deep done /
    gold current (extra-wide) / line future. Replaces the previous dot
    row for the Burn Report visual refresh.
    ------------------------------------------------------------------ */
@@ -561,104 +559,6 @@ function Step2({
           onChange={(e) => update({ pairing_food: e.target.value })}
         />
       </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Step 3 — Rating
-   ------------------------------------------------------------------ */
-
-function Step3({
-  form,
-  update,
-  item,
-}: {
-  form: FormData;
-  update: (f: Partial<FormData>) => void;
-  item: BurnReportItem;
-}) {
-  const hairline = (
-    <div style={{ height: 1, background: "var(--line)", margin: "22px 0" }} aria-hidden="true" />
-  );
-  return (
-    <div>
-      <CigarContext item={item} />
-      <StarRating
-        value={form.draw_rating}
-        onChange={(v) => update({ draw_rating: v })}
-        label="How was the draw?"
-      />
-      {hairline}
-      <StarRating
-        value={form.burn_rating}
-        onChange={(v) => update({ burn_rating: v })}
-        label="How even was the burn?"
-      />
-      {hairline}
-      <StarRating
-        value={form.construction_rating}
-        onChange={(v) => update({ construction_rating: v })}
-        label="How was the construction?"
-      />
-      {hairline}
-      <StarRating
-        value={form.flavor_rating}
-        onChange={(v) => update({ flavor_rating: v })}
-        label="How was the flavor?"
-      />
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Step 4 — Flavor Profile
-   ------------------------------------------------------------------ */
-
-function Step4({
-  form,
-  update,
-  flavorTags,
-  item,
-}: {
-  form: FormData;
-  update: (f: Partial<FormData>) => void;
-  flavorTags: FlavorTag[];
-  item: BurnReportItem;
-}) {
-  const grouped = CATEGORY_ORDER.reduce<Record<string, FlavorTag[]>>((acc, cat) => {
-    const tags = flavorTags.filter((t) => t.category === cat);
-    if (tags.length) acc[cat] = tags;
-    return acc;
-  }, {});
-
-  function toggleTag(id: string) {
-    const ids = form.flavor_tag_ids.includes(id)
-      ? form.flavor_tag_ids.filter((t) => t !== id)
-      : [...form.flavor_tag_ids, id];
-    update({ flavor_tag_ids: ids });
-  }
-
-  return (
-    <div className="space-y-6">
-      <CigarContext item={item} />
-
-      {Object.entries(grouped).map(([cat, tags]) => (
-        <div key={cat}>
-          <Eyebrow>{CATEGORY_DISPLAY[cat]}</Eyebrow>
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
-              <Chip
-                key={tag.id}
-                active={form.flavor_tag_ids.includes(tag.id)}
-                onClick={() => toggleTag(tag.id)}
-              >
-                {tag.name}
-              </Chip>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -1531,7 +1431,11 @@ export function BurnReport({
       // Spread persisted fields over defaults; photos stay [] because
       // PersistableForm omits them and the spread can't fill them in.
       setForm((prev) => ({ ...prev, ...draft.form }));
-      setStep(draft.step);
+      // Clamp persisted step to current wizard range. Drafts written
+      // before the Rating + Flavor Profile steps were merged into
+      // Overall may carry step indices that no longer exist (the old
+      // 6-step wizard topped out at 5; the new one tops out at 3).
+      setStep(Math.min(draft.step, STEPS.length - 1));
       setShowResumed(true);
     }
     setDraftReady(true);
@@ -1572,7 +1476,7 @@ export function BurnReport({
 
     /* Light validation — same rules as the create flow. Picks the
        first failing step so we can route the user back to it. */
-    for (const s of [0, 2, 4]) {
+    for (const s of [0, 2]) {
       const err = validateStep(s);
       if (err) {
         setStep(s);
@@ -1676,12 +1580,31 @@ export function BurnReport({
       if (!form.location.trim()) return "Location is required.";
     }
     if (s === 2) {
-      if (form.draw_rating === 0)        return "Please rate the draw.";
-      if (form.burn_rating === 0)        return "Please rate the burn.";
-      if (form.construction_rating === 0) return "Please rate the construction.";
-      if (form.flavor_rating === 0)      return "Please rate the flavor.";
-    }
-    if (s === 4) {
+      // Overall step now owns the rating validation (the standalone
+      // Rating and Flavor Profile steps were folded in). When thirds
+      // mode is enabled, the four ratings are derived from per-third
+      // entries instead of being collected directly, so the gate
+      // switches to "all three thirds complete".
+      if (!form.thirds_enabled) {
+        if (form.draw_rating === 0)         return "Please rate the draw.";
+        if (form.burn_rating === 0)         return "Please rate the burn.";
+        if (form.construction_rating === 0) return "Please rate the build.";
+        if (form.flavor_rating === 0)       return "Please rate the flavor.";
+      } else {
+        for (let i = 0; i < 3; i++) {
+          const t = form.thirds[i];
+          if (
+            !t ||
+            !t.notes.trim() ||
+            !t.draw_rating ||
+            !t.burn_rating ||
+            !t.construction_rating ||
+            !t.flavor_rating
+          ) {
+            return "Complete all three thirds to submit.";
+          }
+        }
+      }
       if (!form.review_text.trim()) return "Review is required.";
       const mins = parseInt(form.smoke_duration_minutes);
       if (!form.smoke_duration_minutes.trim() || isNaN(mins) || mins <= 0)
@@ -1900,9 +1823,7 @@ export function BurnReport({
     switch (step) {
       case 0: return <Step1 form={form} update={update} item={item} />;
       case 1: return <Step2 form={form} update={update} item={item} />;
-      case 2: return <Step3 form={form} update={update} item={item} />;
-      case 3: return <Step4 form={form} update={update} flavorTags={flavorTags} item={item} />;
-      case 4: return (
+      case 2: return (
         <Step5
           form={form}
           update={update}
@@ -1911,7 +1832,7 @@ export function BurnReport({
           existingPhotoUrls={existing?.photo_urls ?? []}
         />
       );
-      case 5: return (
+      case 3: return (
         <SummaryStep
           form={form}
           flavorTags={flavorTags}
@@ -2020,7 +1941,7 @@ export function BurnReport({
             </p>
           </div>
 
-          {/* 6-tick progress rail */}
+          {/* Step-tick progress rail */}
           <div className="pb-3">
             <ProgressRail current={step} />
           </div>
