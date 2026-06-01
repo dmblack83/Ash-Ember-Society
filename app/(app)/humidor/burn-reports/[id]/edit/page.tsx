@@ -129,9 +129,18 @@ export default async function EditBurnReportPage({
 
   const partnerVideos: PartnerVideo[] = [];
 
+  /* Postgres `smoked_at` comes back as an ISO timestamp string
+     (e.g. "2024-05-31T00:00:00+00:00"); HTML5 <input type="date">
+     requires "YYYY-MM-DD" and silently renders empty otherwise.
+     Slice to the date portion so the field paints with the saved
+     value on edit-mode mount. */
+  const smokedAtForInput = report.smoked_at
+    ? String(report.smoked_at).slice(0, 10)
+    : "";
+
   const existing: BurnReportExisting = {
     smoke_log_id:           report.id,
-    smoked_at:              report.smoked_at,
+    smoked_at:              smokedAtForInput,
     overall_rating:         report.overall_rating ?? 75,
     location:               report.location ?? "",
     occasion:               report.occasion ?? "",

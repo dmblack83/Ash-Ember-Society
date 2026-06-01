@@ -21,6 +21,7 @@ import type { PerThirdData } from "@/lib/burn-report/thirds";
 import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
 import { PerThirdSheet } from "./PerThirdSheet";
 import { StarRating as StarRatingInput } from "./StarRating";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 
 /* ------------------------------------------------------------------
    Helpers (module-scope)
@@ -580,56 +581,6 @@ function Step2({
 }
 
 /* ------------------------------------------------------------------
-   AutoGrowTextarea — textarea that resizes to fit its content on
-   every keystroke. Used inside the Step 5 Thirds section so each
-   phase note grows as the user writes instead of forcing them to
-   either drag the resize handle or scroll inside a fixed box.
-
-   We measure scrollHeight after resetting height to "auto" so the
-   measurement reflects the current content, not the previous height.
-   `overflow: hidden` suppresses the scrollbar flicker that would
-   otherwise appear for one frame between resets.
-   ------------------------------------------------------------------ */
-
-function AutoGrowTextarea({
-  id,
-  value,
-  onChange,
-  placeholder,
-  rows = 2,
-  minHeight = 64,
-}: {
-  id:          string;
-  value:       string;
-  onChange:    (v: string) => void;
-  placeholder?: string;
-  rows?:       number;
-  minHeight?:  number;
-}) {
-  const ref = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.max(el.scrollHeight, minHeight)}px`;
-  }, [value, minHeight]);
-
-  return (
-    <textarea
-      ref={ref}
-      id={id}
-      className="input resize-none"
-      placeholder={placeholder}
-      rows={rows}
-      style={{ minHeight, overflow: "hidden" }}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  );
-}
-
-/* ------------------------------------------------------------------
    Step 5 — Overall
    ------------------------------------------------------------------ */
 
@@ -902,18 +853,17 @@ function Step5({
       {/* ── Review text ────────────────────────────────────────────── */}
       <div>
         <Eyebrow htmlFor="br-review">Review</Eyebrow>
-        <textarea
+        <AutoGrowTextarea
           id="br-review"
-          className="input resize-y"
           placeholder={
             form.thirds_enabled
               ? "Overall recap — pull it together…"
               : "Share your thoughts on this cigar…"
           }
           rows={4}
-          style={{ minHeight: 100 }}
+          minHeight={100}
           value={form.review_text}
-          onChange={(e) => update({ review_text: e.target.value })}
+          onChange={(v) => update({ review_text: v })}
         />
       </div>
 
@@ -1641,6 +1591,12 @@ export function BurnReport({
     const trimmedMins = form.smoke_duration_minutes.trim();
     const minsNum = trimmedMins ? parseInt(trimmedMins) : null;
 
+    /* Thirds-on edits derive headline ratings + tag union server-side.
+       Send the per-third array; omit the now-stale legacy headline
+       fields so the PATCH route uses the averaged values. */
+    const sendThirds =
+      form.thirds_enabled && form.thirds.every((t) => t !== null);
+
     const payload: Record<string, unknown> = {
       smoked_at:              form.smoked_at,
       overall_rating:         form.overall_rating,
@@ -1648,11 +1604,6 @@ export function BurnReport({
       occasion:               form.occasion             || null,
       pairing_drink:          form.pairing_drink.trim() || null,
       pairing_food:           form.pairing_food.trim()  || null,
-      draw_rating:            form.draw_rating          || null,
-      burn_rating:            form.burn_rating          || null,
-      construction_rating:    form.construction_rating  || null,
-      flavor_rating:          form.flavor_rating        || null,
-      flavor_tag_ids:         form.flavor_tag_ids.length ? form.flavor_tag_ids : null,
       review_text:            form.review_text.trim()   || null,
       smoke_duration_minutes: (minsNum != null && !isNaN(minsNum) && minsNum > 0) ? minsNum : null,
       content_video_id:       form.content_video_id     || null,
@@ -1661,6 +1612,24 @@ export function BurnReport({
       third_middle:           form.third_middle.trim()    || null,
       third_end:              form.third_end.trim()       || null,
     };
+
+    if (sendThirds) {
+      payload.thirds = form.thirds.map((t, i) => ({
+        index:               (i + 1) as 1 | 2 | 3,
+        notes:               t!.notes,
+        draw_rating:         t!.draw_rating,
+        burn_rating:         t!.burn_rating,
+        construction_rating: t!.construction_rating,
+        flavor_rating:       t!.flavor_rating,
+        flavor_tag_ids:      t!.flavor_tag_ids,
+      }));
+    } else {
+      payload.draw_rating         = form.draw_rating          || null;
+      payload.burn_rating         = form.burn_rating          || null;
+      payload.construction_rating = form.construction_rating  || null;
+      payload.flavor_rating       = form.flavor_rating        || null;
+      payload.flavor_tag_ids      = form.flavor_tag_ids.length ? form.flavor_tag_ids : null;
+    }
 
     try {
       const res = await fetch(`/api/burn-report/${existing.smoke_log_id}`, {
