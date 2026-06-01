@@ -625,6 +625,7 @@ function Step5({
   item,
   flavorTags,
   onOpenThird,
+  onRemovePhoto,
   hidePhotos = false,
   existingPhotoUrls = [],
 }: {
@@ -635,6 +636,11 @@ function Step5({
   /* Per-third Begin/Review button click handler — opens the
      PerThirdSheet for the given third (1|2|3). Wired by the parent. */
   onOpenThird: (i: 1 | 2 | 3) => void;
+  /* Remove a photo from the shared Overall list. The wizard owns this
+     because removing a photo that was sourced from a third also needs
+     to clear that third's photo slot, and only the wizard has access
+     to the thirdPhotos state. */
+  onRemovePhoto: (i: number) => void;
   /* Edit mode passes hidePhotos=true and supplies existingPhotoUrls
      so the user sees the photos they originally attached without an
      add/remove affordance. Photo editing is deferred to a follow-up. */
@@ -651,10 +657,6 @@ function Step5({
       next.push(files[i]);
     }
     update({ photo_files: next });
-  }
-
-  function removePhoto(i: number) {
-    update({ photo_files: form.photo_files.filter((_, idx) => idx !== i) });
   }
 
   return (
@@ -1061,7 +1063,7 @@ function Step5({
                   />
                   <button
                     type="button"
-                    onClick={() => removePhoto(i)}
+                    onClick={() => onRemovePhoto(i)}
                     className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center"
                     style={{ backgroundColor: "rgba(0,0,0,0.7)" }}
                     aria-label="Remove photo"
@@ -1667,6 +1669,41 @@ export function BurnReport({
     setStepError(null);
   }, []);
 
+  /* Sync per-third photo files into the shared Overall photo list.
+     Invariant: form.photo_files = [...thirdPhotos.filter(Boolean), ...manualOnly]
+     capped at 3. "manualOnly" = files currently in form.photo_files that
+     are NOT sourced from a third (i.e. user added them from the Overall
+     page). The equality check guards against an infinite update loop;
+     `update` is a stable useCallback reference so it's safe in the dep array. */
+  useEffect(() => {
+    const fromThirds = thirdPhotos.filter((f): f is File => !!f);
+    const manualOnly = form.photo_files.filter((f) => !thirdPhotos.includes(f));
+    const merged = [...fromThirds, ...manualOnly].slice(0, 3);
+    if (
+      merged.length !== form.photo_files.length ||
+      merged.some((f, i) => f !== form.photo_files[i])
+    ) {
+      update({ photo_files: merged });
+    }
+  }, [thirdPhotos, form.photo_files, update]);
+
+  /* Remove a photo from the Overall list. If the photo came from a
+     third (the same File object lives in thirdPhotos), also clear it
+     from that third so its per-third sheet photo slot resets. The
+     useEffect above will reconcile form.photo_files, but we still
+     update it here so the immediate render doesn't flash the removed
+     photo before the effect runs. */
+  const handleRemovePhoto = useCallback((i: number) => {
+    const file = form.photo_files[i];
+    const thirdIdx = thirdPhotos.indexOf(file);
+    if (thirdIdx !== -1) {
+      const nextThirds = [...thirdPhotos];
+      nextThirds[thirdIdx] = null;
+      setThirdPhotos(nextThirds);
+    }
+    update({ photo_files: form.photo_files.filter((_, idx) => idx !== i) });
+  }, [form.photo_files, thirdPhotos, update]);
+
   function validateStep(s: number): string | null {
     if (s === 0) {
       if (!form.location.trim()) return "Location is required.";
@@ -1817,6 +1854,34 @@ export function BurnReport({
     if (form.third_middle.trim())        payload.third_middle        = form.third_middle.trim();
     if (form.third_end.trim())           payload.third_end           = form.third_end.trim();
 
+    /* When thirds is enabled and all three are populated, build the
+       new per-third payload. Each third's photo_index resolves to its
+       position in form.photo_files (which the useEffect keeps in sync
+       with thirdPhotos in 1st→2nd→3rd order). Headline rating fields
+       and flavor_tag_ids are derived server-side from thirds[] in this
+       mode, so strip them to keep the request shape clean. */
+    if (form.thirds_enabled && form.thirds.every((t) => t !== null)) {
+      payload.thirds = form.thirds.map((t, i) => {
+        const thirdPhoto = thirdPhotos[i];
+        const photoIndex = thirdPhoto ? form.photo_files.indexOf(thirdPhoto) : -1;
+        return {
+          index:               (i + 1) as 1 | 2 | 3,
+          notes:               t!.notes,
+          draw_rating:         t!.draw_rating,
+          burn_rating:         t!.burn_rating,
+          construction_rating: t!.construction_rating,
+          flavor_rating:       t!.flavor_rating,
+          flavor_tag_ids:      t!.flavor_tag_ids,
+          ...(photoIndex >= 0 ? { photo_index: photoIndex } : {}),
+        };
+      });
+      delete payload.draw_rating;
+      delete payload.burn_rating;
+      delete payload.construction_rating;
+      delete payload.flavor_rating;
+      delete payload.flavor_tag_ids;
+    }
+
     /* Submit. */
     try {
       const res = await fetch("/api/burn-report", {
@@ -1917,6 +1982,7 @@ export function BurnReport({
           item={item}
           flavorTags={flavorTags}
           onOpenThird={(i) => setOpenThird(i)}
+          onRemovePhoto={handleRemovePhoto}
           hidePhotos={isEdit}
           existingPhotoUrls={existing?.photo_urls ?? []}
         />
