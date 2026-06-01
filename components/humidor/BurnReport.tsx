@@ -23,6 +23,19 @@ import { PerThirdSheet } from "./PerThirdSheet";
 import { StarRating as StarRatingInput } from "./StarRating";
 
 /* ------------------------------------------------------------------
+   Helpers (module-scope)
+   ------------------------------------------------------------------ */
+
+function ratingWord(val: number): string {
+  if (val < 1) return "—";
+  if (val === 1) return "Poor";
+  if (val === 2) return "Below Average";
+  if (val === 3) return "Average";
+  if (val === 4) return "Good";
+  return "Excellent";
+}
+
+/* ------------------------------------------------------------------
    Constants
    ------------------------------------------------------------------ */
 
@@ -942,28 +955,44 @@ function Step5({
           <div>
             <Eyebrow>Ratings</Eyebrow>
             {([
-              ["Draw",   form.draw_rating,         "draw_rating"]         as const,
-              ["Burn",   form.burn_rating,         "burn_rating"]         as const,
-              ["Build",  form.construction_rating, "construction_rating"] as const,
-              ["Flavor", form.flavor_rating,       "flavor_rating"]       as const,
+              ["How was the draw?",         form.draw_rating,         "draw_rating"]         as const,
+              ["How even was the burn?",     form.burn_rating,         "burn_rating"]         as const,
+              ["How was the construction?",  form.construction_rating, "construction_rating"] as const,
+              ["How was the flavor?",        form.flavor_rating,       "flavor_rating"]       as const,
             ]).map(([label, val, key]) => (
-              <div
-                key={label}
-                style={{
-                  display:        "flex",
-                  justifyContent: "space-between",
-                  alignItems:     "center",
-                  padding:        "6px 0",
-                }}
-              >
-                <span style={{ fontSize: 13 }}>{label}</span>
-                <StarRatingInput
-                  mode="input"
-                  value={val}
-                  size={22}
-                  onChange={(v) => update({ [key]: v } as Partial<FormData>)}
-                  ariaLabel={`${label} rating`}
-                />
+              <div key={label} style={{ marginBottom: 12 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontStyle:  "italic",
+                    fontSize:   15,
+                    color:      "var(--foreground)",
+                    margin:     "0 0 6px",
+                  }}
+                >
+                  {label}
+                </p>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <StarRatingInput
+                    mode="input"
+                    value={val}
+                    size={22}
+                    onChange={(v) => update({ [key]: v } as Partial<FormData>)}
+                    ariaLabel={label}
+                  />
+                  <span
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      9,
+                      fontWeight:    500,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color:         val > 0 ? "var(--gold)" : "var(--paper-dim)",
+                    }}
+                  >
+                    {ratingWord(val)}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

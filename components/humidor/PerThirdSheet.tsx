@@ -19,6 +19,15 @@ import { StarRating } from "./StarRating";
 import { TastingNotesSubSheet, type FlavorTag } from "./TastingNotesSubSheet";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
 
+function ratingWord(val: number): string {
+  if (val < 1) return "—";
+  if (val === 1) return "Poor";
+  if (val === 2) return "Below Average";
+  if (val === 3) return "Average";
+  if (val === 4) return "Good";
+  return "Excellent";
+}
+
 const TAGS_BY_INDEX: Record<1 | 2 | 3, { eyebrow: string; placeholder: string }> = {
   1: { eyebrow: "First Third · Beginning",  placeholder: "Opening notes, light, first impressions…" },
   2: { eyebrow: "Second Third · Middle",    placeholder: "How it's developing, flavor shifts, draw, burn…" },
@@ -188,14 +197,38 @@ export function PerThirdSheet({
                 Ratings
               </p>
               {([
-                ["Draw",   draw,   setDraw],
-                ["Burn",   burn,   setBurn],
-                ["Build",  build,  setBuild],
-                ["Flavor", flavor, setFlavor],
+                ["How was the draw?",          draw,   setDraw],
+                ["How even was the burn?",      burn,   setBurn],
+                ["How was the construction?",   build,  setBuild],
+                ["How was the flavor?",         flavor, setFlavor],
               ] as const).map(([label, val, set]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0" }}>
-                  <span style={{ fontSize: 13 }}>{label}</span>
-                  <StarRating mode="input" value={val} size={22} onChange={set} ariaLabel={`${label} rating`} />
+                <div key={label} style={{ marginBottom: 12 }}>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-serif)",
+                      fontStyle:  "italic",
+                      fontSize:   15,
+                      color:      "var(--foreground)",
+                      margin:     "0 0 6px",
+                    }}
+                  >
+                    {label}
+                  </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <StarRating mode="input" value={val} size={22} onChange={set} ariaLabel={label} />
+                    <span
+                      style={{
+                        fontFamily:    "var(--font-mono)",
+                        fontSize:      9,
+                        fontWeight:    500,
+                        letterSpacing: "0.22em",
+                        textTransform: "uppercase",
+                        color:         val > 0 ? "var(--gold)" : "var(--paper-dim)",
+                      }}
+                    >
+                      {ratingWord(val)}
+                    </span>
+                  </div>
                 </div>
               ))}
             </div>
