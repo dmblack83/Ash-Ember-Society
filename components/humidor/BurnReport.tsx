@@ -1166,6 +1166,21 @@ function SummaryStep({
     .filter((t) => form.flavor_tag_ids.includes(t.id))
     .map((t) => t.name);
 
+  const thirdsTaggedRows = form.thirds_enabled
+    ? form.thirds
+        .map((t, i) =>
+          t
+            ? {
+                index: (i + 1) as 1 | 2 | 3,
+                flavor_tag_names: flavorTags
+                  .filter((ft) => t.flavor_tag_ids.includes(ft.id))
+                  .map((ft) => ft.name),
+              }
+            : null,
+        )
+        .filter((r): r is { index: 1 | 2 | 3; flavor_tag_names: string[] } => r !== null)
+    : [];
+
   // In-flight callers carry photos as File objects (no URL yet);
   // VerdictCard expects URL strings. Convert at the boundary so the
   // shared component stays simple. Blob URLs are fine for the
@@ -1193,6 +1208,7 @@ function SummaryStep({
         thirdBeginning={form.third_beginning}
         thirdMiddle={form.third_middle}
         thirdEnd={form.third_end}
+        thirdsTaggedRows={thirdsTaggedRows}
         displayName={displayName}
         city={city}
       />

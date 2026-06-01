@@ -272,6 +272,13 @@ export interface VerdictCardProps {
   thirdBeginning?:  string | null;
   thirdMiddle?:     string | null;
   thirdEnd?:        string | null;
+  /* Per-third flavor chips. Caller resolves tag IDs → names before
+     passing so VerdictCard stays pure. Optional — omitting it (or
+     passing an empty array) suppresses the chips entirely. */
+  thirdsTaggedRows?: Array<{
+    index:            1 | 2 | 3;
+    flavor_tag_names: string[];
+  }>;
 
   /* Byline. Both optional; if both null, the byline line is dropped.
      `displayName` should be the AUTHOR of the report (in the lounge
@@ -303,10 +310,11 @@ export function VerdictCard({
   occasion,
   flavorTagNames,
   photoUrls,
-  thirdsEnabled  = false,
-  thirdBeginning = null,
-  thirdMiddle    = null,
-  thirdEnd       = null,
+  thirdsEnabled     = false,
+  thirdBeginning    = null,
+  thirdMiddle       = null,
+  thirdEnd          = null,
+  thirdsTaggedRows  = [],
   displayName,
   city,
   onPhotoClick,
@@ -515,6 +523,12 @@ export function VerdictCard({
               ["Final Third · End",       thirdEnd],
             ] as const).map(([tag, text]) => {
               const t = text?.trim() ?? "";
+              const thirdIdx: 1 | 2 | 3 =
+                tag === "First Third · Beginning" ? 1
+                : tag === "Second Third · Middle" ? 2
+                : 3;
+              const chipNames =
+                thirdsTaggedRows.find((r) => r.index === thirdIdx)?.flavor_tag_names ?? [];
               return (
                 <div key={tag} style={{ marginBottom: 14 }}>
                   <p
@@ -543,6 +557,27 @@ export function VerdictCard({
                   >
                     {t || "—"}
                   </p>
+                  {chipNames.length > 0 && (
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {chipNames.map((name) => (
+                        <span
+                          key={name}
+                          style={{
+                            padding:       "2px 8px",
+                            borderRadius:  999,
+                            background:    "rgba(212,160,74,0.12)",
+                            border:        "1px solid rgba(212,160,74,0.4)",
+                            color:         "var(--gold)",
+                            fontFamily:    "var(--font-mono)",
+                            fontSize:      10,
+                            letterSpacing: "0.08em",
+                          }}
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
