@@ -558,25 +558,30 @@ export function VerdictCard({
                     {t || "—"}
                   </p>
                   {chipNames.length > 0 && (
-                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 4 }}>
-                      {chipNames.map((name) => (
-                        <span
-                          key={name}
-                          style={{
-                            padding:       "2px 8px",
-                            borderRadius:  999,
-                            background:    "rgba(212,160,74,0.12)",
-                            border:        "1px solid rgba(212,160,74,0.4)",
-                            color:         "var(--gold)",
-                            fontFamily:    "var(--font-mono)",
-                            fontSize:      10,
-                            letterSpacing: "0.08em",
-                          }}
-                        >
-                          {name}
+                    <p
+                      style={{
+                        fontFamily:   "var(--font-serif)",
+                        fontStyle:    "italic",
+                        fontSize:     13,
+                        lineHeight:   1.5,
+                        color:        "var(--paper-mute)",
+                        margin:       "6px 0 0",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {chipNames.map((name, i) => (
+                        <span key={name}>
+                          {name.toLowerCase()}
+                          {i < chipNames.length - 1 && (
+                            <>
+                              {" "}
+                              <span style={{ color: "var(--gold)" }}>·</span>
+                              {" "}
+                            </>
+                          )}
                         </span>
                       ))}
-                    </div>
+                    </p>
                   )}
                 </div>
               );
@@ -666,32 +671,59 @@ export function VerdictCard({
           gives the browser line-break opportunities; CSS margin on
           inline elements does not. */}
       {flavorTagNames.length > 0 && (
-        <p
-          style={{
-            fontFamily:   "var(--font-serif)",
-            fontStyle:    "italic",
-            fontSize:     17,
-            lineHeight:   1.5,
-            color:        "var(--paper-mute)",
-            textAlign:    "center",
-            margin:       "22px 0 0",
-            padding:      "0 12px",
-            overflowWrap: "anywhere",
-          }}
-        >
-          {flavorTagNames.map((name, i) => (
-            <span key={name}>
-              {name.toLowerCase()}
-              {i < flavorTagNames.length - 1 && (
-                <>
-                  {" "}
-                  <span style={{ color: "var(--gold)" }}>·</span>
-                  {" "}
-                </>
-              )}
-            </span>
-          ))}
-        </p>
+        <>
+          <div
+            style={{
+              display:        "flex",
+              alignItems:     "center",
+              justifyContent: "center",
+              gap:            10,
+              margin:         "22px 0 0",
+            }}
+          >
+            <span aria-hidden="true" style={{ width: 20, height: 1, background: "var(--gold-deep, var(--gold))", flexShrink: 0 }} />
+            <p
+              style={{
+                fontFamily:    "var(--font-mono)",
+                fontSize:      9,
+                fontWeight:    500,
+                letterSpacing: "0.28em",
+                textTransform: "uppercase",
+                color:         "var(--gold)",
+                margin:        0,
+              }}
+            >
+              Tasting Notes
+            </p>
+            <span aria-hidden="true" style={{ width: 20, height: 1, background: "var(--gold-deep, var(--gold))", flexShrink: 0 }} />
+          </div>
+          <p
+            style={{
+              fontFamily:   "var(--font-serif)",
+              fontStyle:    "italic",
+              fontSize:     17,
+              lineHeight:   1.5,
+              color:        "var(--paper-mute)",
+              textAlign:    "center",
+              margin:       "8px 0 0",
+              padding:      "0 12px",
+              overflowWrap: "anywhere",
+            }}
+          >
+            {flavorTagNames.map((name, i) => (
+              <span key={name}>
+                {name.toLowerCase()}
+                {i < flavorTagNames.length - 1 && (
+                  <>
+                    {" "}
+                    <span style={{ color: "var(--gold)" }}>·</span>
+                    {" "}
+                  </>
+                )}
+              </span>
+            ))}
+          </p>
+        </>
       )}
     </div>
   );
