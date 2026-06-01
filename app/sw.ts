@@ -455,9 +455,15 @@ self.addEventListener("install", () => {
    times out. PR #381 identified this pattern; PR #427 fixes it by making
    the postMessage fire-and-forget so activation is never blocked. */
 self.addEventListener("activate", () => {
+  /* DIAG: log to see how often this fires in the wild. The expectation
+     is once per genuine deploy; if it fires on every reload or page
+     resume, that explains the SW-update-banner cycle. Remove after the
+     cycle bug is rooted out. */
+  console.log("[sw] activate fired at", new Date().toISOString());
   void (async () => {
     try {
       const clients = await self.clients.matchAll({ includeUncontrolled: true });
+      console.log("[sw] activate broadcasting SW_UPDATED to", clients.length, "client(s)");
       for (const client of clients) {
         try {
           client.postMessage({ type: "SW_UPDATED" });
