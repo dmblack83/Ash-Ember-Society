@@ -86,7 +86,7 @@ function SubRatingCell({ label, val }: { label: string; val: number }) {
         {label}
       </p>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 6 }}>
-        <StarRating mode="display" value={val} size={16} ariaLabel={`${label} ${val.toFixed(2)} out of 5`} />
+        <StarRating mode="display" value={val} size={12} ariaLabel={`${label} ${val.toFixed(2)} out of 5`} />
       </div>
       <p
         style={{
@@ -482,11 +482,15 @@ export function VerdictCard({
           </div>
         </div>
 
-        {/* Sub-ratings stripe */}
+        {/* Sub-ratings stripe.
+            `minmax(0, 1fr)` overrides the default `min-width: auto`
+            on grid items so a cell's content cannot push the track
+            wider than the container — protects against horizontal
+            overflow if the star size ever grows again. */}
         <div
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(4, 1fr)",
+            gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
             gap:                 8,
           }}
         >
