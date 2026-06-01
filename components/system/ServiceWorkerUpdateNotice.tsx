@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+/* Key for the localStorage entry that remembers which SW version the
+   user has already dismissed via Reload. Persisting across the reload
+   (which `window.location.reload()` does for sessionStorage too) is the
+   point: without it, every reload re-shows the same-version banner on
+   iOS PWA where activate fires more aggressively than spec. */
+const DISMISSED_VERSION_KEY = "ae:sw-update-dismissed-version";
 
 /* ------------------------------------------------------------------
    ServiceWorkerUpdateNotice — bottom banner prompting the user to
@@ -32,6 +39,11 @@ import { useEffect, useState } from "react";
 
 export function ServiceWorkerUpdateNotice() {
   const [available, setAvailable] = useState(false);
+  /* Holds the SW version reported with the SW_UPDATED message that
+     made the banner visible. We commit it to localStorage when the
+     user clicks Reload, so the next page load (and any further
+     SW_UPDATED broadcasts carrying the same version) get suppressed. */
+  const currentVersion = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof navigator === "undefined")             return;
@@ -43,22 +55,26 @@ export function ServiceWorkerUpdateNotice() {
     const hadController = navigator.serviceWorker.controller !== null;
     if (!hadController) return;
 
-    /* DIAG: confirm the controller-state gate. If the cycle bug is
-       happening because hadController is true on the reloaded page
-       AND SW_UPDATED is re-broadcast, this log shows both halves. */
-    console.log(
-      "[sw-update-notice] mount, hadController =",
-      hadController,
-      "at",
-      new Date().toISOString(),
-    );
-
     function onMessage(event: MessageEvent) {
       const data = event.data;
-      if (data && typeof data === "object" && (data as { type?: unknown }).type === "SW_UPDATED") {
-        console.log("[sw-update-notice] SW_UPDATED received at", new Date().toISOString());
-        setAvailable(true);
+      if (!data || typeof data !== "object") return;
+      const payload = data as { type?: unknown; version?: unknown };
+      if (payload.type !== "SW_UPDATED") return;
+
+      const incomingVersion = typeof payload.version === "string" ? payload.version : "";
+
+      /* Dedupe: ignore repeats of a version the user has already
+         dismissed. Without this, iOS PWA shows the same banner after
+         every reload because the activate event re-fires there. */
+      try {
+        const dismissed = localStorage.getItem(DISMISSED_VERSION_KEY);
+        if (incomingVersion && dismissed === incomingVersion) return;
+      } catch {
+        /* Private mode / disabled storage — fail open, show banner. */
       }
+
+      currentVersion.current = incomingVersion;
+      setAvailable(true);
     }
 
     navigator.serviceWorker.addEventListener("message", onMessage);
@@ -66,6 +82,16 @@ export function ServiceWorkerUpdateNotice() {
   }, []);
 
   if (!available) return null;
+
+  function handleReload() {
+    /* Record dismissal BEFORE navigating away. localStorage writes are
+       synchronous so this flushes before the reload starts. */
+    if (currentVersion.current) {
+      try { localStorage.setItem(DISMISSED_VERSION_KEY, currentVersion.current); }
+      catch { /* see above — fail open */ }
+    }
+    window.location.reload();
+  }
 
   return (
     <div
@@ -97,7 +123,7 @@ export function ServiceWorkerUpdateNotice() {
       </span>
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        onClick={handleReload}
         style={{
           padding:      "6px 14px",
           borderRadius: 8,

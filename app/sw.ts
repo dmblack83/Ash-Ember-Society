@@ -454,19 +454,31 @@ self.addEventListener("install", () => {
    navigator.serviceWorker.ready then never resolves, and push subscribe
    times out. PR #381 identified this pattern; PR #427 fixes it by making
    the postMessage fire-and-forget so activation is never blocked. */
+/* Stable per-build identifier derived from the Serwist precache manifest.
+   The manifest array is regenerated on every build with content-hash
+   revisions, so concatenating revisions gives a string that:
+     - is identical across SW restarts within the same build
+     - differs the moment a new build ships
+   We pass this with every SW_UPDATED broadcast so the client can dedupe
+   on iOS, where the SW activate event fires more aggressively than spec
+   expects (every PWA resume / reload), producing a banner cycle. The
+   client suppresses repeats of the same version after the user has
+   already acknowledged it via Reload. */
+const SW_VERSION = (() => {
+  const manifest = (self as unknown as { __SW_MANIFEST?: Array<{ revision: string }> }).__SW_MANIFEST ?? [];
+  if (manifest.length === 0) return "unknown";
+  /* Join all revisions so a single chunk change shifts the version,
+     then cap length to keep the postMessage payload small. */
+  return `v${manifest.length}-${manifest.map((e) => e.revision).join("").slice(0, 40)}`;
+})();
+
 self.addEventListener("activate", () => {
-  /* DIAG: log to see how often this fires in the wild. The expectation
-     is once per genuine deploy; if it fires on every reload or page
-     resume, that explains the SW-update-banner cycle. Remove after the
-     cycle bug is rooted out. */
-  console.log("[sw] activate fired at", new Date().toISOString());
   void (async () => {
     try {
       const clients = await self.clients.matchAll({ includeUncontrolled: true });
-      console.log("[sw] activate broadcasting SW_UPDATED to", clients.length, "client(s)");
       for (const client of clients) {
         try {
-          client.postMessage({ type: "SW_UPDATED" });
+          client.postMessage({ type: "SW_UPDATED", version: SW_VERSION });
         } catch {
           /* postMessage can throw on detached clients; non-fatal. */
         }
