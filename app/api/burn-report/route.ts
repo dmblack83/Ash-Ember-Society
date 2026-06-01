@@ -31,6 +31,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }              from "@/lib/auth/server-user";
 import { createClient }               from "@/utils/supabase/server";
+import { averageThirdsToQuarter, type PerThirdData } from "@/lib/burn-report/thirds";
 
 export const runtime = "edge";
 
@@ -58,6 +59,8 @@ interface BurnReportBody {
   third_beginning?:        string;
   third_middle?:           string;
   third_end?:              string;
+  /* New per-third payload — present only when thirds_enabled === true */
+  thirds?: Array<PerThirdData & { index: 1 | 2 | 3 }>;
 }
 
 export async function POST(req: NextRequest) {
@@ -97,6 +100,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Humidor item not found" }, { status: 404 });
   }
 
+  /* When thirds is enabled, compute the four headline ratings from
+     the per-third payload. The client-provided draw_rating/etc.
+     fields are ignored in this case (they're not collected in the
+     thirds-on flow). */
+  let headlineRatings: ReturnType<typeof averageThirdsToQuarter> | null = null;
+  if (body.thirds_enabled && Array.isArray(body.thirds) && body.thirds.length === 3) {
+    headlineRatings = averageThirdsToQuarter(body.thirds);
+  }
+
   /* ── Build smoke_logs payload ────────────────────────────────── */
   const smokeLogPayload: Record<string, unknown> = {
     user_id:         user.id,
@@ -109,11 +121,24 @@ export async function POST(req: NextRequest) {
   if (body.occasion)              smokeLogPayload.occasion              = body.occasion;
   if (body.pairing_drink)         smokeLogPayload.pairing_drink         = body.pairing_drink;
   if (body.pairing_food)          smokeLogPayload.pairing_food          = body.pairing_food;
-  if (body.draw_rating)           smokeLogPayload.draw_rating           = body.draw_rating;
-  if (body.burn_rating)           smokeLogPayload.burn_rating           = body.burn_rating;
-  if (body.construction_rating)   smokeLogPayload.construction_rating   = body.construction_rating;
-  if (body.flavor_rating)         smokeLogPayload.flavor_rating         = body.flavor_rating;
-  if (body.flavor_tag_ids?.length) smokeLogPayload.flavor_tag_ids       = body.flavor_tag_ids;
+  if (headlineRatings) {
+    smokeLogPayload.draw_rating         = headlineRatings.draw_rating;
+    smokeLogPayload.burn_rating         = headlineRatings.burn_rating;
+    smokeLogPayload.construction_rating = headlineRatings.construction_rating;
+    smokeLogPayload.flavor_rating       = headlineRatings.flavor_rating;
+    /* Headline flavor_tag_ids = union of all three thirds' selections.
+       Keeps the existing "filter reports by tag" read paths working
+       without thirds-aware joins. */
+    const tagSet = new Set<string>();
+    for (const t of body.thirds!) for (const id of t.flavor_tag_ids) tagSet.add(id);
+    if (tagSet.size) smokeLogPayload.flavor_tag_ids = Array.from(tagSet);
+  } else {
+    if (body.draw_rating)         smokeLogPayload.draw_rating         = body.draw_rating;
+    if (body.burn_rating)         smokeLogPayload.burn_rating         = body.burn_rating;
+    if (body.construction_rating) smokeLogPayload.construction_rating = body.construction_rating;
+    if (body.flavor_rating)       smokeLogPayload.flavor_rating       = body.flavor_rating;
+    if (body.flavor_tag_ids?.length) smokeLogPayload.flavor_tag_ids   = body.flavor_tag_ids;
+  }
   if (body.review_text)           smokeLogPayload.review_text           = body.review_text;
   if (body.photo_urls?.length)    smokeLogPayload.photo_urls            = body.photo_urls;
   if (body.smoke_duration_minutes) smokeLogPayload.smoke_duration_minutes = body.smoke_duration_minutes;
@@ -133,7 +158,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  /* ── Insert burn_reports child (1:1) ─────────────────────────── */
+  /* ── Insert burn_reports child (1:1) and capture its id ───────── */
   const burnPayload: Record<string, unknown> = {
     smoke_log_id:   logData.id,
     user_id:        user.id,
@@ -143,15 +168,55 @@ export async function POST(req: NextRequest) {
   if (body.third_middle)    burnPayload.third_middle    = body.third_middle;
   if (body.third_end)       burnPayload.third_end       = body.third_end;
 
-  const { error: brError } = await supabase
+  const { data: brData, error: brError } = await supabase
     .from("burn_reports")
-    .insert(burnPayload);
+    .insert(burnPayload)
+    .select("id")
+    .single();
 
-  if (brError) {
-    /* Match the original client behavior: log and continue. The
-       smoke_log is still a valid descriptive record; we accept
-       losing thirds metadata over rolling back the parent insert. */
-    console.error("[burn-report] burn_reports insert failed:", brError.message);
+  if (brError || !brData) {
+    /* Match the original client behavior: log and continue. */
+    console.error("[burn-report] burn_reports insert failed:", brError?.message);
+  } else if (body.thirds_enabled && Array.isArray(body.thirds) && body.thirds.length === 3) {
+    /* Insert burn_report_thirds rows + flavor tag joins. */
+    const thirdsRows = body.thirds.map((t) => ({
+      burn_report_id:      brData.id,
+      user_id:             user.id,
+      third_index:         t.index,
+      notes:               t.notes,
+      draw_rating:         t.draw_rating,
+      burn_rating:         t.burn_rating,
+      construction_rating: t.construction_rating,
+      flavor_rating:       t.flavor_rating,
+      photo_url:           typeof t.photo_index === "number" && body.photo_urls
+        ? body.photo_urls[t.photo_index] ?? null
+        : null,
+    }));
+    const { data: insertedThirds, error: thirdsError } = await supabase
+      .from("burn_report_thirds")
+      .insert(thirdsRows)
+      .select("id, third_index");
+    if (thirdsError || !insertedThirds) {
+      console.error("[burn-report] burn_report_thirds insert failed:", thirdsError?.message);
+    } else {
+      /* Build join rows for each third's selected flavor tags. */
+      const joinRows: Array<{ third_id: string; flavor_tag_id: string }> = [];
+      for (const inserted of insertedThirds) {
+        const sourceThird = body.thirds.find((t) => t.index === inserted.third_index);
+        if (!sourceThird) continue;
+        for (const tagId of sourceThird.flavor_tag_ids) {
+          joinRows.push({ third_id: inserted.id, flavor_tag_id: tagId });
+        }
+      }
+      if (joinRows.length) {
+        const { error: joinError } = await supabase
+          .from("burn_report_third_flavor_tags")
+          .insert(joinRows);
+        if (joinError) {
+          console.error("[burn-report] burn_report_third_flavor_tags insert failed:", joinError.message);
+        }
+      }
+    }
   }
 
   /* ── Decrement humidor quantity ──────────────────────────────── */
