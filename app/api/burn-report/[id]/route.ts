@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }              from "@/lib/auth/server-user";
 import { createClient }               from "@/utils/supabase/server";
+import { averageThirdsToQuarter, type PerThirdData } from "@/lib/burn-report/thirds";
 
 export const runtime = "edge";
 
@@ -43,6 +44,12 @@ interface BurnReportEditBody {
   third_beginning?:        string | null;
   third_middle?:           string | null;
   third_end?:              string | null;
+  /* Per-third payload. When present alongside thirds_enabled=true,
+     the server replaces burn_report_thirds + their flavor_tag joins
+     and derives headline ratings + tag union onto smoke_logs.
+     photo_index is ignored on edit (photos are read-only in v1 edit);
+     existing per-third photo_urls are preserved. */
+  thirds?: Array<PerThirdData & { index: 1 | 2 | 3 }>;
 }
 
 export async function PATCH(
@@ -77,6 +84,26 @@ export async function PATCH(
     return NextResponse.json({ error: "Burn report not found" }, { status: 404 });
   }
 
+  /* When the client sends a complete per-third payload alongside
+     thirds_enabled=true, the four headline ratings + the union of
+     flavor_tag_ids are server-derived (mirroring POST). The client's
+     own draw_rating/etc fields are ignored in this branch — they're
+     stale 0s in thirds mode. */
+  const thirdsPayloadValid =
+    body.thirds_enabled === true &&
+    Array.isArray(body.thirds) &&
+    body.thirds.length === 3;
+  const headlineRatings = thirdsPayloadValid
+    ? averageThirdsToQuarter(body.thirds as PerThirdData[])
+    : null;
+  const headlineTagUnion = thirdsPayloadValid
+    ? (() => {
+        const s = new Set<string>();
+        for (const t of body.thirds!) for (const tagId of (t.flavor_tag_ids ?? [])) s.add(tagId);
+        return Array.from(s);
+      })()
+    : null;
+
   /* Build smoke_logs update — only assign keys that were sent. We
      translate `null` to actual NULL writes (lets the client clear
      a field), and leave undefined keys alone so callers don't have
@@ -91,11 +118,19 @@ export async function PATCH(
   assign("occasion");
   assign("pairing_drink");
   assign("pairing_food");
-  assign("draw_rating");
-  assign("burn_rating");
-  assign("construction_rating");
-  assign("flavor_rating");
-  assign("flavor_tag_ids");
+  if (!headlineRatings) {
+    assign("draw_rating");
+    assign("burn_rating");
+    assign("construction_rating");
+    assign("flavor_rating");
+    assign("flavor_tag_ids");
+  } else {
+    smokeLogUpdate.draw_rating         = headlineRatings.draw_rating;
+    smokeLogUpdate.burn_rating         = headlineRatings.burn_rating;
+    smokeLogUpdate.construction_rating = headlineRatings.construction_rating;
+    smokeLogUpdate.flavor_rating       = headlineRatings.flavor_rating;
+    smokeLogUpdate.flavor_tag_ids      = headlineTagUnion!.length ? headlineTagUnion : null;
+  }
   assign("review_text");
   assign("smoke_duration_minutes");
   assign("content_video_id");
@@ -114,11 +149,13 @@ export async function PATCH(
 
   /* Upsert burn_reports child if any thirds field was sent. Upsert
      (not update) handles the case where the original report was
-     filed before the thirds feature existed and has no child row. */
+     filed before the thirds feature existed and has no child row.
+     We need the resulting row id to scope burn_report_thirds writes. */
   const thirdsKeys: Array<keyof BurnReportEditBody> = [
-    "thirds_enabled", "third_beginning", "third_middle", "third_end",
+    "thirds_enabled", "third_beginning", "third_middle", "third_end", "thirds",
   ];
   const anyThirds = thirdsKeys.some((k) => k in body);
+  let burnReportId: string | null = null;
   if (anyThirds) {
     const burnPayload: Record<string, unknown> = {
       smoke_log_id:   id,
@@ -129,14 +166,93 @@ export async function PATCH(
     if ("third_middle"    in body) burnPayload.third_middle    = body.third_middle;
     if ("third_end"       in body) burnPayload.third_end       = body.third_end;
 
-    const { error: brError } = await supabase
+    const { data: brData, error: brError } = await supabase
       .from("burn_reports")
-      .upsert(burnPayload, { onConflict: "smoke_log_id" });
+      .upsert(burnPayload, { onConflict: "smoke_log_id" })
+      .select("id")
+      .single();
 
-    if (brError) {
+    if (brError || !brData) {
       /* Match POST behavior: log and continue. The smoke_log update
          already succeeded; losing thirds metadata is acceptable. */
-      console.error("[burn-report PATCH] burn_reports upsert failed:", brError.message);
+      console.error("[burn-report PATCH] burn_reports upsert failed:", brError?.message);
+    } else {
+      burnReportId = brData.id;
+    }
+  }
+
+  /* Replace burn_report_thirds when the client sent a complete
+     per-third payload. We do delete-then-insert (rather than per-row
+     diff) because the wizard's PerThirdSheet already commits the full
+     in-memory state on each Save, so the payload is the source of
+     truth. Existing per-third photo_urls are preserved by index — edit
+     mode is photo-read-only in v1. */
+  if (thirdsPayloadValid && burnReportId) {
+    /* Snapshot existing photo_urls by third_index so deletion doesn't
+       lose them. */
+    const { data: existingThirds } = await supabase
+      .from("burn_report_thirds")
+      .select("third_index, photo_url")
+      .eq("burn_report_id", burnReportId);
+    const photoByIndex = new Map<number, string | null>();
+    for (const row of existingThirds ?? []) {
+      photoByIndex.set(row.third_index as number, row.photo_url as string | null);
+    }
+
+    /* Delete flavor-tag joins first (no ON DELETE CASCADE assumed),
+       then the third rows themselves. */
+    const { data: oldThirdIds } = await supabase
+      .from("burn_report_thirds")
+      .select("id")
+      .eq("burn_report_id", burnReportId);
+    if (oldThirdIds && oldThirdIds.length > 0) {
+      const ids = oldThirdIds.map((r) => r.id as string);
+      await supabase
+        .from("burn_report_third_flavor_tags")
+        .delete()
+        .in("third_id", ids);
+      await supabase
+        .from("burn_report_thirds")
+        .delete()
+        .eq("burn_report_id", burnReportId);
+    }
+
+    const thirdsRows = body.thirds!.map((t) => ({
+      burn_report_id:      burnReportId,
+      user_id:             user.id,
+      third_index:         t.index,
+      notes:               t.notes,
+      draw_rating:         t.draw_rating,
+      burn_rating:         t.burn_rating,
+      construction_rating: t.construction_rating,
+      flavor_rating:       t.flavor_rating,
+      photo_url:           photoByIndex.get(t.index) ?? null,
+    }));
+
+    const { data: insertedThirds, error: thirdsError } = await supabase
+      .from("burn_report_thirds")
+      .insert(thirdsRows)
+      .select("id, third_index");
+
+    if (thirdsError || !insertedThirds) {
+      console.error("[burn-report PATCH] burn_report_thirds insert failed:", thirdsError?.message);
+    } else {
+      const joinRows: Array<{ third_id: string; flavor_tag_id: string }> = [];
+      for (const inserted of insertedThirds) {
+        const sourceThird = body.thirds!.find((t) => t.index === inserted.third_index);
+        if (!sourceThird) continue;
+        for (const tagId of (sourceThird.flavor_tag_ids ?? [])) {
+          joinRows.push({ third_id: inserted.id, flavor_tag_id: tagId });
+        }
+      }
+      if (joinRows.length) {
+        const { error: joinError } = await supabase
+          .from("burn_report_third_flavor_tags")
+          .insert(joinRows);
+        if (joinError) {
+          console.error("[burn-report PATCH] burn_report_third_flavor_tags insert failed:", joinError.message);
+        }
+      }
     }
   }
 

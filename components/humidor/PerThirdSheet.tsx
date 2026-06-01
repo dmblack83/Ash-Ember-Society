@@ -17,6 +17,7 @@
 import React, { useRef, useState } from "react";
 import { StarRating } from "./StarRating";
 import { TastingNotesSubSheet, type FlavorTag } from "./TastingNotesSubSheet";
+import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
 
 function ratingWord(val: number): string {
@@ -170,13 +171,12 @@ export function PerThirdSheet({
               >
                 Notes
               </p>
-              <textarea
+              <AutoGrowTextarea
                 value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                onChange={setNotes}
                 placeholder={tag.placeholder}
                 rows={4}
-                className="input"
-                style={{ width: "100%", minHeight: 100, resize: "vertical" }}
+                style={{ width: "100%" }}
               />
             </div>
 

@@ -147,14 +147,20 @@ export function TastingNotesSubSheet({
           {selectedIds.length > 0 && (
             <div
               style={{
+                /* Opaque background — this row is sticky inside the
+                   scroll body; a translucent fill let the category
+                   chips show through as they scroll past. Pad top
+                   matches `padding: 14px` so the gold border still
+                   visually separates from the header above. */
                 padding:      "10px 12px",
                 border:       "1px solid rgba(212,160,74,0.35)",
-                background:   "rgba(212,160,74,0.06)",
+                background:   "var(--card)",
                 borderRadius: 8,
                 marginBottom: 16,
                 position:     "sticky",
                 top:          -14,
                 zIndex:       1,
+                boxShadow:    "0 8px 16px -12px rgba(0,0,0,0.6)",
               }}
             >
               <p
@@ -199,43 +205,21 @@ export function TastingNotesSubSheet({
           )}
 
           {Object.entries(grouped).map(([cat, tags]) => {
-            const catCount = tags.filter((t) => selected.has(t.id)).length;
             return (
               <div key={cat} style={{ marginBottom: 16 }}>
-                <div
+                <p
                   style={{
-                    display:        "flex",
-                    alignItems:     "center",
-                    justifyContent: "space-between",
-                    marginBottom:   6,
+                    fontFamily:    "var(--font-mono)",
+                    fontSize:      9,
+                    fontWeight:    500,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color:         "var(--paper-mute)",
+                    margin:        "0 0 6px",
                   }}
                 >
-                  <p
-                    style={{
-                      fontFamily:    "var(--font-mono)",
-                      fontSize:      9,
-                      fontWeight:    500,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color:         "var(--paper-mute)",
-                      margin:        0,
-                    }}
-                  >
-                    {CATEGORY_DISPLAY[cat]}
-                  </p>
-                  {catCount > 0 && (
-                    <span
-                      style={{
-                        fontFamily:    "var(--font-mono)",
-                        fontSize:      9,
-                        letterSpacing: "0.12em",
-                        color:         "var(--gold)",
-                      }}
-                    >
-                      {catCount} selected
-                    </span>
-                  )}
-                </div>
+                  {CATEGORY_DISPLAY[cat]}
+                </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                   {tags.map((tag) => {
                     const active = selected.has(tag.id);
