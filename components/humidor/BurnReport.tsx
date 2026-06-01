@@ -18,6 +18,7 @@ import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
+import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
 import { PerThirdSheet } from "./PerThirdSheet";
 import { StarRating as StarRatingInput } from "./StarRating";
 
@@ -1187,6 +1188,18 @@ function SummaryStep({
   // preview lifetime — they're discarded once the user navigates.
   const photoUrls = form.photo_files.map((f) => URL.createObjectURL(f));
 
+  // When thirds is enabled, the four top-level rating fields are still
+  // 0 (server averages on submit). Compute averaged values client-side
+  // so the in-flight Summary preview shows accurate stars + decimals.
+  const previewRatings = form.thirds_enabled && form.thirds.every((t) => t !== null)
+    ? averageThirdsToQuarter(form.thirds as PerThirdData[])
+    : null;
+
+  const previewDraw  = previewRatings ? previewRatings.draw_rating         : form.draw_rating;
+  const previewBurn  = previewRatings ? previewRatings.burn_rating         : form.burn_rating;
+  const previewBuild = previewRatings ? previewRatings.construction_rating : form.construction_rating;
+  const previewFlav  = previewRatings ? previewRatings.flavor_rating       : form.flavor_rating;
+
   return (
     <div>
       <VerdictCard
@@ -1194,10 +1207,10 @@ function SummaryStep({
         reportNumber={reportNumber}
         smokedAt={form.smoked_at}
         overallRating={form.overall_rating}
-        drawRating={form.draw_rating}
-        burnRating={form.burn_rating}
-        constructionRating={form.construction_rating}
-        flavorRating={form.flavor_rating}
+        drawRating={previewDraw}
+        burnRating={previewBurn}
+        constructionRating={previewBuild}
+        flavorRating={previewFlav}
         reviewText={form.review_text}
         smokeDurationMinutes={form.smoke_duration_minutes}
         pairingDrink={form.pairing_drink}
