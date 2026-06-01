@@ -246,7 +246,7 @@ export function PerThirdSheet({
                   margin:        "0 0 6px",
                 }}
               >
-                Tasting Notes <span style={{ color: "var(--paper-dim)" }}>opt</span>
+                Tasting Notes
               </p>
               <button
                 type="button"
@@ -311,7 +311,7 @@ export function PerThirdSheet({
                   margin:        "0 0 6px",
                 }}
               >
-                Photo <span style={{ color: "var(--paper-dim)" }}>opt</span>
+                Photo
               </p>
               <input
                 ref={fileRef}
