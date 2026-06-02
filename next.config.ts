@@ -58,7 +58,9 @@ const CSP = [
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
-  "upgrade-insecure-requests",
+  /* `upgrade-insecure-requests` lives in the enforce header below.
+     Browsers ignore it in report-only mode and log a warning per
+     navigation. */
 ].join("; ");
 
 /* Security headers that apply to every response, regardless of CSP. */
@@ -76,7 +78,7 @@ const SECURITY_HEADERS = [
      The non-script directives are safe to enforce now and provide
      meaningful clickjacking + injection protection. */
   { key: "Content-Security-Policy-Report-Only", value: CSP },
-  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'" },
+  { key: "Content-Security-Policy", value: "frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests" },
   /* Two-year HSTS with subdomains and preload eligibility. Caller
      can submit to https://hstspreload.org once the domain is stable. */
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
