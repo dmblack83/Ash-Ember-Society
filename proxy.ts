@@ -19,6 +19,7 @@ const PUBLIC_PATHS = [
   "/api/youtube",   // protected by SYNC_SECRET header, not session
   "/api/news",      // protected by SYNC_SECRET / CRON_SECRET, not session
   "/api/cron",      // protected by CRON_SECRET header, not session
+  "/api/version",   // public deploy SHA health-check; no PII, polled by StaleBuildNotice on every mount including logged-out landing
 ];
 
 /*
