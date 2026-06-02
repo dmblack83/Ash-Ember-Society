@@ -11,11 +11,14 @@ export const metadata = {
   openGraph: {
     title: "Ash & Ember Society",
     description: "An exclusive digital sanctuary for the modern aficionado.",
-    url: "https://ashember.vip",
+    /* All metadata URLs use the www canonical host. Bare-host links
+       drift the PWA out of its manifest scope on iOS resume and
+       trigger an in-app browser fallback. */
+    url: "https://www.ashember.vip",
     siteName: "Ash & Ember Society",
     images: [
       {
-        url: "https://ashember.vip/og-image.png",
+        url: "https://www.ashember.vip/og-image.png",
         width: 1200,
         height: 632,
         alt: "Ash & Ember Society",
@@ -27,7 +30,7 @@ export const metadata = {
     card: "summary_large_image",
     title: "Ash & Ember Society",
     description: "An exclusive digital sanctuary for the modern aficionado.",
-    images: ["https://ashember.vip/og-image.png"],
+    images: ["https://www.ashember.vip/og-image.png"],
   },
 };
 

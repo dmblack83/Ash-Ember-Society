@@ -72,7 +72,13 @@ export async function signIn(formData: FormData) {
 }
 
 export async function signInWithGoogle() {
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://ashember.vip'
+  /* `||` (not `??`) so an empty-string env var also falls back. The
+     canonical host is `www`; bare-host fallback used to populate the
+     redirect_uri Google sends users back through, which then crossed
+     the PWA's manifest scope (start_url is www, scope is www) and
+     iOS bailed out of standalone mode into an in-app browser that
+     hit a redirect chain. */
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ashember.vip'
 
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithOAuth({

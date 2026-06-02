@@ -231,6 +231,18 @@ const nextConfig: NextConfig = {
        * Existing PWA installs on the bare domain self-heal as iOS re-reads
        * the new absolute links from the HTML on each cold launch.
        */
+      /* Root path is a separate rule because path-to-regexp's `:path`
+         parameter requires at least one character — `:path((?!...).*)`
+         doesn't reliably match the empty path. Without this, bare
+         `https://ashember.vip/` serves the landing page directly, and
+         every SSR `redirect("/home")` from that page stays on bare for
+         the next hop. Same destination, same permanent semantics. */
+      {
+        source:      "/",
+        has:         [{ type: "host", value: "ashember.vip" }],
+        destination: "https://www.ashember.vip/",
+        permanent:   true,
+      },
       {
         source:      "/:path((?!appstore-images|icons|manifest\\.webmanifest|sw\\.js|swe-worker-).*)",
         has:         [{ type: "host", value: "ashember.vip" }],
