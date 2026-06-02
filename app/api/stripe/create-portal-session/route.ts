@@ -47,9 +47,12 @@ export async function POST(req: NextRequest) {
     }
 
     /* ── Build return URL ──────────────────────────────────────── */
+    /* `||` not `??` — an empty-string env var should fall through
+       to the request origin, not be treated as a valid URL. */
     const origin =
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      (req.headers.get("origin") || "http://localhost:3000");
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      req.headers.get("origin") ||
+      "http://localhost:3000";
 
     /* ── Create portal session ─────────────────────────────────── */
     const session = await stripe.billingPortal.sessions.create({
