@@ -48,8 +48,11 @@ export default function ReliabilityBootstrap() {
      * Performance marks reset on reload — sessionStorage does not.
      * We read the counters here and fire telemetry exactly once
      * per session per signal, guarded by our own sessionStorage flag.
+     *
+     * sessionStorage access can throw SecurityError in sandboxed
+     * iframes or hardened WebViews; swallow.
      */
-    if (typeof window !== "undefined") {
+    try {
       const FIRED_KEY = "ae-reliability-fired";
       const fired = new Set((sessionStorage.getItem(FIRED_KEY) ?? "").split(",").filter(Boolean));
       const markFired = (name: string) => {
@@ -78,6 +81,8 @@ export default function ReliabilityBootstrap() {
         });
         markFired("chunk");
       }
+    } catch {
+      /* sessionStorage unavailable — non-fatal */
     }
 
     return () => {
