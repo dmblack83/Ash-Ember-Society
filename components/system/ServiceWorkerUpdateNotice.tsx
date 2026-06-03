@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { trackReliability } from "@/lib/telemetry/reliability";
 
 /* Key for the localStorage entry that remembers which SW version the
    user has already dismissed via Reload. Persisting across the reload
@@ -68,7 +69,15 @@ export function ServiceWorkerUpdateNotice() {
          every reload because the activate event re-fires there. */
       try {
         const dismissed = localStorage.getItem(DISMISSED_VERSION_KEY);
-        if (incomingVersion && dismissed === incomingVersion) return;
+        if (incomingVersion && dismissed === incomingVersion) {
+          trackReliability({
+            bucket:  "sw_lifecycle",
+            subtype: "update_banner_cycle",
+            cause:   "version_match",
+            extra:   { version: incomingVersion },
+          });
+          return;
+        }
       } catch {
         /* Private mode / disabled storage — fail open, show banner. */
       }

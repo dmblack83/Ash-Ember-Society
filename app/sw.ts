@@ -47,6 +47,47 @@ declare const self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: (PrecacheEntry | string)[];
 };
 
+/* ──────────────────────────────────────────────────────────────────
+   Reliability telemetry bridge.
+
+   The SW runs in a separate bundle and cannot import @sentry/nextjs.
+   To get SW events into Sentry, post a RELIABILITY_EVENT message to
+   every controlled client. The client-side ReliabilityBootstrap
+   component (components/system/ReliabilityBootstrap.tsx) forwards
+   the message into trackReliability.
+
+   Fire-and-forget: postMessage to detached clients can throw; we
+   swallow so the SW lifecycle is never blocked by telemetry. */
+type ReliabilityBucket =
+  | "sw_lifecycle"
+  | "auth_session"
+  | "network_resilience"
+  | "ios_webkit"
+  | "state_persistence";
+
+interface SwReliabilityPayload {
+  bucket:  ReliabilityBucket;
+  subtype: string;
+  cause?:  string;
+  detail?: string;
+  extra?:  Record<string, string | number | boolean>;
+}
+
+async function postReliability(p: SwReliabilityPayload): Promise<void> {
+  try {
+    const clients = await self.clients.matchAll({ includeUncontrolled: true });
+    for (const client of clients) {
+      try {
+        client.postMessage({ type: "RELIABILITY_EVENT", ...p });
+      } catch {
+        /* detached client — non-fatal */
+      }
+    }
+  } catch {
+    /* matchAll may fail on iOS — non-fatal */
+  }
+}
+
 const OFFLINE_URL = "/offline";
 
 /* ──────────────────────────────────────────────────────────────────
@@ -176,6 +217,23 @@ const authPartitionPlugin: SerwistPlugin = {
        trivial to inspect when debugging in DevTools → Cache Storage. */
     url.hash = `auth=${hash}`;
     return new Request(url.toString(), { method: request.method });
+  },
+};
+
+/* Detects navigation cache hits that contain a redirected response.
+   When this fires, the cached HTML embeds a redirect chain — often
+   the iOS PWA bare→www loop. */
+const navCacheStalePlugin: SerwistPlugin = {
+  cachedResponseWillBeUsed: async ({ cachedResponse }) => {
+    if (cachedResponse && cachedResponse.redirected) {
+      void postReliability({
+        bucket:  "sw_lifecycle",
+        subtype: "nav_cache_stale",
+        cause:   "redirected_in_cache",
+        detail:  cachedResponse.url,
+      });
+    }
+    return cachedResponse;
   },
 };
 
@@ -379,6 +437,7 @@ const serwist = new Serwist({
         cacheName: "navigations",
         plugins: [
           authPartitionPlugin,
+          navCacheStalePlugin,
           new CacheableResponsePlugin({ statuses: [0, 200] }),
           new ExpirationPlugin({
             maxEntries:    60,
@@ -483,8 +542,14 @@ self.addEventListener("activate", () => {
           /* postMessage can throw on detached clients; non-fatal. */
         }
       }
-    } catch {
-      /* matchAll can fail on iOS; non-fatal. */
+    } catch (err) {
+      /* matchAll can fail on iOS; non-fatal — but worth knowing. */
+      void postReliability({
+        bucket:  "sw_lifecycle",
+        subtype: "activate_fail",
+        cause:   "matchall_threw",
+        detail:  err instanceof Error ? err.message : String(err),
+      });
     }
   })();
 });
