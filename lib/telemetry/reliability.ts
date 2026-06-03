@@ -51,7 +51,7 @@ export function trackReliability(e: ReliabilityEvent): void {
       cause:   e.cause ?? "unknown",
     },
     extra: {
-      detail: e.detail?.slice(0, 200),
+      ...(e.detail !== undefined && { detail: e.detail.slice(0, 200) }),
       ...e.extra,
     },
   });

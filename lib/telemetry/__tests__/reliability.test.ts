@@ -57,4 +57,10 @@ describe("trackReliability", () => {
     const opts = vi.mocked(Sentry.captureMessage).mock.calls[0][1] as { extra: Record<string, unknown> };
     expect(opts.extra.size_bytes).toBe(5_000_000);
   });
+
+  it("omits detail key from extra when not provided", () => {
+    trackReliability({ bucket: "sw_lifecycle", subtype: "activate_fail" });
+    const opts = vi.mocked(Sentry.captureMessage).mock.calls[0][1] as { extra: Record<string, unknown> };
+    expect("detail" in opts.extra).toBe(false);
+  });
 });
