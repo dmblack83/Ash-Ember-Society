@@ -28,6 +28,7 @@ import {
   unsubscribe as pushUnsubscribe,
 } from "@/lib/push-client";
 import type { MembershipTier } from "@/lib/stripe";
+import { checkResponse } from "@/lib/telemetry/fetch-checks";
 
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
@@ -403,7 +404,10 @@ function AvatarUpload({ userId, avatarUrl, initials, bgColor, badge, tier, assig
       body.append("file", file);
 
       setPct(50);
-      const res  = await fetch("/api/avatar", { method: "POST", body });
+      const res  = checkResponse(
+        await fetch("/api/avatar", { method: "POST", body }),
+        { route: "/api/avatar" },
+      );
       const json = await res.json();
 
       if (!res.ok) throw new Error(json.error ?? "Upload failed.");

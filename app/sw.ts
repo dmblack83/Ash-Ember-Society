@@ -765,13 +765,27 @@ async function replayOutbox(): Promise<void> {
            drop the record so we don't replay forever on a malformed
            or auth-rejected request. */
         if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+          void postReliability({
+            bucket:  "network_resilience",
+            subtype: "outbox_replay_fail",
+            cause:   `http_${res.status}`,
+            detail:  `${rec.method} ${rec.url}`,
+            extra:   { status: res.status, category: rec.category },
+          });
           await deleteOutboxRecord(db, rec.id);
           continue;
         }
 
         /* 5xx, 408, 429: leave for next sync. */
-      } catch {
+      } catch (err) {
         /* Network still failing — leave for next sync. */
+        void postReliability({
+          bucket:  "network_resilience",
+          subtype: "outbox_replay_fail",
+          cause:   "fetch_threw",
+          detail:  err instanceof Error ? err.message.slice(0, 200) : String(err),
+          extra:   { category: rec.category },
+        });
       }
     }
   } finally {

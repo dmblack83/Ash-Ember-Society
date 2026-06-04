@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { createPortal }     from "react-dom";
 import { useEscapeKey }     from "@/lib/hooks/use-escape-key";
 import { compressImage }    from "@/lib/image-compress";
+import { checkResponse }    from "@/lib/telemetry/fetch-checks";
 
 interface Props {
   cigarId:   string;
@@ -46,7 +47,10 @@ export function SubmitCigarPhotoSheet({ cigarId, cigarName, onClose }: Props) {
     fd.append("file",     uploadFile);
     fd.append("cigar_id", cigarId);
 
-    const res = await fetch("/api/upload/cigar-image", { method: "POST", body: fd });
+    const res = checkResponse(
+      await fetch("/api/upload/cigar-image", { method: "POST", body: fd }),
+      { route: "/api/upload/cigar-image" },
+    );
     setSubmitting(false);
 
     if (res.ok) {
