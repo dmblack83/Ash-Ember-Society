@@ -9,6 +9,8 @@ import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptio
 import { OutboxManager } from "@/components/system/OutboxManager";
 import { PersistentStorageRequest } from "@/components/system/PersistentStorageRequest";
 import { A2HSBanner } from "@/components/system/A2HSBanner";
+import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
+import { StaleBuildNotice } from "@/components/system/StaleBuildNotice";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -252,6 +254,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <PushSubscriptionHealthCheck />
       <OutboxManager />
       <PersistentStorageRequest />
+      <ServiceWorkerUpdateNotice />
+      <StaleBuildNotice />
       <main
         id="main-content"
         className={

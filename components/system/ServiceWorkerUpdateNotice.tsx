@@ -92,13 +92,16 @@ export function ServiceWorkerUpdateNotice() {
 
   if (!available) return null;
 
-  function handleReload() {
+  async function handleReload() {
     /* Record dismissal BEFORE navigating away. localStorage writes are
        synchronous so this flushes before the reload starts. */
     if (currentVersion.current) {
       try { localStorage.setItem(DISMISSED_VERSION_KEY, currentVersion.current); }
       catch { /* see above — fail open */ }
     }
+    /* Clear the navigation SW cache so the reload fetches fresh HTML
+       rather than the SWR-cached old bundle. */
+    try { await caches.delete("navigations"); } catch { /* non-fatal */ }
     window.location.reload();
   }
 

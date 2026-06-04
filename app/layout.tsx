@@ -11,8 +11,6 @@ const SUPABASE_ORIGIN = process.env.NEXT_PUBLIC_SUPABASE_URL
 import { ThemeProvider } from "@/components/ui/theme-provider";
 import { ViewportMeta } from "@/components/ui/ViewportMeta";
 import { RegisterServiceWorker } from "@/components/ui/RegisterServiceWorker";
-import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
-import { StaleBuildNotice } from "@/components/system/StaleBuildNotice";
 import { SWRProvider } from "@/components/SWRProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-smoke/ColdOpenSmoke";
@@ -251,18 +249,6 @@ export default function RootLayout({
         <ViewportMeta />
         {/* Registers /sw.js (production only) so the app is PWA-installable */}
         <RegisterServiceWorker />
-        {/* Surfaces a non-blocking "Update available — Reload" banner
-            when a new SW activates under an open tab. Prevents the
-            stale-chunk window where the user's loaded JS doesn't
-            match the new build's chunk URLs. */}
-        <ServiceWorkerUpdateNotice />
-        {/* Resume-time version check: compares the SHA inlined in
-            this bundle against /api/version on mount and every
-            visibility/pageshow. Catches deploys that shipped while
-            the PWA was backgrounded — the case SW broadcasts miss
-            because activation already happened before the user
-            returned. */}
-        <StaleBuildNotice />
         {/* Bridges SW + inline-head-script reliability signals into
             Sentry via lib/telemetry/reliability.ts. Mount-once glue;
             renders nothing. */}
