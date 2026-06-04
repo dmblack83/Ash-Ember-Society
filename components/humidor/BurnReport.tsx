@@ -14,6 +14,7 @@ import {
   saveBurnReportDraft,
   clearBurnReportDraft,
 } from "@/lib/burn-report-draft";
+import { trackReliability } from "@/lib/telemetry/reliability";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
@@ -1639,12 +1640,26 @@ export function BurnReport({
         body:    JSON.stringify(payload),
       });
       if (!res.ok) {
+        trackReliability({
+          bucket:  "state_persistence",
+          subtype: "draft_save_fail",
+          cause:   `patch_http_${res.status}`,
+          detail:  `PATCH /api/burn-report/${existing.smoke_log_id}`,
+          extra:   { status: res.status, has_thirds: sendThirds },
+        });
         const errBody = await res.json().catch(() => ({}));
         setSubmitError((errBody as { error?: string }).error ?? `Save failed (${res.status})`);
         setSubmitting(false);
         return;
       }
     } catch (err) {
+      trackReliability({
+        bucket:  "state_persistence",
+        subtype: "draft_save_fail",
+        cause:   "patch_threw",
+        detail:  err instanceof Error ? err.message : String(err),
+        extra:   { has_thirds: sendThirds },
+      });
       setSubmitError(err instanceof Error ? err.message : "Save failed.");
       setSubmitting(false);
       return;
