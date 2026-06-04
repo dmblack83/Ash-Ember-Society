@@ -1,6 +1,18 @@
 import { createRemoteJWKSet, jwtVerify, errors as joseErrors } from "jose";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { trackReliability } from "@/lib/telemetry/reliability";
+
+const AUTH_SESSION_TIMEOUT_MS = 3000;
+
+function raceWithTimeout<T>(p: Promise<T>, ms: number): Promise<T | "__TIMEOUT__"> {
+  return Promise.race([
+    p,
+    new Promise<"__TIMEOUT__">((resolve) =>
+      setTimeout(() => resolve("__TIMEOUT__"), ms),
+    ),
+  ]);
+}
 
 /*
  * Paths the proxy will never gate behind authentication or onboarding.
@@ -167,18 +179,38 @@ export async function proxy(request: NextRequest) {
             },
           },
         });
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          user = {
-            id:                  session.user.id,
-            email:               session.user.email,
-            onboardingCompleted: Boolean(
-              session.user.user_metadata?.onboarding_completed
-            ),
-          };
+        const sessionResult = await raceWithTimeout(
+          supabase.auth.getSession(),
+          AUTH_SESSION_TIMEOUT_MS,
+        );
+        if (sessionResult === "__TIMEOUT__") {
+          trackReliability({
+            bucket:  "auth_session",
+            subtype: "proxy_auth_timeout",
+            cause:   "getSession_3s",
+            extra:   { timeout_ms: AUTH_SESSION_TIMEOUT_MS },
+          });
+        } else {
+          const session = sessionResult.data.session;
+          if (session?.user) {
+            user = {
+              id:                  session.user.id,
+              email:               session.user.email,
+              onboardingCompleted: Boolean(
+                session.user.user_metadata?.onboarding_completed
+              ),
+            };
+          }
         }
+      } else {
+        // Bad signature, malformed token, JWKS fetch fail, etc. → user stays null.
+        trackReliability({
+          bucket:  "auth_session",
+          subtype: "jwt_verify_fail",
+          cause:   err instanceof Error ? err.name : "unknown",
+          detail:  err instanceof Error ? err.message : String(err),
+        });
       }
-      // Other errors (bad signature, malformed token, etc.) → user stays null.
     }
   }
 
