@@ -81,6 +81,48 @@ export default function ReliabilityBootstrap() {
         });
         markFired("chunk");
       }
+
+      /* Manifest scope check: fires once per session if the current
+         host doesn't match the manifest's `scope` host. Catches PWAs
+         bouncing into an in-app browser at the wrong scope (e.g. bare
+         host while manifest scope is www). */
+      if (!fired.has("scope") && typeof fetch === "function") {
+        void (async () => {
+          try {
+            const res = await fetch("/manifest.webmanifest", { cache: "no-cache" });
+            if (!res.ok) return;
+            const m = (await res.json()) as { scope?: string };
+            if (!m.scope) return;
+            const scopeUrl = new URL(m.scope, location.origin);
+            if (scopeUrl.host !== location.host) {
+              trackReliability({
+                bucket:  "ios_webkit",
+                subtype: "scope_violation",
+                cause:   "host_mismatch",
+                detail:  `current=${location.host} scope=${scopeUrl.host}`,
+              });
+              markFired("scope");
+            }
+          } catch {
+            /* manifest fetch can fail offline — non-fatal */
+          }
+        })();
+      }
+
+      /* Redirect-loop detection: navigation timing reports redirectCount.
+         3+ redirects on a single navigation strongly suggests a loop. */
+      if (!fired.has("redirect") && typeof performance !== "undefined" && typeof performance.getEntriesByType === "function") {
+        const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+        if (nav && nav.redirectCount >= 3) {
+          trackReliability({
+            bucket:  "ios_webkit",
+            subtype: "redirect_loop",
+            cause:   "navigation_timing",
+            extra:   { redirect_count: nav.redirectCount },
+          });
+          markFired("redirect");
+        }
+      }
     } catch {
       /* sessionStorage unavailable — non-fatal */
     }

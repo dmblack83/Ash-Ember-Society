@@ -1,4 +1,5 @@
 import { ColdOpenSmokeTimer } from "./ColdOpenSmokeTimer";
+import { ColdSmokeLogo } from "./ColdSmokeLogo";
 
 /* Re-exported from a pure-TS sibling so next.config.ts can import the
    script string for CSP hash computation without pulling in JSX. */
@@ -74,13 +75,7 @@ export function ColdOpenSmoke() {
   return (
     <>
       <div className="cold-smoke-overlay" aria-hidden="true">
-        <img
-          className="cold-smoke-logo"
-          src="/cold-smoke-logo.webp"
-          alt=""
-          width={220}
-          height={220}
-        />
+        <ColdSmokeLogo />
         <div className="cold-smoke-column">
           {WISPS.map((w, i) => (
             <div
