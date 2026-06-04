@@ -17,6 +17,7 @@ import {
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
+import { checkResponse } from "@/lib/telemetry/fetch-checks";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
 import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
 import { PerThirdSheet } from "./PerThirdSheet";
@@ -1800,7 +1801,10 @@ export function BurnReport({
       const fd = new FormData();
       fd.append("file",   uploadFile);
       fd.append("folder", "burn-reports");
-      const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+      const res = checkResponse(
+        await fetch("/api/upload/image", { method: "POST", body: fd }),
+        { route: "/api/upload/image" },
+      );
       if (res.ok) {
         const { url } = await res.json();
         urls.push(url);

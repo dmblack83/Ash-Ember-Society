@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal }                          from "react-dom";
 import { createClient }                          from "@/utils/supabase/client";
+import { checkResponse }                         from "@/lib/telemetry/fetch-checks";
 
 /* ------------------------------------------------------------------ */
 
@@ -93,7 +94,10 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
       const fd = new FormData();
       fd.append("file",   imageFile);
       fd.append("folder", "forum-posts");
-      const res = await fetch("/api/upload/image", { method: "POST", body: fd });
+      const res = checkResponse(
+        await fetch("/api/upload/image", { method: "POST", body: fd }),
+        { route: "/api/upload/image" },
+      );
       if (res.ok) {
         const { url } = await res.json();
         image_url = url;
