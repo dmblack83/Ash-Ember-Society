@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /* ------------------------------------------------------------------
    StaleBuildNotice — banner prompting reload when the loaded JS
@@ -26,9 +26,15 @@ import { useEffect, useState } from "react";
    ------------------------------------------------------------------ */
 
 const POLL_INTERVAL_MS = 30 * 60 * 1000;
+/* Persists the server commit the user already dismissed, so clicking
+   Reload doesn't immediately re-show the banner for the same deploy
+   even if the navigation cache couldn't be refreshed in time. Cleared
+   automatically when a newer deploy ships (different server commit). */
+const DISMISSED_COMMIT_KEY = "ae:stale-build-dismissed-commit";
 
 export function StaleBuildNotice() {
   const [stale, setStale] = useState(false);
+  const serverCommitRef = useRef<string | null>(null);
 
   useEffect(() => {
     /* Built-in SHA inlined at build time. Undefined in local dev
@@ -47,7 +53,14 @@ export function StaleBuildNotice() {
         if (!res.ok) return;
         const data: { commit: string | null } = await res.json();
         if (cancelled) return;
-        if (data.commit && data.commit !== myCommit) setStale(true);
+        if (data.commit && data.commit !== myCommit) {
+          try {
+            const dismissed = localStorage.getItem(DISMISSED_COMMIT_KEY);
+            if (dismissed === data.commit) return;
+          } catch { /* private mode — fail open */ }
+          serverCommitRef.current = data.commit;
+          setStale(true);
+        }
       } catch {
         /* network errors are non-actionable here */
       }
@@ -73,6 +86,10 @@ export function StaleBuildNotice() {
   if (!stale) return null;
 
   async function handleReload() {
+    setStale(false);
+    if (serverCommitRef.current) {
+      try { localStorage.setItem(DISMISSED_COMMIT_KEY, serverCommitRef.current); } catch {}
+    }
     try { await caches.delete("navigations"); } catch { /* non-fatal */ }
     window.location.reload();
   }
