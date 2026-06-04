@@ -3,6 +3,7 @@
 import { createClient }    from '@/lib/supabase/server'
 import { redirect }        from 'next/navigation'
 import { checkRateLimit }  from '@/lib/rate-limit'
+import { trackReliability } from '@/lib/telemetry/reliability'
 
 const SAFE_AUTH_ERRORS: Record<string, string> = {
   "Invalid login credentials":                 "Invalid email or password.",
@@ -78,7 +79,16 @@ export async function signInWithGoogle() {
      the PWA's manifest scope (start_url is www, scope is www) and
      iOS bailed out of standalone mode into an in-app browser that
      hit a redirect chain. */
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ashember.vip'
+  const siteUrlEnv = process.env.NEXT_PUBLIC_SITE_URL
+  const siteUrl    = siteUrlEnv || 'https://www.ashember.vip'
+  if (!siteUrlEnv) {
+    trackReliability({
+      bucket:  "auth_session",
+      subtype: "oauth_host_drift",
+      cause:   "site_url_env_empty",
+      detail:  "NEXT_PUBLIC_SITE_URL was empty; fell back to www.ashember.vip",
+    })
+  }
 
   const supabase = await createClient()
   const { data, error } = await supabase.auth.signInWithOAuth({
