@@ -93,6 +93,7 @@ export function ServiceWorkerUpdateNotice() {
   if (!available) return null;
 
   async function handleReload() {
+    setAvailable(false);
     /* Record dismissal BEFORE navigating away. localStorage writes are
        synchronous so this flushes before the reload starts. */
     if (currentVersion.current) {
