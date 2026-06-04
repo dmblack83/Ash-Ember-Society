@@ -23,6 +23,8 @@
    draft restore. Tag selections survive.
    ------------------------------------------------------------------ */
 
+import { trackReliability } from "@/lib/telemetry/reliability";
+
 const STORAGE_PREFIX = "burn_report_draft:";
 const MAX_AGE_DAYS   = 7;
 const MAX_AGE_MS     = MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
@@ -89,9 +91,15 @@ export function saveBurnReportDraft<TForm = Record<string, unknown>>(
       ...(cigar ? { cigar } : {}),
     };
     window.localStorage.setItem(STORAGE_PREFIX + itemId, JSON.stringify(payload));
-  } catch {
-    // localStorage full / blocked / disabled — fail silently.
-    // Persistence is best-effort; the in-memory state is still valid.
+  } catch (err) {
+    // localStorage full / blocked / disabled — fail silently for the user,
+    // but record a telemetry event so the rate is visible.
+    trackReliability({
+      bucket:  "state_persistence",
+      subtype: "draft_save_fail",
+      cause:   err instanceof Error ? err.name : "unknown",
+      detail:  err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
