@@ -72,6 +72,11 @@ export function StaleBuildNotice() {
 
   if (!stale) return null;
 
+  async function handleReload() {
+    try { await caches.delete("navigations"); } catch { /* non-fatal */ }
+    window.location.reload();
+  }
+
   return (
     <div
       role="status"
@@ -98,7 +103,7 @@ export function StaleBuildNotice() {
       </span>
       <button
         type="button"
-        onClick={() => window.location.reload()}
+        onClick={handleReload}
         style={{
           padding:      "6px 14px",
           borderRadius: 8,
