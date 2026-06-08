@@ -8,8 +8,12 @@ interface SatoriFont {
   style:  "normal" | "italic";
 }
 
-function fontFile(relPath: string): Buffer {
-  return fs.readFileSync(path.join(process.cwd(), "node_modules", relPath));
+// Fonts are committed to lib/share-image/fonts/ so they are always present
+// in the Vercel deployment bundle — node_modules is not reliably available at runtime.
+const FONTS_DIR = path.join(process.cwd(), "lib", "share-image", "fonts");
+
+function fontFile(filename: string): Buffer {
+  return fs.readFileSync(path.join(FONTS_DIR, filename));
 }
 
 let cached: SatoriFont[] | null = null;
@@ -19,19 +23,19 @@ export function loadFonts(): SatoriFont[] {
   cached = [
     {
       name:   "Cormorant Garamond",
-      data:   fontFile("@fontsource/cormorant-garamond/files/cormorant-garamond-latin-500-normal.woff2"),
+      data:   fontFile("cormorant-garamond-latin-500-normal.woff2"),
       weight: 500,
       style:  "normal",
     },
     {
       name:   "Cormorant Garamond",
-      data:   fontFile("@fontsource/cormorant-garamond/files/cormorant-garamond-latin-500-italic.woff2"),
+      data:   fontFile("cormorant-garamond-latin-500-italic.woff2"),
       weight: 500,
       style:  "italic",
     },
     {
       name:   "JetBrains Mono",
-      data:   fontFile("@fontsource/jetbrains-mono/files/jetbrains-mono-latin-500-normal.woff2"),
+      data:   fontFile("jetbrains-mono-latin-500-normal.woff2"),
       weight: 500,
       style:  "normal",
     },
