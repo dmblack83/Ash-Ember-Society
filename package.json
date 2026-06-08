@@ -16,6 +16,8 @@
     "check:pwa": "node scripts/check-pwa-urls.mjs"
   },
   "dependencies": {
+    "@fontsource/cormorant-garamond": "^5.2.11",
+    "@fontsource/jetbrains-mono": "^5.2.8",
     "@google-cloud/vision": "^5.3.5",
     "@sentry/nextjs": "^10.51.0",
     "@stripe/stripe-js": "^9.0.1",
@@ -38,6 +40,8 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",
+    "satori": "^0.26.0",
+    "sharp": "^0.34.5",
     "stripe": "^21.0.1",
     "swr": "^2.4.1",
     "tsx": "^4.21.0",
