@@ -23,19 +23,19 @@ export function loadFonts(): SatoriFont[] {
   cached = [
     {
       name:   "Cormorant Garamond",
-      data:   fontFile("cormorant-garamond-latin-500-normal.woff2"),
+      data:   fontFile("cormorant-garamond-latin-500-normal.woff"),
       weight: 500,
       style:  "normal",
     },
     {
       name:   "Cormorant Garamond",
-      data:   fontFile("cormorant-garamond-latin-500-italic.woff2"),
+      data:   fontFile("cormorant-garamond-latin-500-italic.woff"),
       weight: 500,
       style:  "italic",
     },
     {
       name:   "JetBrains Mono",
-      data:   fontFile("jetbrains-mono-latin-500-normal.woff2"),
+      data:   fontFile("jetbrains-mono-latin-500-normal.woff"),
       weight: 500,
       style:  "normal",
     },
