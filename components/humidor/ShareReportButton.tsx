@@ -54,7 +54,7 @@ export function ShareReportButton({ reportId, reportNumber, cigarLabel }: ShareR
       try {
         await navigator.share({
           files,
-          title: `${cigarLabel} — Burn Report #${reportNumber}`,
+          title: `${cigarLabel} - Burn Report #${reportNumber}`,
         });
         setState("idle");
         return;

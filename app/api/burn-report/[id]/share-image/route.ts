@@ -23,8 +23,12 @@ import { shouldRenderPage2 }             from "@/lib/share-image/helpers";
 import type { ShareImageProps }          from "@/lib/share-image/types";
 import { T }                             from "@/lib/share-image/tokens";
 
+const ALLOWED_PHOTO_HOSTS = new Set(["qagaiuibtwuhihukghyx.supabase.co"]);
+
 async function toDataUri(url: string): Promise<string | null> {
   try {
+    const { hostname } = new URL(url);
+    if (!ALLOWED_PHOTO_HOSTS.has(hostname)) return null;
     const res = await fetch(url);
     if (!res.ok) return null;
     const buf  = await res.arrayBuffer();

@@ -4,7 +4,7 @@ import { gradeFor, starFillPct } from "./helpers";
 import type { ShareImageProps }  from "./types";
 
 const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
-const STAR_LABELS = ["", "Poor", "Below Average", "Average", "Good", "Excellent"] as const;
+const STAR_LABELS = ["", "Poor", "Below Average", "Average", "Good", "Outstanding"] as const;
 
 function subRatingGrade(val: number): string {
   const bucket = Math.min(5, Math.floor(val));
