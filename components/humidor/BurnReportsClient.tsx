@@ -14,6 +14,7 @@ import {
   clearBurnReportDraft,
   type BurnReportDraftEntry,
 } from "@/lib/burn-report-draft";
+import { ShareReportButton } from "@/components/humidor/ShareReportButton";
 
 /* ------------------------------------------------------------------
    Types
@@ -375,6 +376,11 @@ function BurnReportCard({
               <path d="M12 3v12M8 7l4-4 4 4M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
+          <ShareReportButton
+            reportId={report.id}
+            reportNumber={reportNumber}
+            cigarLabel={[c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ")}
+          />
           <div className="flex flex-col gap-1">
             <button
               type="button"
