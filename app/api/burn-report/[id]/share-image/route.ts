@@ -151,8 +151,12 @@ export async function GET(
     fonts:  loadFonts() as Font[],
   });
 
-  // 12. Convert SVG → PNG, trim blank bottom created by the max-height canvas
+  // 12. Convert SVG → PNG.
+  // Satori leaves the area below the rendered content transparent (not T.background),
+  // so .trim({ background }) alone matches nothing. Flatten fills transparent pixels
+  // with the background color first, then trim removes those edges correctly.
   const pngBuf = await sharp(Buffer.from(svg))
+    .flatten({ background: T.background })
     .trim({ background: T.background, threshold: 10 })
     .png()
     .toBuffer();
