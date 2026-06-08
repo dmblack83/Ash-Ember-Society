@@ -23,11 +23,16 @@ import { shouldRenderPage2 }             from "@/lib/share-image/helpers";
 import type { ShareImageProps }          from "@/lib/share-image/types";
 import { T }                             from "@/lib/share-image/tokens";
 
-async function toDataUri(url: string): Promise<string> {
-  const res  = await fetch(url);
-  const buf  = await res.arrayBuffer();
-  const mime = res.headers.get("content-type") ?? "image/jpeg";
-  return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`;
+async function toDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf  = await res.arrayBuffer();
+    const mime = res.headers.get("content-type") ?? "image/jpeg";
+    return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`;
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(
@@ -48,7 +53,7 @@ export async function GET(
 
   // 3. Fetch report (service role — ownership enforced by user_id filter)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createServiceClientFor(user.id, "share-image-generation") as any;
+  const supabase = createServiceClientFor("api/burn-report/share-image", "share image generation") as any;
 
   const { data: log, error: logErr } = await supabase
     .from("smoke_logs")
@@ -101,7 +106,7 @@ export async function GET(
 
   // 8. Prefetch photos as data URIs
   const photoUrls    = ((log.photo_urls ?? []) as string[]).filter(Boolean).slice(0, 3);
-  const photoDataUris = await Promise.all(photoUrls.map(toDataUri));
+  const photoDataUris = (await Promise.all(photoUrls.map(toDataUri))).filter(Boolean) as string[];
 
   // 9. Build props
   const cigarRaw = Array.isArray(log.cigar) ? log.cigar[0] : log.cigar;
