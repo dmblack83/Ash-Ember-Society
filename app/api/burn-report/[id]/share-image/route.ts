@@ -151,11 +151,14 @@ export async function GET(
     fonts:  loadFonts() as Font[],
   });
 
-  // 12. Convert SVG → PNG.
-  // Satori leaves the area below the rendered content transparent (not T.background),
-  // so .trim({ background }) alone matches nothing. Flatten fills transparent pixels
-  // with the background color first, then trim removes those edges correctly.
-  const pngBuf = await sharp(Buffer.from(svg))
+  // 12. Convert SVG → PNG, then trim.
+  // Two-pass: Sharp cannot reliably flatten+trim SVG input in one pipeline because
+  // SVG rendering and raster operations execute in sequence internally — flatten may
+  // not fully apply before trim inspects edges. Render to PNG first, then trim the
+  // resulting raster. The flatten fills the transparent area below the card (Satori
+  // leaves it transparent) with the background colour so trim can match it.
+  const rawPng = await sharp(Buffer.from(svg)).png().toBuffer();
+  const pngBuf = await sharp(rawPng)
     .flatten({ background: T.background })
     .trim({ background: T.background, threshold: 10 })
     .png()
