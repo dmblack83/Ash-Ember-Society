@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { MembershipTab } from "@/components/account/MembershipTab";
 import { LegalTab } from "@/components/account/LegalTab";
+import { InviteFriendsSection } from "@/components/account/InviteFriendsSection";
 
 /* InstallSheet (360 lines) only mounts when the user taps "Install".
    Conditional render means the chunk fetches lazily. */
@@ -1690,6 +1691,8 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
           />
 
           <NotificationsSection onToast={setToast} />
+
+          <InviteFriendsSection />
 
           <Suspense fallback={null}>
             <AccountSection
