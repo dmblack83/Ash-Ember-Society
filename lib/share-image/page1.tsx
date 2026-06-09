@@ -105,12 +105,13 @@ function PhotoStrip({ uris }: { uris: string[] }) {
 function Masthead({ parts }: { parts: string[] }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", marginBottom: 20 }}>
-      <div style={{ height: 1, background: T.line }} />
+      <div style={{ height: 1, background: T.line, width: "100%" }} />
       <p style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 500, letterSpacing: "0.32em",
-        textTransform: "uppercase", color: T.paperMute, textAlign: "center", margin: "6px 0" }}>
+        textTransform: "uppercase", color: T.paperMute, textAlign: "center", margin: "6px 0",
+        width: "100%" }}>
         {parts.join(" · ")}
       </p>
-      <div style={{ height: 1, background: T.line }} />
+      <div style={{ height: 1, background: T.line, width: "100%" }} />
     </div>
   );
 }
@@ -118,9 +119,10 @@ function Masthead({ parts }: { parts: string[] }) {
 function Footer() {
   return (
     <div style={{ display: "flex", flexDirection: "column", marginTop: 20 }}>
-      <div style={{ height: 1, background: T.line }} />
+      <div style={{ height: 1, background: T.line, width: "100%" }} />
       <p style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 500, letterSpacing: "0.32em",
-        textTransform: "uppercase", color: T.goldFooter, textAlign: "center", margin: "8px 0" }}>
+        textTransform: "uppercase", color: T.goldFooter, textAlign: "center", margin: "8px 0",
+        width: "100%" }}>
         ASH & EMBER · WWW.ASHEMBER.VIP
       </p>
     </div>

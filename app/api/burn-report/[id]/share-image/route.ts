@@ -155,12 +155,26 @@ export async function GET(
   // Three-pass: each step is a fully committed buffer so vips never starts the next
   // operation before the previous one finishes.
   //
-  // Pass 1 — SVG → raster PNG with alpha (forces librsvg to commit the full raster).
-  // Pass 2 — flatten: fills the transparent area below the card with the background
-  //           colour and removes the alpha channel, giving Sharp a clean RGB target.
-  // Pass 3 — trim: uses the corner pixel as background (avoids any hex-parse edge
-  //           case) and crops the uniform-colour edges from all four sides.
-  const rawPng  = await sharp(Buffer.from(svg)).png().toBuffer();
+  // Supersampling: Sharp's density option only applies to viewBox-based SVGs (not
+  // absolute-pixel SVGs). Strip the absolute width/height from the Satori output and
+  // replace with a viewBox so density:144 renders at 2×. Resize back to IMAGE_WIDTH
+  // for crisp anti-aliased text.
+  const svgTagEnd    = svg.indexOf(">");
+  const svgOpenTag   = svg.slice(0, svgTagEnd + 1);
+  const svgBody      = svg.slice(svgTagEnd + 1);
+  const wMatch       = svgOpenTag.match(/\bwidth="(\d+)"/);
+  const hMatch       = svgOpenTag.match(/\bheight="(\d+)"/);
+  const svgW         = wMatch ? wMatch[1] : String(T.IMAGE_WIDTH);
+  const svgH         = hMatch ? hMatch[1] : String(T.IMAGE_MAX_HEIGHT);
+  const svgFor2x     = svgOpenTag
+    .replace(/\bwidth="\d+"/, `viewBox="0 0 ${svgW} ${svgH}"`)
+    .replace(/\s+height="\d+"/, "") + svgBody;
+
+  // Pass 1 — render at 2× density, resize back to target width.
+  const rawPng  = await sharp(Buffer.from(svgFor2x), { density: 144 })
+    .resize({ width: T.IMAGE_WIDTH })
+    .png()
+    .toBuffer();
   const flatPng = await sharp(rawPng)
     .flatten({ background: T.background })
     .png()
