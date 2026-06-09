@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ShareReportButtonProps {
   reportId:     string;
@@ -14,13 +14,34 @@ export function ShareReportButton({ reportId, reportNumber, cigarLabel }: ShareR
   const [state,    setState]    = useState<State>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Prefetch both images the moment the button renders (i.e. when the report modal
+  // opens). The responses are cached by the browser (Cache-Control: private,
+  // max-age=300). When the user taps Share the fetch returns instantly from cache,
+  // keeping the navigator.share() call inside iOS's user-activation window.
+  useEffect(() => {
+    const controller = new AbortController();
+    const { signal } = controller;
+    fetch(`/api/burn-report/${reportId}/share-image?page=1`, { signal }).catch(() => {});
+    fetch(`/api/burn-report/${reportId}/share-image?page=2`, { signal }).catch(() => {});
+    return () => controller.abort();
+  }, [reportId]);
+
   async function handleShare() {
     if (state === "loading") return;
     setState("loading");
     setErrorMsg(null);
 
-    let blob1: Blob;
-    let blob2: Blob | null = null;
+    let stateSet = false;
+    const finish = (next: State, msg?: string) => {
+      stateSet = true;
+      if (next === "error") {
+        setState("error");
+        if (msg) setErrorMsg(msg);
+        setTimeout(() => { setState("idle"); setErrorMsg(null); }, 3000);
+      } else {
+        setState("idle");
+      }
+    };
 
     try {
       const [res1, res2] = await Promise.all([
@@ -28,56 +49,52 @@ export function ShareReportButton({ reportId, reportNumber, cigarLabel }: ShareR
         fetch(`/api/burn-report/${reportId}/share-image?page=2`),
       ]);
       if (!res1.ok) throw new Error("Failed to generate image");
-      blob1 = await res1.blob();
-      if (res2.status === 200) blob2 = await res2.blob();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Could not generate image";
-      setState("error");
-      setErrorMsg(msg);
-      setTimeout(() => { setState("idle"); setErrorMsg(null); }, 3000);
-      return;
-    }
+      const blob1 = await res1.blob();
+      const blob2 = res2.status === 200 ? await res2.blob() : null;
 
-    const name1  = `burn-report-${reportNumber}-p1.png`;
-    const name2  = `burn-report-${reportNumber}-p2.png`;
-    const file1  = new File([blob1], name1, { type: "image/png" });
-    const files  = blob2
-      ? [file1, new File([blob2], name2, { type: "image/png" })]
-      : [file1];
+      const name1  = `burn-report-${reportNumber}-p1.png`;
+      const name2  = `burn-report-${reportNumber}-p2.png`;
+      const file1  = new File([blob1], name1, { type: "image/png" });
+      const files  = blob2
+        ? [file1, new File([blob2], name2, { type: "image/png" })]
+        : [file1];
+      const title = `${cigarLabel} - Burn Report #${reportNumber}`;
 
-    // Web Share API — native iOS/Android share sheet
-    if (
-      typeof navigator !== "undefined" &&
-      typeof navigator.canShare === "function" &&
-      navigator.canShare({ files })
-    ) {
-      try {
-        await navigator.share({
-          files,
-          title: `${cigarLabel} - Burn Report #${reportNumber}`,
-        });
-        setState("idle");
-        return;
-      } catch (err) {
-        if ((err as Error)?.name === "AbortError") { setState("idle"); return; }
-        // Fall through to download fallback
+      // Web Share API — skipping canShare() pre-check because it returns false in
+      // iOS PWA mode for files below iOS 16.4, causing the wrong fallback path.
+      // Let navigator.share() itself decide; catch any non-abort failure below.
+      if (typeof navigator?.share === "function") {
+        try {
+          await navigator.share({ files, title });
+          finish("idle");
+          return;
+        } catch (err) {
+          if ((err as Error)?.name === "AbortError") { finish("idle"); return; }
+          // navigator.share failed for a reason other than user dismissal —
+          // fall through to download fallback below.
+        }
       }
+
+      // Fallback: trigger <a download> for desktop browsers
+      const triggerDownload = (blob: Blob, filename: string) => {
+        const url = URL.createObjectURL(blob);
+        const a   = Object.assign(document.createElement("a"), { href: url, download: filename });
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      };
+      triggerDownload(blob1, name1);
+      if (blob2) setTimeout(() => triggerDownload(blob2, name2), 200);
+      finish("idle");
+
+    } catch (err) {
+      finish("error", err instanceof Error ? err.message : "Could not generate image");
+    } finally {
+      // Safety net: if an unexpected exception bypassed every finish() call above,
+      // ensure the button never stays locked in loading state.
+      if (!stateSet) setState("idle");
     }
-
-    // Fallback: sequential <a download> for desktop / non-share browsers
-    function triggerDownload(blob: Blob, filename: string) {
-      const url = URL.createObjectURL(blob);
-      const a   = Object.assign(document.createElement("a"), { href: url, download: filename });
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    triggerDownload(blob1, name1);
-    if (blob2) setTimeout(() => triggerDownload(blob2!, name2), 200);
-
-    setState("idle");
   }
 
   return (
