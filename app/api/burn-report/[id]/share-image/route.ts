@@ -155,27 +155,20 @@ export async function GET(
   // Three-pass: each step is a fully committed buffer so vips never starts the next
   // operation before the previous one finishes.
   //
-  // Supersampling: Sharp's density option only applies to viewBox-based SVGs (not
-  // absolute-pixel SVGs). Strip the absolute width/height from the Satori output and
-  // replace with a viewBox so density:144 renders at 2×. Resize back to IMAGE_WIDTH
-  // for crisp anti-aliased text.
-  const svgTagEnd    = svg.indexOf(">");
-  const svgOpenTag   = svg.slice(0, svgTagEnd + 1);
-  const svgBody      = svg.slice(svgTagEnd + 1);
-  const wMatch       = svgOpenTag.match(/\bwidth="(\d+)"/);
-  const hMatch       = svgOpenTag.match(/\bheight="(\d+)"/);
-  const svgW         = wMatch ? wMatch[1] : String(T.IMAGE_WIDTH);
-  const svgH         = hMatch ? hMatch[1] : String(T.IMAGE_MAX_HEIGHT);
-  // Satori already emits viewBox; injecting a second one causes "Attribute viewBox
-  // redefined" in Sharp's libvips XML parser. Strip width/height only — density:144
-  // uses the existing viewBox for supersampling.
-  const needsViewBox = !/\bviewBox="/.test(svgOpenTag);
-  const svgFor2x     = svgOpenTag
-    .replace(/\s*\bwidth="\d+"/, needsViewBox ? ` viewBox="0 0 ${svgW} ${svgH}"` : "")
-    .replace(/\s*\bheight="\d+"/, "") + svgBody;
+  // Supersampling: double the declared SVG width/height so libvips rasterizes at 2×.
+  // The viewBox is unchanged so all content scales uniformly. density:144 is unreliable
+  // when Sharp receives an SVG with explicit dimensions — libvips ignores DPI in that
+  // case. Resize back to IMAGE_WIDTH for crisp anti-aliased text.
+  const svgTagEnd = svg.indexOf(">");
+  const svgOpenTag = svg.slice(0, svgTagEnd + 1);
+  const svgBody    = svg.slice(svgTagEnd + 1);
+  const svgFor2x   = svgOpenTag
+    .replace(/\bwidth="(\d+)"/,  (_, w) => `width="${parseInt(w, 10) * 2}"`)
+    .replace(/\bheight="(\d+)"/, (_, h) => `height="${parseInt(h, 10) * 2}"`)
+    + svgBody;
 
-  // Pass 1 — render at 2× density, resize back to target width.
-  const rawPng  = await sharp(Buffer.from(svgFor2x), { density: 144 })
+  // Pass 1 — render at 2× size, resize back to target width.
+  const rawPng  = await sharp(Buffer.from(svgFor2x))
     .resize({ width: T.IMAGE_WIDTH })
     .png()
     .toBuffer();
