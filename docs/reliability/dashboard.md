@@ -18,6 +18,7 @@ If the deep-links rot (Sentry URL format changes, org renamed), the raw query st
 | Network resilience | `type:reliability bucket:network_resilience` | [Open](https://ash-ember.sentry.io/issues/?query=type%3Areliability+bucket%3Anetwork_resilience&project=4511341339082752) |
 | iOS WebKit | `type:reliability bucket:ios_webkit` | [Open](https://ash-ember.sentry.io/issues/?query=type%3Areliability+bucket%3Aios_webkit&project=4511341339082752) |
 | State persistence | `type:reliability bucket:state_persistence` | [Open](https://ash-ember.sentry.io/issues/?query=type%3Areliability+bucket%3Astate_persistence&project=4511341339082752) |
+| Perf interactivity | `type:reliability bucket:perf_interactivity` | [Open](https://ash-ember.sentry.io/issues/?query=type%3Areliability+bucket%3Aperf_interactivity&project=4511341339082752) |
 
 Narrow further by appending a subtype, e.g. `type:reliability subtype:proxy_auth_timeout`.
 
@@ -30,6 +31,7 @@ Narrow further by appending a subtype, e.g. `type:reliability subtype:proxy_auth
 | `network_resilience` | `body_too_large`, `outbox_replay_fail`, `chunk_load_error` | `fetch_timeout` |
 | `ios_webkit` | `splash_fail`, `scope_violation`, `redirect_loop`, `hydration_watchdog_fired` | (none) |
 | `state_persistence` | `draft_save_fail` | `optimistic_rollback`, `edit_dropped` |
+| `perf_interactivity` | `slow_hydration` | (none) |
 
 Deferred subtypes are valid `ReliabilitySubtype` values in `lib/telemetry/reliability.ts`; they just have no call sites yet. The deferrals were intentional and documented in the original PR descriptions (#487, #488, #490).
 
@@ -42,6 +44,7 @@ These notes get rewritten once we've observed real shapes in production. Until t
 - **`network_resilience` spike:** `body_too_large` rising means client-side image compression isn't keeping uploads under 4.5 MB. `chunk_load_error` rising means a recent deploy left stale clients with bad chunk URLs. `outbox_replay_fail` rising during an incident means a downstream API is returning 4xx that shouldn't.
 - **`ios_webkit` spike:** all four subtypes are inherently iOS-PWA-specific; a sudden spike likely correlates with an iOS Safari release or a manifest / scope / splash file change in the repo. `redirect_loop` is the most actionable — fix it like the bare/www work in PR #483.
 - **`state_persistence` spike:** today only `draft_save_fail` is wired. Spike likely means either (a) iOS PWA users hitting localStorage quota / partition issues, or (b) a regression in the burn-report PATCH route causing many `cause:patch_http_*` events at once.
+- **`perf_interactivity` spike:** `slow_hydration` fires when the FCP -> hydration-complete window is >=2.5s (the painted-but-dead-taps gap on cold launch). The `extra` fields tell the story: high `longtask_total_ms` relative to `interactive_delay_ms` means the main thread is the bottleneck (hydration cost / JS execution); low long-task time with a high delay means the wait is elsewhere (network / data). `cause` is the navigation type — `reload` / `back_forward` are the cold-launch cases users feel. Filter `standalone:true` for the installed-PWA population specifically.
 
 ## Workflow when you see a spike
 

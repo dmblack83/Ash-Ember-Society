@@ -5,7 +5,8 @@ export type ReliabilityBucket =
   | "auth_session"
   | "network_resilience"
   | "ios_webkit"
-  | "state_persistence";
+  | "state_persistence"
+  | "perf_interactivity";
 
 export type ReliabilitySubtype =
   // sw_lifecycle
@@ -31,7 +32,9 @@ export type ReliabilitySubtype =
   // state_persistence
   | "draft_save_fail"
   | "optimistic_rollback"
-  | "edit_dropped";
+  | "edit_dropped"
+  // perf_interactivity
+  | "slow_hydration";
 
 export interface ReliabilityEvent {
   bucket:  ReliabilityBucket;

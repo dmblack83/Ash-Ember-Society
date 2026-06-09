@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { measureInteractivity } from "@/lib/telemetry/interactivity";
 
 /* ------------------------------------------------------------------
    HydrationMark
@@ -40,6 +41,10 @@ export function HydrationMark() {
     if (typeof performance !== "undefined" && performance.mark) {
       try { performance.mark("ae:hydrated"); } catch { /* ignore */ }
     }
+    /* Measure the paint -> interactive window (the dead-tap gap on cold
+       launch) and report it when it's slow. Telemetry only — wrapped so
+       it can never affect hydration. */
+    measureInteractivity();
   }, []);
 
   return null;
