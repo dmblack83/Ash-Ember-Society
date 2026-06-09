@@ -166,9 +166,13 @@ export async function GET(
   const hMatch       = svgOpenTag.match(/\bheight="(\d+)"/);
   const svgW         = wMatch ? wMatch[1] : String(T.IMAGE_WIDTH);
   const svgH         = hMatch ? hMatch[1] : String(T.IMAGE_MAX_HEIGHT);
+  // Satori already emits viewBox; injecting a second one causes "Attribute viewBox
+  // redefined" in Sharp's libvips XML parser. Strip width/height only — density:144
+  // uses the existing viewBox for supersampling.
+  const needsViewBox = !/\bviewBox="/.test(svgOpenTag);
   const svgFor2x     = svgOpenTag
-    .replace(/\bwidth="\d+"/, `viewBox="0 0 ${svgW} ${svgH}"`)
-    .replace(/\s+height="\d+"/, "") + svgBody;
+    .replace(/\s*\bwidth="\d+"/, needsViewBox ? ` viewBox="0 0 ${svgW} ${svgH}"` : "")
+    .replace(/\s*\bheight="\d+"/, "") + svgBody;
 
   // Pass 1 — render at 2× density, resize back to target width.
   const rawPng  = await sharp(Buffer.from(svgFor2x), { density: 144 })
