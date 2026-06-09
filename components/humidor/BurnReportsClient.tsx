@@ -14,6 +14,7 @@ import {
   clearBurnReportDraft,
   type BurnReportDraftEntry,
 } from "@/lib/burn-report-draft";
+import { ShareReportButton } from "@/components/humidor/ShareReportButton";
 
 /* ------------------------------------------------------------------
    Types
@@ -234,50 +235,6 @@ function BurnReportCard({
     setShared(true);
   }
 
-  /* OS-native share via Web Share API (iOS Share Sheet, Android share
-     intent, etc.). Falls back to clipboard copy on browsers without
-     the API. The shared payload is a short text-only summary; until
-     each saved report has a public URL, there's nothing to deep-link
-     to other than the lounge post (which only exists if the user
-     already shared it via "Share to Lounge"). */
-  async function handleNativeShare() {
-    const c     = report.cigar;
-    const score = report.overall_rating ?? 0;
-    const grade =
-      score <= 20 ? "Poor"
-      : score <= 40 ? "Below Average"
-      : score <= 60 ? "Average"
-      : score <= 80 ? "Good"
-      : "Outstanding";
-    const cigarLabel = [c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ");
-    const title = `${cigarLabel || "Burn Report"} — ${score}/100`;
-    const text  = report.review_text?.trim()
-      ? `${title} (${grade})\n\n${report.review_text.trim()}`
-      : `${title} — ${grade}`;
-
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-      try {
-        await navigator.share({ title, text });
-        return;
-      } catch (err) {
-        // User cancelled the share sheet — silent. Anything else falls
-        // through to clipboard fallback.
-        if ((err as Error)?.name === "AbortError") return;
-      }
-    }
-
-    // Fallback: copy to clipboard. Surfaces a brief Toast confirmation
-    // by reusing the existing shareErr slot (negative-space; user gets
-    // visible feedback that something happened).
-    try {
-      await navigator.clipboard.writeText(text);
-      setShareErr("Copied to clipboard");
-      setTimeout(() => setShareErr(null), 2000);
-    } catch {
-      setShareErr("Couldn't share — try again");
-      setTimeout(() => setShareErr(null), 2000);
-    }
-  }
 
   const c = report.cigar;
 
@@ -355,26 +312,11 @@ function BurnReportCard({
         style={{ marginTop: 16 }}
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <button
-            type="button"
-            onClick={handleNativeShare}
-            className="flex items-center justify-center rounded-full transition-opacity active:opacity-70"
-            style={{
-              width:       36,
-              height:      36,
-              border:      "1.5px solid var(--line-strong)",
-              color:       "var(--paper-mute)",
-              background:  "transparent",
-              cursor:      "pointer",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            } as React.CSSProperties}
-            aria-label="Share"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 3v12M8 7l4-4 4 4M5 14v5a2 2 0 002 2h10a2 2 0 002-2v-5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </button>
+          <ShareReportButton
+            reportId={report.id}
+            reportNumber={reportNumber}
+            cigarLabel={[c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ")}
+          />
           <div className="flex flex-col gap-1">
             <button
               type="button"

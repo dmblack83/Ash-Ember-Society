@@ -112,6 +112,7 @@ const nextConfig: NextConfig = {
     "google-gax",
     "google-auth-library",
     "protobufjs",
+    "sharp",   // native binaries — must not be bundled
   ],
   /*
    * Tree-shake well-known barrel-export packages so unused exports
