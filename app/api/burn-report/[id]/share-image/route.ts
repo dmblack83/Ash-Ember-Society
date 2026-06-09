@@ -152,17 +152,24 @@ export async function GET(
   });
 
   // 12. Convert SVG → PNG, then trim.
-  // Two-pass: Sharp cannot reliably flatten+trim SVG input in one pipeline because
-  // SVG rendering and raster operations execute in sequence internally — flatten may
-  // not fully apply before trim inspects edges. Render to PNG first, then trim the
-  // resulting raster. The flatten fills the transparent area below the card (Satori
-  // leaves it transparent) with the background colour so trim can match it.
-  const rawPng = await sharp(Buffer.from(svg)).png().toBuffer();
-  const pngBuf = await sharp(rawPng)
+  // Three-pass: each step is a fully committed buffer so vips never starts the next
+  // operation before the previous one finishes.
+  //
+  // Pass 1 — SVG → raster PNG with alpha (forces librsvg to commit the full raster).
+  // Pass 2 — flatten: fills the transparent area below the card with the background
+  //           colour and removes the alpha channel, giving Sharp a clean RGB target.
+  // Pass 3 — trim: uses the corner pixel as background (avoids any hex-parse edge
+  //           case) and crops the uniform-colour edges from all four sides.
+  const rawPng  = await sharp(Buffer.from(svg)).png().toBuffer();
+  const flatPng = await sharp(rawPng)
     .flatten({ background: T.background })
-    .trim({ background: T.background, threshold: 10 })
     .png()
     .toBuffer();
+  const { data: pngBuf, info } = await sharp(flatPng)
+    .trim({ threshold: 10 })          // corner pixel ≡ T.background after flatten
+    .png()
+    .toBuffer({ resolveWithObject: true });
+  console.log(`[share-image] page=${page} out=${info.width}x${info.height}`);
 
   return new NextResponse(new Uint8Array(pngBuf), {
     headers: {
