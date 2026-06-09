@@ -2,11 +2,12 @@
 
 import { buildInviteSmsHref } from "@/lib/invite";
 
+// Stable for the life of the module — the message has no dynamic parts.
+const SMS_HREF = buildInviteSmsHref();
+
 /* Account-tab section that lets a member fire off a prefilled invite text.
    SMS only for now; the Email CTA lands with its backend in a later PR. */
 export function InviteFriendsSection() {
-  const smsHref = buildInviteSmsHref();
-
   return (
     <div>
       <p
@@ -37,7 +38,7 @@ export function InviteFriendsSection() {
           </p>
 
           <a
-            href={smsHref}
+            href={SMS_HREF}
             className="flex items-center justify-center gap-2 transition-opacity active:opacity-70"
             style={{
               padding:                 "12px 0",
