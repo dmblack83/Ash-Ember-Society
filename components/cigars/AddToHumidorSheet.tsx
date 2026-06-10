@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 
 /* ------------------------------------------------------------------
@@ -161,6 +162,8 @@ export function AddToHumidorSheet({
     }
 
     setSubmitting(false);
+    /* Re-pull the Humidor list cache so the new cigar shows on return. */
+    void revalidateHumidor(user.id);
     onSuccess();
     onClose();
   }
@@ -183,6 +186,12 @@ export function AddToHumidorSheet({
       setError(updateError.message);
       return;
     }
+
+    /* Re-pull the Humidor list cache so the updated quantity shows on
+       return. addToExisting doesn't otherwise need the user id, so fetch
+       it here (cheap — the supabase client caches the session). */
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) void revalidateHumidor(user.id);
 
     onSuccess();
     onClose();
