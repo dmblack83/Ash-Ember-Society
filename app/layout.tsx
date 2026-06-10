@@ -17,6 +17,7 @@ import { ColdOpenSmoke, COLD_SMOKE_INIT_SCRIPT } from "@/components/cold-open-sm
 import { STALE_CHUNK_RECOVERY_SCRIPT } from "@/components/system/stale-chunk-recovery";
 import { HydrationMark } from "@/components/system/HydrationMark";
 import ReliabilityBootstrap from "@/components/system/ReliabilityBootstrap";
+import { ServiceWorkerNavigator } from "@/components/system/ServiceWorkerNavigator";
 import { HYDRATION_WATCHDOG_SCRIPT } from "@/components/system/hydration-watchdog";
 import "./globals.css";
 
@@ -253,6 +254,7 @@ export default function RootLayout({
             Sentry via lib/telemetry/reliability.ts. Mount-once glue;
             renders nothing. */}
         <ReliabilityBootstrap />
+        <ServiceWorkerNavigator />
         {/* Vercel Speed Insights — captures real-user LCP/CLS/INP/FCP/TTFB
             from production traffic. Free tier covers ~10K data points/mo
             on Hobby, 25K on Pro. Disabled automatically in dev. */}
