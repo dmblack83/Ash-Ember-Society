@@ -106,6 +106,7 @@ export default async function BurnReportPage({
   return (
     <BurnReport
       item={item as unknown as BurnReportItem}
+      userId={user.id}
       flavorTags={flavorTagData as FlavorTag[]}
       partnerVideos={partnerVideos}
       displayName={profile?.display_name ?? null}
