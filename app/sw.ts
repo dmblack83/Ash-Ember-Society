@@ -631,16 +631,28 @@ self.addEventListener("notificationclick", (event) => {
 
     for (const client of allClients) {
       if ("focus" in client) {
+        // Bring the running app forward, then hand it the target path so
+        // it routes in place. No client.navigate() — that forces a full
+        // reload and is unreliable in installed iOS PWAs. The app's
+        // ServiceWorkerNavigator listens for AE_NAVIGATE and router.push()es.
         try {
-          await (client as WindowClient).navigate(targetUrl);
+          await (client as WindowClient).focus();
         } catch {
-          // navigate() can fail cross-origin or in some PWA modes;
-          // we still focus the existing window below.
+          // Some platforms refuse focus on certain client states; the
+          // postMessage below still routes the already-visible app.
         }
-        return (client as WindowClient).focus();
+        try {
+          client.postMessage({ type: "AE_NAVIGATE", url: targetUrl });
+          return;
+        } catch {
+          // Detached client — fall through to the next candidate.
+          continue;
+        }
       }
     }
 
+    // No live app window — open one at the target route. For an installed
+    // PWA this launches the app; in a browser it opens a tab.
     if (self.clients.openWindow) {
       return self.clients.openWindow(targetUrl);
     }
