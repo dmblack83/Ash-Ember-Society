@@ -4,6 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 
 /* AddToHumidorSheet (462 lines) is always mounted (it manages its own
    visibility via the `open` prop), but lazy-loading still splits its
@@ -79,6 +80,10 @@ export function CigarActions({
       }
     }
 
+    /* Refresh the Humidor empty-state wishlist CTA (the hasWishlist count).
+       Safe on the error paths too — a re-pull just returns current server
+       truth. */
+    void revalidateHumidor(user.id);
     setWishlistLoading(false);
   }
 
