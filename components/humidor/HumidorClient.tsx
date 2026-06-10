@@ -465,7 +465,7 @@ export function HumidorClient({
     data:   hasWishlist = initialHasWishlist,
     mutate: mutateHasWishlist,
   } = useSWR(
-    ["wishlist-has", userId] as const,
+    keyFor.hasWishlist(userId),
     () => fetchHasWishlistItems(userId),
     {
       fallbackData:        initialHasWishlist,

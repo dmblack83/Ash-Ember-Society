@@ -27,6 +27,10 @@ export const keyFor = {
   humidorItems: (userId: string) => ["humidor-items", userId] as const,
   humidorItem:  (itemId: string) => ["humidor-item",  itemId] as const,
   wishlist:     (userId: string) => ["wishlist",      userId] as const,
+  /* Boolean "has ≥1 wishlist item" — drives the Humidor empty-state
+     "add from wishlist" CTA. Separate key from `wishlist` (the full
+     list) because it's a cheap HEAD count, not the rows. */
+  hasWishlist:  (userId: string) => ["wishlist-has",  userId] as const,
 
   /* ── Lounge / forum. Liked status is per-user, so userId is part
    *   of the key — switching account on the same browser produces a

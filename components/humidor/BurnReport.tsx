@@ -16,6 +16,7 @@ import {
 } from "@/lib/burn-report-draft";
 import { trackReliability } from "@/lib/telemetry/reliability";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
 import { checkResponse } from "@/lib/telemetry/fetch-checks";
@@ -1453,6 +1454,7 @@ function SuccessScreen({
 
 export function BurnReport({
   item,
+  userId,
   flavorTags,
   partnerVideos = [],
   displayName,
@@ -1462,6 +1464,7 @@ export function BurnReport({
   existing,
 }: {
   item: BurnReportItem;
+  userId: string;
   flavorTags: FlavorTag[];
   partnerVideos?: PartnerVideo[];
   displayName: string | null;
@@ -1946,6 +1949,10 @@ export function BurnReport({
       const data = await res.json() as { smoke_log_id: string; quantity_after: number };
       setSmokeLogId(data.smoke_log_id);
       setQuantityAfter(data.quantity_after);
+      /* Server decremented the humidor quantity — re-pull the list cache
+         so it reflects the smoke on return. Skip in edit mode (a PATCH
+         that doesn't change quantity). */
+      if (mode === "create") void revalidateHumidor(userId);
     } catch (err) {
       /* fetch threw — typically a network failure. If the user looks
          offline, queue the request via the outbox so the SW (or
@@ -1995,6 +2002,7 @@ export function BurnReport({
   async function handleRemoveFromHumidor() {
     const supabase = createClient();
     await supabase.from("humidor_items").delete().eq("id", item.id);
+    void revalidateHumidor(userId);
     router.push("/humidor");
   }
 

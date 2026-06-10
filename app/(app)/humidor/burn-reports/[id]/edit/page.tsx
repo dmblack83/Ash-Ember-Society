@@ -169,6 +169,7 @@ export default async function EditBurnReportPage({
       mode="edit"
       existing={existing}
       item={item}
+      userId={user.id}
       flavorTags={flavorTagData as FlavorTag[]}
       partnerVideos={partnerVideos}
       displayName={profile?.display_name ?? null}
