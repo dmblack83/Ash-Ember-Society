@@ -814,39 +814,6 @@ html.cold-smoke-static .cold-smoke-wisp {
   fill: rgba(212, 160, 74, 0.12);
 }
 
-/* View Transitions — slightly slower than the browser default so the
-   crossfade reads as intentional motion rather than a flash. 220ms
-   sits in the sweet spot per Material's "complex/expanding" guidance
-   (200-300ms): fast enough to feel responsive, slow enough to register
-   as a transition. Applied to the default (unnamed) view-transition
-   group that wraps <main>'s children in app/(app)/layout.tsx. */
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 220ms;
-}
-
-/* Anchor the bottom nav and desktop side rail across transitions.
-   By giving each its own `viewTransitionName` (set inline in
-   app/(app)/layout.tsx), they leave the root snapshot and become
-   their own animated groups. The rules below collapse those groups
-   to a no-op so the navs stay visually fixed while the content
-   swaps. `display: none` on the old snapshot prevents the brief
-   double-paint flash where both old and new navs would otherwise
-   render in the same spot. */
-::view-transition-group(ae-bottom-nav),
-::view-transition-group(ae-side-rail) {
-  animation: none;
-  z-index: 100;
-}
-::view-transition-old(ae-bottom-nav),
-::view-transition-old(ae-side-rail) {
-  display: none;
-}
-::view-transition-new(ae-bottom-nav),
-::view-transition-new(ae-side-rail) {
-  animation: none;
-}
-
 /* Anchor the cold-smoke overlay across view transitions. Without
    these rules, the home page's Suspense islands streaming in fire
    ::view-transition-* pseudo-elements that paint above the overlay
