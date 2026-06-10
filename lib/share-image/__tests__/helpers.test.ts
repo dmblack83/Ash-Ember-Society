@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gradeFor, starFillPct, shouldRenderPage2 } from "../helpers";
+import { gradeFor, starFillPct, shouldRenderPage2, clampText } from "../helpers";
 import type { ShareImageProps } from "../types";
 
 const base = (): ShareImageProps => ({
@@ -75,5 +75,32 @@ describe("shouldRenderPage2", () => {
   });
   it("returns false when reviewText is whitespace only", () => {
     expect(shouldRenderPage2({ ...base(), reviewText: "   " })).toBe(false);
+  });
+});
+
+describe("clampText", () => {
+  it("returns short text trimmed and unchanged", () => {
+    expect(clampText("  a short note  ", 100)).toBe("a short note");
+  });
+
+  it("returns empty string for null, undefined, or blank", () => {
+    expect(clampText(null, 50)).toBe("");
+    expect(clampText(undefined, 50)).toBe("");
+    expect(clampText("   ", 50)).toBe("");
+  });
+
+  it("clamps long text and ends with a single ellipsis", () => {
+    const out = clampText("a".repeat(200), 50);
+    expect(out.endsWith("…")).toBe(true);
+    expect(out.length).toBeLessThanOrEqual(51);
+  });
+
+  it("cuts at a word boundary, not mid-word", () => {
+    const text = "the quick brown fox jumps over the lazy dog";
+    const out  = clampText(text, 25);
+    const visible = out.slice(0, -1); // drop the ellipsis
+    expect(out.endsWith("…")).toBe(true);
+    expect(text.startsWith(visible)).toBe(true);
+    expect(text[visible.length]).toBe(" "); // clean cut at a space
   });
 });

@@ -9,7 +9,6 @@
 
 import { NextRequest, NextResponse }     from "next/server";
 import satori                            from "satori";
-import sharp                             from "sharp";
 import { getServerUser }                 from "@/lib/auth/server-user";
 import { createServiceClientFor }        from "@/utils/supabase/service";
 import { getFlavorTags }                 from "@/lib/data/flavor-tags";
@@ -22,6 +21,7 @@ import { buildPage2 }                    from "@/lib/share-image/page2";
 import { shouldRenderPage2 }             from "@/lib/share-image/helpers";
 import type { ShareImageProps }          from "@/lib/share-image/types";
 import { T }                             from "@/lib/share-image/tokens";
+import { renderSquarePng }               from "@/lib/share-image/render";
 
 const ALLOWED_PHOTO_HOSTS = new Set(["qagaiuibtwuhihukghyx.supabase.co"]);
 
@@ -151,36 +151,9 @@ export async function GET(
     fonts:  loadFonts() as Font[],
   });
 
-  // 12. Convert SVG → PNG, then trim.
-  // Three-pass: each step is a fully committed buffer so vips never starts the next
-  // operation before the previous one finishes.
-  //
-  // Supersampling: double the declared SVG width/height so libvips rasterizes at 2×.
-  // The viewBox is unchanged so all content scales uniformly. density:144 is unreliable
-  // when Sharp receives an SVG with explicit dimensions — libvips ignores DPI in that
-  // case. Resize back to IMAGE_WIDTH for crisp anti-aliased text.
-  const svgTagEnd = svg.indexOf(">");
-  const svgOpenTag = svg.slice(0, svgTagEnd + 1);
-  const svgBody    = svg.slice(svgTagEnd + 1);
-  const svgFor2x   = svgOpenTag
-    .replace(/\bwidth="(\d+)"/,  (_, w) => `width="${parseInt(w, 10) * 2}"`)
-    .replace(/\bheight="(\d+)"/, (_, h) => `height="${parseInt(h, 10) * 2}"`)
-    + svgBody;
-
-  // Pass 1 — render at 2× size, resize back to target width.
-  const rawPng  = await sharp(Buffer.from(svgFor2x))
-    .resize({ width: T.IMAGE_WIDTH })
-    .png()
-    .toBuffer();
-  const flatPng = await sharp(rawPng)
-    .flatten({ background: T.background })
-    .png()
-    .toBuffer();
-  const { data: pngBuf, info } = await sharp(flatPng)
-    .trim({ threshold: 10 })          // corner pixel ≡ T.background after flatten
-    .png()
-    .toBuffer({ resolveWithObject: true });
-  console.log(`[share-image] page=${page} out=${info.width}x${info.height}`);
+  // 12. Rasterize the SVG to a fixed 1080×1080 PNG (square for Instagram).
+  const { data: pngBuf, width, height } = await renderSquarePng(svg);
+  console.log(`[share-image] page=${page} out=${width}x${height}`);
 
   return new NextResponse(new Uint8Array(pngBuf), {
     headers: {
