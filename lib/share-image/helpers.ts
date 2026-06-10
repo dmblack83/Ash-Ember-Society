@@ -19,3 +19,17 @@ export function shouldRenderPage2(p: ShareImageProps): boolean {
     Boolean(p.thirdBeginning?.trim() || p.thirdMiddle?.trim() || p.thirdEnd?.trim());
   return hasThirds || Boolean(p.reviewText?.trim()) || p.flavorTagNames.length > 0;
 }
+
+/* Clamp prose so it fits a bounded box on the share card. Cuts at a word
+   boundary near maxChars and appends an ellipsis; short text is returned
+   trimmed and unchanged. Char-based (not line-based) because Satori gives
+   us no font metrics — maxChars is tuned per field to a target line count
+   at that field's font size. */
+export function clampText(text: string | null | undefined, maxChars: number): string {
+  const t = (text ?? "").trim();
+  if (t.length <= maxChars) return t;
+  const slice     = t.slice(0, maxChars);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut       = lastSpace > maxChars * 0.6 ? slice.slice(0, lastSpace) : slice;
+  return cut.replace(/[\s.,;:!?]+$/, "") + "…";
+}
