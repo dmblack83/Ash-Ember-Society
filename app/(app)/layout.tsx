@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, ViewTransition } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
@@ -89,12 +89,6 @@ function BottomNav() {
         borderTop: "1px solid var(--border)",
         paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)",
         willChange: "transform",
-        /* Anchored across view transitions — paired with the
-           `::view-transition-group(ae-bottom-nav)` rule in
-           globals.css that disables the animation. Without this,
-           the API treats the nav as part of the root snapshot and
-           cross-fades it with the rest of the document. */
-        viewTransitionName: "ae-bottom-nav",
       }}
       aria-label="Main navigation"
     >
@@ -179,9 +173,6 @@ function SideRailNav() {
         backdropFilter:       "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderRight:          "1px solid var(--border)",
-        /* Same anchoring as BottomNav — the desktop side rail should
-           not fade in/out during route transitions. */
-        viewTransitionName: "ae-side-rail",
       }}
       aria-label="Main navigation"
     >
@@ -268,17 +259,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           marginLeft: hideNav ? 0 : "var(--app-content-left)",
         }}
       >
-        {/* View Transition wrapper — animates the main content swap
-            between routes. Bottom nav + side rail sit OUTSIDE this
-            wrapper so they don't fade with the content. Browsers
-            without View Transitions API support render this as a
-            passthrough; no animation, no error. Reduced-motion
-            preference disables all animation via the CSS in
-            globals.css. See node_modules/next/dist/docs/01-app/
-            02-guides/view-transitions.md for the full guide. */}
-        <ViewTransition>
-          {children}
-        </ViewTransition>
+        {children}
       </main>
       {!hideNav && <A2HSBanner />}
       {!hideNav && <BottomNav />}
