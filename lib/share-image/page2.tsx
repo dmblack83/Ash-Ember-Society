@@ -3,11 +3,12 @@ import { T } from "./tokens";
 import { clampText } from "./helpers";
 import type { ShareImageProps } from "./types";
 
-/* Char clamps tuned to keep a dense report inside the square at the new
-   type scale. If a dense sample still gets scaled down by the square step,
-   lower these (and re-run the sample script). */
-const REVIEW_MAX_CHARS = 320;
-const THIRD_MAX_CHARS  = 180;
+/* Generous safety caps: per the design decision, page 2 keeps the user's
+   text and lets a maxed-out report scale down mildly inside the square
+   rather than truncating. These only trim pathologically long entries so
+   the shrink can never become catastrophic. */
+const REVIEW_MAX_CHARS = 420;
+const THIRD_MAX_CHARS   = 240;
 
 function Masthead({ parts }: { parts: string[] }) {
   return (
