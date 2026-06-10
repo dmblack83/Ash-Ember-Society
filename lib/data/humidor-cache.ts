@@ -20,12 +20,13 @@ import { fetchHumidorItems, fetchHasWishlistItems } from "./humidor-fetchers";
    place; SWR's revalidateOnReconnect + the manual refresh button recover
    it. Never block the user's flow or surface an error here. */
 export async function revalidateHumidor(userId: string): Promise<void> {
-  try {
-    await Promise.all([
-      mutate(keyFor.humidorItems(userId), fetchHumidorItems(userId),     { revalidate: false }),
-      mutate(keyFor.hasWishlist(userId),  fetchHasWishlistItems(userId), { revalidate: false }),
-    ]);
-  } catch {
-    /* swallowed — see doc comment above */
-  }
+  /* allSettled (not all) so a failure refreshing one key doesn't abort
+     the other — best-effort refresh of both. It never rejects, so the
+     fire-and-forget contract holds with no try/catch: a failed branch
+     just leaves that key's prior cache in place, and SWR's
+     revalidateOnReconnect + the manual refresh button recover it. */
+  await Promise.allSettled([
+    mutate(keyFor.humidorItems(userId), fetchHumidorItems(userId),     { revalidate: false }),
+    mutate(keyFor.hasWishlist(userId),  fetchHasWishlistItems(userId), { revalidate: false }),
+  ]);
 }

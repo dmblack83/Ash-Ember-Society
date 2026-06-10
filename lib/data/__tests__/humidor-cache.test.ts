@@ -45,5 +45,6 @@ describe("revalidateHumidor", () => {
     fetchHasWishlistMock.mockResolvedValue(false);
 
     await expect(revalidateHumidor("user-1")).resolves.toBeUndefined();
+    expect(mutateMock).toHaveBeenCalledTimes(2);
   });
 });
