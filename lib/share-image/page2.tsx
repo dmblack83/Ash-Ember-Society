@@ -1,13 +1,20 @@
 import React from "react";
 import { T } from "./tokens";
+import { clampText } from "./helpers";
 import type { ShareImageProps } from "./types";
+
+/* Char clamps tuned to keep a dense report inside the square at the new
+   type scale. If a dense sample still gets scaled down by the square step,
+   lower these (and re-run the sample script). */
+const REVIEW_MAX_CHARS = 320;
+const THIRD_MAX_CHARS  = 180;
 
 function Masthead({ parts }: { parts: string[] }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", marginBottom: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", marginBottom: 24 }}>
       <div style={{ height: 1, background: T.line, width: "100%" }} />
-      <div style={{ display: "flex", justifyContent: "center", width: "100%", padding: "6px 0" }}>
-        <p style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 500, letterSpacing: "0.32em",
+      <div style={{ display: "flex", justifyContent: "center", width: "100%", padding: "8px 0" }}>
+        <p style={{ fontFamily: T.mono, fontSize: T.type.meta, fontWeight: 500, letterSpacing: "0.32em",
           textTransform: "uppercase", color: T.paperMute, margin: 0 }}>
           {parts.join(" · ")}
         </p>
@@ -19,10 +26,10 @@ function Masthead({ parts }: { parts: string[] }) {
 
 function Footer() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", marginTop: 20 }}>
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", marginTop: 24 }}>
       <div style={{ height: 1, background: T.line, width: "100%" }} />
-      <div style={{ display: "flex", justifyContent: "center", width: "100%", padding: "8px 0" }}>
-        <p style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 500, letterSpacing: "0.32em",
+      <div style={{ display: "flex", justifyContent: "center", width: "100%", padding: "10px 0" }}>
+        <p style={{ fontFamily: T.mono, fontSize: T.type.eyebrow, fontWeight: 500, letterSpacing: "0.32em",
           textTransform: "uppercase", color: T.goldFooter, margin: 0 }}>
           ASH & EMBER · WWW.ASHEMBER.VIP
         </p>
@@ -51,7 +58,7 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
   const anyThird =
     p.thirdsEnabled &&
     (p.thirdBeginning?.trim() || p.thirdMiddle?.trim() || p.thirdEnd?.trim());
-  const review = p.reviewText?.trim() ?? "";
+  const review = clampText(p.reviewText, REVIEW_MAX_CHARS);
 
   const THIRD_DEFS: Array<{ label: string; text: string | null; idx: 1 | 2 | 3 }> = [
     { label: "FIRST THIRD · BEGINNING", text: p.thirdBeginning, idx: 1 },
@@ -69,24 +76,24 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
 
         {/* Thirds */}
         {anyThird && (
-          <div style={{ display: "flex", flexDirection: "column", marginBottom: 20,
-            paddingBottom: 20, borderBottom: `1px dashed ${T.lineSoft}` }}>
+          <div style={{ display: "flex", flexDirection: "column", marginBottom: 24,
+            paddingBottom: 24, borderBottom: `1px dashed ${T.lineSoft}` }}>
             {THIRD_DEFS.map(({ label, text, idx }) => {
-              const t         = text?.trim() ?? "";
+              const t         = clampText(text, THIRD_MAX_CHARS);
               const chipNames = p.thirdsTaggedRows.find((r) => r.index === idx)?.flavor_tag_names ?? [];
               return (
-                <div key={label} style={{ display: "flex", flexDirection: "column", marginBottom: 14 }}>
-                  <p style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 500, letterSpacing: "0.28em",
+                <div key={label} style={{ display: "flex", flexDirection: "column", marginBottom: 18 }}>
+                  <p style={{ fontFamily: T.mono, fontSize: T.type.eyebrow, fontWeight: 500, letterSpacing: "0.28em",
                     textTransform: "uppercase", color: T.gold, margin: 0 }}>
                     {label}
                   </p>
-                  <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.4,
-                    color: t ? T.foreground : T.paperDim, margin: "4px 0 0" }}>
+                  <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.prose, lineHeight: 1.4,
+                    color: t ? T.foreground : T.paperDim, margin: "6px 0 0" }}>
                     {t || "—"}
                   </p>
                   {chipNames.length > 0 && (
-                    <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 13,
-                      lineHeight: 1.5, color: T.paperMute, margin: "5px 0 0" }}>
+                    <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.chip,
+                      lineHeight: 1.5, color: T.paperMute, margin: "6px 0 0" }}>
                       {chipNames.map((name, i) => (
                         <React.Fragment key={name}>
                           {name.toLowerCase()}
@@ -105,22 +112,21 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
 
         {/* Pull quote */}
         {review && (
-          <div style={{ display: "flex", flexDirection: "column", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", gap: 4 }}>
-              {/* Opening quote mark — large italic serif, overlaps slightly via negative margin */}
-              <span style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 42, fontWeight: 500,
-                lineHeight: 1, color: T.gold, opacity: 0.85, marginTop: -6, flexShrink: 0 }}>
+          <div style={{ display: "flex", flexDirection: "column", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
+              <span style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.quote, fontWeight: 500,
+                lineHeight: 1, color: T.gold, opacity: 0.85, marginTop: -10, flexShrink: 0 }}>
                 &ldquo;
               </span>
-              <div style={{ display: "flex", flexDirection: "column", flex: 1, paddingTop: 8 }}>
-                <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 15, lineHeight: 1.5,
+              <div style={{ display: "flex", flexDirection: "column", flex: 1, paddingTop: 12 }}>
+                <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.body, lineHeight: 1.5,
                   color: T.foreground, margin: 0 }}>
                   {review}
                 </p>
                 {(firstName || cityUpper) && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-                    <div style={{ width: 20, height: 1, background: T.goldDeep, flexShrink: 0 }} />
-                    <p style={{ fontFamily: T.mono, fontSize: 10, fontWeight: 500,
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 16 }}>
+                    <div style={{ width: 28, height: 1, background: T.goldDeep, flexShrink: 0 }} />
+                    <p style={{ fontFamily: T.mono, fontSize: T.type.meta, fontWeight: 500,
                       letterSpacing: "0.22em", textTransform: "uppercase", color: T.paperMute, margin: 0 }}>
                       {[firstName, cityUpper].filter(Boolean).join(" · ")}
                     </p>
@@ -133,17 +139,17 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
 
         {/* Tasting Notes */}
         {p.flavorTagNames.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 20, height: 1, background: T.goldDeep, flexShrink: 0 }} />
-              <p style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 500, letterSpacing: "0.28em",
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ width: 28, height: 1, background: T.goldDeep, flexShrink: 0 }} />
+              <p style={{ fontFamily: T.mono, fontSize: T.type.eyebrow, fontWeight: 500, letterSpacing: "0.28em",
                 textTransform: "uppercase", color: T.gold, margin: 0 }}>
                 TASTING NOTES
               </p>
-              <div style={{ width: 20, height: 1, background: T.goldDeep, flexShrink: 0 }} />
+              <div style={{ width: 28, height: 1, background: T.goldDeep, flexShrink: 0 }} />
             </div>
-            <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 17, lineHeight: 1.5,
-              color: T.paperMute, textAlign: "center", margin: "8px 0 0" }}>
+            <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.prose, lineHeight: 1.5,
+              color: T.paperMute, textAlign: "center", margin: "10px 0 0" }}>
               {p.flavorTagNames.map((name, i) => (
                 <React.Fragment key={name}>
                   {name.toLowerCase()}
@@ -157,7 +163,7 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
         )}
 
         {/* Spec strip */}
-        <div style={{ display: "flex", gap: 8, paddingTop: 18, borderTop: `1px solid ${T.lineSoft}` }}>
+        <div style={{ display: "flex", gap: 10, paddingTop: 22, borderTop: `1px solid ${T.lineSoft}` }}>
           {([
             ["DURATION", p.smokeDurationMinutes != null ? `${p.smokeDurationMinutes} min` : "—"],
             ["PAIRING",  p.pairingDrink?.trim() || "—"],
@@ -165,12 +171,12 @@ export function buildPage2(p: ShareImageProps): React.ReactElement {
           ] as [string, string][]).map(([label, value]) => (
             <div key={label} style={{ display: "flex", flexDirection: "column",
               alignItems: "center", flex: 1 }}>
-              <p style={{ fontFamily: T.mono, fontSize: 9, fontWeight: 500, letterSpacing: "0.22em",
+              <p style={{ fontFamily: T.mono, fontSize: T.type.eyebrow, fontWeight: 500, letterSpacing: "0.22em",
                 textTransform: "uppercase", color: T.paperMute, margin: 0 }}>
                 {label}
               </p>
-              <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: 16, fontWeight: 500,
-                color: T.foreground, margin: "4px 0 0", lineHeight: 1.2 }}>
+              <p style={{ fontFamily: T.serif, fontStyle: "italic", fontSize: T.type.body, fontWeight: 500,
+                color: T.foreground, margin: "6px 0 0", lineHeight: 1.2 }}>
                 {value}
               </p>
             </div>
