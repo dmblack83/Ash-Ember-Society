@@ -9,6 +9,7 @@ import { Toast } from "@/components/ui/toast";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
@@ -533,12 +534,14 @@ function SmokeModal({
 export function HumidorItemClient({
   item: initialItem,
   initialSmokeLogs,
+  userId,
   hasPending     = false,
   hasApproved    = false,
   hasPendingEdit = false,
 }: {
   item: HumidorItemDetail;
   initialSmokeLogs: SmokeLog[];
+  userId: string;
   hasPending?:      boolean;
   hasApproved?:     boolean;
   hasPendingEdit?:  boolean;
@@ -590,7 +593,11 @@ export function HumidorItemClient({
     if (error) {
       setQuantity(prev);
       setToast("Failed to update quantity.");
+      return;
     }
+    /* Re-pull the Humidor list cache so the new quantity shows when the
+       user navigates back (the list uses revalidateOnMount:false). */
+    void revalidateHumidor(userId);
   }
 
   /* ── Smoke One ────────────────────────────────────────────── */
@@ -633,6 +640,8 @@ export function HumidorItemClient({
   function handleSaved(updated: Partial<typeof itemFields>) {
     setItemFields((prev) => ({ ...prev, ...updated }));
     setToast("Details saved.");
+    /* Edited fields (aging date, notes, etc.) show in the list — refresh. */
+    void revalidateHumidor(userId);
   }
 
   /* ── Delete ───────────────────────────────────────────────── */
@@ -649,6 +658,9 @@ export function HumidorItemClient({
       return;
     }
 
+    /* Update the list cache before navigating so the deleted item is
+       already gone when the list mounts. */
+    void revalidateHumidor(userId);
     router.push("/humidor");
   }
 

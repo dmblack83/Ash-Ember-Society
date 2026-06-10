@@ -126,6 +126,7 @@ export default async function HumidorItemPage({
     <HumidorItemClient
       item={item as HumidorItemDetail}
       initialSmokeLogs={normalizedLogs}
+      userId={user.id}
       hasPending={submission?.status === "pending"}
       hasApproved={submission?.status === "approved"}
       hasPendingEdit={editSuggestion !== null}
