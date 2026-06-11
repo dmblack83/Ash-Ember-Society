@@ -6,29 +6,27 @@ import { createClient } from "@/utils/supabase/client";
 
 const MIN_INTERVAL_MS = 2000;
 
-/* iOS WebKit evicts the JS heap aggressively for backgrounded
-   standalone PWAs. The DOM stays painted but the JS context is
-   dead, so the app looks alive and buttons appear clickable but
-   nothing runs. router.refresh() cannot recover this: it re-runs
-   server components inside the (dead) JS context. Only a hard
-   reload rebuilds the heap.
+/* Below this background gap, a resume does NO heavy work. Forcing a
+   token refresh + router.refresh() on every resume (even a few-seconds
+   glance at another app) re-ran the whole route's server components and
+   left the App Router pending, so tab taps queued for seconds — the app
+   looked fully rendered but frozen. A warm app returning from a quick
+   switch already has fresh-enough data (SWR revalidates on navigation;
+   Supabase autoRefreshToken keeps the token fresh via its own
+   visibility handler), so the correct amount of resume work is NONE.
 
-   5 min threshold balances: long enough that quick app-switches
-   (taking a call, replying to a text) keep their warm context;
-   short enough to catch the typical eviction window (iOS evicts
-   under memory pressure well before 30 min in practice). The cost
-   of an over-eager reload is ~1-2s LCP from edge cache; the cost
-   of NOT reloading is the user force-closing the app. */
-const IOS_RELOAD_THRESHOLD_MS = 5 * 60 * 1000;
+   5 min: long enough that quick app-switches (taking a call, replying to
+   a text) stay instant; short enough that a genuine "came back later"
+   gets one fresh pull. Matches the iOS heap-eviction window the cold-
+   relaunch recovery paths assume. */
+const RESUME_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 
 /* Performance-mark labels for diagnosing warm-resume blank-screen
    issues. Marks land on Performance Timeline and feed Vercel Speed
    Insights' RUM. View in DevTools → Performance → User timing. */
-const MARK_RESUME           = "ae:resume";
-const MARK_TOKEN_REFRESHED  = "ae:token-refreshed";
-const MEASURE_TOKEN_REFRESH = "ae:token-refresh-duration";
-const MARK_IOS_RELOAD       = "ae:ios-resume-reload";
-const MARK_STALE_REVIVE     = "ae:stale-revive-reload";
+const MARK_RESUME       = "ae:resume";
+const MARK_IOS_RELOAD   = "ae:ios-resume-reload";
+const MARK_STALE_REVIVE = "ae:stale-revive-reload";
 
 /* JS-heap-eviction detection.
 
@@ -55,12 +53,6 @@ const HEARTBEAT_STALE_MS     = 90 * 1000;  // 1.5 min — well past one heartbea
 function safeMark(name: string) {
   if (typeof performance !== "undefined" && performance.mark) {
     try { performance.mark(name); } catch { /* ignore */ }
-  }
-}
-
-function safeMeasure(name: string, start: string, end: string) {
-  if (typeof performance !== "undefined" && performance.measure) {
-    try { performance.measure(name, start, end); } catch { /* ignore */ }
   }
 }
 
@@ -139,48 +131,40 @@ export function ResumeHandler() {
       lastResume = now;
 
       /* Mark the moment of resume so the user-timing track in
-         DevTools shows the blank-screen window starting here. */
+         DevTools shows the resume window starting here. */
       safeMark(MARK_RESUME);
 
-      /* iOS standalone + long background gap: soft recovery. The JS
-         heap is likely dead; attempt graceful auth + DOM refresh
-         instead of a full hard reload. */
-      if (
-        iosStandalone &&
-        hiddenAt !== null &&
-        now - hiddenAt > IOS_RELOAD_THRESHOLD_MS
-      ) {
-        safeMark(MARK_IOS_RELOAD);
-        /* Fire-and-forget: same pattern as stale heartbeat block above.
-           useEffect is synchronous; heartbeat timer/listeners don't depend
-           on auth state. return prevents double-call with the block below. */
-        void supabase.auth.refreshSession().catch(() => {});
-        router.refresh();
+      /* Gate the heavy resume work behind a MEANINGFUL background gap.
+         Re-running supabase.auth.refreshSession() + router.refresh() on
+         EVERY resume forced a full server re-render of the current route
+         and left the App Router pending, so tab taps queued for seconds
+         (the "fully rendered but frozen" report). A warm app returning
+         from a quick switch needs NO work here: autoRefreshToken keeps the
+         token fresh on its own visibility handler, and SWR revalidates
+         data on navigation.
+
+         hiddenAt === null means no hide was recorded in THIS JS context —
+         a brand-new context after heap eviction is handled by the stale-
+         heartbeat block above; here we treat it as "no meaningful gap"
+         and skip. */
+      const backgroundGap = hiddenAt !== null ? now - hiddenAt : null;
+      if (backgroundGap === null || backgroundGap < RESUME_REFRESH_THRESHOLD_MS) {
         return;
       }
 
-      /* Token refresh runs in parallel with router.refresh() — the
-         latter doesn't await the former. Marks let us see how long
-         Supabase token refresh ACTUALLY takes on resume; if it's
-         slow on cold network, that's not blocking render but it's
-         worth knowing for follow-up. */
-      const refreshStart = performance.now();
-      supabase.auth.refreshSession()
-        .then(() => {
-          safeMark(MARK_TOKEN_REFRESHED);
-          safeMeasure(MEASURE_TOKEN_REFRESH, MARK_RESUME, MARK_TOKEN_REFRESHED);
-          // Surface in console for live debug — strip when noise becomes a problem.
-          console.log(
-            `[resume] token refresh: ${(performance.now() - refreshStart).toFixed(0)}ms`,
-          );
-        })
-        .catch(() => { /* refresh is best-effort */ });
+      /* Been away a while → a single refresh to pull fresh per-user data.
+         iOS standalone additionally pre-warms auth: after a long suspend
+         the access token may be expired, and refreshing here avoids the
+         proxy's expired-token slow path on the next request. Fire-and-
+         forget — router.refresh() doesn't await it. */
+      if (iosStandalone) {
+        safeMark(MARK_IOS_RELOAD);
+        void supabase.auth.refreshSession().catch(() => {});
+      }
 
-      /* SW update check on every resume. /sw.js is served with
-         max-age=0,must-revalidate so this is one cheap revalidation
-         request. If a deploy shipped while the tab was hidden,
-         skipWaiting + clientsClaim install the new worker
-         immediately, so the next navigation gets fresh chunks. */
+      /* Pick up any deploy that shipped while the tab was hidden. /sw.js is
+         served max-age=0,must-revalidate so this is one cheap revalidation;
+         skipWaiting + clientsClaim install the new worker for the next nav. */
       if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
         navigator.serviceWorker.ready
           .then((reg) => reg.update())
