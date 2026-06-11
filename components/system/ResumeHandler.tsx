@@ -24,9 +24,9 @@ const RESUME_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
 /* Performance-mark labels for diagnosing warm-resume blank-screen
    issues. Marks land on Performance Timeline and feed Vercel Speed
    Insights' RUM. View in DevTools → Performance → User timing. */
-const MARK_RESUME       = "ae:resume";
-const MARK_IOS_RELOAD   = "ae:ios-resume-reload";
-const MARK_STALE_REVIVE = "ae:stale-revive-reload";
+const MARK_RESUME          = "ae:resume";
+const MARK_IOS_RESUME_REFRESH = "ae:ios-resume-refresh";
+const MARK_STALE_REVIVE    = "ae:stale-revive-reload";
 
 /* JS-heap-eviction detection.
 
@@ -158,7 +158,7 @@ export function ResumeHandler() {
          proxy's expired-token slow path on the next request. Fire-and-
          forget — router.refresh() doesn't await it. */
       if (iosStandalone) {
-        safeMark(MARK_IOS_RELOAD);
+        safeMark(MARK_IOS_RESUME_REFRESH);
         void supabase.auth.refreshSession().catch(() => {});
       }
 
