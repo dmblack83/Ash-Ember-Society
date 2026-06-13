@@ -83,6 +83,7 @@ export const FORMATS: string[] = [
   /* Named vitolas */
   "Corona",
   "Petit Corona",
+  "Half Corona",
   "Churchill",
   "Robusto",
   "Toro",
@@ -108,6 +109,7 @@ export interface LengthOption {
 }
 
 export const LENGTHS: LengthOption[] = [
+  { label: '3 1/2"', inches: 3.5    },
   { label: '4 1/2"', inches: 4.5    },
   { label: '4 7/8"', inches: 4.875  },
   { label: '5"',     inches: 5      },
