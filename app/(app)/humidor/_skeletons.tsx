@@ -2,11 +2,10 @@
  * Shared skeleton for the Humidor route. Used by:
  *  - `loading.tsx` (rendered during client-side route prefetch
  *    before the page tree mounts)
- *  - the in-page `<Suspense>` fallback around `HumidorDataIsland`
- *    in `page.tsx` (rendered while the data fetch is still resolving)
+ *  - `HumidorRoute.tsx` (rendered while the client session resolves)
  *
  * Same shape both places so the swap between prefetch skeleton →
- * Suspense skeleton → real content doesn't shift the page.
+ * session-resolved content doesn't shift the page.
  */
 
 import { SkeletonListRow } from "@/components/ui/skeleton-card";

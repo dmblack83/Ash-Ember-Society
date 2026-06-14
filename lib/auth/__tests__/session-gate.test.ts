@@ -25,4 +25,11 @@ describe("resolveSessionGate", () => {
     expect(resolveSessionGate({ hasSession: true, onboardingCompleted: true, pathname: "/humidor" }))
       .toBe("allow");
   });
+
+  it("lets an onboarding-incomplete user read the legal docs (proxy parity)", () => {
+    for (const p of ["/privacy", "/terms", "/eula"]) {
+      expect(resolveSessionGate({ hasSession: true, onboardingCompleted: false, pathname: p }))
+        .toBe("allow");
+    }
+  });
 });

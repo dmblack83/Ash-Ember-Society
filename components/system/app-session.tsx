@@ -28,8 +28,19 @@ type SupabaseUser = {
   user_metadata?: Record<string, unknown>;
 };
 
-function toAppSession(user: SupabaseUser | null | undefined): AppSession | null {
+type SupabaseSessionLike = {
+  user?:        SupabaseUser | null;
+  expires_at?:  number; // unix seconds
+} | null | undefined;
+
+function toAppSession(session: SupabaseSessionLike): AppSession | null {
+  const user = session?.user;
   if (!user) return null;
+  /* Treat an already-expired access token as no session. On a PWA cold
+     launch the stored token may be expired; rendering authed UI now would
+     fire client queries that 401 (RLS) before the proxy redirects. Return
+     null so the route shows its neutral state until refresh/redirect. */
+  if (session?.expires_at && session.expires_at * 1000 <= Date.now()) return null;
   return {
     userId:              user.id,
     email:               user.email ?? null,
@@ -53,11 +64,11 @@ export function AppSessionProvider({ children }: { children: React.ReactNode }) 
     let active = true;
 
     supabase.auth.getSession().then(({ data }) => {
-      if (active) setValue({ ready: true, session: toAppSession(data.session?.user) });
+      if (active) setValue({ ready: true, session: toAppSession(data.session) });
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
-      if (active) setValue({ ready: true, session: toAppSession(s?.user) });
+      if (active) setValue({ ready: true, session: toAppSession(s) });
     });
 
     return () => {

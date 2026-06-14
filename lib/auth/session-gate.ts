@@ -8,6 +8,10 @@
 
 export type SessionGate = "login" | "onboarding" | "allow";
 
+/* Paths an onboarding-incomplete user may still view (mirrors proxy.ts).
+   Kept in sync with the proxy's onboarding-exempt list. */
+const ONBOARDING_EXEMPT = new Set(["/privacy", "/terms", "/eula"]);
+
 export function resolveSessionGate(input: {
   hasSession: boolean;
   onboardingCompleted: boolean;
@@ -15,6 +19,12 @@ export function resolveSessionGate(input: {
 }): SessionGate {
   const { hasSession, onboardingCompleted, pathname } = input;
   if (!hasSession) return "login";
-  if (!onboardingCompleted && !pathname.startsWith("/onboarding")) return "onboarding";
+  if (
+    !onboardingCompleted &&
+    !pathname.startsWith("/onboarding") &&
+    !ONBOARDING_EXEMPT.has(pathname)
+  ) {
+    return "onboarding";
+  }
   return "allow";
 }

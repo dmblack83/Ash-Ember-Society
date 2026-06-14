@@ -19,20 +19,21 @@ export function HumidorRoute() {
   const router   = useRouter();
   const pathname = usePathname();
 
+  const gate = resolveSessionGate({
+    hasSession:          session !== null,
+    onboardingCompleted: session?.onboardingCompleted ?? false,
+    pathname,
+  });
+
   useEffect(() => {
     if (!ready) return;
-    const gate = resolveSessionGate({
-      hasSession:          session !== null,
-      onboardingCompleted: session?.onboardingCompleted ?? false,
-      pathname,
-    });
     if (gate === "login") {
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
     } else if (gate === "onboarding") {
       router.replace("/onboarding");
     }
-  }, [ready, session, pathname, router]);
+  }, [ready, gate, pathname, router]);
 
-  if (!ready || !session) return <HumidorShellSkeleton />;
+  if (!ready || gate !== "allow" || !session) return <HumidorShellSkeleton />;
   return <HumidorClient userId={session.userId} />;
 }
