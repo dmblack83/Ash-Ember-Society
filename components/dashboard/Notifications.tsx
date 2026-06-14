@@ -6,6 +6,7 @@ import useSWR         from "swr";
 import { keyFor }     from "@/lib/data/keys";
 import { fetchNotificationSummary } from "@/lib/data/notifications";
 import type { NotificationSummaryRow } from "@/lib/data/notifications";
+import { useCollapseSignal } from "./collapse-context";
 
 /* ------------------------------------------------------------------
    Row copy — singular/plural aware. No em dashes (user-facing).
@@ -112,6 +113,16 @@ function NotificationRow({
 export function Notifications({ userId }: { userId: string }) {
   const router               = useRouter();
   const [expanded, setExpanded] = useState(false);
+
+  // Collapse when the pager navigates (signal counter changes). Render-time
+  // state adjustment — React's recommended pattern for resetting state in
+  // response to a changing value, no effect needed.
+  const collapseSignal = useCollapseSignal();
+  const [seenCollapseSignal, setSeenCollapseSignal] = useState(collapseSignal);
+  if (collapseSignal !== seenCollapseSignal) {
+    setSeenCollapseSignal(collapseSignal);
+    setExpanded(false);
+  }
 
   const { data, mutate } = useSWR(
     keyFor.notifications(userId),
