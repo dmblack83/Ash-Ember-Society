@@ -24,23 +24,22 @@ import { AppSessionProvider } from "@/components/system/app-session";
    home roof) we render with `fill="currentFill"`-equivalent classes
    driven by a `data-active` attribute on the icon's <svg>. */
 const HUMIDOR_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <rect x="3" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M3 10h16" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M7 4v2M15 4v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <circle cx="11" cy="14" r="1.5" fill="currentColor" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="5" y="3" width="14" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <line x1="12" y1="3.5" x2="12" y2="20.5" stroke="currentColor" strokeWidth="1.7" />
+    <line x1="9.6" y1="10.6" x2="9.6" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="14.4" y1="10.6" x2="14.4" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="6.5" y1="21" x2="6.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="17.5" y1="21" x2="17.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
 const LOUNGE_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true" className="bottom-nav-fill-on-active">
-    <path
-      d="M2 4.5A1.5 1.5 0 013.5 3h15A1.5 1.5 0 0120 4.5v9A1.5 1.5 0 0118.5 15H7l-4 4V4.5z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-    <path d="M6 8h10M6 11.5h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M20 9V6.5A2.5 2.5 0 0 0 17.5 4h-11A2.5 2.5 0 0 0 4 6.5V9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M2.5 11A1.5 1.5 0 0 1 4 12.5V15h16v-2.5A1.5 1.5 0 0 1 21.5 11 1.5 1.5 0 0 1 23 12.5V17a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-4.5A1.5 1.5 0 0 1 2.5 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M19 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
@@ -82,62 +81,62 @@ function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-stretch lg:hidden"
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
       style={{
-        backgroundColor: "rgba(26,18,16,0.95)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderTop: "1px solid var(--border)",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)",
-        willChange: "transform",
+        paddingLeft: 12,
+        paddingRight: 12,
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
+        pointerEvents: "none", // transparent margin shouldn't block taps on content
       }}
-      aria-label="Main navigation"
     >
-      {NAV_ITEMS.map(({ href, label, match, icon, center }) => {
-        const active = match(pathname);
-        return (
-          <Link
-            key={href}
-            href={href}
-            scroll={false}
-            prefetch={true}
-            data-active={active || undefined}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-opacity active:opacity-70 min-h-[44px]"
-            style={{
-              ...(center ? { marginTop: -8 } : {}),
-              color: active ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              textDecoration: "none",
-            }}
-            aria-current={active ? "page" : undefined}
-            aria-label={label}
-          >
-            {center ? (
-              <div
-                className="rounded-full flex items-center justify-center"
-                style={{
-                  width: 46,
-                  height: 46,
-                  background: active
-                    ? "linear-gradient(135deg, rgba(212,160,74,0.25), rgba(193,120,23,0.25))"
-                    : "rgba(255,255,255,0.06)",
-                  border: `1.5px solid ${active ? "var(--gold, #D4A04A)" : "var(--border)"}`,
-                }}
-              >
-                {icon}
-              </div>
-            ) : (
-              icon
-            )}
-            <span className="text-[10px] font-medium leading-none">
-              {label}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
+      <nav
+        aria-label="Main navigation"
+        className="flex items-stretch"
+        style={{
+          pointerEvents: "auto",
+          padding: 8,
+          borderRadius: 26,
+          background: "rgba(36,28,23,0.55)", // see-through; blur keeps it non-distracting
+          backdropFilter: "blur(20px) saturate(120%)",
+          WebkitBackdropFilter: "blur(20px) saturate(120%)",
+          border: "1px solid rgba(212,160,74,0.16)",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+        }}
+      >
+        {NAV_ITEMS.map(({ href, label, match, icon }) => {
+          const active = match(pathname);
+          return (
+            <Link
+              key={href}
+              href={href}
+              scroll={false}
+              prefetch={true}
+              data-active={active || undefined}
+              className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1.5 min-h-[44px] active:opacity-70"
+              style={{
+                color: active ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                borderRadius: 18,
+                background: active ? "rgba(212,160,74,0.15)" : "transparent",
+                boxShadow: active
+                  ? "inset 0 0 0 1px rgba(212,160,74,0.4), 0 0 16px rgba(212,160,74,0.22)"
+                  : "none",
+                transition:
+                  "color .22s cubic-bezier(.16,1,.3,1), background .22s cubic-bezier(.16,1,.3,1), box-shadow .22s cubic-bezier(.16,1,.3,1)",
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+                textDecoration: "none",
+              }}
+              aria-current={active ? "page" : undefined}
+              aria-label={label}
+            >
+              {icon}
+              <span className="text-[10px] font-medium leading-none">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 
