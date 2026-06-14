@@ -3,6 +3,7 @@ import { redirect }       from "next/navigation";
 import { getServerUser }  from "@/lib/auth/server-user";
 import { TonightsPairing } from "@/components/dashboard/TonightsPairing";
 import { FieldGuide }      from "@/components/dashboard/FieldGuide";
+import { DashboardPager }  from "@/components/dashboard/DashboardPager";
 
 import {
   MastheadIsland,
@@ -57,20 +58,19 @@ export default async function HomePage() {
         {/* ── 1. Tonight's Pairing — primary CTAs, no data ─────────── */}
         <TonightsPairing />
 
-        {/* ── 2. Smoking conditions strip ──────────────────────────── */}
-        <Suspense fallback={<SmokingConditionsSkeleton />}>
-          <SmokingConditionsIsland userId={user.id} />
-        </Suspense>
-
-        {/* ── 2.5 Notifications (consolidated comment activity) ─────── */}
-        <Suspense fallback={<NotificationsSkeleton />}>
-          <NotificationsIsland userId={user.id} />
-        </Suspense>
-
-        {/* ── 3. Aging Shelf ───────────────────────────────────────── */}
-        <Suspense fallback={<AgingSkeleton />}>
-          <AgingIsland userId={user.id} />
-        </Suspense>
+        {/* ── 2. Dashboard pager: conditions · notifications · aging ──
+            initialIndex={1} opens on Notifications (the middle slide). */}
+        <DashboardPager initialIndex={1}>
+          <Suspense fallback={<SmokingConditionsSkeleton />}>
+            <SmokingConditionsIsland userId={user.id} />
+          </Suspense>
+          <Suspense fallback={<NotificationsSkeleton />}>
+            <NotificationsIsland userId={user.id} />
+          </Suspense>
+          <Suspense fallback={<AgingSkeleton />}>
+            <AgingIsland userId={user.id} />
+          </Suspense>
+        </DashboardPager>
 
         {/* ── 4. The Wire (RSS-driven news) ────────────────────────── */}
         <Suspense fallback={<NewsSkeleton />}>
