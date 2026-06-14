@@ -85,15 +85,24 @@ The client fetcher lives in `lib/data/humidor-fetchers.ts` (already exists, alre
 `WishlistClient`); add the items + has-wishlist fetchers there if not present so all humidor
 client fetches share one module.
 
-### Piece 4 — Cache-first nav caching for static-shell routes
+### Piece 4 — Service-worker nav caching (mostly already done)
 
-Today the service worker uses `NetworkFirst` for navigation (Phase-2) because RSC nav HTML
-is per-user — caching it risked cross-user leakage. **That blocker no longer applies to
-`/humidor`** because its shell is now user-agnostic. Add a Serwist runtime rule: navigation
-requests to migrated static-shell routes (starting with `/humidor`) use
-`StaleWhileRevalidate` (serve cache instantly, revalidate in background); all other
-navigations keep `NetworkFirst`. The migrated-route list is explicit so the strategy is
-opt-in per slice.
+**Finding (2026-06-14, after reading `app/sw.ts`):** navigation requests are *already*
+served via `StaleWhileRevalidate` from a `navigations` cache, with an `authPartitionPlugin`
+to avoid cross-user HTML leakage (this was the #470 cold-load white-screen fix). So instant
+paint-from-cache on cold launch and resume is **already in place** — it is NOT a new benefit
+this slice unlocks.
+
+What this slice actually changes at the SW layer is small: once `/humidor`'s shell is
+user-agnostic (Piece 2), its cached navigation HTML no longer needs auth partitioning and
+its background revalidation becomes a cheap static fetch instead of a per-user server render.
+No new navigation handler is required; if anything the change is to let `/humidor` use a
+non-partitioned entry. This is a minor optimization, not the source of the win.
+
+**Consequence for the 10s resume:** because the shell already paints from cache, the resume
+stall is almost certainly *post-paint* (hydration, `ResumeHandler`, longtasks, a blocking
+client init) — which this slice does not touch. This slice is being built for nav/data
+cleanliness and a user-agnostic shell, with resume *measured* here and fixed separately.
 
 ## Data flow (after)
 
@@ -146,15 +155,20 @@ green. Rollback is a single-route revert.
 
 ## Success criteria
 
-- `/humidor` cold launch and resume paint the shell with no blocking server request.
-- Resume-to-interactive on `/humidor` is materially below the current ~10s (target set from
-  the baseline; near-instant shell paint).
-- Tab navigation to `/humidor` is client-side, no per-nav RSC round-trip.
+- `/humidor` renders as a user-agnostic static shell; per-user data arrives via client SWR.
+- `AppSessionProvider` is a reusable client guard the later slices can adopt unchanged.
+- Tab navigation to `/humidor` is client-side; the cached shell needs no auth partition and
+  its revalidation is a static fetch (no per-user server render).
 - No auth/RLS regression; signed-out and incomplete-onboarding users redirect correctly.
-- No humidor data-coherence regression.
+- No humidor data-coherence regression (#503 behavior preserved).
+- Resume-to-interactive on `/humidor` is **measured and characterized** before/after. This
+  slice is NOT expected to fix the ~10s resume (paint is already cache-served; the stall is
+  almost certainly post-paint). If the measurement confirms a post-paint cause, it is filed
+  as a separate targeted fix — explicitly NOT claimed as solved here.
 
 ## Out-of-scope follow-ups (later slices)
 
-Lounge and Discover reuse `AppSessionProvider` + the cache-first nav rule. The rest of the
-`humidor/*` subtree migrates after the canary proves out. `proxy.ts` simplification (once
-most routes are client-shell) is a much later, separate decision.
+Lounge and Discover reuse `AppSessionProvider` + the static-shell/client-SWR pattern. The
+rest of the `humidor/*` subtree migrates after the canary proves out. The **10s resume
+diagnosis** is a separate near-term track (the measurement here feeds it). `proxy.ts`
+simplification (once most routes are client-shell) is a much later, separate decision.
