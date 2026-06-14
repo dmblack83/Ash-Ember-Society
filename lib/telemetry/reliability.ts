@@ -24,6 +24,7 @@ export type ReliabilitySubtype =
   | "outbox_replay_fail"
   | "fetch_timeout"
   | "chunk_load_error"
+  | "cold_transport_slow"
   // ios_webkit
   | "splash_fail"
   | "scope_violation"
