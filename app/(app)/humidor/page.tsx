@@ -1,29 +1,12 @@
-import { Suspense }         from "react";
-import { redirect }          from "next/navigation";
-import { getServerUser }     from "@/lib/auth/server-user";
-import { HumidorDataIsland } from "./_islands";
-import { HumidorShellSkeleton } from "./_skeletons";
+import { HumidorRoute } from "./HumidorRoute";
 
 /*
- * Edge runtime: faster cold start than the Node serverless target.
- * No `force-dynamic` — the data island is implicitly dynamic (per-user
- * queries) but the shell here is static, so removing the flag lets the
- * static portion be served from the edge cache where possible.
+ * Humidor — static client shell. No server data fetch and no
+ * getServerUser() here, so the route renders user-agnostic HTML that
+ * the service worker can serve to anyone (it carries no PII; per-user
+ * data arrives client-side in HumidorClient). Auth gating happens
+ * client-side in HumidorRoute; the proxy still 401s the data queries.
  */
-export const runtime = "edge";
-
-/*
- * Humidor page — sync server component. The data fetch lives in
- * `HumidorDataIsland`; Suspense streams the shell first, fills in the
- * cigar list when the query resolves. Pattern mirrors `app/(app)/home/`.
- */
-export default async function HumidorPage() {
-  const user = await getServerUser();
-  if (!user) redirect("/login");
-
-  return (
-    <Suspense fallback={<HumidorShellSkeleton />}>
-      <HumidorDataIsland userId={user.id} />
-    </Suspense>
-  );
+export default function HumidorPage() {
+  return <HumidorRoute />;
 }
