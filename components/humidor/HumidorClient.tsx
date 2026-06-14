@@ -69,6 +69,11 @@ type SortOption =
    Constants
    ------------------------------------------------------------------ */
 
+/* Stable reference so SWR's `data = initialItems ?? EMPTY_ITEMS`
+   default doesn't create a new array each render (which would break
+   downstream useMemo deps). */
+const EMPTY_ITEMS: HumidorItem[] = [];
+
 const SORT_LABELS: Record<SortOption, string> = {
   date_newest:   "Date Added (newest)",
   date_oldest:   "Date Added (oldest)",
@@ -422,9 +427,11 @@ function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () =>
    ------------------------------------------------------------------ */
 
 interface HumidorClientProps {
-  initialItems:       HumidorItem[];
-  initialHasWishlist: boolean;
-  userId:             string;
+  /** Server-seeded data. Omitted on the client-shell route — the
+      component then fetches on mount. */
+  initialItems?:       HumidorItem[];
+  initialHasWishlist?: boolean;
+  userId:              string;
 }
 
 export function HumidorClient({
@@ -442,7 +449,8 @@ export function HumidorClient({
    * Supabase round-trip on every navigation TO /humidor.
    */
   const {
-    data:       items     = initialItems,
+    data:       items     = initialItems ?? EMPTY_ITEMS,
+    isLoading,
     isValidating: loading,
     error:      itemsError,
     mutate:     mutateItems,
@@ -450,8 +458,10 @@ export function HumidorClient({
     keyFor.humidorItems(userId),
     () => fetchHumidorItems(userId),
     {
-      fallbackData:        initialItems,
-      revalidateOnMount:   false,
+      fallbackData:      initialItems,
+      /* When unseeded (client-shell route) fetch on mount; when the
+         server seeded us (legacy path) skip the redundant round-trip. */
+      revalidateOnMount: initialItems === undefined,
     },
   );
 
@@ -462,14 +472,14 @@ export function HumidorClient({
    * "Or add from wishlist" CTA correctly.
    */
   const {
-    data:   hasWishlist = initialHasWishlist,
+    data:   hasWishlist = initialHasWishlist ?? false,
     mutate: mutateHasWishlist,
   } = useSWR(
     keyFor.hasWishlist(userId),
     () => fetchHasWishlistItems(userId),
     {
-      fallbackData:        initialHasWishlist,
-      revalidateOnMount:   false,
+      fallbackData:      initialHasWishlist,
+      revalidateOnMount: initialHasWishlist === undefined,
     },
   );
 
@@ -680,7 +690,7 @@ export function HumidorClient({
 
       {/* ── Content ─────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-        {loading ? (
+        {(isLoading || loading) ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
