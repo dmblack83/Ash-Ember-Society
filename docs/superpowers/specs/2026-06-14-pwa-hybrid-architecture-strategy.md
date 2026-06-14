@@ -31,13 +31,20 @@ direction.
 - **The pain traces directly to that mismatch:**
   - Server-coupled navigation → the "snappiness" work (#500–#503) exists to claw back what
     a client SPA gives for free.
-  - `proxy.ts` per-request auth verification → multi-second hangs, the 3s `getUser()`
-    timeout race, the `auth.uid()`-null-in-RSC footgun, and a prime suspect for the 10s
-    resume stall.
-  - Cold launch / resume depend on a server round-trip to paint → a large slice of the
-    white-screen / splash / freeze firefight.
+  - Cold launch / resume / nav depend on a **server-side RSC render of the route plus the
+    route's server-side Supabase query** sitting on the critical path before paint → a large
+    slice of the white-screen / splash / freeze firefight, and the prime structural suspect
+    for the 10s resume.
   - The service worker cannot cleanly cache navigation because streamed RSC HTML is
     per-user (the documented StaleWhileRevalidate cross-user-HTML risk).
+
+  **Correction (2026-06-14, after reading `proxy.ts`):** the proxy auth itself is *not* the
+  tax. Since the jose/JWKS fix it verifies the JWT locally in milliseconds and only touches
+  the network on hourly token refresh. The cost is the server *render + data fetch*, not auth
+  verification. Two consequences: (a) the structural fix is moving the shell + data off the
+  server critical path, not removing auth; (b) the authed pages are already shell+island
+  decomposed (Phase-1 perf work), so the per-route migration is smaller than the ~41-file
+  auth surface implied — the proxy stays in place as the data-layer guard.
 
 ## Decision
 
