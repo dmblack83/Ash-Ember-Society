@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
+import { ConnectionProbe } from "@/components/system/ConnectionProbe";
 import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
 import { OutboxManager } from "@/components/system/OutboxManager";
@@ -242,6 +243,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           shrinks correctly when the software keyboard opens. */}
       <ScrollReset />
       <ResumeHandler />
+      <ConnectionProbe />
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
       <OutboxManager />
