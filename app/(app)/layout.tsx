@@ -81,62 +81,62 @@ function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav
-      className="fixed bottom-0 left-0 right-0 z-40 flex items-stretch lg:hidden"
+    <div
+      className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
       style={{
-        backgroundColor: "rgba(26,18,16,0.95)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderTop: "1px solid var(--border)",
-        paddingBottom: "calc(env(safe-area-inset-bottom) + 16px)",
-        willChange: "transform",
+        paddingLeft: 12,
+        paddingRight: 12,
+        paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
+        pointerEvents: "none", // transparent margin shouldn't block taps on content
       }}
-      aria-label="Main navigation"
     >
-      {NAV_ITEMS.map(({ href, label, match, icon, center }) => {
-        const active = match(pathname);
-        return (
-          <Link
-            key={href}
-            href={href}
-            scroll={false}
-            prefetch={true}
-            data-active={active || undefined}
-            className="flex flex-1 flex-col items-center justify-center gap-1 py-2.5 transition-opacity active:opacity-70 min-h-[44px]"
-            style={{
-              ...(center ? { marginTop: -8 } : {}),
-              color: active ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
-              touchAction: "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              textDecoration: "none",
-            }}
-            aria-current={active ? "page" : undefined}
-            aria-label={label}
-          >
-            {center ? (
-              <div
-                className="rounded-full flex items-center justify-center"
-                style={{
-                  width: 46,
-                  height: 46,
-                  background: active
-                    ? "linear-gradient(135deg, rgba(212,160,74,0.25), rgba(193,120,23,0.25))"
-                    : "rgba(255,255,255,0.06)",
-                  border: `1.5px solid ${active ? "var(--gold, #D4A04A)" : "var(--border)"}`,
-                }}
-              >
-                {icon}
-              </div>
-            ) : (
-              icon
-            )}
-            <span className="text-[10px] font-medium leading-none">
-              {label}
-            </span>
-          </Link>
-        );
-      })}
-    </nav>
+      <nav
+        aria-label="Main navigation"
+        className="flex items-stretch"
+        style={{
+          pointerEvents: "auto",
+          padding: 8,
+          borderRadius: 26,
+          background: "rgba(36,28,23,0.55)", // see-through; blur keeps it non-distracting
+          backdropFilter: "blur(20px) saturate(120%)",
+          WebkitBackdropFilter: "blur(20px) saturate(120%)",
+          border: "1px solid rgba(212,160,74,0.16)",
+          boxShadow: "0 8px 30px rgba(0,0,0,0.5)",
+        }}
+      >
+        {NAV_ITEMS.map(({ href, label, match, icon }) => {
+          const active = match(pathname);
+          return (
+            <Link
+              key={href}
+              href={href}
+              scroll={false}
+              prefetch={true}
+              data-active={active || undefined}
+              className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1.5 min-h-[44px] active:opacity-70"
+              style={{
+                color: active ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+                borderRadius: 18,
+                background: active ? "rgba(212,160,74,0.15)" : "transparent",
+                boxShadow: active
+                  ? "inset 0 0 0 1px rgba(212,160,74,0.4), 0 0 16px rgba(212,160,74,0.22)"
+                  : "none",
+                transition:
+                  "color .22s cubic-bezier(.16,1,.3,1), background .22s cubic-bezier(.16,1,.3,1), box-shadow .22s cubic-bezier(.16,1,.3,1)",
+                touchAction: "manipulation",
+                WebkitTapHighlightColor: "transparent",
+                textDecoration: "none",
+              }}
+              aria-current={active ? "page" : undefined}
+              aria-label={label}
+            >
+              {icon}
+              <span className="text-[10px] font-medium leading-none">{label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    </div>
   );
 }
 
