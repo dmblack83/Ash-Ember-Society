@@ -24,23 +24,22 @@ import { AppSessionProvider } from "@/components/system/app-session";
    home roof) we render with `fill="currentFill"`-equivalent classes
    driven by a `data-active` attribute on the icon's <svg>. */
 const HUMIDOR_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <rect x="3" y="6" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M3 10h16" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M7 4v2M15 4v2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    <circle cx="11" cy="14" r="1.5" fill="currentColor" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <rect x="5" y="3" width="14" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
+    <line x1="12" y1="3.5" x2="12" y2="20.5" stroke="currentColor" strokeWidth="1.7" />
+    <line x1="9.6" y1="10.6" x2="9.6" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="14.4" y1="10.6" x2="14.4" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="6.5" y1="21" x2="6.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <line x1="17.5" y1="21" x2="17.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
 const LOUNGE_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true" className="bottom-nav-fill-on-active">
-    <path
-      d="M2 4.5A1.5 1.5 0 013.5 3h15A1.5 1.5 0 0120 4.5v9A1.5 1.5 0 0118.5 15H7l-4 4V4.5z"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinejoin="round"
-    />
-    <path d="M6 8h10M6 11.5h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path d="M20 9V6.5A2.5 2.5 0 0 0 17.5 4h-11A2.5 2.5 0 0 0 4 6.5V9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M2.5 11A1.5 1.5 0 0 1 4 12.5V15h16v-2.5A1.5 1.5 0 0 1 21.5 11 1.5 1.5 0 0 1 23 12.5V17a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-4.5A1.5 1.5 0 0 1 2.5 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M5 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    <path d="M19 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
   </svg>
 );
 
