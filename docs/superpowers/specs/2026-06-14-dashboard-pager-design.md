@@ -101,7 +101,8 @@ compact line each derives from data it already has.
 
 Replace the three stacked `<Suspense>` blocks (Smoking Conditions, Notifications, Aging) with
 a single `<DashboardPager>` wrapping those same three Suspense-wrapped islands. Order:
-Smoking Conditions · Notifications · Aging Shelf. Everything else on the page (Masthead,
+Smoking Conditions · Notifications · Aging Shelf. **The pager opens on Notifications by
+default** (the middle slide), via an `initialIndex` prop. Everything else on the page (Masthead,
 Tonight's Pairing, The Wire/News, Field Guide, Local Shops) is unchanged and stays stacked.
 
 ### 5. Skeletons
