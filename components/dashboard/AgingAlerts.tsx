@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useCollapseSignal } from "./collapse-context";
 
 /* ------------------------------------------------------------------
    Types
@@ -128,6 +129,14 @@ function AgingRow({ item }: { item: AgingItem }) {
 
 export function AgingAlerts({ initialItems }: { initialItems: AgingItem[] }) {
   const [expanded, setExpanded] = useState(false);
+
+  // Collapse when the pager navigates (see Notifications for rationale).
+  const collapseSignal = useCollapseSignal();
+  const [seenCollapseSignal, setSeenCollapseSignal] = useState(collapseSignal);
+  if (collapseSignal !== seenCollapseSignal) {
+    setSeenCollapseSignal(collapseSignal);
+    setExpanded(false);
+  }
 
   // No matching cigars — hide the section entirely
   if (initialItems.length === 0) return null;
