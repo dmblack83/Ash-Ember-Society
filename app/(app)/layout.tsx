@@ -11,6 +11,7 @@ import { PersistentStorageRequest } from "@/components/system/PersistentStorageR
 import { A2HSBanner } from "@/components/system/A2HSBanner";
 import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
 import { StaleBuildNotice } from "@/components/system/StaleBuildNotice";
+import { AppSessionProvider } from "@/components/system/app-session";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
@@ -235,7 +236,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const hideNav = pathname.startsWith("/onboarding");
 
   return (
-    <>
+    <AppSessionProvider>
       {/* Page content — bottom padding clears the nav bar.
           app-container enables dvh tracking on Android so the layout
           shrinks correctly when the software keyboard opens. */}
@@ -264,6 +265,6 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {!hideNav && <A2HSBanner />}
       {!hideNav && <BottomNav />}
       {!hideNav && <SideRailNav />}
-    </>
+    </AppSessionProvider>
   );
 }
