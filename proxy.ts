@@ -21,6 +21,9 @@ const PUBLIC_PATHS = [
   "/",
   "/login",
   "/signup",
+  "/forgot-password", // request a reset link; reachable while logged out
+  // NB: /reset-password is intentionally NOT public — it must stay gated so
+  // only the session minted by the recovery link (via /auth/callback) reaches it.
   "/offline",       // SW navigation fallback; must be reachable without a session
   "/auth/callback",
   "/manifest.webmanifest",
