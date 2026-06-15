@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
@@ -79,15 +79,49 @@ const NAV_ITEMS = [
 
 function BottomNav() {
   const pathname = usePathname();
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  /* iOS PWA repaint fix. The nav is position:fixed and lives in the
+     persistent App Router layout, so it is never re-mounted. After a long
+     background, iOS restores the page without repainting the fixed
+     compositor layer, so the bar appears glued to the scrolled content
+     ("floats up with the page") until something forces a reflow. On resume
+     we toggle a sub-pixel transform to force the compositor to re-sync the
+     layer to the viewport. translateZ(0) below keeps it on its own layer so
+     this nudge is cheap and non-visual. */
+  useEffect(() => {
+    function repaint() {
+      const el = wrapperRef.current;
+      if (!el) return;
+      el.style.transform = "translateZ(0) translateY(0.01px)";
+      // Force layout, then settle back. rAF lets the bumped frame commit.
+      void el.offsetHeight;
+      requestAnimationFrame(() => {
+        if (wrapperRef.current) wrapperRef.current.style.transform = "translateZ(0)";
+      });
+    }
+    function onVisible() {
+      if (document.visibilityState === "visible") repaint();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", repaint);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", repaint);
+    };
+  }, []);
 
   return (
     <div
+      ref={wrapperRef}
       className="fixed bottom-0 left-0 right-0 z-40 lg:hidden"
       style={{
         paddingLeft: 12,
         paddingRight: 12,
         paddingBottom: "calc(env(safe-area-inset-bottom) + 12px)",
         pointerEvents: "none", // transparent margin shouldn't block taps on content
+        transform: "translateZ(0)", // own compositor layer → pins to viewport, not scroll layer
+        WebkitBackfaceVisibility: "hidden",
       }}
     >
       <nav
