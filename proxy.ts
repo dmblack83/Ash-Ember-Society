@@ -26,6 +26,7 @@ const PUBLIC_PATHS = [
   // only the session minted by the recovery link (via /auth/callback) reaches it.
   "/offline",       // SW navigation fallback; must be reachable without a session
   "/auth/callback",
+  "/auth/confirm",  // email OTP (token_hash) verification; mints the session itself
   "/manifest.webmanifest",
   "/privacy",       // referenced by Google OAuth consent screen + landing footer
   "/terms",         // referenced by Google OAuth consent screen + landing footer
