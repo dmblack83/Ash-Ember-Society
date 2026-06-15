@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { Toast } from "@/components/ui/toast";
 import { GoogleAuthButton } from "@/components/auth/GoogleAuthButton";
 
 /* Gated until Google's OAuth verification completes (4-6 weeks).
@@ -58,7 +57,6 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<string | null>(null);
 
   // Preserve intended destination across login
   const next = searchParams.get("next") ?? "/home";
@@ -101,10 +99,6 @@ function LoginForm() {
 
   return (
     <>
-      {toast && (
-        <Toast message={toast} onDismiss={() => setToast(null)} />
-      )}
-
       <div className="card animate-fade-in">
         <div className="mb-8">
           <h1
@@ -151,13 +145,12 @@ function LoginForm() {
             id="password"
             label="Password"
             right={
-              <button
-                type="button"
+              <Link
+                href="/forgot-password"
                 className="text-xs text-muted-foreground hover:text-primary transition-colors duration-150"
-                onClick={() => setToast("Coming soon")}
               >
                 Forgot password?
-              </button>
+              </Link>
             }
           >
             <input
