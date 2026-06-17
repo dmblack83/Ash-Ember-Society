@@ -25,6 +25,7 @@ export type ReliabilitySubtype =
   | "fetch_timeout"
   | "chunk_load_error"
   | "cold_transport_slow"
+  | "dead_socket_reload"
   // ios_webkit
   | "splash_fail"
   | "scope_violation"
