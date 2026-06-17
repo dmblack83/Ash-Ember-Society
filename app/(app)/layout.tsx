@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
 import { ConnectionProbe } from "@/components/system/ConnectionProbe";
+import { ResumeReconnect } from "@/components/system/ResumeReconnect";
 import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
 import { OutboxManager } from "@/components/system/OutboxManager";
@@ -277,6 +278,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ScrollReset />
       <ResumeHandler />
       <ConnectionProbe />
+      <ResumeReconnect />
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
       <OutboxManager />
