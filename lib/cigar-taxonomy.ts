@@ -109,21 +109,56 @@ export interface LengthOption {
 }
 
 export const LENGTHS: LengthOption[] = [
+  { label: '3"',     inches: 3      },
+  { label: '3 1/8"', inches: 3.125  },
+  { label: '3 1/4"', inches: 3.25   },
+  { label: '3 3/8"', inches: 3.375  },
   { label: '3 1/2"', inches: 3.5    },
+  { label: '3 5/8"', inches: 3.625  },
+  { label: '3 3/4"', inches: 3.75   },
+  { label: '3 7/8"', inches: 3.875  },
+  { label: '4"',     inches: 4      },
+  { label: '4 1/8"', inches: 4.125  },
+  { label: '4 1/4"', inches: 4.25   },
+  { label: '4 3/8"', inches: 4.375  },
   { label: '4 1/2"', inches: 4.5    },
+  { label: '4 5/8"', inches: 4.625  },
+  { label: '4 3/4"', inches: 4.75   },
   { label: '4 7/8"', inches: 4.875  },
   { label: '5"',     inches: 5      },
   { label: '5 1/8"', inches: 5.125  },
+  { label: '5 1/4"', inches: 5.25   },
+  { label: '5 3/8"', inches: 5.375  },
   { label: '5 1/2"', inches: 5.5    },
   { label: '5 5/8"', inches: 5.625  },
+  { label: '5 3/4"', inches: 5.75   },
+  { label: '5 7/8"', inches: 5.875  },
   { label: '6"',     inches: 6      },
   { label: '6 1/8"', inches: 6.125  },
   { label: '6 1/4"', inches: 6.25   },
+  { label: '6 3/8"', inches: 6.375  },
   { label: '6 1/2"', inches: 6.5    },
+  { label: '6 5/8"', inches: 6.625  },
+  { label: '6 3/4"', inches: 6.75   },
+  { label: '6 7/8"', inches: 6.875  },
   { label: '7"',     inches: 7      },
+  { label: '7 1/8"', inches: 7.125  },
+  { label: '7 1/4"', inches: 7.25   },
+  { label: '7 3/8"', inches: 7.375  },
   { label: '7 1/2"', inches: 7.5    },
   { label: '7 5/8"', inches: 7.625  },
+  { label: '7 3/4"', inches: 7.75   },
+  { label: '7 7/8"', inches: 7.875  },
   { label: '8"',     inches: 8      },
+  { label: '8 1/8"', inches: 8.125  },
+  { label: '8 1/4"', inches: 8.25   },
+  { label: '8 3/8"', inches: 8.375  },
+  { label: '8 1/2"', inches: 8.5    },
+  { label: '8 5/8"', inches: 8.625  },
+  { label: '8 3/4"', inches: 8.75   },
+  { label: '8 7/8"', inches: 8.875  },
+  { label: '9"',     inches: 9      },
+  { label: '9 1/8"', inches: 9.125  },
   { label: '9 1/4"', inches: 9.25   },
 ];
 
@@ -132,9 +167,12 @@ export const LENGTHS: LengthOption[] = [
    ------------------------------------------------------------------ */
 
 export const RING_GAUGES: number[] = [
-  26, 28, 30, 32, 34, 36, 38,
-  40, 42, 44, 46, 47, 48, 49, 50, 52, 54,
-  56, 58, 60, 64, 70, 80,
+  25, 26, 27, 28, 29, 30,
+  31, 32, 33, 34, 35, 36, 37, 38, 39, 40,
+  41, 42, 43, 44, 45, 46, 47, 48, 49, 50,
+  51, 52, 53, 54, 55, 56, 57, 58, 59, 60,
+  61, 62, 63, 64, 65, 66, 67, 68, 69, 70,
+  80, // retained from the prior list (above the 25-70 standard range)
 ];
 
 /* ------------------------------------------------------------------
