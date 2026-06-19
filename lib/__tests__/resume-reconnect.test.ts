@@ -2,17 +2,19 @@ import { describe, it, expect } from "vitest";
 import {
   classifyProbeError,
   decideReconnect,
-  MAX_RELOADS_PER_SESSION,
+  MAX_RELOADS_PER_WINDOW,
+  RELOAD_WINDOW_MS,
   RELOAD_COOLDOWN_MS,
   type ReconnectInput,
 } from "../resume-reconnect";
 
+const NOW = 10_000_000;
+
 const base: ReconnectInput = {
   online: true,
   probeResult: "timeout",
-  reloadCount: 0,
-  lastReloadAt: 0,
-  now: 1_000_000,
+  recentReloadTimestamps: [],
+  now: NOW,
 };
 
 describe("classifyProbeError", () => {
@@ -34,7 +36,7 @@ describe("classifyProbeError", () => {
 });
 
 describe("decideReconnect", () => {
-  it("reloads when the probe times out, online, within cap and cooldown", () => {
+  it("reloads when the probe times out, online, with no recent reloads", () => {
     expect(decideReconnect(base)).toEqual({ action: "reload" });
   });
 
@@ -59,29 +61,59 @@ describe("decideReconnect", () => {
     });
   });
 
-  it("stops reloading once the per-session cap is reached", () => {
-    expect(
-      decideReconnect({ ...base, reloadCount: MAX_RELOADS_PER_SESSION }),
-    ).toEqual({ action: "none", reason: "capped" });
-  });
-
-  it("respects the cooldown between reloads", () => {
+  it("respects the cooldown after a very recent reload", () => {
     expect(
       decideReconnect({
         ...base,
-        reloadCount: 1,
-        lastReloadAt: base.now - (RELOAD_COOLDOWN_MS - 1),
+        recentReloadTimestamps: [NOW - (RELOAD_COOLDOWN_MS - 1)],
       }),
     ).toEqual({ action: "none", reason: "cooldown" });
   });
 
-  it("reloads again after the cooldown elapses and under the cap", () => {
+  it("reloads again once the cooldown has elapsed", () => {
     expect(
       decideReconnect({
         ...base,
-        reloadCount: 1,
-        lastReloadAt: base.now - RELOAD_COOLDOWN_MS,
+        recentReloadTimestamps: [NOW - RELOAD_COOLDOWN_MS],
       }),
+    ).toEqual({ action: "reload" });
+  });
+
+  it("rate-limits when too many reloads happened inside the window", () => {
+    // MAX reloads, all inside the window and outside the cooldown → loop guard
+    const inside = Array.from(
+      { length: MAX_RELOADS_PER_WINDOW },
+      (_, i) => NOW - RELOAD_COOLDOWN_MS - i * 1000,
+    );
+    expect(
+      decideReconnect({ ...base, recentReloadTimestamps: inside }),
+    ).toEqual({ action: "none", reason: "rate_limited" });
+  });
+
+  it("REGRESSION: reloads again after the window has passed (budget refills)", () => {
+    // The old lifetime cap never reset, so an iOS PWA that accumulated
+    // MAX reloads was stuck hanging forever. Reloads older than the window
+    // must no longer count against the budget.
+    const old = Array.from(
+      { length: MAX_RELOADS_PER_WINDOW + 2 },
+      (_, i) => NOW - RELOAD_WINDOW_MS - 1 - i * 1000,
+    );
+    expect(decideReconnect({ ...base, recentReloadTimestamps: old })).toEqual({
+      action: "reload",
+    });
+  });
+
+  it("counts only in-window reloads toward the cap", () => {
+    // One stale (out of window) + (MAX - 1) recent = under cap → still reloads
+    const mixed = [
+      NOW - RELOAD_WINDOW_MS - 5000, // stale, ignored
+      ...Array.from(
+        { length: MAX_RELOADS_PER_WINDOW - 1 },
+        (_, i) => NOW - RELOAD_COOLDOWN_MS - i * 1000,
+      ),
+    ];
+    expect(
+      decideReconnect({ ...base, recentReloadTimestamps: mixed }),
     ).toEqual({ action: "reload" });
   });
 });

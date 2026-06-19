@@ -44,9 +44,25 @@ export const PROBE_TIMEOUT_MS = 3_000;
  *  quick task-switches don't need a probe. */
 export const RESUME_GAP_MS = 60_000;
 
-/** Hard cap on reconnect reloads per session — defence against a reload
- *  loop if a reload somehow fails to fix the connection. */
-export const MAX_RELOADS_PER_SESSION = 2;
+/** Rolling window over which reconnect reloads are counted. A reload
+ *  older than this no longer counts against the budget — so a legitimate
+ *  dead-socket resume hours (or minutes) later can still recover.
+ *
+ *  WHY THIS REPLACED A LIFETIME CAP: the old guard capped reloads per
+ *  *session* using a monotonic counter in sessionStorage. On an installed
+ *  iOS PWA, sessionStorage survives suspend/resume and the browsing
+ *  context lives for days, so the counter only ever climbed and, once it
+ *  hit the cap, the reconnect reload never fired again — the app silently
+ *  reverted to the full ~20s dead-socket hang on every resume. ("Perfect
+ *  for a day or two, then degraded.") A rolling window keeps the loop
+ *  protection but lets the budget refill. */
+export const RELOAD_WINDOW_MS = 5 * 60_000;
+
+/** Max reconnect reloads allowed inside one rolling window — defence
+ *  against a reload loop if a reload somehow fails to fix the connection.
+ *  A genuine loop (reload → still broken → reload) burns through this in
+ *  well under the window; normal resume-spaced reloads do not. */
+export const MAX_RELOADS_PER_WINDOW = 3;
 
 /** Minimum spacing between reconnect reloads, so two resume signals in
  *  quick succession can't double-reload. */
@@ -59,14 +75,16 @@ export const RELOAD_COOLDOWN_MS = 15_000;
 export type ProbeResult = "ok" | "timeout" | "error";
 
 export type ReconnectDecision =
-  | { action: "none"; reason: "healthy" | "fast_error" | "offline" | "capped" | "cooldown" }
+  | { action: "none"; reason: "healthy" | "fast_error" | "offline" | "rate_limited" | "cooldown" }
   | { action: "reload" };
 
 export interface ReconnectInput {
   online: boolean;
   probeResult: ProbeResult;
-  reloadCount: number;
-  lastReloadAt: number;
+  /** Epoch-ms timestamps of prior reconnect reloads, persisted across
+   *  reloads. Stale entries (older than RELOAD_WINDOW_MS) are ignored, so
+   *  the caller can keep appending without ever pruning. */
+  recentReloadTimestamps: number[];
   now: number;
 }
 
@@ -88,7 +106,17 @@ export function decideReconnect(i: ReconnectInput): ReconnectDecision {
   if (i.probeResult === "error") return { action: "none", reason: "fast_error" };
   // probeResult === "timeout": dead-socket suspected
   if (!i.online) return { action: "none", reason: "offline" };
-  if (i.reloadCount >= MAX_RELOADS_PER_SESSION) return { action: "none", reason: "capped" };
-  if (i.now - i.lastReloadAt < RELOAD_COOLDOWN_MS) return { action: "none", reason: "cooldown" };
+
+  const inWindow = i.recentReloadTimestamps.filter(
+    (ts) => i.now - ts < RELOAD_WINDOW_MS,
+  );
+  const lastReloadAt = inWindow.length > 0 ? Math.max(...inWindow) : 0;
+
+  if (i.now - lastReloadAt < RELOAD_COOLDOWN_MS) {
+    return { action: "none", reason: "cooldown" };
+  }
+  if (inWindow.length >= MAX_RELOADS_PER_WINDOW) {
+    return { action: "none", reason: "rate_limited" };
+  }
   return { action: "reload" };
 }
