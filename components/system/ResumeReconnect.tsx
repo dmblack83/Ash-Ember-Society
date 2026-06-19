@@ -7,6 +7,7 @@ import {
   decideReconnect,
   PROBE_TIMEOUT_MS,
   PROBE_URL,
+  RELOAD_WINDOW_MS,
   RESUME_GAP_MS,
   type ProbeResult,
 } from "@/lib/resume-reconnect";
@@ -30,24 +31,35 @@ import {
    actually lives. No user-facing UI.
    ------------------------------------------------------------------ */
 
-const SS_RELOAD_COUNT = "ae:resume-reconnect:count";
-const SS_LAST_RELOAD  = "ae:resume-reconnect:ts";
+/** Timestamps of recent reconnect reloads, persisted across reloads so
+ *  the loop guard survives the reload it triggers. Stored as JSON in
+ *  sessionStorage; entries outside RELOAD_WINDOW_MS are dropped on write
+ *  so the list never grows without bound. */
+const SS_RELOAD_TIMES = "ae:resume-reconnect:times";
 const RELOAD_FLUSH_MS = 200; // let telemetry send before navigating away
 
-function readNum(key: string): number {
+function readReloadTimes(): number[] {
   try {
-    return Number(sessionStorage.getItem(key) ?? "0") || 0;
+    const raw = sessionStorage.getItem(SS_RELOAD_TIMES);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((n): n is number => typeof n === "number");
   } catch {
-    return 0; // private mode / storage disabled
+    return []; // private mode / storage disabled / malformed
   }
 }
 
-function writeNum(key: string, value: number): void {
+function recordReload(now: number): number[] {
+  const next = [...readReloadTimes(), now].filter(
+    (ts) => now - ts < RELOAD_WINDOW_MS,
+  );
   try {
-    sessionStorage.setItem(key, String(value));
+    sessionStorage.setItem(SS_RELOAD_TIMES, JSON.stringify(next));
   } catch {
     /* storage disabled — non-fatal */
   }
+  return next;
 }
 
 export function ResumeReconnect() {
@@ -74,22 +86,21 @@ export function ResumeReconnect() {
       busy = true;
       try {
         const probeResult = await probe();
+        const now = Date.now();
         const decision = decideReconnect({
           online: navigator.onLine,
           probeResult,
-          reloadCount: readNum(SS_RELOAD_COUNT),
-          lastReloadAt: readNum(SS_LAST_RELOAD),
-          now: Date.now(),
+          recentReloadTimestamps: readReloadTimes(),
+          now,
         });
         if (decision.action !== "reload") return;
 
-        writeNum(SS_RELOAD_COUNT, readNum(SS_RELOAD_COUNT) + 1);
-        writeNum(SS_LAST_RELOAD, Date.now());
+        const times = recordReload(now);
         trackReliability({
           bucket: "network_resilience",
           subtype: "dead_socket_reload",
           cause: "resume",
-          extra: { reload_count: readNum(SS_RELOAD_COUNT) },
+          extra: { reload_count_in_window: times.length },
         });
         window.setTimeout(() => window.location.reload(), RELOAD_FLUSH_MS);
       } finally {
