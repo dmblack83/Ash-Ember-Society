@@ -24,6 +24,8 @@ export const SHADES: OptionWithDescription[] = [
   { name: "Claro",                  description: "Pale Tan" },
   { name: "Colorado Claro",         description: "Light Brown / Natural" },
   { name: "Colorado",               description: "Medium Brown / Reddish" },
+  { name: "Rosado Sun Grown",       description: "Reddish / Sun-Grown" },
+  { name: "Sun Grown",              description: "Dark Brown / Sun-Grown" },
   { name: "Colorado Maduro",        description: "Dark Brown / Dark Natural" },
   { name: "Maduro",                 description: "Very Dark Brown / Oily" },
   { name: "Oscuro / Double Maduro", description: "Near Black / Jet Black" },
@@ -66,6 +68,7 @@ export const WRAPPER_COUNTRIES: OptionWithDescription[] = [
   { name: "Costa Rica",         description: "Mild / Smooth" },
   { name: "Panama",             description: "Balanced / Refined" },
   { name: "Peru",               description: "Sweet / Earthy" },
+  { name: "Africa",             description: "Toasted / Earthy" },
 ];
 
 /* ------------------------------------------------------------------
@@ -80,6 +83,8 @@ export const FORMATS: string[] = [
   "Perfecto",
   "Piramide",
   "Belicoso",
+  "Diademas",
+  "Figurado",
   /* Named vitolas */
   "Corona",
   "Petit Corona",
