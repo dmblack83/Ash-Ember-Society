@@ -68,6 +68,7 @@ export const WRAPPER_COUNTRIES: OptionWithDescription[] = [
   { name: "Costa Rica",         description: "Mild / Smooth" },
   { name: "Panama",             description: "Balanced / Refined" },
   { name: "Peru",               description: "Sweet / Earthy" },
+  { name: "Colombia",           description: "Smooth / Sweet" },
   { name: "Africa",             description: "Toasted / Earthy" },
 ];
 
