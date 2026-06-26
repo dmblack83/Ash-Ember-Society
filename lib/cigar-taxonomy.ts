@@ -166,6 +166,7 @@ export const LENGTHS: LengthOption[] = [
   { label: '9"',     inches: 9      },
   { label: '9 1/8"', inches: 9.125  },
   { label: '9 1/4"', inches: 9.25   },
+  { label: '10"',    inches: 10     },
 ];
 
 /* ------------------------------------------------------------------
