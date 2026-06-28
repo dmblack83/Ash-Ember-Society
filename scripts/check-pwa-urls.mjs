@@ -20,16 +20,18 @@ import { exit } from "node:process";
 
 const EXPECTED_HOST = "https://www.ashember.vip";
 
+/*
+ * NOTE (2026-06-28): the apple-touch-startup-image (iosSplash) source check
+ * was removed when the PWA was simplified to network-first and the splash set
+ * was dropped from app/layout.tsx. See
+ * docs/superpowers/specs/2026-06-28-pwa-strategy-rhyme-audit.md. The splash
+ * PNGs remain committed under public/appstore-images/ios-splash/ and the
+ * post-deploy curl smoke test in ci.yml still verifies they return 200, so
+ * the absolute-URL regression for those static files stays guarded. If splash
+ * references are ever restored in layout, re-add a mustContain check here for
+ * the absolute iosSplash URL.
+ */
 const checks = [
-  {
-    file:  "app/layout.tsx",
-    label: "iOS apple-touch-startup-image URLs (iosSplash helper)",
-    mustContain:    [`url:   \`${EXPECTED_HOST}/appstore-images/ios-splash/`],
-    mustNotContain: [
-      "url:   `/appstore-images/ios-splash/",
-      "url: `/appstore-images/ios-splash/",
-    ],
-  },
   {
     file:  "app/manifest.ts",
     label: "PWA manifest start_url",
