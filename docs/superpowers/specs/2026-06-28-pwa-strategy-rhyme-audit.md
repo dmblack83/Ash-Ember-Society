@@ -273,6 +273,19 @@ migration step.
   proxy auth timeout, ReliabilityBootstrap/Sentry telemetry.
 - Stale-chunk recovery (tiny, harmless insurance; also now near-impossible to trigger).
 
+### Cold-launch note (corrected 2026-06-28 after final review)
+Removing the StaleWhileRevalidate navigation cache does reintroduce the cold-launch
+TTFB vector that cache was originally added to kill: a cold iOS relaunch hits `proxy.ts`
+on a cold connection before the first HTML byte arrives. The earlier claim that "the
+cold-smoke overlay covers the gap" is not quite right — the overlay is server-rendered,
+so it ships *inside* the HTML body that hasn't arrived yet and cannot paint during the
+pre-TTFB window. What actually bounds the regression is (a) the existing 3s proxy
+auth-timeout race, and (b) navigation preload, which the network-first handler now
+explicitly consumes (`event.preloadResponse`) so the navigation fetch starts in parallel
+with SW boot. This is a Dave-approved tradeoff: offline is nice-to-have, and the
+multi-user-leak + stale-shell classes are retired in exchange. The window is bounded, not
+eliminated; watch Speed Insights cold-launch LCP after deploy.
+
 ### Risk + rollback
 Touches `app/sw.ts`, the file behind prior black-screen incidents. Steady state after is
 **safer** (network-first SW cannot serve stale or wrong-user shells). The risk window is
