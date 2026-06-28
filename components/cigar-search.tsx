@@ -21,9 +21,6 @@ export interface CatalogResult {
   image_url:       string | null;
 }
 
-const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
-
 /* ------------------------------------------------------------------
    Gold-highlight matched text
    ------------------------------------------------------------------ */
@@ -98,10 +95,8 @@ export function CigarSearch({
 
   /* Load popular on mount */
   useEffect(() => {
-    (async () => {
-      await loadPopular();
-      if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
-    })();
+    void loadPopular();
+    if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* doSearch handles BOTH the first page (pageIndex=0, replaces results)
