@@ -95,8 +95,10 @@ export function CigarSearch({
 
   /* Load popular on mount */
   useEffect(() => {
-    void loadPopular();
     if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
+    void (async () => {
+      await loadPopular();
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* doSearch handles BOTH the first page (pageIndex=0, replaces results)
