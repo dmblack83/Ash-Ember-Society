@@ -5,7 +5,8 @@
  *
  * The Discover Cigars surface combines two access patterns:
  * - "Popular" view (no search query): top results by usage_count
- * - Search: ilike across brand / series / format
+ * - Search: every typed word must ILIKE the generated search_text column
+ *   (tokens ANDed) — see lib/cigar-search-query.ts.
  *
  * Both share one fetcher signature so useSWRInfinite can switch
  * between them by changing only the query string in the cache key.
@@ -14,6 +15,7 @@
 
 import { createClient }     from "@/utils/supabase/client";
 import type { CatalogResult } from "@/components/cigar-search";
+import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 
 const CATALOG_SELECT =
   "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
@@ -36,17 +38,20 @@ export async function fetchCigarPage({
 }: FetchArgs): Promise<CigarPage> {
   const supabase = createClient();
   const offset   = pageIndex * pageSize;
+  const tokens   = tokenizeSearch(query);
 
-  let q = supabase
-    .from("cigar_catalog")
-    .select(CATALOG_SELECT)
-    .range(offset, offset + pageSize - 1);
+  let q = supabase.from("cigar_catalog").select(CATALOG_SELECT);
 
-  if (query) {
-    q = q.or(`brand.ilike.%${query}%,series.ilike.%${query}%,format.ilike.%${query}%`);
-  } else {
-    q = q.order("usage_count", { ascending: false });
+  // Each token must appear somewhere in the row. Chained PostgREST
+  // filters are ANDed, so every token narrows the result set.
+  for (const token of tokens) {
+    q = q.ilike("search_text", toLikePattern(token));
   }
+
+  q = q
+    .order("usage_count", { ascending: false })
+    .order("id",          { ascending: true })
+    .range(offset, offset + pageSize - 1);
 
   const { data, error } = await q;
   if (error) throw new Error(error.message);
