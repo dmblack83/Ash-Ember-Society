@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { createClient } from "@/utils/supabase/client";
+import { fetchCigarPage } from "@/lib/data/cigar-fetchers";
 
 /* ------------------------------------------------------------------
    Shared type — used by AddCigarSheet, Wishlist, and Discover
@@ -83,53 +83,45 @@ export function CigarSearch({
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function loadPopular() {
-    const supabase = createClient();
-    supabase
-      .from("cigar_catalog")
-      .select(CATALOG_SELECT)
-      .order("usage_count", { ascending: false })
-      .limit(20)
-      .then(({ data }) => {
-        setResults(data ?? []);
-        setIsPopular(true);
-        setShowDropdown(true);
-        /* Popular list is the curated top-20; no pagination here. */
-        setHasMore(false);
-      });
+  async function loadPopular() {
+    const { results } = await fetchCigarPage({
+      query:     "",
+      pageIndex: 0,
+      pageSize:  20,
+    });
+    setResults(results);
+    setIsPopular(true);
+    setShowDropdown(true);
+    /* Popular list is the curated top-20; no pagination here. */
+    setHasMore(false);
   }
 
   /* Load popular on mount */
   useEffect(() => {
-    loadPopular();
-    if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
+    (async () => {
+      await loadPopular();
+      if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* doSearch handles BOTH the first page (offset=0, replaces results)
-     and subsequent pages (offset>0, appends to results). Explicit
-     usage_count ordering: without it, range() pagination can return
-     overlapping or missing rows across pages — Postgres has no
-     stable order without an ORDER BY. */
-  const doSearch = useCallback(async (q: string, offset: number) => {
-    if (offset === 0) setSearching(true);
-    else              setLoadingMore(true);
+  /* doSearch handles BOTH the first page (pageIndex=0, replaces results)
+     and subsequent pages (pageIndex>0, appends). Delegates to the shared
+     fetchCigarPage so the dropdown and the Discover grid run identical
+     multi-token matching + ordering. */
+  const doSearch = useCallback(async (q: string, pageIndex: number) => {
+    if (pageIndex === 0) setSearching(true);
+    else                 setLoadingMore(true);
 
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("cigar_catalog")
-      .select(CATALOG_SELECT)
-      .or(`brand.ilike.%${q}%,series.ilike.%${q}%,format.ilike.%${q}%`)
-      .order("usage_count", { ascending: false })
-      .order("id", { ascending: true })
-      .range(offset, offset + SEARCH_PAGE_SIZE - 1);
+    const { results: rows, hasMore: more } = await fetchCigarPage({
+      query:     q,
+      pageIndex,
+      pageSize:  SEARCH_PAGE_SIZE,
+    });
 
-    const rows = data ?? [];
-    setResults((prev) => (offset === 0 ? rows : [...prev, ...rows]));
+    setResults((prev) => (pageIndex === 0 ? rows : [...prev, ...rows]));
     setIsPopular(false);
     setShowDropdown(true);
-    /* Full page returned → likely more available. A short page means
-       we hit the tail. */
-    setHasMore(rows.length === SEARCH_PAGE_SIZE);
+    setHasMore(more);
     setSearching(false);
     setLoadingMore(false);
   }, []);
@@ -138,7 +130,9 @@ export function CigarSearch({
   useEffect(() => {
     if (!query.trim()) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      loadPopular();
+      (async () => {
+        await loadPopular();
+      })();
       return;
     }
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -284,7 +278,7 @@ export function CigarSearch({
               ))}
               {hasMore && !isPopular && (
                 <button
-                  onClick={() => doSearch(query.trim(), results.length)}
+                  onClick={() => doSearch(query.trim(), results.length / SEARCH_PAGE_SIZE)}
                   disabled={loadingMore}
                   className="w-full text-sm font-semibold text-center transition-colors active:opacity-70 flex items-center justify-center gap-2"
                   style={{
