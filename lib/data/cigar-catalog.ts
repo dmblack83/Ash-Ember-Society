@@ -36,6 +36,7 @@ export const getPopularCigars = unstable_cache(
       .from("cigar_catalog")
       .select("id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url")
       .order("usage_count", { ascending: false })
+      .order("id", { ascending: true })
       .limit(limit);
     return (data ?? []) as PopularCigar[];
   },
