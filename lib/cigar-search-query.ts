@@ -16,7 +16,7 @@ export function tokenizeSearch(input: string): string[] {
   const seen = new Set<string>();
   const tokens: string[] = [];
   for (const raw of input.toLowerCase().split(/\s+/)) {
-    const token = raw.trim();
+    const token = raw;
     if (!token || seen.has(token)) continue;
     seen.add(token);
     tokens.push(token);
