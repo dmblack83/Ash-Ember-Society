@@ -278,9 +278,17 @@ const serwist = new Serwist({
      */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: async ({ request }) => {
+      handler: async ({ request, event }) => {
         try {
-          return await fetch(request);
+          /* Consume the navigation preload the browser started in parallel
+             with SW boot (navigationPreload: true). preloadResponse resolves
+             to undefined when no preload was sent, so fall back to a normal
+             fetch. This avoids a wasted double request and shrinks cold-launch
+             TTFB. The DOM lib types preloadResponse as Promise<any>, hence the
+             cast. */
+          const fetchEvent = event as FetchEvent | undefined;
+          const preload = (await fetchEvent?.preloadResponse) as Response | undefined;
+          return preload ?? (await fetch(request));
         } catch {
           const cached = await caches.match(OFFLINE_URL, { cacheName: OFFLINE_CACHE });
           return cached ?? Response.error();
