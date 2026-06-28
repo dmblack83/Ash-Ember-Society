@@ -89,16 +89,16 @@ export function CigarSearch({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function loadPopular() {
-    const { results } = await fetchCigarPage({
-      query:     "",
-      pageIndex: 0,
-      pageSize:  20,
-    });
-    setResults(results);
-    setIsPopular(true);
-    setShowDropdown(true);
-    /* Popular list is the curated top-20; no pagination here. */
-    setHasMore(false);
+    try {
+      const { results } = await fetchCigarPage({ query: "", pageIndex: 0, pageSize: 20 });
+      setResults(results);
+    } catch {
+      setResults([]);
+    } finally {
+      setIsPopular(true);
+      setShowDropdown(true);
+      setHasMore(false);
+    }
   }
 
   /* Load popular on mount */
@@ -116,19 +116,22 @@ export function CigarSearch({
   const doSearch = useCallback(async (q: string, pageIndex: number) => {
     if (pageIndex === 0) setSearching(true);
     else                 setLoadingMore(true);
-
-    const { results: rows, hasMore: more } = await fetchCigarPage({
-      query:     q,
-      pageIndex,
-      pageSize:  SEARCH_PAGE_SIZE,
-    });
-
-    setResults((prev) => (pageIndex === 0 ? rows : [...prev, ...rows]));
-    setIsPopular(false);
-    setShowDropdown(true);
-    setHasMore(more);
-    setSearching(false);
-    setLoadingMore(false);
+    try {
+      const { results: rows, hasMore: more } = await fetchCigarPage({
+        query:     q,
+        pageIndex,
+        pageSize:  SEARCH_PAGE_SIZE,
+      });
+      setResults((prev) => (pageIndex === 0 ? rows : [...prev, ...rows]));
+      setHasMore(more);
+    } catch {
+      if (pageIndex === 0) { setResults([]); setHasMore(false); }
+    } finally {
+      setIsPopular(false);
+      setShowDropdown(true);
+      setSearching(false);
+      setLoadingMore(false);
+    }
   }, []);
 
   /* Re-fetch when query changes */
