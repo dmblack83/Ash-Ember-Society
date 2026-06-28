@@ -1,13 +1,23 @@
 -- Multi-word cigar search: one lowercased, concatenated search column.
 -- Generated + STORED so it auto-updates on insert/update with no trigger.
--- All expression parts (lower, concat_ws, ::text) are immutable.
+-- NOTE: built with || + coalesce, NOT concat_ws. concat_ws is STABLE (not
+-- IMMUTABLE) and Postgres rejects it in a generated column expression
+-- ("generation expression is not immutable"). The || operator, coalesce,
+-- lower, and int/numeric ::text casts are all immutable.
 
 alter table cigar_catalog
   add column if not exists search_text text
   generated always as (
-    lower(concat_ws(' ',
-      brand, series, format, wrapper, wrapper_country, shade,
-      ring_gauge::text, length_inches::text))
+    lower(
+      coalesce(brand, '')           || ' ' ||
+      coalesce(series, '')          || ' ' ||
+      coalesce(format, '')          || ' ' ||
+      coalesce(wrapper, '')         || ' ' ||
+      coalesce(wrapper_country, '') || ' ' ||
+      coalesce(shade, '')           || ' ' ||
+      coalesce(ring_gauge::text, '')    || ' ' ||
+      coalesce(length_inches::text, '')
+    )
   ) stored;
 
 -- Trigram index keeps `ILIKE %x%` fast as the catalog grows.
