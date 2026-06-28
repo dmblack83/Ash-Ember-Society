@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchCigarPage } from "@/lib/data/cigar-fetchers";
+import { tokenizeSearch } from "@/lib/cigar-search-query";
 
 /* ------------------------------------------------------------------
    Shared type — used by AddCigarSheet, Wishlist, and Discover
@@ -26,13 +27,20 @@ export interface CatalogResult {
    ------------------------------------------------------------------ */
 
 export function Highlight({ text, query }: { text: string; query: string }) {
-  if (!text || !query.trim()) return <>{text}</>;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts   = text.split(new RegExp(`(${escaped})`, "gi"));
+  const tokens = tokenizeSearch(query);
+  if (!text || tokens.length === 0) return <>{text}</>;
+
+  // Build one alternation of regex-escaped tokens; split keeps the matches.
+  const pattern = tokens
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const parts = text.split(new RegExp(`(${pattern})`, "gi"));
+  const tokenSet = new Set(tokens); // tokens are already lowercased
+
   return (
     <>
       {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
+        tokenSet.has(part.toLowerCase()) ? (
           <span key={i} style={{ color: "var(--gold)", fontWeight: 600 }}>
             {part}
           </span>
