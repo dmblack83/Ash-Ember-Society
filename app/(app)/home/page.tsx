@@ -5,22 +5,17 @@ import { TonightsPairing } from "@/components/dashboard/TonightsPairing";
 import { FieldGuide }      from "@/components/dashboard/FieldGuide";
 import { DashboardPager }  from "@/components/dashboard/DashboardPager";
 
+import { NewsIsland } from "./_islands";
+
 import {
   MastheadIsland,
   SmokingConditionsIsland,
   NotificationsIsland,
   AgingIsland,
-  NewsIsland,
   LocalShopsIsland,
-} from "./_islands";
+} from "./client-islands";
 
-import {
-  MastheadSkeleton,
-  SmokingConditionsSkeleton,
-  NotificationsSkeleton,
-  AgingSkeleton,
-  NewsSkeleton,
-} from "./_skeletons";
+import { NewsSkeleton } from "./_skeletons";
 
 /*
  * Edge runtime: faster cold start than the Node serverless target on
@@ -49,9 +44,7 @@ export default async function HomePage() {
   return (
     <>
       {/* ── 0. Masthead (full-width greeting + admin link) ─────────── */}
-      <Suspense fallback={<MastheadSkeleton />}>
-        <MastheadIsland userId={user.id} />
-      </Suspense>
+      <MastheadIsland />
 
       <div className="px-4 sm:px-6 pt-6 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
 
@@ -61,15 +54,9 @@ export default async function HomePage() {
         {/* ── 2. Dashboard pager: conditions · notifications · aging ──
             initialIndex={1} opens on Notifications (the middle slide). */}
         <DashboardPager initialIndex={1}>
-          <Suspense fallback={<SmokingConditionsSkeleton />}>
-            <SmokingConditionsIsland userId={user.id} />
-          </Suspense>
-          <Suspense fallback={<NotificationsSkeleton />}>
-            <NotificationsIsland userId={user.id} />
-          </Suspense>
-          <Suspense fallback={<AgingSkeleton />}>
-            <AgingIsland userId={user.id} />
-          </Suspense>
+          <SmokingConditionsIsland />
+          <NotificationsIsland />
+          <AgingIsland />
         </DashboardPager>
 
         {/* ── 4. The Wire (RSS-driven news) ────────────────────────── */}
@@ -81,7 +68,7 @@ export default async function HomePage() {
         <FieldGuide />
 
         {/* ── 6. Local Shops — reads profile ZIP, opens Google Maps externally ── */}
-        <LocalShopsIsland userId={user.id} />
+        <LocalShopsIsland />
 
       </div>
     </>
