@@ -48,6 +48,37 @@ export const viewport: Viewport = {
   userScalable: false,
 };
 
+/* iOS launch (splash) images. iOS shows these in the window between
+   icon-tap and the first HTML paint — the exact gap that produced
+   multi-second white screens on PWA cold-launch / warm-resume after
+   iOS evicted the WebView. Each entry pairs one of our pre-generated
+   `public/appstore-images/ios-splash/<width>x<height>.png` images
+   with the media query iOS uses to pick it. Mismatched-resolution
+   splashes are ignored by iOS (falls back to white), so the device
+   dimensions in `device-width`/`device-height` + the matching pixel
+   ratio MUST be exact.
+
+   The URL must be ABSOLUTE to www.ashember.vip. PWAs installed when
+   the user was on the bare ashember.vip host store the splash URL
+   relative to that host; iOS then fetches it from bare, which 307s
+   to www, and iOS does NOT follow 307 redirects for
+   apple-touch-startup-image requests (documented WKWebView quirk).
+   Result: 5-10s of black launch screen on every cold open.
+   Absolute www URL bypasses the redirect entirely. Do NOT make this
+   relative again. See docs/superpowers/specs/2026-05-30-* for the
+   full investigation.
+
+   Generation: `python3 scripts/generate-ios-splash.py`. Re-run after
+   any logo or brand-color change. */
+const iosSplash = (deviceW: number, deviceH: number, dpr: 2 | 3, orientation: "portrait" | "landscape" = "portrait") => {
+  const w = orientation === "portrait" ? deviceW * dpr : deviceH * dpr;
+  const h = orientation === "portrait" ? deviceH * dpr : deviceW * dpr;
+  return {
+    url:   `https://www.ashember.vip/appstore-images/ios-splash/${w}x${h}.png`,
+    media: `(device-width: ${deviceW}px) and (device-height: ${deviceH}px) and (-webkit-device-pixel-ratio: ${dpr}) and (orientation: ${orientation})`,
+  };
+};
+
 export const metadata: Metadata = {
   title: "Ash & Ember Society",
   description: "A premium cigar enthusiast experience.",
@@ -76,11 +107,29 @@ export const metadata: Metadata = {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Ash & Ember",
-    /* No startupImage set. The cold-open smoke overlay (server-rendered,
-       throttled) covers the launch gap instead of native splash PNGs.
-       Testing whether dropping splash regresses the launch feel — see the
-       2026-06-28 rhyme audit spec. To restore: re-add startupImage with the
-       iosSplash helper from git history. */
+    startupImage: [
+      /* iPhones — portrait. Listed largest to smallest so iOS picks
+         the most specific match (it evaluates top-down). */
+      iosSplash(440, 956, 3),  // 16 Pro Max
+      iosSplash(402, 874, 3),  // 16 Pro
+      iosSplash(430, 932, 3),  // 15 Pro Max, 14 Pro Max
+      iosSplash(428, 926, 3),  // 14 Plus
+      iosSplash(393, 852, 3),  // 15 Pro, 14 Pro
+      iosSplash(414, 896, 3),  // 11 Pro Max, XS Max
+      iosSplash(414, 896, 2),  // 11, XR
+      iosSplash(390, 844, 3),  // 14, 13, 13 Pro, 12, 12 Pro
+      iosSplash(375, 812, 3),  // 13 mini, 12 mini, 11 Pro, XS, X
+      iosSplash(414, 736, 3),  // 8 Plus, 7 Plus, 6S Plus
+      iosSplash(375, 667, 2),  // 8, 7, 6S, 6, SE (2/3)
+      iosSplash(320, 568, 2),  // SE (1st gen), 5S, 5
+      /* iPads — portrait. */
+      iosSplash(1024, 1366, 2), // Pro 12.9"
+      iosSplash(834, 1194, 2),  // Pro 11"
+      iosSplash(820, 1180, 2),  // Air 10.9"
+      iosSplash(810, 1080, 2),  // 10.2"
+      iosSplash(744, 1133, 2),  // mini (6th gen)
+      iosSplash(768, 1024, 2),  // 9.7", mini (older)
+    ],
   },
 };
 

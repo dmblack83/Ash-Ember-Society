@@ -8,6 +8,7 @@ import { ConnectionProbe } from "@/components/system/ConnectionProbe";
 import { ResumeReconnect } from "@/components/system/ResumeReconnect";
 import { OfflineBanner } from "@/components/system/OfflineBanner";
 import { PushSubscriptionHealthCheck } from "@/components/system/PushSubscriptionHealthCheck";
+import { OutboxManager } from "@/components/system/OutboxManager";
 import { PersistentStorageRequest } from "@/components/system/PersistentStorageRequest";
 import { A2HSBanner } from "@/components/system/A2HSBanner";
 import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
@@ -280,6 +281,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ResumeReconnect />
       <OfflineBanner />
       <PushSubscriptionHealthCheck />
+      <OutboxManager />
       <PersistentStorageRequest />
       <ServiceWorkerUpdateNotice />
       <StaleBuildNotice />

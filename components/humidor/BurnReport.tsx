@@ -17,6 +17,7 @@ import {
 import { trackReliability } from "@/lib/telemetry/reliability";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
 import { checkResponse } from "@/lib/telemetry/fetch-checks";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
@@ -1953,17 +1954,37 @@ export function BurnReport({
          that doesn't change quantity). */
       if (mode === "create") void revalidateHumidor(userId);
     } catch (err) {
-      /* fetch threw, typically a network failure. Surface it so the user
-         can retry when back online. Offline queuing was removed with the
-         PWA network-first simplification (see the 2026-06-28 rhyme audit
-         spec); most lounges have wifi, so offline submit is not supported. */
-      setSubmitError(
-        err instanceof Error && err.message
-          ? err.message
-          : "Submit failed. Check your connection and try again.",
-      );
-      setSubmitting(false);
-      return;
+      /* fetch threw — typically a network failure. If the user looks
+         offline, queue the request via the outbox so the SW (or
+         online-event fallback) replays when connectivity returns.
+         SuccessScreen handles smokeLogId === null by suppressing the
+         share-to-lounge UX; the queued send populates the rows on
+         the server later. */
+      if (isLikelyOfflineError(err)) {
+        const queued = await enqueueFetchMutation({
+          url:      "/api/burn-report",
+          method:   "POST",
+          body:     payload,
+          category: "burn-report",
+          userId:   user.id,
+        });
+        if (queued) {
+          setSmokeLogId(null);
+          /* Predicted post-decrement quantity — server hasn't actually
+             decremented yet. If the queued send fails permanently the
+             humidor will reflect the stale-but-correct count on next
+             refresh. */
+          setQuantityAfter(Math.max(0, item.quantity - 1));
+        } else {
+          setSubmitError("You're offline and we couldn't save your report locally. Try again when you reconnect.");
+          setSubmitting(false);
+          return;
+        }
+      } else {
+        setSubmitError(err instanceof Error ? err.message : "Submit failed.");
+        setSubmitting(false);
+        return;
+      }
     }
 
     setSubmitting(false);

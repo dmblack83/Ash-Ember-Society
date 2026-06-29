@@ -24,7 +24,7 @@
  *
  * Strategy table
  * ──────────────
- *   Navigation requests      → NetworkFirst, /offline fallback (never cached)
+ *   Navigation requests      → StaleWhileRevalidate, /offline fallback
  *   /_next/static/*          → CacheFirst, immutable
  *   Same-origin images       → SWR, capped 50 entries / 30d
  *   Supabase Storage public  → SWR, capped 100 entries / 7d
@@ -39,6 +39,7 @@ import {
   StaleWhileRevalidate,
   ExpirationPlugin,
   CacheableResponsePlugin,
+  type SerwistPlugin,
   type PrecacheEntry,
 } from "serwist";
 
@@ -89,15 +90,152 @@ async function postReliability(p: SwReliabilityPayload): Promise<void> {
 
 const OFFLINE_URL = "/offline";
 
-/* Dedicated cache for the user-agnostic offline fallback page. The app
-   shell is never cached (see the navigation rule below), so this is the
-   only thing a failed navigation can fall back to. */
-const OFFLINE_CACHE = "ae-offline-fallback";
+/* ──────────────────────────────────────────────────────────────────
+   Auth-aware cache-key plugin
 
-/* Legacy cache name from the old auth-partitioned StaleWhileRevalidate
-   navigation rule. No longer written; purged on activate so no installed
-   PWA can serve stale authenticated HTML after this update. */
-const LEGACY_NAV_CACHE = "navigations";
+   Why: navigation HTML embeds per-user data (greeting, admin link,
+   personalised islands once Phase 1 streams). With NetworkFirst the
+   cache is consulted only as the offline fallback — but a shared
+   device that goes offline must still never serve User A's cached
+   HTML to User B after sign-out / sign-in.
+
+   This plugin partitions the cache by auth identity. The cache key
+   becomes `${url}#auth=${hash}` where `hash` is a short fingerprint
+   of the request's Supabase auth cookies. Different users → different
+   hashes → different cache entries; sign-out → empty hash → its own
+   bucket. Same URL is served from the right partition.
+
+   The actual NETWORK fetch still goes to the original URL; only the
+   cache lookup/store key is mutated. SHA-256 truncated to 16 hex
+   chars is collision-resistant enough for cache partitioning.
+   ────────────────────────────────────────────────────────────── */
+
+/* Extract the `sub` claim from a Supabase auth cookie value.
+
+   Cookie value may be in one of two formats:
+   - "base64-{json}" — newer @supabase/ssr wraps a JSON object
+     containing access_token/refresh_token in a base64-encoded blob
+   - Plain JWT (header.payload.signature) — older format
+
+   We don't VERIFY the JWT (no signing key in the SW; no need for
+   trust here — we're just partitioning a cache, not authorizing).
+   Just decode the payload to read `sub`. Any parse/decode failure
+   returns null; the caller falls back to the "anon" partition.
+
+   Returns null when:
+   - The cookie isn't in either expected shape
+   - The JWT has fewer than 3 segments
+   - The payload isn't valid JSON
+   - There's no string `sub` claim */
+function extractSubClaim(cookieValue: string): string | null {
+  let raw = cookieValue;
+
+  /* base64-wrapped JSON envelope (newer @supabase/ssr). The wrapper
+     is the literal prefix "base64-" followed by base64-encoded JSON. */
+  if (raw.startsWith("base64-")) {
+    try {
+      const decoded = atob(raw.slice("base64-".length));
+      const parsed  = JSON.parse(decoded) as { access_token?: unknown };
+      if (typeof parsed.access_token !== "string") return null;
+      raw = parsed.access_token;
+    } catch {
+      return null;
+    }
+  }
+
+  /* Now raw should be a JWT: header.payload.signature */
+  const segs = raw.split(".");
+  if (segs.length !== 3) return null;
+
+  try {
+    /* base64url → base64, then atob. Pad to multiple of 4. */
+    const b64    = segs[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = b64 + "=".repeat((4 - (b64.length % 4)) % 4);
+    const json   = atob(padded);
+    const claims = JSON.parse(json) as { sub?: unknown };
+    return typeof claims.sub === "string" ? claims.sub : null;
+  } catch {
+    return null;
+  }
+}
+
+async function authHashForRequest(request: Request): Promise<string> {
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  if (!cookieHeader) return "anon";
+
+  /* Supabase splits the auth token across chunked cookies named like
+     `sb-<ref>-auth-token`, `sb-<ref>-auth-token.0`, etc. Reassemble
+     by sorting on name (so the chunk order is stable: base name
+     first, then .0, .1, .2 by lexical order) and concatenating just
+     the values. */
+  const parts: { name: string; value: string }[] = [];
+  for (const seg of cookieHeader.split(/;\s*/)) {
+    const eq = seg.indexOf("=");
+    if (eq === -1) continue;
+    const name  = seg.slice(0, eq);
+    const value = seg.slice(eq + 1);
+    if (name.startsWith("sb-") && name.includes("-auth-token")) {
+      parts.push({ name, value });
+    }
+  }
+  if (parts.length === 0) return "anon";
+
+  parts.sort((a, b) => a.name.localeCompare(b.name));
+  const reassembled = parts.map((p) => p.value).join("");
+
+  /* Hash only the `sub` claim, NOT the whole token. The access_token
+     rotates on every refresh; hashing it caused cache entries to
+     orphan on every rotation (cache pollution that grew with session
+     length — audit item 2c). The `sub` is the user_id and is stable
+     for the lifetime of the account. Different users → different
+     subs → different cache buckets, exactly the property we want. */
+  const sub = extractSubClaim(reassembled);
+  if (!sub) return "anon";
+
+  const data  = new TextEncoder().encode(sub);
+  const buf   = await crypto.subtle.digest("SHA-256", data);
+  const bytes = new Uint8Array(buf);
+  let hex = "";
+  for (let i = 0; i < 8; i++) {
+    hex += bytes[i].toString(16).padStart(2, "0");
+  }
+  return hex; // 16 hex chars = 64 bits — collision-negligible for cache partitioning
+}
+
+const authPartitionPlugin: SerwistPlugin = {
+  /*
+   * cacheKeyWillBeUsed runs both for `read` (looking up the cache)
+   * and `write` (storing a fetched response). Returning a different
+   * Request object changes only the key — the network fetch path
+   * uses the ORIGINAL request object, so the server still sees the
+   * real URL.
+   */
+  async cacheKeyWillBeUsed({ request }) {
+    const hash = await authHashForRequest(request);
+    const url  = new URL(request.url);
+    /* Use a hash fragment — never sent to the server, valid in URL,
+       trivial to inspect when debugging in DevTools → Cache Storage. */
+    url.hash = `auth=${hash}`;
+    return new Request(url.toString(), { method: request.method });
+  },
+};
+
+/* Detects navigation cache hits that contain a redirected response.
+   When this fires, the cached HTML embeds a redirect chain — often
+   the iOS PWA bare→www loop. */
+const navCacheStalePlugin: SerwistPlugin = {
+  cachedResponseWillBeUsed: async ({ cachedResponse }) => {
+    if (cachedResponse && cachedResponse.redirected) {
+      void postReliability({
+        bucket:  "sw_lifecycle",
+        subtype: "nav_cache_stale",
+        cause:   "redirected_in_cache",
+        detail:  cachedResponse.url,
+      });
+    }
+    return cachedResponse;
+  },
+};
 
 /* ── Initialise Serwist with the precache manifest ───────────────── */
 const serwist = new Serwist({
@@ -264,68 +402,70 @@ const serwist = new Serwist({
       }),
     },
 
-    /* ── Navigation (page) requests: network-first, /offline fallback ──
+    /* ── Navigation (page) requests: StaleWhileRevalidate, partitioned ─
      *
-     * The entire app is authenticated, so navigation HTML always embeds
-     * per-user data. We therefore NEVER cache it: no auth-partition key
-     * to maintain, no risk of serving User A's shell to User B, no stale
-     * shell after a deploy. Always fetch live; on network failure fall
-     * back to the cached, user-agnostic /offline page.
+     * Root cause of PWA cold-load white screen: NetworkFirst always hit
+     * the network on cold launch. After 20+ min idle, iOS kills both the
+     * PWA and SW processes. WKWebView restarts and sends a navigation
+     * request to Vercel, where proxy.ts runs supabase.auth.getUser() on
+     * a cold connection — adding 2-4s of TTFB before first byte of HTML
+     * arrives. Users saw 4-8s of white BEFORE the cold smoke overlay
+     * appeared, because the overlay (server-rendered) hadn't been
+     * delivered yet.
      *
-     * This is the rhyme.com model adapted to an all-authenticated app:
-     * cache public assets, never the shell. See
-     * docs/superpowers/specs/2026-06-28-pwa-strategy-rhyme-audit.md
+     * StaleWhileRevalidate serves the cached navigation HTML immediately
+     * on cold launch, eliminating the TTFB white screen. The cache is
+     * then revalidated in the background on every request so content
+     * stays current.
+     *
+     * Prior SWR revert (PR #271): SWR was previously reverted because
+     * stale cached HTML after a deploy embedded old chunk hashes that
+     * 404'd on origin. The stale-chunk-recovery script (PR #288) now
+     * catches those 404s automatically (cache nuke + SW unregister +
+     * reload), making SWR safe to restore. One reload per deploy is
+     * acceptable; 4-8s of white on every cold launch is not.
+     *
+     * Auth partitioning: authPartitionPlugin partitions the navigations
+     * cache by user identity (stable `sub` claim from Supabase JWT),
+     * preventing User A's cached HTML from being served to User B on a
+     * shared device. A cache miss for the current user falls through to
+     * a live network fetch.
      */
     {
       matcher: ({ request }) => request.mode === "navigate",
-      handler: async ({ request, event }) => {
-        try {
-          /* Consume the navigation preload the browser started in parallel
-             with SW boot (navigationPreload: true). preloadResponse resolves
-             to undefined when no preload was sent, so fall back to a normal
-             fetch. This avoids a wasted double request and shrinks cold-launch
-             TTFB. The DOM lib types preloadResponse as Promise<any>, hence the
-             cast. */
-          const fetchEvent = event as FetchEvent | undefined;
-          const preload = (await fetchEvent?.preloadResponse) as Response | undefined;
-          return preload ?? (await fetch(request));
-        } catch {
-          const cached = await caches.match(OFFLINE_URL, { cacheName: OFFLINE_CACHE });
-          return cached ?? Response.error();
-        }
-      },
+      handler: new StaleWhileRevalidate({
+        cacheName: "navigations",
+        plugins: [
+          authPartitionPlugin,
+          navCacheStalePlugin,
+          new CacheableResponsePlugin({ statuses: [0, 200] }),
+          new ExpirationPlugin({
+            maxEntries:    60,
+            maxAgeSeconds: 60 * 60 * 24 * 6, // 6 days — expires before iOS 7-day eviction window
+            purgeOnQuotaError: true,
+          }),
+        ],
+      }),
     },
   ],
 
+  /*
+   * Offline fallback for navigation requests that can't be served
+   * from network OR cache. /offline is added to precacheEntries
+   * explicitly above (not via precachePrerendered, which is disabled
+   * to prevent auth-gated routes from crashing SW install).
+   */
+  fallbacks: {
+    entries: [
+      {
+        url:     OFFLINE_URL,
+        matcher: ({ request }) => request.mode === "navigate",
+      },
+    ],
+  },
 });
 
 serwist.addEventListeners();
-
-/* ──────────────────────────────────────────────────────────────────
-   Cache the offline fallback page on install.
-
-   Network-first navigation (runtimeCaching below) never writes the
-   authenticated shell to cache, so a failed navigation has nowhere to
-   land unless we stash the generic /offline page here. /offline is not
-   auth-gated (proxy.ts), so it returns 200 cookieless.
-
-   fetch + cache.put (NOT cache.add) so a transient non-200 resolves
-   without throwing — a rejected install waitUntil would hang activation
-   and freeze push-subscribe, the exact failure class we removed in 2026-05. */
-self.addEventListener("install", (event) => {
-  event.waitUntil((async () => {
-    try {
-      const res = await fetch(OFFLINE_URL, { cache: "reload" });
-      if (res.ok) {
-        const cache = await caches.open(OFFLINE_CACHE);
-        await cache.put(OFFLINE_URL, res.clone());
-      }
-    } catch {
-      /* offline at install time — non-fatal; the page just won't be
-         available until a later install runs online. */
-    }
-  })());
-});
 
 /* ──────────────────────────────────────────────────────────────────
    Storage quota diagnostic — passive, non-blocking.
@@ -390,15 +530,6 @@ const SW_VERSION = (() => {
      then cap length to keep the postMessage payload small. */
   return `v${manifest.length}-${manifest.map((e) => e.revision).join("").slice(0, 40)}`;
 })();
-
-/* One-time migration purge: delete the legacy auth-partitioned navigation
-   cache. Prior builds cached per-user HTML under "navigations". That cache
-   is never written now; deleting it guarantees no installed PWA serves a
-   stale authenticated shell after this worker activates. caches.delete is
-   reliable (unlike clients.matchAll on iOS), so waitUntil is safe here. */
-self.addEventListener("activate", (event) => {
-  event.waitUntil(caches.delete(LEGACY_NAV_CACHE).then(() => undefined));
-});
 
 self.addEventListener("activate", () => {
   void (async () => {
@@ -526,4 +657,163 @@ self.addEventListener("notificationclick", (event) => {
       return self.clients.openWindow(targetUrl);
     }
   })());
+});
+
+/* ──────────────────────────────────────────────────────────────────
+   Offline mutation outbox replay (Phase 5 P5.6).
+
+   The browser fires `sync` events when connectivity returns or in
+   periodic background windows. lib/offline-outbox.ts (client side)
+   registers the tag "ae-outbox-sync" after enqueuing a record;
+   when the browser triggers it, this handler opens the same IDB
+   database, replays each pending request, and deletes successful
+   ones.
+
+   The IDB schema MUST stay in lockstep with lib/offline-outbox.ts.
+   Schema changes there require updating both files (the SW can't
+   import from app code — different bundle).
+
+   Reliability:
+   - 4xx (except 408/429) → permanent failure: delete the record
+     so we don't retry forever on a malformed request.
+   - 5xx / network / 408 / 429 → transient: leave for next sync.
+   - Successful → delete.
+   - Throws (browser kills the worker) → records stay; next sync
+     event picks them up.
+
+   Browsers without SyncManager (Safari) skip this path. The
+   client-side OutboxManager listens for `online` events and
+   triggers replay via a regular fetch loop when sync isn't
+   available.
+   ────────────────────────────────────────────────────────────── */
+
+const OUTBOX_DB    = "ae-offline-outbox";
+const OUTBOX_STORE = "mutations";
+const OUTBOX_DB_VERSION = 1;
+const OUTBOX_SYNC_TAG   = "ae-outbox-sync";
+
+interface OutboxRecord {
+  id:          string;
+  user_id:     string;
+  category:    string;
+  url:         string;
+  method:      string;
+  headers:     Record<string, string>;
+  body:        string | null;
+  contentType: string | null;
+  created_at:  number;
+}
+
+function openOutboxDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(OUTBOX_DB, OUTBOX_DB_VERSION);
+    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result);
+    req.onupgradeneeded = (event) => {
+      /* DB upgrade is normally driven by the client; the SW only
+         creates the schema here as a safety net so a SW that runs
+         before the client has ever touched IDB doesn't crash. */
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(OUTBOX_STORE)) {
+        const store = db.createObjectStore(OUTBOX_STORE, { keyPath: "id" });
+        store.createIndex("user_id",    "user_id",    { unique: false });
+        store.createIndex("created_at", "created_at", { unique: false });
+      }
+    };
+  });
+}
+
+async function readAllOutboxRecords(db: IDBDatabase): Promise<OutboxRecord[]> {
+  return new Promise((resolve, reject) => {
+    const tx  = db.transaction(OUTBOX_STORE, "readonly");
+    const req = tx.objectStore(OUTBOX_STORE).getAll();
+    req.onerror   = () => reject(req.error);
+    req.onsuccess = () => resolve(req.result as OutboxRecord[]);
+  });
+}
+
+async function deleteOutboxRecord(db: IDBDatabase, id: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(OUTBOX_STORE, "readwrite");
+    tx.objectStore(OUTBOX_STORE).delete(id);
+    tx.oncomplete = () => resolve();
+    tx.onerror    = () => reject(tx.error);
+  });
+}
+
+async function replayOutbox(): Promise<void> {
+  let db: IDBDatabase;
+  try {
+    db = await openOutboxDB();
+  } catch {
+    return; // IDB unavailable — nothing to replay
+  }
+
+  try {
+    const records = await readAllOutboxRecords(db);
+    if (records.length === 0) return;
+
+    /* Sequential replay so order is preserved. Some mutations may
+       depend on earlier ones (e.g., create-then-update flows). */
+    for (const rec of records) {
+      try {
+        const init: RequestInit = {
+          method:      rec.method,
+          headers:     rec.headers,
+          credentials: "include",
+        };
+        if (rec.body !== null && rec.method !== "GET" && rec.method !== "HEAD") {
+          init.body = rec.body;
+        }
+
+        const res = await fetch(rec.url, init);
+
+        if (res.ok) {
+          await deleteOutboxRecord(db, rec.id);
+          continue;
+        }
+
+        /* 4xx (except 408 timeout, 429 rate-limit) are permanent —
+           drop the record so we don't replay forever on a malformed
+           or auth-rejected request. */
+        if (res.status >= 400 && res.status < 500 && res.status !== 408 && res.status !== 429) {
+          void postReliability({
+            bucket:  "network_resilience",
+            subtype: "outbox_replay_fail",
+            cause:   `http_${res.status}`,
+            detail:  `${rec.method} ${rec.url}`,
+            extra:   { status: res.status, category: rec.category },
+          });
+          await deleteOutboxRecord(db, rec.id);
+          continue;
+        }
+
+        /* 5xx, 408, 429: leave for next sync. */
+      } catch (err) {
+        /* Network still failing — leave for next sync. */
+        void postReliability({
+          bucket:  "network_resilience",
+          subtype: "outbox_replay_fail",
+          cause:   "fetch_threw",
+          detail:  err instanceof Error ? err.message.slice(0, 200) : String(err),
+          extra:   { category: rec.category },
+        });
+      }
+    }
+  } finally {
+    db.close();
+  }
+}
+
+/* SyncEvent isn't in the default DOM lib. Declare a minimal type. */
+interface SyncEvent extends ExtendableEvent {
+  readonly tag: string;
+  readonly lastChance: boolean;
+}
+
+self.addEventListener("sync", (event) => {
+  const e = event as unknown as SyncEvent;
+  if (e.tag === OUTBOX_SYNC_TAG) {
+    e.waitUntil(replayOutbox());
+  }
 });
