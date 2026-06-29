@@ -70,6 +70,9 @@ export const keyFor = {
    *   switching account on the same browser produces a fresh cache,
    *   not another user's unseen counts. */
   notifications: (userId: string) => ["notifications", userId] as const,
+
+  /* ── Home aging island (per-user). */
+  homeAging:     (userId: string) => ["home-aging", userId] as const,
 } as const;
 
 /*

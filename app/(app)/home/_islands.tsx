@@ -1,117 +1,14 @@
 /*
- * Async server "islands" for the home dashboard.
- *
- * The page (`page.tsx`) renders synchronously and wraps each island
- * in its own <Suspense> boundary. Each island fetches its own data
- * and renders the existing dashboard component with that data.
- *
- * Two profile-dependent islands (Masthead, SmokingConditions) both
- * call `getProfileLite(userId)` from `lib/data/profile.ts` — React's
- * `cache()` deduplicates them to ONE Supabase round-trip per request,
- * same query cost as the previous top-level await.
- *
- * Why per-island fetching instead of a single top-level await:
- * - The static shell (page chrome + skeletons + TonightsPairing +
- *   FieldGuide) paints from edge before any data resolves.
- * - Fast queries stream in first; slow queries don't block the page.
- * - Each Suspense boundary is also a hydration unit, keeping the
- *   main thread responsive on slower devices.
+ * Server island for the home dashboard: the public News rail. All user-data
+ * islands moved client-side (client-islands.tsx) for the static-shell model;
+ * News stays server-rendered (public, cached) inside its Suspense boundary.
  */
 
-import { createClient }    from "@/utils/supabase/server";
-import { getProfileLite }  from "@/lib/data/profile";
-import { getLatestNews }   from "@/lib/data/news";
+import { getLatestNews } from "@/lib/data/news";
+import { News }          from "@/components/dashboard/News";
 
-import { Masthead }            from "@/components/dashboard/Masthead";
-import { SmokingConditions }   from "@/components/dashboard/SmokingConditions";
-import { AgingAlerts }         from "@/components/dashboard/AgingAlerts";
-import { Notifications }       from "@/components/dashboard/Notifications";
-import { News }                from "@/components/dashboard/News";
-import { LocalShops }          from "@/components/dashboard/LocalShops";
-
-import type { AgingItem } from "@/components/dashboard/AgingAlerts";
-
-/* ── Sticky greeting + admin link ────────────────────────────────── */
-export async function MastheadIsland({ userId }: { userId: string }) {
-  const profile = await getProfileLite(userId);
-  return (
-    <Masthead
-      displayName={profile?.display_name ?? "there"}
-      isAdmin={!!profile?.is_admin}
-    />
-  );
-}
-
-/* ── Smoking conditions strip (zip → weather lookup, city fallback) ─ */
-export async function SmokingConditionsIsland({ userId }: { userId: string }) {
-  const profile = await getProfileLite(userId);
-  return (
-    <SmokingConditions
-      zip={profile?.zip_code?.trim() || null}
-      city={profile?.city?.trim() || null}
-    />
-  );
-}
-
-/* ── Aging shelf (windowed humidor query) ────────────────────────── */
-export async function AgingIsland({ userId }: { userId: string }) {
-  const supabase = await createClient();
-
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() + 31);
-  const cutoffStr = cutoff.toISOString().split("T")[0];
-
-  const agingFloor = new Date();
-  agingFloor.setDate(agingFloor.getDate() - 7);
-  const agingFloorStr = agingFloor.toISOString().split("T")[0];
-
-  const { data } = await supabase
-    .from("humidor_items")
-    .select(
-      "id, aging_start_date, aging_target_date, " +
-      "cigar:cigar_catalog(brand, series)"
-    )
-    .eq("user_id", userId)
-    .eq("is_wishlist", false)
-    .not("aging_target_date", "is", null)
-    .gte("aging_target_date", agingFloorStr)
-    .lte("aging_target_date", cutoffStr)
-    .order("aging_target_date", { ascending: true });
-
-  return <AgingAlerts initialItems={(data ?? []) as unknown as AgingItem[]} />;
-}
-
-/* ── Notifications card (consolidated comment activity) ──────────────
- *
- * Client-fetched, NOT server-rendered. get_notification_summary() is
- * scoped by auth.uid(), which only resolves for the browser client
- * (it carries the user session). The server-side Supabase client under
- * this app's proxy/JWKS auth does not establish that session, so a
- * server-side rpc() call returns [] and the card would render empty
- * until a focus revalidation. The component fetches via SWR on mount
- * instead; the Suspense skeleton covers the brief initial load. */
-export function NotificationsIsland({ userId }: { userId: string }) {
-  return <Notifications userId={userId} />;
-}
-
-/* ── News rail (cached at the data layer via unstable_cache) ─────── */
+/* News rail (cached at the data layer via unstable_cache). */
 export async function NewsIsland() {
   const items = await getLatestNews(5);
   return <News items={items} />;
-}
-
-/* ── Local shops card (opens external Google Maps search) ─────────
- *
- * Reads the user's profile ZIP so the Maps URL embeds an explicit
- * location instead of relying on "near me". The plain "near me"
- * link resolved to a Google default location (Chicago) when opened
- * from an iOS standalone PWA — the new opening context lacked the
- * geolocation signal Maps depends on. Embedding the ZIP makes the
- * search deterministic across every client context.
- *
- * Falls through to LocalShops's internal "near me" fallback if the
- * profile has no ZIP (rare — onboarding requires one). */
-export async function LocalShopsIsland({ userId }: { userId: string }) {
-  const profile = await getProfileLite(userId);
-  return <LocalShops zip={profile?.zip_code?.trim() || null} />;
 }
