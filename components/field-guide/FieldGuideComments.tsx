@@ -136,7 +136,7 @@ const CommentRow = memo(function CommentRow({
     if (error || !data) { setSubmitting(false); return; }
 
     const { data: profileData } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier")
       .eq("id", userId)
       .single();
@@ -401,7 +401,7 @@ export function FieldGuideComments({ volNumber }: { volNumber: number }) {
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
     const { data: profile } = await supabase
-      .from("profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
+      .from("public_profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
 
     setComments((prev) => [
       ...prev,
@@ -543,7 +543,7 @@ async function fetchProfiles(
 ): Promise<Record<string, Profile>> {
   if (userIds.length === 0) return {};
   const { data } = await supabase
-    .from("profiles")
+    .from("public_profiles")
     .select("id, display_name, avatar_url, badge, membership_tier")
     .in("id", userIds);
   const map: Record<string, Profile> = {};

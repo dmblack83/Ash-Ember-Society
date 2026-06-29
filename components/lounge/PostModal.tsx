@@ -278,7 +278,7 @@ const CommentNode = memo(function CommentNode({
       .select("id, content, created_at, updated_at, user_id, parent_comment_id")
       .single();
     if (error || !data) { setSubmitting(false); return; }
-    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
+    const { data: profileData } = await supabase.from("public_profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     onReplyCreated({ ...data, profiles: profileData ? { ...profileData, badge: profileData.badge ?? null, membership_tier: profileData.membership_tier ?? null } : null });
     setReplyText(""); setReplyMode(false); setSubmitting(false);
   }
@@ -461,18 +461,15 @@ export function PostModal({ postId, userId, onClose }: Props) {
         ...new Set([raw.user_id, ...commentRows.map((c: any) => c.user_id)].filter(Boolean)),
       ] as string[];
 
-      // Profiles include `city` so the verdict-card byline on burn-
-      // report posts uses the post author's city.
-      const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+      const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
       if (allUserIds.length > 0) {
-        const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier, city").in("id", allUserIds);
+        const { data: profileRows } = await supabase.from("public_profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", allUserIds);
         for (const p of profileRows ?? []) {
           nameMap[p.id] = {
             display_name:    p.display_name,
             avatar_url:      p.avatar_url,
             badge:           p.badge           ?? null,
             membership_tier: p.membership_tier ?? null,
-            city:            p.city            ?? null,
           };
         }
       }
@@ -539,7 +536,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
             burn_report: burnReportWithThirds,
             flavor_tag_names,
             author_display_name: author?.display_name ?? null,
-            author_city:         author?.city         ?? null,
+            author_city:         null,
           };
         }
       }
@@ -608,7 +605,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
     const newUserIds = [...new Set(data.map((c: any) => c.user_id).filter(Boolean))] as string[];
     const newNameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
     if (newUserIds.length > 0) {
-      const { data: profileRows } = await supabase.from("profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", newUserIds);
+      const { data: profileRows } = await supabase.from("public_profiles").select("id, display_name, avatar_url, badge, membership_tier").in("id", newUserIds);
       for (const p of profileRows ?? []) { newNameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null }; }
     }
 
@@ -685,7 +682,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
     setSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
-    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
+    const { data: profileData } = await supabase.from("public_profiles").select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     setLocalComments((prev) => [...prev, { ...data, profiles: profileData ? { ...profileData, badge: profileData.badge ?? null, membership_tier: profileData.membership_tier ?? null } : null }]);
     setCommentText("");
   }

@@ -264,7 +264,7 @@ const CommentNode = memo(function CommentNode({
       .select("id, content, created_at, updated_at, user_id, parent_comment_id")
       .single();
     if (error || !data) { setSubmitting(false); return; }
-    const { data: p } = await supabase.from("profiles")
+    const { data: p } = await supabase.from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     onReplyCreated({ ...data, profiles: p ?? null });
     setReplyText(""); setReplyMode(false); setSubmitting(false);
@@ -417,7 +417,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
 
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("id, display_name, avatar_url, badge, membership_tier")
           .in("id", userIds);
         for (const p of profiles ?? []) {
@@ -498,7 +498,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
     setCommentSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
-    const { data: profileData } = await supabase.from("profiles")
+    const { data: profileData } = await supabase.from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     setComments((prev) => [...(prev ?? []), { ...data, profiles: profileData ?? null }]);
     setCommentCount((n) => n + 1);

@@ -156,7 +156,7 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
       const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
       if (userIds.length > 0) {
         const { data: profileRows } = await supabase
-          .from("profiles")
+          .from("public_profiles")
           .select("id, display_name, avatar_url, badge, membership_tier")
           .in("id", userIds);
         for (const p of profileRows ?? []) {
@@ -234,7 +234,7 @@ export function CategoryCard({ category, userId, canPost, refreshKey, postRefres
 
             if (row.user_id) {
               const { data } = await supabase
-                .from("profiles")
+                .from("public_profiles")
                 .select("display_name, avatar_url, badge, membership_tier")
                 .eq("id", row.user_id)
                 .single();
