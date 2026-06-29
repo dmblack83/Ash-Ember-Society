@@ -347,7 +347,7 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
     .from("forum_comments")
     .select(
       "id, content, created_at, updated_at, user_id, parent_comment_id, " +
-      "profiles:profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
+      "profiles:public_profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
     )
     .eq("post_id", postId)
     .order("created_at", { ascending: true });

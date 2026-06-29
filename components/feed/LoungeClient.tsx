@@ -250,7 +250,7 @@ function ComposeBox({ userId, displayName, onPosted }: ComposeProps) {
           cigar_name:  cigarName.trim()  || null,
           cigar_brand: cigarBrand.trim() || null,
         })
-        .select("*, profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
+        .select("*, profiles:public_profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
         .single();
 
       if (error) {
@@ -441,7 +441,7 @@ function CommentThread({ postId, userId, displayName }: CommentThreadProps) {
   useEffect(() => {
     supabase
       .from("post_comments")
-      .select("*, profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
+      .select("*, profiles:public_profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
       .eq("post_id", postId)
       .order("created_at", { ascending: true })
       .then(({ data }) => {
@@ -457,7 +457,7 @@ function CommentThread({ postId, userId, displayName }: CommentThreadProps) {
     const { data, error } = await supabase
       .from("post_comments")
       .insert({ post_id: postId, user_id: userId, content: draft.trim() })
-      .select("*, profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
+      .select("*, profiles:public_profiles!post_comments_user_id_fkey(display_name, badge, membership_tier)")
       .single();
     if (!error && data) {
       setComments((prev) => [...prev, data as Comment]);
@@ -759,7 +759,7 @@ export function LoungeClient({ userId, displayName }: LoungeClientProps) {
     async (offset: number): Promise<Post[]> => {
       const { data } = await supabase
         .from("posts")
-        .select("*, profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
+        .select("*, profiles:public_profiles!posts_user_id_fkey(display_name, avatar_url, badge, membership_tier)")
         .order("created_at", { ascending: false })
         .range(offset, offset + PAGE_SIZE - 1);
 

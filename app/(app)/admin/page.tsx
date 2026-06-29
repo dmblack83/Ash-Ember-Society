@@ -32,7 +32,7 @@ export default async function AdminPage() {
       storage_path,
       created_at,
       cigar:cigar_catalog (brand, series, format),
-      submitter:profiles!cigar_image_submissions_user_id_fkey (display_name)
+      submitter:public_profiles!cigar_image_submissions_user_id_fkey (display_name)
     `)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
@@ -69,7 +69,7 @@ export default async function AdminPage() {
       suggested,
       created_at,
       cigar:cigar_catalog (brand, series),
-      submitter:profiles!cigar_edit_suggestions_suggested_by_fkey (display_name)
+      submitter:public_profiles!cigar_edit_suggestions_suggested_by_fkey (display_name)
     `)
     .eq("status", "pending")
     .order("created_at", { ascending: true });
