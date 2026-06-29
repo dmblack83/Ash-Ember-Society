@@ -528,7 +528,7 @@ function ProfileCard({
 
       // Uniqueness check
       const { data: existing } = await supabase
-        .from("profiles")
+        .from("public_profiles")
         .select("id")
         .ilike("display_name", trimmed)
         .neq("id", userId)

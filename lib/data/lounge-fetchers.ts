@@ -289,7 +289,7 @@ export async function fetchFeedbackPosts(
   const nameMap: Record<string, AuthorEntry> = {};
   if (userIds.length > 0) {
     const { data: profileRows } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id, display_name, avatar_url, badge, membership_tier")
       .in("id", userIds);
     for (const p of (profileRows ?? []) as Array<{ id: string } & AuthorEntry>) {

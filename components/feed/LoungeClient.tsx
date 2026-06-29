@@ -805,7 +805,7 @@ export function LoungeClient({ userId, displayName }: LoungeClientProps) {
           const incoming = payload.new as Omit<Post, "profiles" | "liked_by_me">;
           if (incoming.user_id === userId) return; // already prepended optimistically
           supabase
-            .from("profiles")
+            .from("public_profiles")
             .select("display_name, avatar_url, badge, membership_tier")
             .eq("id", incoming.user_id)
             .single()
