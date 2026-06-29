@@ -277,7 +277,7 @@ function CommentSheet({
     (async () => {
       const { data } = await supabase
         .from("content_video_comments")
-        .select("id, content, created_at, user_id, profiles(display_name, avatar_url, badge, membership_tier)")
+        .select("id, content, created_at, user_id, profiles:public_profiles!user_id(display_name, avatar_url, badge, membership_tier)")
         .eq("video_id", video.id)
         .order("created_at", { ascending: true });
 

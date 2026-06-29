@@ -110,20 +110,19 @@ export async function fetchCategoryFeedPage({
     return { posts: [], likedIds: [], hasMore: false };
   }
 
-  /* ── 2. Author profiles (city included for verdict-card byline) ─ */
+  /* ── 2. Author profiles ─────────────────────────────────────── */
   const authorIds = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
   type AuthorEntry = {
     display_name:    string | null;
     avatar_url:      string | null;
     badge:           string | null;
     membership_tier: string | null;
-    city:            string | null;
   };
   const nameMap: Record<string, AuthorEntry> = {};
   if (authorIds.length > 0) {
     const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier, city")
+      .from("public_profiles")
+      .select("id, display_name, avatar_url, badge, membership_tier")
       .in("id", authorIds);
     for (const p of (profiles ?? []) as Array<{ id: string } & AuthorEntry>) {
       nameMap[p.id] = {
@@ -131,7 +130,6 @@ export async function fetchCategoryFeedPage({
         avatar_url:      p.avatar_url,
         badge:           p.badge           ?? null,
         membership_tier: p.membership_tier ?? null,
-        city:            p.city            ?? null,
       };
     }
   }
@@ -191,7 +189,7 @@ export async function fetchCategoryFeedPage({
           .map((id) => tagNameMap[id])
           .filter(Boolean) as string[],
         author_display_name: author?.display_name ?? null,
-        author_city:         author?.city         ?? null,
+        author_city:         null,
       };
     }
   }
@@ -291,7 +289,7 @@ export async function fetchFeedbackPosts(
   const nameMap: Record<string, AuthorEntry> = {};
   if (userIds.length > 0) {
     const { data: profileRows } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("id, display_name, avatar_url, badge, membership_tier")
       .in("id", userIds);
     for (const p of (profileRows ?? []) as Array<{ id: string } & AuthorEntry>) {
@@ -347,7 +345,7 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
     .from("forum_comments")
     .select(
       "id, content, created_at, updated_at, user_id, parent_comment_id, " +
-      "profiles:profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
+      "profiles:public_profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
     )
     .eq("post_id", postId)
     .order("created_at", { ascending: true });

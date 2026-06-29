@@ -111,15 +111,14 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
     ),
   ];
 
-  // `city` is needed for the verdict-card byline on burn-report posts.
-  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
   if (allUserIds.length > 0) {
     const { data: profileRows } = await supabase
-      .from("profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier, city")
+      .from("public_profiles")
+      .select("id, display_name, avatar_url, badge, membership_tier")
       .in("id", allUserIds);
     for (const p of profileRows ?? []) {
-      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null, city: p.city ?? null };
+      nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
     }
   }
 
@@ -134,11 +133,10 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
     smokeLog.flavor_tag_names = flavorTagIds.map((id) => tagMap[id]).filter(Boolean);
   }
 
-  // Thread log-author display name + city onto the smoke log for the
-  // verdict-card byline ("DAVE · SALT LAKE CITY").
+  // Thread log-author display name onto the smoke log for the verdict-card byline.
   if (smokeLog && logAuthorId) {
     smokeLog.author_display_name = nameMap[logAuthorId]?.display_name ?? null;
-    smokeLog.author_city         = nameMap[logAuthorId]?.city         ?? null;
+    smokeLog.author_city         = null;
   }
 
   /* If this report is thirds-enabled, resolve per-third flavor tag

@@ -317,7 +317,7 @@ const CommentNode = memo(function CommentNode({
     if (error || !data) { setSubmitting(false); return; }
 
     const { data: profileData } = await supabase
-      .from("profiles")
+      .from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier")
       .eq("id", userId)
       .single();
@@ -648,7 +648,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     setSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
 
-    const { data: profileData } = await supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single();
+    const { data: profileData } = await supabase.from("public_profiles").select("display_name, avatar_url").eq("id", userId).single();
     mutateComments(
       [...localComments, { ...data, profiles: profileData ?? null }],
       { revalidate: false },

@@ -133,8 +133,8 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
   ] = await Promise.all([
     authorIds.length > 0
       ? supabase
-          .from("profiles")
-          .select("id, display_name, avatar_url, badge, membership_tier, city")
+          .from("public_profiles")
+          .select("id, display_name, avatar_url, badge, membership_tier")
           .in("id", authorIds)
       : Promise.resolve({ data: null }),
     postIds.length > 0
@@ -169,15 +169,14 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
       : Promise.resolve({ data: null }),
   ]);
 
-  /* ---- Profiles: id → display info (incl. city for verdict-card byline) ---- */
-  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null; city: string | null }> = {};
+  /* ---- Profiles: id → display info ---- */
+  const nameMap: Record<string, { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null }> = {};
   for (const p of profilesRes.data ?? []) {
     nameMap[p.id] = {
       display_name:    p.display_name,
       avatar_url:      p.avatar_url,
       badge:           p.badge           ?? null,
       membership_tier: p.membership_tier ?? null,
-      city:            p.city            ?? null,
     };
   }
 
@@ -213,7 +212,7 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
           .map((id) => tagNameMap[id])
           .filter(Boolean) as string[],
         author_display_name: author?.display_name ?? null,
-        author_city:         author?.city         ?? null,
+        author_city:         null,
         report_number:       reportNumberMap[log.id] ?? null,
       };
     }
