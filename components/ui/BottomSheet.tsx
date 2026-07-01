@@ -40,6 +40,9 @@ export interface BottomSheetProps {
   header?:   React.ReactNode;
   /** Fixed (non-scrolling) footer below the body. */
   footer?:   React.ReactNode;
+  /** Absolutely-positioned overlay(s) rendered over the scroll area
+      (e.g. scroll-caret gradients). Position against the body box. */
+  bodyOverlay?: React.ReactNode;
   /** Mobile sheet height. */
   mobileHeight?:    string;
   /** Desktop modal max-width in px. */
@@ -64,6 +67,7 @@ export function BottomSheet({
   children,
   header,
   footer,
+  bodyOverlay,
   mobileHeight    = "92dvh",
   desktopMaxWidth = 448,
   desktopHeight   = "auto",
@@ -94,6 +98,21 @@ export function BottomSheet({
   useEffect(() => {
     if (open && innerScrollRef.current) innerScrollRef.current.scrollTop = 0;
   }, [open]);
+
+  /* Enter animation for mount-on-demand callers (open=true on first
+     render): start closed, flip open a frame later so the transition
+     runs. Always-mounted callers are unaffected beyond a one-frame
+     delay. */
+  const [entered, setEntered] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setEntered(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+  const shown = open && entered;
 
   /* Expose the scroller to callers that need it. */
   useEffect(() => {
@@ -234,8 +253,8 @@ export function BottomSheet({
         style={{
           backgroundColor: "rgba(0,0,0,0.65)",
           backdropFilter:  "blur(4px)",
-          opacity:         open ? 1 : 0,
-          pointerEvents:   open ? "auto" : "none",
+          opacity:         shown ? 1 : 0,
+          pointerEvents:   shown ? "auto" : "none",
           touchAction:     "none",
           transition:      `opacity ${motionMs} ease`,
         }}
@@ -263,16 +282,16 @@ export function BottomSheet({
           maxHeight:       isDesktop ? "90dvh" : undefined,
           maxWidth:        isDesktop ? desktopMaxWidth : undefined,
           transform:       isDesktop
-            ? (open ? "translateY(0)" : "translateY(12px)")
-            : (open ? "translateY(0)" : "translateY(100%)"),
-          opacity:         open ? 1 : 0,
-          pointerEvents:   open ? "auto" : "none",
+            ? (shown ? "translateY(0)" : "translateY(12px)")
+            : (shown ? "translateY(0)" : "translateY(100%)"),
+          opacity:         shown ? 1 : 0,
+          pointerEvents:   shown ? "auto" : "none",
           transition:      [
             `transform ${motionMs} var(--ease-spring)`,
             `opacity ${motionMs} ease`,
-            open ? "" : `visibility 0ms ${motionMs}`,
+            shown ? "" : `visibility 0ms ${motionMs}`,
           ].filter(Boolean).join(", "),
-          visibility:      open ? "visible" : "hidden",
+          visibility:      shown ? "visible" : "hidden",
         }}
       >
         {/* Drag handle — mobile only */}
@@ -284,16 +303,19 @@ export function BottomSheet({
 
         {header && <div className="flex-shrink-0">{header}</div>}
 
-        {/* Scrollable body */}
-        <div
-          ref={innerScrollRef}
-          className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden"
-          style={{
-            overscrollBehavior:      "contain",
-            WebkitOverflowScrolling: "touch",
-          } as React.CSSProperties}
-        >
-          {children}
+        {/* Scrollable body (+ optional overlay layer, e.g. carets) */}
+        <div className="relative flex-1 min-h-0">
+          <div
+            ref={innerScrollRef}
+            className="h-full overflow-y-auto overflow-x-hidden"
+            style={{
+              overscrollBehavior:      "contain",
+              WebkitOverflowScrolling: "touch",
+            } as React.CSSProperties}
+          >
+            {children}
+          </div>
+          {bodyOverlay}
         </div>
 
         {footer && <div className="flex-shrink-0">{footer}</div>}

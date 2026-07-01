@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { createClient }      from "@/utils/supabase/client";
 import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
-import { useEscapeKey }      from "@/lib/hooks/use-escape-key";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
+import { BottomSheet }       from "@/components/ui/BottomSheet";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
 import {
@@ -48,10 +48,6 @@ function Caret({ dir }: { dir: "up" | "down" }) {
 
 export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
-  /* Escape-key dismissal — keyboard users can close the sheet via
-     Escape. Only attached while open. */
-  useEscapeKey(open, onClose);
-
   /* ── Selection state ──────────────────────────────────────── */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
@@ -74,37 +70,13 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [showLimitModal, setShowLimitModal] = useState(false);
 
   /* ── Layout state ─────────────────────────────────────────── */
-  const [isDesktop,       setIsDesktop]       = useState(false);
   const [showTopCaret,    setShowTopCaret]    = useState(false);
   const [showBottomCaret, setShowBottomCaret] = useState(false);
 
+  /* Primitive's scroll container — used for caret tracking. Escape,
+     body scroll lock, and desktop/mobile presentation are all handled
+     by BottomSheet. */
   const bodyRef = useRef<HTMLDivElement>(null);
-
-  /* ── Desktop detection ────────────────────────────────────── */
-  useEffect(() => {
-    const mq      = window.matchMedia("(min-width: 640px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  /* ── Body scroll lock ─────────────────────────────────────── */
-  useEffect(() => {
-    if (!open) return;
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [open]);
 
   /* ── Reset on open ────────────────────────────────────────── */
   useEffect(() => {
@@ -130,6 +102,15 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     const id = requestAnimationFrame(updateCarets);
     return () => cancelAnimationFrame(id);
   }, [selected, isManual, open]);
+
+  /* Caret tracking listens on the primitive's scroller (the primitive
+     owns the scroll container now; scrollRef exposes it). */
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || !open) return;
+    el.addEventListener("scroll", updateCarets, { passive: true });
+    return () => el.removeEventListener("scroll", updateCarets);
+  }, [open]);
 
   /* ── Handlers ─────────────────────────────────────────────── */
   function handleClear() {
@@ -218,75 +199,13 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const hasSelection = selected !== null || isManual;
 
   /* ── Render ──────────────────────────────────────────────── */
-  return (
+  const headerSlot = (
     <>
-      {/* Backdrop */}
+      {/* ── Fixed header: title ──────────────────────────── */}
       <div
-        className="fixed inset-0 z-40"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.65)",
-          opacity:         open ? 1 : 0,
-          visibility:      open ? "visible" : "hidden",
-          pointerEvents:   open ? "auto" : "none",
-          transition:      open
-            ? "opacity 300ms ease"
-            : "opacity 300ms ease, visibility 0ms 300ms",
-        }}
-        onClick={onClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add cigar to humidor"
-        className="fixed z-50 flex flex-col"
-        style={isDesktop ? {
-          top:             "50%",
-          left:            "50%",
-          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, calc(-50% + 24px))",
-          opacity:         open ? 1 : 0,
-          visibility:      open ? "visible" : "hidden",
-          transition:      open
-            ? "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease"
-            : "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease, visibility 0ms 300ms",
-          pointerEvents:   open ? "auto" : "none",
-          width:           "min(90vw, 640px)",
-          height:          "80dvh",
-          backgroundColor: "var(--background)",
-          borderRadius:    20,
-          border:          "1px solid var(--border)",
-          overflow:        "hidden",
-        } : {
-          left:                 0,
-          right:                0,
-          bottom:               0,
-          transform:            open ? "translateY(0)" : "translateY(100%)",
-          visibility:           open ? "visible" : "hidden",
-          transition:           open
-            ? "transform 320ms cubic-bezier(0.32,0.72,0,1)"
-            : "transform 320ms cubic-bezier(0.32,0.72,0,1), visibility 0ms 320ms",
-          height:               "calc(100dvh - 48px)",
-          backgroundColor:      "var(--background)",
-          borderTopLeftRadius:  20,
-          borderTopRightRadius: 20,
-          borderTop:            "1px solid var(--border)",
-          overflow:             "hidden",
-        }}
+        className="flex items-center justify-between px-5 py-4"
+        style={{ borderBottom: "1px solid var(--border)" }}
       >
-        {/* Drag handle — mobile only */}
-        {!isDesktop && (
-          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-          </div>
-        )}
-
-        {/* ── Fixed header: title ──────────────────────────── */}
-        <div
-          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
           <h2
             className="text-xl font-bold text-foreground"
             style={{ fontFamily: "var(--font-serif)" }}
@@ -314,7 +233,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
              list). Avoids needing an imperative reset API. */}
         {open && !hasSelection && (
           <div
-            className="px-5 py-3 flex-shrink-0"
+            className="px-5 py-3"
             style={{ borderBottom: "1px solid var(--border)" }}
           >
             <CigarSearch
@@ -324,16 +243,11 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
             />
           </div>
         )}
+    </>
+  );
 
-        {/* ── Scrollable body (relative for caret overlays) ── */}
-        <div className="relative flex-1 min-h-0">
-
-          <div
-            ref={bodyRef}
-            className="h-full overflow-y-auto overscroll-contain"
-            onScroll={updateCarets}
-          >
-
+  const bodySlot = (
+    <>
             {/* Results list now lives in CigarSearch's dropdown
                 above. Body is empty until the user picks a cigar
                 or switches to manual entry. */}
@@ -586,54 +500,73 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
               </div>
             )}
-          </div>
+    </>
+  );
 
-          {/* Top scroll caret */}
-          {showTopCaret && (
-            <div
-              aria-hidden="true"
-              style={{
-                position:       "absolute",
-                top:            0,
-                left:           0,
-                right:          0,
-                height:         44,
-                background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
-                display:        "flex",
-                alignItems:     "flex-start",
-                justifyContent: "center",
-                paddingTop:     8,
-                pointerEvents:  "none",
-              }}
-            >
-              <Caret dir="up" />
-            </div>
-          )}
-
-          {/* Bottom scroll caret */}
-          {showBottomCaret && (
-            <div
-              aria-hidden="true"
-              style={{
-                position:       "absolute",
-                bottom:         0,
-                left:           0,
-                right:          0,
-                height:         44,
-                background:     "linear-gradient(to top, var(--background) 30%, transparent)",
-                display:        "flex",
-                alignItems:     "flex-end",
-                justifyContent: "center",
-                paddingBottom:  8,
-                pointerEvents:  "none",
-              }}
-            >
-              <Caret dir="down" />
-            </div>
-          )}
-
+  const caretOverlay = (
+    <>
+      {/* Top scroll caret */}
+      {showTopCaret && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:       "absolute",
+            top:            0,
+            left:           0,
+            right:          0,
+            height:         44,
+            background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
+            display:        "flex",
+            alignItems:     "flex-start",
+            justifyContent: "center",
+            paddingTop:     8,
+            pointerEvents:  "none",
+          }}
+        >
+          <Caret dir="up" />
         </div>
-      </div>
+      )}
+
+      {/* Bottom scroll caret */}
+      {showBottomCaret && (
+        <div
+          aria-hidden="true"
+          style={{
+            position:       "absolute",
+            bottom:         0,
+            left:           0,
+            right:          0,
+            height:         44,
+            background:     "linear-gradient(to top, var(--background) 30%, transparent)",
+            display:        "flex",
+            alignItems:     "flex-end",
+            justifyContent: "center",
+            paddingBottom:  8,
+            pointerEvents:  "none",
+          }}
+        >
+          <Caret dir="down" />
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      <BottomSheet
+        open={open}
+        onClose={onClose}
+        ariaLabel="Add cigar to humidor"
+        header={headerSlot}
+        bodyOverlay={caretOverlay}
+        scrollRef={bodyRef}
+        surface="background"
+        mobileHeight="calc(100dvh - 48px)"
+        desktopMaxWidth={640}
+        desktopHeight="80dvh"
+      >
+        {bodySlot}
+      </BottomSheet>
 
       <UpgradeLimitModal
         isOpen={showLimitModal}
