@@ -6,14 +6,22 @@ import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
-import { MembershipTab } from "@/components/account/MembershipTab";
-import { LegalTab } from "@/components/account/LegalTab";
 import { InviteFriendsSection } from "@/components/account/InviteFriendsSection";
 
 /* InstallSheet (360 lines) only mounts when the user taps "Install".
-   Conditional render means the chunk fetches lazily. */
+   Conditional render means the chunk fetches lazily. MembershipTab and
+   LegalTab likewise only mount inside their bottom sheets, so their
+   code (Stripe plan UI, legal copy) stays out of the initial chunk. */
 const InstallSheet = dynamic(
   () => import("@/components/account/InstallSheet").then((m) => ({ default: m.InstallSheet })),
+  { ssr: false },
+);
+const MembershipTab = dynamic(
+  () => import("@/components/account/MembershipTab").then((m) => ({ default: m.MembershipTab })),
+  { ssr: false },
+);
+const LegalTab = dynamic(
+  () => import("@/components/account/LegalTab").then((m) => ({ default: m.LegalTab })),
   { ssr: false },
 );
 import { AvatarFrame } from "@/components/ui/AvatarFrame";
@@ -49,9 +57,6 @@ export interface MembershipData {
   hasStripeCustomer: boolean;
   nextBillingDate:   string | null;
   currentPeriodEnd:  number | null;
-  priceIds: {
-    memberMonthly: string;
-  };
 }
 
 interface Props {

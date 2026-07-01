@@ -6,7 +6,8 @@ import { getServerUser } from "@/lib/auth/server-user";
 /**
  * POST /api/stripe/create-checkout-session
  *
- * Body: { priceId: string }
+ * Body: { plan: "member-monthly" }  (preferred)
+ *       { priceId: string }         (legacy — must match a known plan)
  *
  * Creates a Stripe Checkout Session for the authenticated user and
  * returns the session URL to redirect to.
@@ -15,6 +16,17 @@ import { getServerUser } from "@/lib/auth/server-user";
  *   const { url } = await res.json();
  *   router.push(url);
  */
+
+/* Plan keys the client may request, resolved to price IDs server-side.
+   The client never handles raw price IDs — a request for an arbitrary
+   priceId (e.g. some other product in the Stripe account) is rejected. */
+function priceIdForPlan(plan: string): string | null {
+  const PLANS: Record<string, string | undefined> = {
+    "member-monthly": process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID,
+  };
+  return PLANS[plan] ?? null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     /* ── Auth ──────────────────────────────────────────────────── */
@@ -27,10 +39,23 @@ export async function POST(req: NextRequest) {
 
     /* ── Body ──────────────────────────────────────────────────── */
     const body = await req.json();
-    const { priceId } = body as { priceId: string };
+    const { plan, priceId: legacyPriceId } =
+      body as { plan?: string; priceId?: string };
+
+    let priceId: string | null = null;
+    if (plan) {
+      priceId = priceIdForPlan(plan);
+    } else if (legacyPriceId) {
+      /* Legacy body from pre-deploy HTML still in a client's cache.
+         Accept it only if it matches a known plan's price ID. */
+      priceId =
+        legacyPriceId === process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID
+          ? legacyPriceId
+          : null;
+    }
 
     if (!priceId) {
-      return NextResponse.json({ error: "Missing priceId" }, { status: 400 });
+      return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
     }
 
     /* ── Look up existing Stripe customer (if any) ─────────────── */

@@ -23,6 +23,11 @@ export const keyFor = {
    *   render instantly while a background revalidation runs). */
   profile: (userId: string) => ["profile", userId] as const,
 
+  /* ── Account page full profile row (per-user; wider column set than
+   *   `profile` — includes contact fields + Stripe linkage). Own-row
+   *   RLS scoped, so the fetcher only ever sees the signed-in user. */
+  accountProfile: (userId: string) => ["account-profile", userId] as const,
+
   /* ── Humidor (per-user collection). */
   humidorItems: (userId: string) => ["humidor-items", userId] as const,
   humidorItem:  (itemId: string) => ["humidor-item",  itemId] as const,
