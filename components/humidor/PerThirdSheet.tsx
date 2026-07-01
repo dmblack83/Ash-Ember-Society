@@ -19,15 +19,7 @@ import { StarRating } from "./StarRating";
 import { TastingNotesSubSheet, type FlavorTag } from "./TastingNotesSubSheet";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
-
-function ratingWord(val: number): string {
-  if (val < 1) return "—";
-  if (val === 1) return "Poor";
-  if (val === 2) return "Below Average";
-  if (val === 3) return "Average";
-  if (val === 4) return "Good";
-  return "Excellent";
-}
+import { ratingWord } from "@/lib/format";
 
 const TAGS_BY_INDEX: Record<1 | 2 | 3, { eyebrow: string; placeholder: string }> = {
   1: { eyebrow: "First Third · Beginning",  placeholder: "Opening notes, light, first impressions…" },

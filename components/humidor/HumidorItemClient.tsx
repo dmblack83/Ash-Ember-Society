@@ -14,15 +14,11 @@ import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect"
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
+import { agingDays }               from "@/lib/format";
 
 /* ------------------------------------------------------------------
    Design-system helpers
    ------------------------------------------------------------------ */
-
-function agingDays(startDate: string | null): number {
-  if (!startDate) return 0;
-  return Math.max(0, Math.floor((Date.now() - new Date(startDate).getTime()) / 86_400_000));
-}
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", {

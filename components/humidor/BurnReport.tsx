@@ -25,19 +25,7 @@ import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
 import { PerThirdSheet } from "./PerThirdSheet";
 import { StarRating as StarRatingInput } from "./StarRating";
 import { AutoGrowTextarea } from "./AutoGrowTextarea";
-
-/* ------------------------------------------------------------------
-   Helpers (module-scope)
-   ------------------------------------------------------------------ */
-
-function ratingWord(val: number): string {
-  if (val < 1) return "—";
-  if (val === 1) return "Poor";
-  if (val === 2) return "Below Average";
-  if (val === 3) return "Average";
-  if (val === 4) return "Good";
-  return "Excellent";
-}
+import { ratingWord } from "@/lib/format";
 
 /* ------------------------------------------------------------------
    Constants
