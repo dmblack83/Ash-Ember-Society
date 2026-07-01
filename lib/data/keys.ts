@@ -40,6 +40,15 @@ export const keyFor = {
      page's assembled chart data — both per-user. */
   burnReports:  (userId: string) => ["burn-reports",  userId] as const,
   humidorStats: (userId: string) => ["humidor-stats", userId] as const,
+  /* Detail-page bundles — keyed by userId AND the row id so a user
+     switch on a shared browser can't serve another user's cached
+     bundle within the same JS session. */
+  humidorItemBundle: (userId: string, itemId: string) =>
+    ["humidor-item-bundle", userId, itemId] as const,
+  burnReportCreate:  (userId: string, itemId: string) =>
+    ["burn-report-create", userId, itemId] as const,
+  burnReportEdit:    (userId: string, smokeLogId: string) =>
+    ["burn-report-edit", userId, smokeLogId] as const,
 
   /* ── Lounge / forum. Liked status is per-user, so userId is part
    *   of the key — switching account on the same browser produces a
@@ -71,6 +80,9 @@ export const keyFor = {
   cigar:        (cigarId: string) => ["cigar", cigarId] as const,
   cigarSearch:  (query: string, page: number) =>
     ["cigar-search", query, page] as const,
+  /* Per-user "is this cigar on my wishlist" flag for the detail page. */
+  cigarWishlisted: (userId: string, cigarId: string) =>
+    ["cigar-wishlisted", userId, cigarId] as const,
 
   /* ── Shops directory (public). */
   shop:         (slug: string) => ["shop", slug] as const,

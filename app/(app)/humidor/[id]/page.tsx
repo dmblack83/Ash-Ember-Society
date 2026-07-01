@@ -1,13 +1,17 @@
-import { createClient }  from "@/utils/supabase/server";
-import { getServerUser } from "@/lib/auth/server-user";
-import { notFound, redirect } from "next/navigation";
-import { HumidorItemClient } from "@/components/humidor/HumidorItemClient";
+import { ItemRoute } from "./ItemRoute";
 
-export const runtime = "edge";
-export const dynamic = "force-dynamic";
+/*
+ * Humidor item detail — client shell (same pattern as /humidor). The
+ * ownership-checked item read, status reads, and video lookups that
+ * used to run here server-side now run client-side in
+ * lib/data/humidor-item-fetchers.ts (RLS + explicit eq enforce
+ * ownership). The route stays dynamic (path param) but the document
+ * carries no data, so tapping an item paints the skeleton instantly.
+ */
 
 /* ------------------------------------------------------------------
-   Types (shared with client via props)
+   Types (imported by HumidorItemClient and the client fetcher —
+   type-only exports, erased at runtime)
    ------------------------------------------------------------------ */
 
 export interface CigarDetail {
@@ -48,88 +52,11 @@ export interface SmokeLog {
   content_video: { youtube_video_id: string; title: string } | null;
 }
 
-/* ------------------------------------------------------------------
-   Page — server component
-   ------------------------------------------------------------------ */
-
 export default async function HumidorItemPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const user     = await getServerUser();
-  if (!user) redirect("/login");
-
-  // Step 1: fetch the item (ownership-checked). Need cigar_id before the
-  // next batch can run.
-  const { data: item, error } = await supabase
-    .from("humidor_items")
-    .select("*, cigar:cigar_catalog(*)")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .single();
-
-  if (error || !item) notFound();
-
-  // Step 2: image-submission status, edit-suggestion status, and the user's
-  // smoke logs for this cigar are independent — fetch in parallel.
-  // (RLS on cigar_edit_suggestions scopes the read to this user automatically.)
-  const [{ data: submission }, { data: editSuggestion }, { data: smokeLogs }] =
-    await Promise.all([
-      supabase
-        .from("cigar_image_submissions")
-        .select("status")
-        .eq("cigar_id", item.cigar_id)
-        .in("status", ["pending", "approved"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("cigar_edit_suggestions")
-        .select("status")
-        .eq("cigar_id", item.cigar_id)
-        .eq("status", "pending")
-        .limit(1)
-        .maybeSingle(),
-      supabase
-        .from("smoke_logs")
-        .select("id, smoked_at, overall_rating, review_text, content_video_id")
-        .eq("user_id", user.id)
-        .eq("cigar_id", item.cigar_id)
-        .order("smoked_at", { ascending: false }),
-    ]);
-
-  // Fetch video data for any logs that have a linked video
-  const videoIds = (smokeLogs ?? [])
-    .map((l) => l.content_video_id)
-    .filter((v): v is string => v != null);
-
-  const videoMap = new Map<string, { youtube_video_id: string; title: string }>();
-  if (videoIds.length > 0) {
-    const { data: videos } = await supabase
-      .from("content_videos")
-      .select("id, youtube_video_id, title")
-      .in("id", videoIds);
-    for (const v of videos ?? []) {
-      videoMap.set(v.id, { youtube_video_id: v.youtube_video_id, title: v.title });
-    }
-  }
-
-  const normalizedLogs: SmokeLog[] = (smokeLogs ?? []).map((log) => ({
-    ...log,
-    content_video: log.content_video_id ? (videoMap.get(log.content_video_id) ?? null) : null,
-  }));
-
-  return (
-    <HumidorItemClient
-      item={item as HumidorItemDetail}
-      initialSmokeLogs={normalizedLogs}
-      userId={user.id}
-      hasPending={submission?.status === "pending"}
-      hasApproved={submission?.status === "approved"}
-      hasPendingEdit={editSuggestion !== null}
-    />
-  );
+  return <ItemRoute itemId={id} />;
 }

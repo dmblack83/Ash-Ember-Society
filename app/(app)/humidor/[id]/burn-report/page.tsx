@@ -1,14 +1,17 @@
-import { createClient }  from "@/utils/supabase/server";
-import { getServerUser } from "@/lib/auth/server-user";
-import { getProfileLite } from "@/lib/data/profile";
-import { getFlavorTags }  from "@/lib/data/flavor-tags";
-import { notFound, redirect } from "next/navigation";
-import { BurnReport } from "@/components/humidor/BurnReport";
+import { BurnReportCreateRoute } from "./BurnReportCreateRoute";
 
-export const runtime = "edge";
+/*
+ * Burn-report create — client shell (same pattern as /humidor). The
+ * item + profile + flavor-tags + report-number assembly that used to
+ * run here server-side now runs client-side in
+ * lib/data/burn-report-page-fetchers.ts. The route stays dynamic
+ * (path param) but the document carries no data, so entering the
+ * wizard paints the skeleton instantly.
+ */
 
 /* ------------------------------------------------------------------
-   Shared types (imported by client component)
+   Shared types (imported by BurnReport + client fetchers —
+   type-only exports, erased at runtime)
    ------------------------------------------------------------------ */
 
 export interface BurnReportCigar {
@@ -41,76 +44,11 @@ export interface PartnerVideo {
   position: number;
 }
 
-/* ------------------------------------------------------------------
-   Page — server component
-   ------------------------------------------------------------------ */
-
 export default async function BurnReportPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
-  const user     = await getServerUser();
-  if (!user) redirect("/login");
-
-  const [{ data: item, error }, profile, flavorTagData, { count: priorReportCount }] =
-    await Promise.all([
-      supabase
-        .from("humidor_items")
-        .select("id, cigar_id, quantity, cigar:cigar_catalog(id, brand, series, format, image_url, wrapper)")
-        .eq("id", id)
-        .eq("user_id", user.id)
-        .single(),
-      /* React.cache()-deduped — see lib/data/profile.ts. */
-      getProfileLite(user.id),
-      /* Cached cross-request — see lib/data/flavor-tags.ts. */
-      getFlavorTags(),
-      /* Next sequential burn-report number for this user ("NO. 12" on the
-         Verdict Card masthead). Only depends on user.id, so it runs with
-         the batch above instead of as a second round-trip. */
-      supabase
-        .from("smoke_logs")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", user.id),
-    ]);
-
-  if (error || !item || !item.cigar_id) notFound();
-
-  const nextReportNumber = (priorReportCount ?? 0) + 1;
-
-  // Fetch partner videos only if the user has the Partner badge
-  let partnerVideos: PartnerVideo[] = [];
-  if (profile?.badge === "partner") {
-    const { data: channel } = await supabase
-      .from("content_channels")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("is_active", true)
-      .single();
-
-    if (channel) {
-      const { data: videos } = await supabase
-        .from("content_videos")
-        .select("id, youtube_video_id, title, thumbnail_url, position")
-        .eq("channel_id", channel.id)
-        .eq("is_active", true)
-        .order("position", { ascending: true });
-
-      partnerVideos = (videos ?? []) as PartnerVideo[];
-    }
-  }
-
-  return (
-    <BurnReport
-      item={item as unknown as BurnReportItem}
-      userId={user.id}
-      flavorTags={flavorTagData as FlavorTag[]}
-      partnerVideos={partnerVideos}
-      displayName={profile?.display_name ?? null}
-      city={profile?.city ?? null}
-      reportNumber={nextReportNumber}
-    />
-  );
+  return <BurnReportCreateRoute itemId={id} />;
 }
