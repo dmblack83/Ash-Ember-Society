@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal }                          from "react-dom";
 import { createClient }                          from "@/utils/supabase/client";
 import { checkResponse }                         from "@/lib/telemetry/fetch-checks";
+import { BottomSheet }                           from "@/components/ui/BottomSheet";
 
 /* ------------------------------------------------------------------ */
 
@@ -57,29 +58,11 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
+  /* Portal target needs document; body scroll lock + escape are
+     handled by the BottomSheet primitive. */
   useEffect(() => {
     setMounted(true);
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
   }, []);
-
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
 
   async function handleSubmit() {
     const targetCategoryId = isFeedback ? (initialCategoryId ?? "") : categoryId;
@@ -148,48 +131,15 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
     ? (canSubmit && !submitting ? "#E8642C" : "rgba(232,100,44,0.3)")
     : (canSubmit && !submitting ? "linear-gradient(135deg, #D4A04A, #C17817)" : "rgba(212,160,74,0.3)");
 
-  const modal = (
-    <>
-      {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position:        "fixed",
-          inset:           0,
-          zIndex:          9998,
-          backgroundColor: "rgba(0,0,0,0.65)",
-        }}
-      />
-
-      {/* Centered modal */}
-      <div
-        style={{
-          position:        "fixed",
-          top:             "50%",
-          left:            "50%",
-          transform:       "translate(-50%, -50%)",
-          zIndex:          9999,
-          width:           "calc(100% - 32px)",
-          maxWidth:        560,
-          maxHeight:       "90dvh",
-          backgroundColor: "var(--card)",
-          borderRadius:    16,
-          border:          "1px solid var(--border)",
-          display:         "flex",
-          flexDirection:   "column",
-          overflow:        "hidden",
-        }}
-      >
-        {/* Header — fixed, not scrollable */}
-        <div
-          className="flex items-center justify-between px-5"
-          style={{
-            paddingTop:    18,
-            paddingBottom: 14,
-            borderBottom:  "1px solid var(--border)",
-            flexShrink:    0,
-          }}
-        >
+  const headerSlot = (
+    <div
+      className="flex items-center justify-between px-5"
+      style={{
+        paddingTop:    18,
+        paddingBottom: 14,
+        borderBottom:  "1px solid var(--border)",
+      }}
+    >
           <h2
             className="font-serif font-bold text-base"
             style={{ color: isFeedback ? "var(--ember, #E8642C)" : "var(--foreground)" }}
@@ -217,17 +167,10 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
               <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
             </svg>
           </button>
-        </div>
+    </div>
+  );
 
-        {/* Scrollable form body */}
-        <div
-          className="overflow-y-auto"
-          style={{
-            flex:                    1,
-            overscrollBehavior:      "contain",
-            WebkitOverflowScrolling: "touch",
-          } as React.CSSProperties}
-        >
+  const bodySlot = (
           <div className="px-5 py-5 flex flex-col gap-4">
 
             {/* Type chips — feedback only */}
@@ -427,37 +370,52 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
               </p>
             )}
           </div>
-        </div>
+  );
 
-        {/* Footer — fixed, not scrollable */}
-        <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)", flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit || submitting}
-            className="w-full rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-            style={{
-              height:                  52,
-              background:              submitBg,
-              color:                   "#1A1210",
-              border:                  "none",
-              cursor:                  canSubmit && !submitting ? "pointer" : "default",
-              touchAction:             "manipulation",
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            {submitting ? (
-              <span
-                className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
-                style={{ width: 16, height: 16 }}
-              />
-            ) : submitLabel}
-          </button>
-        </div>
-      </div>
-    </>
+  const footerSlot = (
+    <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
+      <button
+        type="button"
+        onClick={handleSubmit}
+        disabled={!canSubmit || submitting}
+        className="w-full rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+        style={{
+          height:                  52,
+          background:              submitBg,
+          color:                   "#1A1210",
+          border:                  "none",
+          cursor:                  canSubmit && !submitting ? "pointer" : "default",
+          touchAction:             "manipulation",
+          WebkitTapHighlightColor: "transparent",
+        }}
+      >
+        {submitting ? (
+          <span
+            className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
+            style={{ width: 16, height: 16 }}
+          />
+        ) : submitLabel}
+      </button>
+    </div>
   );
 
   if (!mounted) return null;
-  return createPortal(modal, document.body);
+  /* Portaled to <body> so the sheet escapes any transformed ancestor's
+     containing block. Mount-on-demand: `open` is constant true; the
+     primitive's enter-on-mount animation handles the slide-in. */
+  return createPortal(
+    <BottomSheet
+      open
+      onClose={onClose}
+      ariaLabel={modalTitle}
+      header={headerSlot}
+      footer={footerSlot}
+      mobileHeight="88dvh"
+      desktopMaxWidth={560}
+      showHandle
+    >
+      {bodySlot}
+    </BottomSheet>,
+    document.body,
+  );
 }
