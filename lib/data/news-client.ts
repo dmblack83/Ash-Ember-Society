@@ -21,3 +21,16 @@ export async function fetchLatestNews(limit: number = 5): Promise<NewsItem[]> {
   if (error) throw new Error(error.message);
   return (data ?? []) as NewsItem[];
 }
+
+/* Paginated news for /discover/cigar-news. Pairs with
+   keyFor.newsPage(pageIndex); page size fixed by the caller. */
+export async function fetchNewsPage(offset: number, limit: number): Promise<NewsItem[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("news_items")
+    .select("id, source_name, source_slug, title, link, summary, image_url, published_at")
+    .order("published_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as NewsItem[];
+}

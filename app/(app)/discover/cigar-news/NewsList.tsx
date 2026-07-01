@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import useSWRInfinite from "swr/infinite";
 import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";
-import { loadMoreNews } from "./actions";
+import { keyFor } from "@/lib/data/keys";
+import { fetchNewsPage } from "@/lib/data/news-client";
 
 const PAGE_SIZE = 20;
 const MAX_ITEMS = 100;
@@ -82,20 +83,62 @@ function NewsCard({ item }: { item: NewsItem }) {
   );
 }
 
-export function NewsList({ initial }: { initial: NewsItem[] }) {
-  const [items,   setItems]   = useState<NewsItem[]>(initial);
-  const [hasMore, setHasMore] = useState(initial.length >= PAGE_SIZE);
-  const [pending, startTransition] = useTransition();
+function NewsCardSkeleton() {
+  return (
+    <div
+      className="animate-pulse"
+      style={{
+        backgroundColor: "var(--card)",
+        border:          "1px solid rgba(255,255,255,0.06)",
+        borderRadius:    16,
+        overflow:        "hidden",
+      }}
+    >
+      <div style={{ width: "100%", aspectRatio: "16/10", backgroundColor: "var(--secondary)" }} />
+      <div style={{ padding: "16px 18px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="h-5 bg-muted rounded" style={{ width: "80%" }} />
+        <div className="h-3 bg-muted rounded" style={{ width: "60%" }} />
+        <div className="h-3 bg-muted rounded" style={{ width: "35%" }} />
+      </div>
+    </div>
+  );
+}
+
+export function NewsList() {
+  /*
+   * useSWRInfinite replaces the old useState + server-action pattern:
+   * pages cache under keyFor.newsPage, so navigating away and back
+   * renders instantly (including previously loaded pages) instead of
+   * refetching from scratch and resetting to page one.
+   */
+  const { data, size, setSize, isLoading, isValidating } =
+    useSWRInfinite<NewsItem[]>(
+      (pageIndex, prev) => {
+        if (prev && prev.length < PAGE_SIZE) return null;   /* last page reached */
+        if (pageIndex * PAGE_SIZE >= MAX_ITEMS) return null; /* hard cap */
+        return keyFor.newsPage(pageIndex);
+      },
+      ([, pageIndex]) => fetchNewsPage((pageIndex as number) * PAGE_SIZE, PAGE_SIZE),
+    );
+
+  const items = (data ?? []).flat();
+  const lastPage = data?.[data.length - 1];
+  const hasMore =
+    !!lastPage && lastPage.length >= PAGE_SIZE && items.length < MAX_ITEMS;
+  const pending = isValidating && size > (data?.length ?? 0);
 
   function loadMore() {
     if (!hasMore || pending) return;
-    const offset = items.length;
-    startTransition(async () => {
-      const next = await loadMoreNews(offset, PAGE_SIZE);
-      const merged = [...items, ...next];
-      setItems(merged);
-      setHasMore(next.length >= PAGE_SIZE && merged.length < MAX_ITEMS);
-    });
+    void setSize(size + 1);
+  }
+
+  if (isLoading && items.length === 0) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <NewsCardSkeleton />
+        <NewsCardSkeleton />
+      </div>
+    );
   }
 
   if (items.length === 0) {
