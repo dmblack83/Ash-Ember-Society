@@ -14,8 +14,10 @@ import { useAppSession } from "@/components/system/app-session";
 import { keyFor }        from "@/lib/data/keys";
 import { fetchProfileLite } from "@/lib/data/profile-client";
 import { fetchAgingItems }  from "@/lib/data/aging-client";
+import { fetchLatestNews }  from "@/lib/data/news-client";
 
 import { Masthead }          from "@/components/dashboard/Masthead";
+import { News }              from "@/components/dashboard/News";
 import { SmokingConditions } from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }       from "@/components/dashboard/AgingAlerts";
 import { Notifications }     from "@/components/dashboard/Notifications";
@@ -26,6 +28,7 @@ import {
   SmokingConditionsSkeleton,
   AgingSkeleton,
   NotificationsSkeleton,
+  NewsSkeleton,
 } from "./_skeletons";
 
 /* Masthead — greeting + admin link. */
@@ -79,6 +82,16 @@ export function AgingIsland() {
   );
   if (!ready || !session || data === undefined) return <AgingSkeleton />;
   return <AgingAlerts initialItems={data} />;
+}
+
+/* News rail — public data (no session needed), so it fetches as soon
+   as the shell hydrates. Replaced the server island when /home became
+   a fully static shell; SWR keeps revisits instant while the
+   cron-synced table revalidates in the background. */
+export function NewsClientIsland() {
+  const { data } = useSWR(keyFor.newsLatest(5), () => fetchLatestNews(5));
+  if (data === undefined) return <NewsSkeleton />;
+  return <News items={data} />;
 }
 
 /* Local shops — reads profile zip for the external Maps link. No skeleton
