@@ -50,9 +50,26 @@ export default defineConfig({
   },
 
   projects: [
+    /* Auth setup — signs in once (when TEST_USER_* env is present)
+       and saves storage state for the authenticated project. */
     {
-      name: "chromium",
-      use:  { ...devices["Desktop Chrome"] },
+      name:      "setup",
+      testMatch: /auth\.setup\.ts/,
+      use:       { ...devices["Desktop Chrome"] },
+    },
+    {
+      name:       "chromium",
+      use:        { ...devices["Desktop Chrome"] },
+      testIgnore: [/auth\.setup\.ts/, /authenticated\.spec\.ts/],
+    },
+    {
+      name:         "authenticated",
+      testMatch:    /authenticated\.spec\.ts/,
+      dependencies: ["setup"],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "playwright/.auth/user.json",
+      },
     },
     /* Mobile-PWA project can be added later for service-worker /
        standalone-mode tests. Out of scope for the v1 smoke set. */

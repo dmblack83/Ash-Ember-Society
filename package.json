@@ -13,7 +13,9 @@
     "test:e2e:debug": "playwright test --debug",
     "test:unit": "vitest run lib/",
     "test:unit:watch": "vitest lib/",
-    "check:pwa": "node scripts/check-pwa-urls.mjs"
+    "check:pwa": "node scripts/check-pwa-urls.mjs",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "check:bundle:write": "node scripts/check-bundle-size.mjs --write"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.11",

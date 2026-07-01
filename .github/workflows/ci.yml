@@ -12,12 +12,13 @@
 #   down in dedicated cleanup PRs first, then add lint to this gate
 #   once it passes on main. New code SHOULD be lint-clean — author
 #   responsibility, not CI-enforced (yet).
-# - Production build (`next build`) — needs Stripe / Supabase env
-#   vars; Vercel's build pipeline already covers it on every PR
-#   preview deploy.
-# - End-to-end tests — none in the repo today.
-# - Performance budget — separate follow-up; needs a real build to
-#   measure bundles.
+# - End-to-end tests — specs exist (tests/e2e); the authenticated
+#   project self-skips without TEST_USER_* credentials. Run locally
+#   or against preview deploys; not a CI gate yet.
+#
+# Production build runs ONLY inside the bundle-size job below, and
+# only when the required secrets are configured — Vercel's pipeline
+# remains the authoritative build check on every PR preview deploy.
 
 name: CI
 
@@ -69,6 +70,69 @@ jobs:
       # See scripts/check-pwa-urls.mjs for the rule + reasoning.
       - name: PWA URL absoluteness
         run: npm run check:pwa
+
+  # Bundle-size gate — builds the app and compares per-route
+  # analyze.data + total chunk bytes against scripts/bundle-baseline.json
+  # (tolerance: max(+10%, +20KB) per metric). Deliberate growth is
+  # accepted by regenerating the baseline (npm run check:bundle:write)
+  # in the same PR.
+  #
+  # ACTIVATION: requires two repository secrets so `next build` can run:
+  #   NEXT_PUBLIC_SUPABASE_URL       (public value — the project URL)
+  #   NEXT_PUBLIC_SUPABASE_ANON_KEY  (public anon key)
+  # Until they're configured the job is skipped (the `if` below).
+  # Server-only secrets are NOT needed: dummies are supplied for the
+  # modules that instantiate clients at import time.
+  bundle-size:
+    name: Bundle-size gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: ${{ github.event_name == 'pull_request' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Skip when build secrets are absent
+        id: gate
+        run: |
+          if [ -z "${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::bundle-size gate skipped — configure NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY repo secrets to activate."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci
+
+      - name: Build
+        if: steps.gate.outputs.run == 'true'
+        run: npx next build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          # Dummies for modules that construct clients at import time
+          # during page-data collection; nothing calls out in a build.
+          SUPABASE_SERVICE_ROLE_KEY: dummy-service-role
+          STRIPE_SECRET_KEY:         sk_test_dummy
+          STRIPE_WEBHOOK_SECRET:     whsec_dummy
+
+      - name: Analyze
+        if: steps.gate.outputs.run == 'true'
+        run: npm run analyze
+
+      - name: Bundle-size gate
+        if: steps.gate.outputs.run == 'true'
+        run: npm run check:bundle
 
   unit-test:
     name: Unit tests

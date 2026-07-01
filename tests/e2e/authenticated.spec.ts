@@ -1,59 +1,113 @@
 /* ------------------------------------------------------------------
-   Authenticated smoke tests — STUBS.
+   Authenticated flows — the surfaces the 2026-07 overhaul touched.
 
-   These cover the four authenticated critical paths from the
-   maintenance plan (P1.4):
+   Every core route is now a static/client shell + client gate + SWR
+   fetcher; the regression class these tests guard is "shell renders
+   but the gate or fetcher broke, so real content never arrives".
+   Each test asserts REAL authed content (not skeletons) lands.
 
-     - Login → /home redirect (the success path)
-     - Humidor: add cigar
-     - Lounge: create post
-     - Burn report: submit
-     - Account: avatar upload
+   Runs in the "authenticated" project, which reuses the storage
+   state saved by auth.setup.ts. Self-skips when no test user is
+   configured (TEST_USER_EMAIL / TEST_USER_PASSWORD).
 
-   All skipped until a Playwright auth fixture is set up:
-
-     1. Provision a dedicated test user in Supabase (email + password)
-     2. Add TEST_USER_EMAIL + TEST_USER_PASSWORD to Vercel env (preview)
-        and to .env.local for local runs
-     3. Add a Playwright "setup" project that signs in once and saves
-        the cookie state to playwright/.auth/user.json
-     4. Mark these tests with `test.use({ storageState: "..." })` so
-        they reuse the saved session
-
-   Once the fixture is in place, fill in the implementation below.
-   These stubs document the intended coverage so the test surface is
-   visible in the runner output even before they execute.
+   The test user must be onboarded and should have at least one
+   humidor item for the deepest assertions; tests degrade to
+   empty-state assertions when the collection is empty.
    ------------------------------------------------------------------ */
 
-import { test } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
-test.describe("authenticated smoke (stubs)", () => {
-  test.skip("login + redirect to /home", async () => {
-    /* TODO: navigate to /login, fill TEST_USER credentials, submit,
-       expect URL to land on /home, expect masthead greeting visible. */
+const HAS_CREDS = !!(process.env.TEST_USER_EMAIL && process.env.TEST_USER_PASSWORD);
+
+test.describe("authenticated", () => {
+  test.skip(!HAS_CREDS, "TEST_USER_EMAIL / TEST_USER_PASSWORD not set");
+
+  test("home renders the masthead greeting (gate + profile fetch)", async ({ page }) => {
+    await page.goto("/home");
+    /* Masthead greeting only renders after the client session gate
+       passes AND the profile SWR fetch resolves. */
+    await expect(
+      page.getByText(/Good (morning|afternoon|evening)/i).first(),
+    ).toBeVisible({ timeout: 15_000 });
   });
 
-  test.skip("humidor: add cigar from catalog", async () => {
-    /* TODO: from /home, navigate to /humidor, open AddCigarSheet,
-       search for a known catalog cigar, add it, expect new card
-       visible in the grid. */
+  test("humidor shell fills with content", async ({ page }) => {
+    await page.goto("/humidor");
+    /* The Add Cigar button renders with HumidorClient (post-gate),
+       for both populated and empty collections. */
+    await expect(page.getByText("Add Cigar").first()).toBeVisible({ timeout: 15_000 });
   });
 
-  test.skip("lounge: create new post", async () => {
-    /* TODO: navigate to /lounge, open NewPostSheet, type a title +
-       body, submit, expect post visible at top of feed with current
-       user as author. */
+  test("humidor sub-pages render past their skeletons", async ({ page }) => {
+    for (const path of ["/humidor/wishlist", "/humidor/stats", "/humidor/burn-reports"]) {
+      await page.goto(path);
+      /* Real content brings a heading or interactive control; the
+         page must not be stuck on the error boundary either. */
+      await expect(
+        page.locator("h1, h2, button").first(),
+      ).toBeVisible({ timeout: 15_000 });
+      await expect(page.locator("body")).not.toHaveText(/something went wrong/i);
+    }
   });
 
-  test.skip("burn report: submit", async () => {
-    /* TODO: navigate to /humidor/<seed-cigar-id>/burn-report,
-       fill required fields (date, rating, notes), submit, expect
-       redirect or toast confirming the burn report saved. */
+  test("account shows the signed-in profile", async ({ page }) => {
+    await page.goto("/account");
+    /* Sign Out only renders inside AccountClient after the SWR
+       profile fetch resolves — skeletons never contain it. */
+    await expect(page.getByText("Sign Out")).toBeVisible({ timeout: 15_000 });
   });
 
-  test.skip("account: avatar upload", async () => {
-    /* TODO: navigate to /account, upload a small fixture image as
-       avatar, expect new avatar visible. Needs an avatar fixture in
-       tests/fixtures/. */
+  test("humidor item detail loads from the list", async ({ page }) => {
+    await page.goto("/humidor");
+    await expect(page.getByText("Add Cigar").first()).toBeVisible({ timeout: 15_000 });
+
+    /* Tap the first item card if the collection has one. */
+    const firstItem = page.locator('a[href^="/humidor/"]').filter({
+      hasNotText: /wishlist|stats|burn/i,
+    }).first();
+
+    if ((await firstItem.count()) === 0) {
+      test.info().annotations.push({ type: "note", description: "empty humidor — detail nav skipped" });
+      return;
+    }
+    await firstItem.click();
+    await expect(page).toHaveURL(/\/humidor\/[0-9a-f-]{20,}/, { timeout: 10_000 });
+    /* Detail bundle resolved: the burn-report CTA renders. */
+    await expect(page.getByText(/burn report/i).first()).toBeVisible({ timeout: 15_000 });
+  });
+
+  test("lounge feed renders and compose sheet opens", async ({ page }) => {
+    await page.goto("/lounge");
+    /* Category cards render post-island; open the first category. */
+    await expect(page.locator("h1, h2").first()).toBeVisible({ timeout: 15_000 });
+
+    const newPost = page.getByText(/new post/i).first();
+    if ((await newPost.count()) === 0) {
+      test.info().annotations.push({ type: "note", description: "no compose affordance visible on lounge root" });
+      return;
+    }
+    await newPost.click();
+    /* NewPostSheet (BottomSheet primitive) mounts with the title field. */
+    await expect(
+      page.getByPlaceholder(/give your post a title/i),
+    ).toBeVisible({ timeout: 10_000 });
+    /* Close via Escape — exercises the primitive's close path. */
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByPlaceholder(/give your post a title/i),
+    ).toBeHidden({ timeout: 5_000 });
+  });
+
+  test("discover cigars list → detail → back is instant from cache", async ({ page }) => {
+    await page.goto("/discover/cigars");
+    const card = page.locator('a[href^="/discover/cigars/"]').first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.click();
+    /* Detail: the Details section renders once the catalog row lands. */
+    await expect(page.getByText("Details").first()).toBeVisible({ timeout: 15_000 });
+    await page.goBack();
+    await expect(
+      page.locator('a[href^="/discover/cigars/"]').first(),
+    ).toBeVisible({ timeout: 10_000 });
   });
 });
