@@ -91,6 +91,13 @@
   --card-border-hover:   rgba(214, 184, 118, 0.34);
   --card-edge:           inset 0 1px 0 rgba(214, 184, 118, 0.06);
 
+  /* Sheet / modal motion tokens — ADDITIVE. One spring curve + one
+     duration shared by every bottom sheet so open, close, and
+     drag-snap physics feel identical across the app. The curve is the
+     iOS sheet ease (fast start, long soft landing). */
+  --ease-spring: cubic-bezier(0.32, 0.72, 0, 1);
+  --dur-sheet:   340ms;
+
   /* Side-rail navigation tokens.
 
      `--side-rail-width` is the rail's intrinsic width — used to size
