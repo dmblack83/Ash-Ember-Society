@@ -1,12 +1,15 @@
-import { getNewsPage }  from "@/lib/data/news";
-import { NewsList }     from "./NewsList";
+import { NewsList } from "./NewsList";
 
-export const runtime  = "edge";
 export const metadata = { title: "Industry News — Ash & Ember Society" };
 
-export default async function NewsIndexPage() {
-  const initial = await getNewsPage(0, 20);
-
+/*
+ * Industry News — static shell. The first page of news used to be
+ * fetched server-side (edge runtime, dynamic render on every
+ * navigation); NewsList now owns all pagination via useSWRInfinite,
+ * so the document prerenders and revisits render every previously
+ * loaded page instantly from the SWR cache.
+ */
+export default function NewsIndexPage() {
   return (
     <div className="max-w-2xl mx-auto" style={{ padding: "24px 16px 32px" }}>
       {/* Header */}
@@ -47,7 +50,7 @@ export default async function NewsIndexPage() {
         </p>
       </div>
 
-      <NewsList initial={initial} />
+      <NewsList />
     </div>
   );
 }

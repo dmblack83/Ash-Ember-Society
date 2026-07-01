@@ -30,7 +30,6 @@ export const keyFor = {
 
   /* ── Humidor (per-user collection). */
   humidorItems: (userId: string) => ["humidor-items", userId] as const,
-  humidorItem:  (itemId: string) => ["humidor-item",  itemId] as const,
   wishlist:     (userId: string) => ["wishlist",      userId] as const,
   /* Boolean "has ≥1 wishlist item" — drives the Humidor empty-state
      "add from wishlist" CTA. Separate key from `wishlist` (the full
@@ -64,7 +63,6 @@ export const keyFor = {
     userId:     string,
     filter:     "all" | "mine" | "open" | "closed" = "all",
   ) => ["lounge-feed", categoryId, page, userId, filter] as const,
-  loungePost:   (postId: string) => ["lounge-post", postId] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
   /* Feedback category list — separate from `loungeFeed` because the
    * vote tallies and the hidden-by-default expand UX have a different
@@ -84,9 +82,6 @@ export const keyFor = {
   cigarWishlisted: (userId: string, cigarId: string) =>
     ["cigar-wishlisted", userId, cigarId] as const,
 
-  /* ── Shops directory (public). */
-  shop:         (slug: string) => ["shop", slug] as const,
-
   /* ── Home notifications card (per-user). Keyed by userId so
    *   switching account on the same browser produces a fresh cache,
    *   not another user's unseen counts. */
@@ -97,6 +92,8 @@ export const keyFor = {
 
   /* ── Home news rail (public — shared across users). */
   newsLatest:    (limit: number) => ["news-latest", limit] as const,
+  /* ── Industry News page (public, paginated via useSWRInfinite). */
+  newsPage:      (pageIndex: number) => ["news-page", pageIndex] as const,
 } as const;
 
 /*
