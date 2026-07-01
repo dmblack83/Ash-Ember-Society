@@ -36,6 +36,10 @@ export const keyFor = {
      "add from wishlist" CTA. Separate key from `wishlist` (the full
      list) because it's a cheap HEAD count, not the rows. */
   hasWishlist:  (userId: string) => ["wishlist-has",  userId] as const,
+  /* Burn-reports list bundle (reports + tags + byline) and the stats
+     page's assembled chart data — both per-user. */
+  burnReports:  (userId: string) => ["burn-reports",  userId] as const,
+  humidorStats: (userId: string) => ["humidor-stats", userId] as const,
 
   /* ── Lounge / forum. Liked status is per-user, so userId is part
    *   of the key — switching account on the same browser produces a
