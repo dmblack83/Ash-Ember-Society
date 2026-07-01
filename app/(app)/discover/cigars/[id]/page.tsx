@@ -60,28 +60,29 @@ export default async function CigarDetailPage({
 
   const supabase = await createClient();
 
-  // Cached catalog read + auth header read run in parallel.
-  const [cigarData, user] = await Promise.all([
+  /* getServerUser() only reads proxy headers — near-instant. Resolving it
+     first lets the wishlist check run in parallel with the catalog read
+     instead of waterfalling behind it. */
+  const user = await getServerUser();
+
+  const [cigarData, wishlistRow] = await Promise.all([
     getCigarById(id),
-    getServerUser(),
+    user
+      ? supabase
+          .from("humidor_items")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("cigar_id", id)
+          .eq("is_wishlist", true)
+          .maybeSingle()
+          .then(({ data }) => data)
+      : Promise.resolve(null),
   ]);
 
   if (!cigarData) notFound();
 
   const c = cigarData as CigarDetail;
-
-  /* Check if the current user has this cigar on their wishlist */
-  let isWishlisted = false;
-  if (user) {
-    const { data: wishlistRow } = await supabase
-      .from("humidor_items")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("cigar_id", id)
-      .eq("is_wishlist", true)
-      .maybeSingle();
-    isWishlisted = !!wishlistRow;
-  }
+  const isWishlisted = !!wishlistRow;
   /* Build details list — omit null/undefined fields */
   const details: { label: string; value: string }[] = [
     c.shade          ? { label: "Shade",            value: c.shade }                                            : null,

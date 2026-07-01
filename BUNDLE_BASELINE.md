@@ -1,3 +1,31 @@
+# Bundle baseline — 2026-07-01 (current)
+
+Snapshot at the start of the app overhaul (WS0 hygiene branch, parent `c705613`). Same-route deltas vs the 2026-05-27 baseline below. All figures are analyze.data diagnostics — compare a route only against itself across builds (see Caveats in the 2026-05-27 section).
+
+| Field | Value |
+|---|---|
+| **Date (UTC)** | 2026-07-01 |
+| **Base commit** | `c705613` (origin/main, post #527 /home static shell) |
+| **Next.js** | 16.2.1 (Turbopack) |
+| **Total `_next/static/chunks/`** | 3,144 KB across 65 JS chunks + 1 CSS |
+
+## Per-route analyze.data — app routes, uncompressed bytes
+
+| Bytes | Route | Delta vs 2026-05-27 |
+|---:|---|---|
+| 369,525 | `/account` | -5% (390,490) — still heaviest, WS1 target |
+| 365,083 | `/humidor` | **+63% (224,492)** — expected: #520/#523 static-shell conversion moved the data layer into the client bundle; diagnostic figure, not shipped-JS growth |
+| 356,024 | `/login` | -6% (379,248) |
+| 354,055 | `/onboarding` | -6% (375,361) |
+| 280,947 | `/humidor/stats` | flat (282,246) |
+| 234,619 | `/lounge/rooms/[slug]` | flat (235,361) |
+| 231,641 | `/home` | flat (232,431) |
+| 228,600 | `/lounge/[postId]` | flat (229,204) |
+
+Routes not listed were within ±3% of the 2026-05-27 figures.
+
+---
+
 # Bundle baseline — 2026-05-27
 
 Reference snapshot of production bundle sizes. **Compare future runs against this** to measure the impact of perf work.

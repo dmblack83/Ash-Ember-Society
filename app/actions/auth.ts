@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient }    from '@/lib/supabase/server'
+import { createClient }    from '@/utils/supabase/server'
 import { redirect }        from 'next/navigation'
 import { checkRateLimit }  from '@/lib/rate-limit'
 import { trackReliability } from '@/lib/telemetry/reliability'

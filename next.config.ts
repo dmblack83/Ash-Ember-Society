@@ -98,6 +98,13 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   /*
+   * A stray package-lock.json in the home directory makes Next.js guess
+   * the wrong workspace root and warn on every build. Pin it here.
+   */
+  turbopack: {
+    root: __dirname,
+  },
+  /*
    * @google-cloud/vision brings a full gRPC stack (grpc-js, google-gax,
    * protobufjs, google-auth-library) that was being bundled into the
    * shared [root-of-server] chunk — ~3MB parsed on every cold start, even

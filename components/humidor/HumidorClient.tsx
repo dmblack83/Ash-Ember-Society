@@ -8,6 +8,7 @@ import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { keyFor } from "@/lib/data/keys";
+import { agingDays } from "@/lib/format";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -86,16 +87,6 @@ const SORT_LABELS: Record<SortOption, string> = {
 /* ------------------------------------------------------------------
    Helpers
    ------------------------------------------------------------------ */
-
-function agingDays(startDate: string | null): number {
-  if (!startDate) return 0;
-  return Math.max(
-    0,
-    Math.floor(
-      (Date.now() - new Date(startDate).getTime()) / 86_400_000
-    )
-  );
-}
 
 function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
   const arr = [...items];

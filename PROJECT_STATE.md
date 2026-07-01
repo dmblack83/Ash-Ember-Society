@@ -154,7 +154,6 @@ Vercel env vars: all set to Production + Preview.
 |--------|---------|
 | `scripts/seed-cigar-catalog.ts` | Seeds 4,221 cigars from cigars_clean.json |
 | `scripts/seed-cigar-images.ts` | Fetches cigar images via Google Custom Search, uploads to cigar-photos bucket |
-| `scripts/seed-cigar-default-images.ts` | **DO NOT RUN** — writes SVG paths to image_url; those files don't exist. Default images are handled client-side by `lib/cigar-default-image.ts`. Running this script breaks all default images. |
 | `scripts/attach-test-image.ts` | One-off: attaches a single image to first cigar for testing |
 | `scripts/seed-cigars.ts` | Original 50-cigar seed (superseded by full catalog) |
 | `scripts/seed-shops.ts` | Seeds sample Utah shops |

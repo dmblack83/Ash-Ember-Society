@@ -264,7 +264,10 @@ export async function fetchFeedbackPosts(
       "forum_comments(count)"
     )
     .eq("category_id", categoryId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    /* Safety cap only — volume is <<100 in practice (see header note).
+       Prevents an unbounded payload if a category ever explodes. */
+    .limit(500);
 
   if (error) throw new Error(error.message);
 
@@ -348,7 +351,10 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
       "profiles:public_profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
     )
     .eq("post_id", postId)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    /* Safety cap only — per-post comment volume is small in practice
+       (see header note). Prevents an unbounded payload on a viral post. */
+    .limit(1000);
 
   if (error) throw new Error(error.message);
 

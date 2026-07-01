@@ -55,7 +55,7 @@ export default async function BurnReportPage({
   const user     = await getServerUser();
   if (!user) redirect("/login");
 
-  const [{ data: item, error }, profile, flavorTagData] =
+  const [{ data: item, error }, profile, flavorTagData, { count: priorReportCount }] =
     await Promise.all([
       supabase
         .from("humidor_items")
@@ -67,17 +67,16 @@ export default async function BurnReportPage({
       getProfileLite(user.id),
       /* Cached cross-request — see lib/data/flavor-tags.ts. */
       getFlavorTags(),
+      /* Next sequential burn-report number for this user ("NO. 12" on the
+         Verdict Card masthead). Only depends on user.id, so it runs with
+         the batch above instead of as a second round-trip. */
+      supabase
+        .from("smoke_logs")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id),
     ]);
 
   if (error || !item || !item.cigar_id) notFound();
-
-  // Fetch the next sequential burn-report number for this user. Used
-  // by the Verdict Card masthead ("NO. 12") so the in-flight preview
-  // shows the same number that will be assigned on submit.
-  const { count: priorReportCount } = await supabase
-    .from("smoke_logs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
 
   const nextReportNumber = (priorReportCount ?? 0) + 1;
 
