@@ -479,6 +479,14 @@ select {
     outline: none;
   }
 
+  /* Pressed feedback for every .btn variant: a slight compositor-only
+     scale on top of each variant's brightness/background step, so taps
+     visibly "give" like native controls. Guarded by reduced-motion. */
+  .btn:active { transform: scale(0.97); }
+  @media (prefers-reduced-motion: reduce) {
+    .btn:active { transform: none; }
+  }
+
   .btn-primary {
     background-color: var(--primary);
     color: var(--primary-foreground);
@@ -541,6 +549,14 @@ select {
   .card-interactive:hover {
     transform: translateY(-2px);
     border-color: var(--card-border-hover);
+  }
+  /* Pressed feedback mirrors .btn — compositor-only scale. */
+  .card-interactive:active {
+    transform: scale(0.985);
+    border-color: var(--card-border-hover);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card-interactive:active { transform: none; }
   }
 
   /* Premium card: stronger brass border + soft gold halo as the

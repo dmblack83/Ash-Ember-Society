@@ -237,9 +237,11 @@ export function AddToHumidorSheet({
                   onClick={addToExisting}
                   disabled={submitting}
                 >
-                  {submitting
-                    ? "Updating…"
-                    : `Add ${quantity} to existing (${existingItems[0]?.quantity ?? 0} → ${(existingItems[0]?.quantity ?? 0) + quantity})`}
+                  {/* Label stays constant while submitting — swapping to
+                      "Updating…" changed the button width mid-tap (CLS). */}
+                  <span className={submitting ? "opacity-60" : undefined}>
+                    {`Add ${quantity} to existing (${existingItems[0]?.quantity ?? 0} → ${(existingItems[0]?.quantity ?? 0) + quantity})`}
+                  </span>
                 </button>
                 <button
                   type="button"
