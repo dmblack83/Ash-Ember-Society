@@ -10,7 +10,7 @@ import { AvatarFrame }                          from "@/components/ui/AvatarFram
 import { resolveBadge }                         from "@/lib/badge";
 import { VerdictCard }                          from "@/components/humidor/VerdictCard";
 import { unwrapBurnReport }                     from "./PostDetailClient";
-import { getBurnReportThirdsTaggedBatch }       from "@/lib/data/burn-report-thirds";
+import { getBurnReportThirdsTaggedBatch }       from "@/lib/data/burn-report-thirds-batch";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
