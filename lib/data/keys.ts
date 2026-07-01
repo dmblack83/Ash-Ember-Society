@@ -94,6 +94,9 @@ export const keyFor = {
 
   /* ── Home aging island (per-user). */
   homeAging:     (userId: string) => ["home-aging", userId] as const,
+
+  /* ── Home news rail (public — shared across users). */
+  newsLatest:    (limit: number) => ["news-latest", limit] as const,
 } as const;
 
 /*

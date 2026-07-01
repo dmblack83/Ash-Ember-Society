@@ -1,29 +1,30 @@
-import { Suspense }      from "react";
 import { TonightsPairing } from "@/components/dashboard/TonightsPairing";
 import { FieldGuide }      from "@/components/dashboard/FieldGuide";
 import { DashboardPager }  from "@/components/dashboard/DashboardPager";
 
-import { NewsIsland } from "./_islands";
 import {
   MastheadIsland,
   SmokingConditionsIsland,
   NotificationsIsland,
   AgingIsland,
   LocalShopsIsland,
+  NewsClientIsland,
 } from "./client-islands";
 import { HomeAuthGate } from "./HomeAuthGate";
-import { NewsSkeleton } from "./_skeletons";
 
 /*
- * Edge runtime: faster cold start. The route is a STATIC, user-agnostic shell
- * — no getServerUser(), no per-user server reads — so the document carries no
- * PII and the service worker can serve it to anyone. Auth gating happens
- * client-side (HomeAuthGate, reusing resolveSessionGate, same as /humidor);
- * the proxy still 401s/redirects unauth requests. Per-user data arrives
- * client-side in the islands via SWR. News stays a public server island.
+ * Fully STATIC, user-agnostic shell — no getServerUser(), no server
+ * reads at all, so the document is prerendered at build time and
+ * served from the CDN edge with zero server work. (The previous
+ * `runtime = "edge"` + server news island kept this route dynamic:
+ * every cold navigation paid a server render. News moved to a client
+ * island — public data via SWR — to remove the last server read.)
+ *
+ * Auth gating happens client-side (HomeAuthGate, reusing
+ * resolveSessionGate, same as /humidor); the proxy still
+ * 401s/redirects unauth requests. Per-user data arrives client-side
+ * in the islands via SWR.
  */
-export const runtime = "edge";
-
 export default function HomePage() {
   return (
     <>
@@ -45,10 +46,8 @@ export default function HomePage() {
           <AgingIsland />
         </DashboardPager>
 
-        {/* 4. The Wire (news) — public server island, streams independently. */}
-        <Suspense fallback={<NewsSkeleton />}>
-          <NewsIsland />
-        </Suspense>
+        {/* 4. The Wire (news) — public client island via SWR. */}
+        <NewsClientIsland />
 
         {/* 5. Field Guide — self-fetching client; in static shell. */}
         <FieldGuide />
