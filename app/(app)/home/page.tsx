@@ -11,6 +11,7 @@ import {
   NewsClientIsland,
 } from "./client-islands";
 import { HomeAuthGate } from "./HomeAuthGate";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 
 /*
  * Fully STATIC, user-agnostic shell — no getServerUser(), no server
@@ -27,7 +28,7 @@ import { HomeAuthGate } from "./HomeAuthGate";
  */
 export default function HomePage() {
   return (
-    <>
+    <PullToRefresh>
       {/* Client auth gate: redirects to /login or /onboarding after mount. */}
       <HomeAuthGate />
 
@@ -56,6 +57,6 @@ export default function HomePage() {
         <LocalShopsIsland />
 
       </div>
-    </>
+    </PullToRefresh>
   );
 }

@@ -3,6 +3,7 @@ import { redirect }             from "next/navigation";
 import { getServerUser }        from "@/lib/auth/server-user";
 import { LoungeDataIsland }     from "./_islands";
 import { LoungeShellSkeleton }  from "./_skeletons";
+import { PullToRefresh }        from "@/components/ui/PullToRefresh";
 
 /*
  * Edge runtime: faster cold start than the Node serverless target.
@@ -20,8 +21,10 @@ export default async function LoungePage() {
   if (!user) redirect("/login");
 
   return (
-    <Suspense fallback={<LoungeShellSkeleton />}>
-      <LoungeDataIsland userId={user.id} userEmail={user.email} />
-    </Suspense>
+    <PullToRefresh>
+      <Suspense fallback={<LoungeShellSkeleton />}>
+        <LoungeDataIsland userId={user.id} userEmail={user.email} />
+      </Suspense>
+    </PullToRefresh>
   );
 }

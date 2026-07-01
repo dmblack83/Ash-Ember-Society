@@ -2,6 +2,7 @@
 
 import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { HumidorClient } from "@/components/humidor/HumidorClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { HumidorShellSkeleton } from "./_skeletons";
 
 /**
@@ -15,5 +16,9 @@ export function HumidorRoute() {
   const { allowed, session } = useGatedSession();
 
   if (!allowed || !session) return <HumidorShellSkeleton />;
-  return <HumidorClient userId={session.userId} />;
+  return (
+    <PullToRefresh>
+      <HumidorClient userId={session.userId} />
+    </PullToRefresh>
+  );
 }
