@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
-import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 
 /* ------------------------------------------------------------------
    Types
@@ -34,9 +34,6 @@ export function AddToHumidorSheet({
   onClose,
   onSuccess,
 }: AddToHumidorSheetProps) {
-  /* Escape-key dismissal. */
-  useEscapeKey(isOpen, onClose);
-
   const today = new Date().toISOString().split("T")[0];
 
   /* Form state */
@@ -46,8 +43,6 @@ export function AddToHumidorSheet({
   const [source, setSource] = useState("");
   const [agingStartDate, setAgingStartDate] = useState(today);
   const [notes, setNotes] = useState("");
-
-  const sheetRef = useRef<HTMLDivElement>(null);
 
   /* UI state */
   const [submitting, setSubmitting] = useState(false);
@@ -98,24 +93,8 @@ export function AddToHumidorSheet({
     setAgingStartDate(purchaseDate);
   }, [purchaseDate]);
 
-  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
-  useEffect(() => {
-    if (!isOpen) return;
-    // iOS ignores overflow:hidden on body — position:fixed is the reliable fix
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    if (sheetRef.current) sheetRef.current.scrollTop = 0;
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [isOpen]);
+  /* Body scroll lock, escape key, and scroll-reset-on-open are all
+     handled by the BottomSheet primitive. */
 
   /* Insert a new humidor entry */
   async function insertEntry() {
@@ -213,50 +192,11 @@ export function AddToHumidorSheet({
 
   return (
     <>
-      {/* Backdrop */}
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 z-40 transition-opacity duration-300"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.65)",
-          backdropFilter:  "blur(4px)",
-          opacity:         isOpen ? 1 : 0,
-          pointerEvents:   isOpen ? "auto" : "none",
-          touchAction:     "none",
-        }}
-        onClick={onClose}
-      />
-
-      {/* Sheet / Modal — outer: positioning + animation only, no scroll */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add to Humidor"
-        className={[
-          "fixed z-50 bg-card shadow-2xl transition-all duration-300 ease-out",
-          /* Mobile — explicit height so overflow-y-auto works on iOS */
-          "inset-x-0 bottom-0 rounded-t-2xl h-[92dvh]",
-          /* Desktop — centered modal, height shrinks to content */
-          "sm:inset-0 sm:m-auto sm:rounded-2xl sm:w-full sm:max-w-md sm:h-fit",
-        ].join(" ")}
-        style={{
-          transform:     isOpen ? "translateY(0)" : "translateY(100%)",
-          opacity:       isOpen ? 1 : 0,
-          pointerEvents: isOpen ? "auto" : "none",
-        }}
+      <BottomSheet
+        open={isOpen}
+        onClose={onClose}
+        ariaLabel="Add to Humidor"
       >
-        {/* Inner — all scrolling happens here */}
-        <div
-          ref={sheetRef}
-          className="h-full overflow-y-auto overflow-x-hidden sm:h-auto sm:max-h-[90dvh]"
-          style={{ overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
-        >
-
-        {/* Drag handle (mobile only) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-muted" />
-        </div>
-
         <div className="px-5 pb-10 pt-4 sm:pt-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -475,8 +415,7 @@ export function AddToHumidorSheet({
             </form>
           )}
         </div>
-        </div>{/* end inner scrollable */}
-      </div>
+      </BottomSheet>
 
       <UpgradeLimitModal
         isOpen={showLimitModal}
