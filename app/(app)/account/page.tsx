@@ -1,80 +1,15 @@
-import { createClient }  from "@/utils/supabase/server";
-import { getServerUser } from "@/lib/auth/server-user";
-import { redirect } from "next/navigation";
-import { getMembershipTier } from "@/lib/membership";
-import { AccountClient } from "@/components/account/AccountClient";
-import type { MembershipTier } from "@/lib/stripe";
+import { AccountRoute } from "./AccountRoute";
 
 export const metadata = { title: "Account — Ash & Ember Society" };
-export const dynamic  = "force-dynamic";
 
-/* Local row type — the new columns aren't in Supabase's generated types
-   until `supabase gen types` is re-run after the migration. */
-interface ProfileRow {
-  membership_tier:        MembershipTier | null;
-  stripe_customer_id:     string | null;
-  stripe_subscription_id: string | null;
-  badge:                  string | null;
-  assigned_badges:        string[] | null;
-  display_name:           string | null;
-  first_name:             string | null;
-  last_name:              string | null;
-  phone:                  string | null;
-  city:                   string | null;
-  state:                  string | null;
-  zip_code:               string | null;
-  avatar_url:             string | null;
-  created_at:             string;
-}
-
-export default async function AccountPage() {
-  const supabase = await createClient();
-  const user     = await getServerUser();
-  if (!user) redirect("/login");
-
-  /* Cast through unknown so TypeScript accepts columns not yet in the
-     generated types (added by migration 20260415_profiles_extended_fields). */
-  const { data: profile } = (await supabase
-    .from("profiles")
-    .select(
-      "membership_tier, stripe_customer_id, stripe_subscription_id, badge, assigned_badges, " +
-      "display_name, first_name, last_name, phone, city, state, zip_code, avatar_url, created_at"
-    )
-    .eq("id", user.id)
-    .single()) as unknown as { data: ProfileRow | null };
-
-  const currentTier       = getMembershipTier(profile) as MembershipTier;
-  const hasStripeCustomer = !!(profile?.stripe_customer_id);
-
-  /* Billing date loads client-side via /api/stripe/subscription-status
-     so this page renders without waiting for the Stripe API. */
-
-  return (
-    <AccountClient
-      userId={user.id}
-      email={user.email ?? ""}
-      memberSince={profile?.created_at ?? null}
-      badge={profile?.badge ?? null}
-      assignedBadges={profile?.assigned_badges ?? []}
-      profile={{
-        display_name: profile?.display_name ?? null,
-        first_name:   profile?.first_name   ?? null,
-        last_name:    profile?.last_name     ?? null,
-        phone:        profile?.phone        ?? null,
-        city:         profile?.city         ?? null,
-        state:        profile?.state        ?? null,
-        zip_code:     profile?.zip_code     ?? null,
-        avatar_url:   profile?.avatar_url   ?? null,
-      }}
-      membership={{
-        currentTier,
-        hasStripeCustomer,
-        nextBillingDate:  null,
-        currentPeriodEnd: null,
-        priceIds: {
-          memberMonthly: process.env.STRIPE_MEMBER_MONTHLY_PRICE_ID ?? "",
-        },
-      }}
-    />
-  );
+/*
+ * Account — static client shell (same pattern as /humidor and /home).
+ * No server data fetch and no getServerUser() here, so the route
+ * renders user-agnostic HTML the service worker can serve to anyone
+ * (it carries no PII; the profile row arrives client-side via SWR
+ * under own-row RLS). Auth gating happens client-side in AccountRoute;
+ * the proxy still 401s/redirects unauthenticated requests.
+ */
+export default function AccountPage() {
+  return <AccountRoute />;
 }

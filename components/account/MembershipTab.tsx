@@ -90,16 +90,12 @@ interface Props {
   hasStripeCustomer: boolean;
   nextBillingDate:   string | null;
   currentPeriodEnd:  number | null;
-  priceIds: {
-    memberMonthly: string;
-  };
 }
 
 export function MembershipTab({
   currentTier,
   hasStripeCustomer,
   nextBillingDate: nextBillingDateProp,
-  priceIds,
 }: Props) {
   const router = useRouter();
 
@@ -125,13 +121,14 @@ export function MembershipTab({
 
   /* ── Upgrade ─────────────────────────────────────────────────── */
   async function handleUpgrade() {
-    if (!priceIds.memberMonthly) { setToast("Price not configured."); return; }
     setUpgrading(true);
     try {
+      /* Plan key, not a raw Stripe price ID — the API resolves the
+         price server-side so the client never handles price IDs. */
       const res  = await fetch("/api/stripe/create-checkout-session", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ priceId: priceIds.memberMonthly }),
+        body:    JSON.stringify({ plan: "member-monthly" }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
