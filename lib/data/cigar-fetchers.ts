@@ -62,3 +62,50 @@ export async function fetchCigarPage({
     hasMore: results.length === pageSize,
   };
 }
+
+/* ── Cigar detail (public catalog row) ──────────────────────────── */
+
+/* Same projection as the server getCigarById (lib/data/cigar-catalog.ts).
+   Pairs with keyFor.cigar(cigarId); null = not found. */
+export interface CigarDetailRow {
+  id: string;
+  brand: string | null;
+  series: string | null;
+  format: string | null;
+  wrapper: string | null;
+  wrapper_country: string | null;
+  shade: string | null;
+  binder_country: string | null;
+  filler_countries: string[] | null;
+  ring_gauge: number | null;
+  length_inches: number | null;
+  community_added: boolean;
+  approved: boolean;
+  image_url: string | null;
+}
+
+export async function fetchCigarDetail(id: string): Promise<CigarDetailRow | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("cigar_catalog")
+    .select("id, brand, series, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as CigarDetailRow | null) ?? null;
+}
+
+/* Per-user wishlist flag for the cigar detail page. Pairs with
+   keyFor.cigarWishlisted(userId, cigarId). */
+export async function fetchCigarWishlisted(userId: string, cigarId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("humidor_items")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("cigar_id", cigarId)
+    .eq("is_wishlist", true)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
+}
