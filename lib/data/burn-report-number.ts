@@ -11,23 +11,55 @@
    number reflects "the 45th burn report this user has filed", not
    any sequential position in the lounge feed.
 
-   Implementation: two batched queries.
-     1. Resolve the IDs we care about → their owner user_ids.
-     2. For the union of those users, fetch every smoke_log
-        (id + smoked_at) to count positions per user.
+   Implementation: the get_report_numbers RPC — a single window-
+   function query (see supabase/migrations/20260702_report_number_rpc.sql).
+   SECURITY INVOKER, so it counts exactly the rows the caller's RLS
+   allows, same as the legacy path.
 
-   For typical lounge pages (a few dozen logs from a handful of
-   users) this is cheap. If we ever shard or scale beyond that, swap
-   in a single SQL window-function query instead.
+   Legacy fallback: until the migration is applied in prod, the RPC
+   errors and we fall back to the old two-query JS counting (resolve
+   owners, fetch each owner's full history, count positions). Remove
+   the fallback once the migration is confirmed applied.
    ------------------------------------------------------------------ */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { log } from "@/lib/log";
 
 export async function computeReportNumbers(
   supabase: SupabaseClient,
   smokeLogIds: string[],
 ): Promise<Record<string, number>> {
   if (smokeLogIds.length === 0) return {};
+
+  const { data: rpcRows, error: rpcError } = await supabase.rpc("get_report_numbers", {
+    p_smoke_log_ids: smokeLogIds,
+  });
+
+  if (!rpcError) {
+    const result: Record<string, number> = {};
+    for (const row of (rpcRows ?? []) as { smoke_log_id: string; report_number: number | string }[]) {
+      result[row.smoke_log_id] = Number(row.report_number);
+    }
+    return result;
+  }
+
+  /* PGRST202 = function not found (migration not applied yet) — the
+     expected pre-migration state, warn-level. Anything else means the
+     deployed RPC is failing and needs eyes: error-level so it stands
+     out, but still fall back so report numbers keep rendering. */
+  if (rpcError.code === "PGRST202") {
+    log.warn({
+      scope:   "burn-report-number",
+      message: "get_report_numbers RPC not deployed; using legacy fallback",
+      error:   rpcError,
+    });
+  } else {
+    log.error({
+      scope:   "burn-report-number",
+      message: "get_report_numbers RPC failed; using legacy fallback",
+      error:   rpcError,
+    });
+  }
 
   const { data: scoped } = await supabase
     .from("smoke_logs")
