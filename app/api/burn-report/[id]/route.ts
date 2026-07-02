@@ -39,6 +39,10 @@ interface BurnReportEditBody {
   review_text?:            string | null;
   smoke_duration_minutes?: number | null;
   content_video_id?:       string | null;
+  /* Full replacement photo list. Key present = write (empty array =
+     user removed every photo); key absent = leave untouched (older
+     app builds never send it). */
+  photo_urls?:             string[];
   /* burn_reports child fields */
   thirds_enabled?:         boolean;
   third_beginning?:        string | null;
@@ -47,9 +51,14 @@ interface BurnReportEditBody {
   /* Per-third payload. When present alongside thirds_enabled=true,
      the server replaces burn_report_thirds + their flavor_tag joins
      and derives headline ratings + tag union onto smoke_logs.
-     photo_index is ignored on edit (photos are read-only in v1 edit);
-     existing per-third photo_urls are preserved. */
-  thirds?: Array<PerThirdData & { index: 1 | 2 | 3 }>;
+     photo_index is ignored on edit. */
+  thirds?: Array<PerThirdData & {
+    index: 1 | 2 | 3;
+    /* Key present = write this third's photo (null clears it); key
+       absent = preserve the existing photo_url by index (clients
+       predating photo editing). */
+    photo_url?: string | null;
+  }>;
 }
 
 export async function PATCH(
@@ -134,6 +143,7 @@ export async function PATCH(
   assign("review_text");
   assign("smoke_duration_minutes");
   assign("content_video_id");
+  assign("photo_urls");
 
   if (Object.keys(smokeLogUpdate).length > 0) {
     const { error: updateError } = await supabase
@@ -226,7 +236,7 @@ export async function PATCH(
       burn_rating:         t.burn_rating,
       construction_rating: t.construction_rating,
       flavor_rating:       t.flavor_rating,
-      photo_url:           photoByIndex.get(t.index) ?? null,
+      photo_url:           "photo_url" in t ? t.photo_url ?? null : photoByIndex.get(t.index) ?? null,
     }));
 
     const { data: insertedThirds, error: thirdsError } = await supabase
