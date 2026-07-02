@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef, memo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import Link                                    from "next/link";
@@ -384,11 +384,6 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
   const [closingPost,        setClosingPost]        = useState(false);
   const [mounted,            setMounted]            = useState(false);
 
-  /* Guards the comment fetch against a second concurrent request when
-     commentsOpen toggles mid-flight — `comments !== null` alone leaves a
-     window where a re-run fires a parallel load before the first resolves. */
-  const commentsInFlight = useRef(false);
-
   /* Escape-key dismissal for the inline delete-post confirmation.
      Tied to showDeletePost so the listener only attaches while the
      modal is open. */
@@ -407,8 +402,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
 
   /* Load comments on first open */
   useEffect(() => {
-    if (!commentsOpen || comments !== null || commentsInFlight.current) return;
-    commentsInFlight.current = true;
+    if (!commentsOpen || comments !== null) return;
     setCommentsLoading(true);
 
     let cancelled = false;
@@ -444,11 +438,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
       if (cancelled) return;
       setComments(rows.map((c) => ({ ...c, profiles: nameMap[c.user_id] ?? null })));
       setCommentsLoading(false);
-      commentsInFlight.current = false;
     }
 
     load();
-    return () => { cancelled = true; commentsInFlight.current = false; };
+    return () => { cancelled = true; };
   }, [commentsOpen, comments, post.id, supabase]);
 
   /* Like */
