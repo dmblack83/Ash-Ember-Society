@@ -25,6 +25,7 @@ import { PostDetailClient }   from "@/components/lounge/PostDetailClient";
 import type { SmokeLogData }  from "@/components/lounge/PostDetailClient";
 import { computeReportNumbers } from "@/lib/data/burn-report-number";
 import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds";
+import { getFlavorTags }      from "@/lib/data/flavor-tags";
 
 interface Props {
   postId: string;
@@ -34,7 +35,12 @@ interface Props {
 export async function PostDetailDataIsland({ postId, userId }: Props) {
   const supabase = await createClient();
 
-  const [postRes, commentsRes, likeRes] = await Promise.all([
+  // getFlavorTags() has no dependency on the other awaited values and is
+  // served from the shared 24h cache (lib/data/flavor-tags.ts), so hoist it
+  // into this earliest batch. Its full catalog resolves both the headline
+  // flavor_tag_ids → names lookup and the per-third tag map below, replacing
+  // two per-request flavor_tags round-trips.
+  const [postRes, commentsRes, likeRes, flavorTagsList] = await Promise.all([
     supabase
       .from("forum_posts")
       .select(`
@@ -56,9 +62,16 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
       .select("*", { count: "exact", head: true })
       .eq("user_id", userId)
       .eq("post_id", postId),
+    getFlavorTags(),
   ]);
 
   if (!postRes.data) redirect("/lounge");
+
+  // id → name map over the full cached catalog. Covers both the headline
+  // flavor_tag_ids and any per-third tags referenced below.
+  const tagNameMap: Record<string, string> = Object.fromEntries(
+    flavorTagsList.map((t) => [t.id, t.name]),
+  );
 
   const raw       = postRes.data as any;
   const likeCount = (raw.forum_post_likes as { count: number }[])[0]?.count ?? 0;
@@ -123,14 +136,10 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
   }
 
   // Resolve flavor tag IDs → names so VerdictCard renders the italic
-  // "tasting notes" line below the verdict article.
+  // "tasting notes" line below the verdict article. Derived from the
+  // cached catalog; output stays ordered by flavor_tag_ids.
   if (smokeLog && flavorTagIds.length > 0) {
-    const { data: tagRows } = await supabase
-      .from("flavor_tags")
-      .select("id, name")
-      .in("id", flavorTagIds);
-    const tagMap = Object.fromEntries((tagRows ?? []).map((t: { id: string; name: string }) => [t.id, t.name]));
-    smokeLog.flavor_tag_names = flavorTagIds.map((id) => tagMap[id]).filter(Boolean);
+    smokeLog.flavor_tag_names = flavorTagIds.map((id) => tagNameMap[id]).filter(Boolean);
   }
 
   // Thread log-author display name onto the smoke log for the verdict-card byline.
@@ -146,16 +155,9 @@ export async function PostDetailDataIsland({ postId, userId }: Props) {
     const brArr = Array.isArray(smokeLog.burn_report) ? smokeLog.burn_report : [smokeLog.burn_report];
     const br    = brArr[0] as { id?: string; thirds_enabled?: boolean } | null;
     if (br?.id && br.thirds_enabled) {
-      // Resolve names for whatever flavor_tags we already loaded in
-      // the flavor_tag_ids step PLUS any new ones referenced by the
-      // per-third joins. The DB has them all under flavor_tags; a
-      // small extra fetch is cheap.
-      const { data: allTagRows } = await supabase
-        .from("flavor_tags")
-        .select("id, name");
-      const tagNameMap: Record<string, string> = Object.fromEntries(
-        (allTagRows ?? []).map((t: { id: string; name: string }) => [t.id, t.name]),
-      );
+      // Per-third tag names resolve from the same cached full catalog
+      // (tagNameMap above) — it covers the per-third tags that may not
+      // overlap the headline flavor_tag_ids, with no extra round-trip.
       const taggedByReport = await getBurnReportThirdsTaggedBatch(
         supabase, [br.id], tagNameMap,
       );
