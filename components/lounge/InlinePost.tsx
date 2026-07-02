@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, useRef, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import Link                                    from "next/link";
@@ -13,6 +13,7 @@ import { BurnReportPreviewCard }               from "@/components/humidor/BurnRe
 import { BurnReportModal }                     from "@/components/humidor/BurnReportModal";
 import { usePhotoLightbox }                    from "@/components/ui/PhotoLightbox";
 import { tapHaptic }                           from "@/lib/haptics";
+import { log }                                 from "@/lib/log";
 import { useEscapeKey }                        from "@/lib/hooks/use-escape-key";
 import { AddCigarToWishlistButton }            from "./AddCigarToWishlistButton";
 import { unwrapBurnReport }                    from "./PostDetailClient";
@@ -383,6 +384,11 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
   const [closingPost,        setClosingPost]        = useState(false);
   const [mounted,            setMounted]            = useState(false);
 
+  /* Guards the comment fetch against a second concurrent request when
+     commentsOpen toggles mid-flight — `comments !== null` alone leaves a
+     window where a re-run fires a parallel load before the first resolves. */
+  const commentsInFlight = useRef(false);
+
   /* Escape-key dismissal for the inline delete-post confirmation.
      Tied to showDeletePost so the listener only attaches while the
      modal is open. */
@@ -401,15 +407,24 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
 
   /* Load comments on first open */
   useEffect(() => {
-    if (!commentsOpen || comments !== null) return;
+    if (!commentsOpen || comments !== null || commentsInFlight.current) return;
+    commentsInFlight.current = true;
     setCommentsLoading(true);
 
+    let cancelled = false;
+
     async function load() {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("forum_comments")
         .select("id, content, created_at, updated_at, user_id, parent_comment_id")
         .eq("post_id", post.id)
         .order("created_at", { ascending: true });
+
+      if (cancelled) return;
+
+      if (error) {
+        log.error({ scope: "lounge:inline-post", message: "failed to load comments", post_id: post.id, error });
+      }
 
       const rows = data ?? [];
       const userIds = [...new Set(rows.map((c) => c.user_id))];
@@ -420,16 +435,20 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
           .from("public_profiles")
           .select("id, display_name, avatar_url, badge, membership_tier")
           .in("id", userIds);
+        if (cancelled) return;
         for (const p of profiles ?? []) {
           nameMap[p.id] = { display_name: p.display_name, avatar_url: p.avatar_url, badge: p.badge ?? null, membership_tier: p.membership_tier ?? null };
         }
       }
 
+      if (cancelled) return;
       setComments(rows.map((c) => ({ ...c, profiles: nameMap[c.user_id] ?? null })));
       setCommentsLoading(false);
+      commentsInFlight.current = false;
     }
 
     load();
+    return () => { cancelled = true; commentsInFlight.current = false; };
   }, [commentsOpen, comments, post.id, supabase]);
 
   /* Like */
@@ -536,8 +555,23 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
     }
   }
 
-  const topLevel  = (comments ?? []).filter((c) => c.parent_comment_id === null);
-  const repliesOf = (parentId: string) => (comments ?? []).filter((c) => c.parent_comment_id === parentId);
+  /* Group comments once per data change instead of re-filtering (top-level
+     + a filter-per-parent) on every render, e.g. each composer keystroke.
+     Order matches the source array, so the rendered tree is identical. */
+  const { topLevel, repliesByParent } = useMemo(() => {
+    const top: Comment[] = [];
+    const byParent = new Map<string, Comment[]>();
+    for (const c of comments ?? []) {
+      if (c.parent_comment_id === null) {
+        top.push(c);
+      } else {
+        const existing = byParent.get(c.parent_comment_id);
+        if (existing) existing.push(c);
+        else byParent.set(c.parent_comment_id, [c]);
+      }
+    }
+    return { topLevel: top, repliesByParent: byParent };
+  }, [comments]);
 
   /* Portals */
 
@@ -902,7 +936,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
                 <div key={comment.id}>
                   <CommentNode comment={comment} userId={userId} postId={post.id}
                     onDelete={handleDeleteComment} onEditSave={handleEditSave} onReplyCreated={handleReplyCreated} />
-                  {repliesOf(comment.id).map((reply) => (
+                  {(repliesByParent.get(comment.id) ?? []).map((reply) => (
                     <CommentNode key={reply.id} comment={reply} isReply userId={userId} postId={post.id}
                       onDelete={handleDeleteComment} onEditSave={handleEditSave} onReplyCreated={handleReplyCreated} />
                   ))}
