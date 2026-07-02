@@ -18,7 +18,10 @@ export async function fetchHumidorItems(userId: string): Promise<HumidorItem[]> 
   const supabase = createClient();
   const { data, error } = await supabase
     .from("humidor_items")
-    .select("*, cigar:cigar_catalog(*)")
+    .select(
+      "id, cigar_id, quantity, purchase_date, price_paid_cents, aging_start_date, notes, created_at, " +
+      "cigar:cigar_catalog(id, brand, series, format, wrapper, wrapper_country, ring_gauge, length_inches, image_url)"
+    )
     .eq("user_id",     userId)
     .eq("is_wishlist", false)
     .order("created_at", { ascending: false });

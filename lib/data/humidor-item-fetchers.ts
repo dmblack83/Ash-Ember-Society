@@ -33,13 +33,22 @@ export async function fetchHumidorItemBundle(
      the dependent batch can run. */
   const { data: item, error } = await supabase
     .from("humidor_items")
-    .select("*, cigar:cigar_catalog(*)")
+    .select(
+      "id, cigar_id, quantity, purchase_date, price_paid_cents, source, aging_start_date, aging_target_date, notes, created_at, " +
+      "cigar:cigar_catalog(id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, shade, ring_gauge, length_inches, image_url)"
+    )
     .eq("id", itemId)
     .eq("user_id", userId)
     .maybeSingle();
 
   if (error) throw new Error(error.message);
   if (!item) return null;
+
+  /* The narrowed embedded select exceeds the type-level PostgREST
+     parser's depth, so the row infers as GenericStringError. The JSON
+     shape is stable; cast at the boundary (same pattern as
+     fetchWishlistItems) before reading fields. */
+  const detail = item as unknown as HumidorItemDetail;
 
   /* Step 2: independent reads in parallel. RLS on
      cigar_edit_suggestions scopes the read to this user automatically. */
@@ -48,7 +57,7 @@ export async function fetchHumidorItemBundle(
       supabase
         .from("cigar_image_submissions")
         .select("status")
-        .eq("cigar_id", item.cigar_id)
+        .eq("cigar_id", detail.cigar_id)
         .in("status", ["pending", "approved"])
         .order("created_at", { ascending: false })
         .limit(1)
@@ -56,7 +65,7 @@ export async function fetchHumidorItemBundle(
       supabase
         .from("cigar_edit_suggestions")
         .select("status")
-        .eq("cigar_id", item.cigar_id)
+        .eq("cigar_id", detail.cigar_id)
         .eq("status", "pending")
         .limit(1)
         .maybeSingle(),
@@ -64,7 +73,7 @@ export async function fetchHumidorItemBundle(
         .from("smoke_logs")
         .select("id, smoked_at, overall_rating, review_text, content_video_id")
         .eq("user_id", userId)
-        .eq("cigar_id", item.cigar_id)
+        .eq("cigar_id", detail.cigar_id)
         .order("smoked_at", { ascending: false }),
     ]);
 
@@ -90,7 +99,7 @@ export async function fetchHumidorItemBundle(
   }));
 
   return {
-    item:           item as HumidorItemDetail,
+    item:           detail,
     smokeLogs:      normalizedLogs,
     hasPending:     submission?.status === "pending",
     hasApproved:    submission?.status === "approved",
