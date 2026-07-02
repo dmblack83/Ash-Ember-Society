@@ -127,13 +127,12 @@ type PersistableForm = Omit<FormData, "photo_files">;
 
 /* Existing-report shape passed to the wizard in edit mode. Mirrors
    PersistableForm but adds the smoke_log id (so the PATCH endpoint
-   knows what to mutate) and existing photo URLs (read-only in v1 —
-   the edit branch hides the photo picker). */
+   knows what to mutate) and the saved photo URLs, which seed the
+   edit-mode photo state (lib/burn-report/edit-photos). */
 export interface BurnReportExisting extends PersistableForm {
   smoke_log_id: string;
   photo_urls:   string[];
-  /* Saved per-third photos by slot (first/second/final). URLs, not
-     Files — PerThirdSheet shows them read-only in edit mode. */
+  /* Saved per-third photos by slot (first/second/final), as URLs. */
   third_photo_urls: [string | null, string | null, string | null];
 }
 
@@ -611,7 +610,7 @@ function Step5({
   onRemovePhoto: (i: number) => void;
   /* Rendered photo slots (max 3). The wizard computes previews from
      its mode's photo state so this grid stays mode-agnostic. */
-  photoPreviews: { key: string; src: string }[];
+  photoPreviews: { src: string }[];
   /* Picker result handler — the wizard owns the cap + mode routing. */
   onAddPhotos: (files: FileList | null) => void;
 }) {
@@ -1430,9 +1429,9 @@ export function BurnReport({
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"forward" | "back">("forward");
   /* Lazy init from existing in edit mode so the form paints with the
-     report's current values on first render. Photos stay [] — they're
-     not user-editable here in v1 (existingPhotoUrls renders a
-     read-only thumbnail row inside Step5). */
+     report's current values on first render. photo_files stays [] in
+     edit — photos live in editPhotoState (kept URLs + new Files), not
+     in the create flow's File list. */
   const [form, setForm] = useState<FormData>(() => {
     if (isEdit && existing) {
       const {
@@ -1750,11 +1749,10 @@ export function BurnReport({
   /* Mode-aware photo plumbing for the Step-3 grid. Create keeps its
      File-based flow verbatim; edit routes through EditPhoto state. */
   const photoPreviews = isEdit
-    ? editPhotoState.photos.map((p, i) => ({
-        key: p.kind === "kept" ? p.url : `new-${i}`,
+    ? editPhotoState.photos.map((p) => ({
         src: p.kind === "kept" ? p.url : URL.createObjectURL(p.file),
       }))
-    : form.photo_files.map((f, i) => ({ key: `f-${i}`, src: URL.createObjectURL(f) }));
+    : form.photo_files.map((f) => ({ src: URL.createObjectURL(f) }));
 
   const handleAddPhotos = useCallback((files: FileList | null) => {
     if (!files) return;
