@@ -19,6 +19,15 @@ import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
+import {
+  initEditPhotos,
+  reconcileEditPhotos,
+  removeEditPhoto,
+  buildPhotoPatch,
+  MAX_PHOTOS,
+  type EditPhoto,
+  type EditThirds,
+} from "@/lib/burn-report/edit-photos";
 import { checkResponse } from "@/lib/telemetry/fetch-checks";
 import type { PerThirdData } from "@/lib/burn-report/thirds";
 import { averageThirdsToQuarter } from "@/lib/burn-report/thirds";
@@ -585,8 +594,8 @@ function Step5({
   flavorTags,
   onOpenThird,
   onRemovePhoto,
-  hidePhotos = false,
-  existingPhotoUrls = [],
+  photoPreviews,
+  onAddPhotos,
 }: {
   form: FormData;
   update: (f: Partial<FormData>) => void;
@@ -598,25 +607,16 @@ function Step5({
   /* Remove a photo from the shared Overall list. The wizard owns this
      because removing a photo that was sourced from a third also needs
      to clear that third's photo slot, and only the wizard has access
-     to the thirdPhotos state. */
+     to the photo state (Files in create, kept URLs + Files in edit). */
   onRemovePhoto: (i: number) => void;
-  /* Edit mode passes hidePhotos=true and supplies existingPhotoUrls
-     so the user sees the photos they originally attached without an
-     add/remove affordance. Photo editing is deferred to a follow-up. */
-  hidePhotos?: boolean;
-  existingPhotoUrls?: string[];
+  /* Rendered photo slots (max 3). The wizard computes previews from
+     its mode's photo state so this grid stays mode-agnostic. */
+  photoPreviews: { key: string; src: string }[];
+  /* Picker result handler — the wizard owns the cap + mode routing. */
+  onAddPhotos: (files: FileList | null) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const label = ratingLabel(form.overall_rating);
-
-  function addPhotos(files: FileList | null) {
-    if (!files) return;
-    const next = [...form.photo_files];
-    for (let i = 0; i < files.length && next.length < 3; i++) {
-      next.push(files[i]);
-    }
-    update({ photo_files: next });
-  }
 
   return (
     <div className="space-y-6">
@@ -963,50 +963,7 @@ function Step5({
         />
       </div>
 
-      {/* ── Existing photos — read-only preview when editing ──────── */}
-      {hidePhotos && existingPhotoUrls.length > 0 && (
-        <div>
-          <Eyebrow>Photos</Eyebrow>
-          <div
-            style={{
-              display:             "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap:                 10,
-            }}
-          >
-            {existingPhotoUrls.slice(0, 3).map((url, i) => (
-              <div
-                key={url + i}
-                className="overflow-hidden"
-                style={{
-                  aspectRatio:  "1 / 1",
-                  borderRadius: 4,
-                  border:       "1px solid var(--line-strong)",
-                }}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-          <p
-            style={{
-              fontFamily:    "var(--font-mono)",
-              fontSize:      9,
-              fontWeight:    500,
-              letterSpacing: "0.22em",
-              textTransform: "uppercase",
-              color:         "var(--paper-dim)",
-              marginTop:     8,
-            }}
-          >
-            Photos cannot be changed when editing
-          </p>
-        </div>
-      )}
-
       {/* ── Photo upload — 3-column square grid ───────────────────── */}
-      {!hidePhotos && (
       <div>
         <Eyebrow optional>Photos (up to 3)</Eyebrow>
         <div
@@ -1017,8 +974,8 @@ function Step5({
           }}
         >
           {[0, 1, 2].map((i) => {
-            const file = form.photo_files[i];
-            if (file) {
+            const preview = photoPreviews[i];
+            if (preview) {
               return (
                 <div
                   key={i}
@@ -1031,7 +988,7 @@ function Step5({
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={URL.createObjectURL(file)}
+                    src={preview.src}
                     alt={`Photo ${i + 1}`}
                     className="w-full h-full object-cover"
                   />
@@ -1101,10 +1058,9 @@ function Step5({
           accept="image/*"
           multiple
           className="sr-only"
-          onChange={(e) => addPhotos(e.target.files)}
+          onChange={(e) => onAddPhotos(e.target.files)}
         />
       </div>
-      )}
     </div>
   );
 }
@@ -1515,6 +1471,14 @@ export function BurnReport({
      can't be JSON-serialized and aren't part of the draft payload.
      Shared-list sync to form.photo_files happens in Task 13. */
   const [thirdPhotos, setThirdPhotos] = useState<(File | null)[]>([null, null, null]);
+  /* Edit-mode photo state — kept URLs + new Files under the same
+     shared-list invariant create uses (lib/burn-report/edit-photos).
+     Only read when isEdit. */
+  const [editPhotoState, setEditPhotoState] = useState<{ photos: EditPhoto[]; thirds: EditThirds }>(
+    () => isEdit && existing
+      ? initEditPhotos(existing.photo_urls, existing.third_photo_urls)
+      : { photos: [], thirds: [null, null, null] },
+  );
 
   const scrollRef = useRef<HTMLElement>(null);
   const [shadowTop,    setShadowTop]    = useState(false);
@@ -1593,6 +1557,29 @@ export function BurnReport({
     const trimmedMins = form.smoke_duration_minutes.trim();
     const minsNum = trimmedMins ? parseInt(trimmedMins) : null;
 
+    /* Upload any freshly picked photos first (same pipeline as create,
+       incl. compression for the Vercel 4.5 MB cap), then resolve the
+       full photo state to URLs for the PATCH. */
+    const newFiles = editPhotoState.photos
+      .filter((p): p is { kind: "new"; file: File } => p.kind === "new")
+      .map((p) => p.file);
+    let photoPatch: ReturnType<typeof buildPhotoPatch>;
+    try {
+      const uploaded = await uploadPhotos(newFiles);
+      const uploadedUrlByFile = new Map(newFiles.map((f, i) => [f, uploaded[i]]));
+      photoPatch = buildPhotoPatch(editPhotoState.photos, editPhotoState.thirds, uploadedUrlByFile);
+    } catch (err) {
+      trackReliability({
+        bucket:  "state_persistence",
+        subtype: "draft_save_fail",
+        cause:   "edit_photo_upload_failed",
+        detail:  err instanceof Error ? err.message : String(err),
+      });
+      setSubmitError(err instanceof Error ? err.message : "Photo upload failed.");
+      setSubmitting(false);
+      return;
+    }
+
     /* Thirds-on edits derive headline ratings + tag union server-side.
        Send the per-third array; omit the now-stale legacy headline
        fields so the PATCH route uses the averaged values. */
@@ -1613,6 +1600,7 @@ export function BurnReport({
       third_beginning:        form.third_beginning.trim() || null,
       third_middle:           form.third_middle.trim()    || null,
       third_end:              form.third_end.trim()       || null,
+      photo_urls:             photoPatch.photo_urls,
     };
 
     if (sendThirds) {
@@ -1624,6 +1612,7 @@ export function BurnReport({
         construction_rating: t!.construction_rating,
         flavor_rating:       t!.flavor_rating,
         flavor_tag_ids:      t!.flavor_tag_ids,
+        photo_url:           photoPatch.third_photo_urls[i],
       }));
     } else {
       payload.draw_rating         = form.draw_rating          || null;
@@ -1730,6 +1719,17 @@ export function BurnReport({
     }
   }, [thirdPhotos, form.photo_files, update]);
 
+  /* Edit-mode mirror of the sync effect above, over EditPhoto slots.
+     reconcileEditPhotos returns the same array reference on no-op, so
+     returning `prev` keeps React from re-rendering in that case. */
+  useEffect(() => {
+    if (!isEdit) return;
+    setEditPhotoState((prev) => {
+      const merged = reconcileEditPhotos(prev.thirds, prev.photos);
+      return merged === prev.photos ? prev : { ...prev, photos: merged };
+    });
+  }, [isEdit, editPhotoState.thirds]);
+
   /* Remove a photo from the Overall list. If the photo came from a
      third (the same File object lives in thirdPhotos), also clear it
      from that third so its per-third sheet photo slot resets. The
@@ -1746,6 +1746,42 @@ export function BurnReport({
     }
     update({ photo_files: form.photo_files.filter((_, idx) => idx !== i) });
   }, [form.photo_files, thirdPhotos, update]);
+
+  /* Mode-aware photo plumbing for the Step-3 grid. Create keeps its
+     File-based flow verbatim; edit routes through EditPhoto state. */
+  const photoPreviews = isEdit
+    ? editPhotoState.photos.map((p, i) => ({
+        key: p.kind === "kept" ? p.url : `new-${i}`,
+        src: p.kind === "kept" ? p.url : URL.createObjectURL(p.file),
+      }))
+    : form.photo_files.map((f, i) => ({ key: `f-${i}`, src: URL.createObjectURL(f) }));
+
+  const handleAddPhotos = useCallback((files: FileList | null) => {
+    if (!files) return;
+    if (isEdit) {
+      setEditPhotoState((prev) => {
+        const next = [...prev.photos];
+        for (let i = 0; i < files.length && next.length < MAX_PHOTOS; i++) {
+          next.push({ kind: "new", file: files[i] });
+        }
+        return next.length === prev.photos.length ? prev : { ...prev, photos: next };
+      });
+      return;
+    }
+    const next = [...form.photo_files];
+    for (let i = 0; i < files.length && next.length < 3; i++) {
+      next.push(files[i]);
+    }
+    update({ photo_files: next });
+  }, [isEdit, form.photo_files, update]);
+
+  const handleRemovePhotoModeAware = useCallback((i: number) => {
+    if (isEdit) {
+      setEditPhotoState((prev) => removeEditPhoto(prev.photos, prev.thirds, i));
+      return;
+    }
+    handleRemovePhoto(i);
+  }, [isEdit, handleRemovePhoto]);
 
   function validateStep(s: number): string | null {
     if (s === 0) {
@@ -1803,11 +1839,11 @@ export function BurnReport({
     setStep((s) => s - 1);
   }
 
-  /* Upload photos → return public URLs */
-  async function uploadPhotos(): Promise<string[]> {
-    if (form.photo_files.length === 0) return [];
+  /* Upload photos → return public URLs (aligned with `files` order) */
+  async function uploadPhotos(files: File[]): Promise<string[]> {
+    if (files.length === 0) return [];
     const urls: string[] = [];
-    for (const file of form.photo_files) {
+    for (const file of files) {
       /* Compress before upload — iPhone photos commonly exceed Vercel's
          4.5 MB function payload limit, which surfaces on iOS PWAs as a
          TLS error mid-upload. compressImage caps long edge at 1600px and
@@ -1854,7 +1890,7 @@ export function BurnReport({
        their autosaved draft. */
     let photoUrls: string[] = [];
     try {
-      photoUrls = await uploadPhotos();
+      photoUrls = await uploadPhotos(form.photo_files);
     } catch (err) {
       const msg = err instanceof Error ? err.message : null;
       setSubmitError(msg ?? "Photo upload failed. Please try again.");
@@ -2033,9 +2069,9 @@ export function BurnReport({
           item={item}
           flavorTags={flavorTags}
           onOpenThird={(i) => setOpenThird(i)}
-          onRemovePhoto={handleRemovePhoto}
-          hidePhotos={isEdit}
-          existingPhotoUrls={existing?.photo_urls ?? []}
+          onRemovePhoto={handleRemovePhotoModeAware}
+          photoPreviews={photoPreviews}
+          onAddPhotos={handleAddPhotos}
         />
       );
       case 3: return (
@@ -2383,8 +2419,16 @@ export function BurnReport({
           open
           index={openThird}
           initial={form.thirds[openThird - 1]}
-          initialPhoto={thirdPhotos[openThird - 1]}
-          initialPhotoUrl={isEdit ? existing?.third_photo_urls[openThird - 1] ?? null : null}
+          initialPhoto={(() => {
+            if (!isEdit) return thirdPhotos[openThird - 1];
+            const slot = editPhotoState.thirds[openThird - 1];
+            return slot?.kind === "new" ? slot.file : null;
+          })()}
+          initialPhotoUrl={(() => {
+            if (!isEdit) return null;
+            const slot = editPhotoState.thirds[openThird - 1];
+            return slot?.kind === "kept" ? slot.url : null;
+          })()}
           flavorTags={flavorTags}
           onCancel={() => setOpenThird(null)}
           onSave={(payload) => {
@@ -2407,11 +2451,33 @@ export function BurnReport({
               third_middle:    middle,
               third_end:       end,
             });
-            /* Photo handling — store in parallel array; shared-list
-               sync to form.photo_files happens in Task 13. */
-            const nextPhotos = [...thirdPhotos];
-            nextPhotos[openThird - 1] = payload.photo_file ?? null;
-            setThirdPhotos(nextPhotos);
+            /* Photo handling — mode-aware. Create stores the File in
+               the parallel array (shared-list sync effect reconciles
+               form.photo_files). Edit maps the sheet's result onto the
+               EditPhoto slot, reusing the existing object when nothing
+               changed so identity linkage survives a no-op save. */
+            if (isEdit) {
+              setEditPhotoState((prev) => {
+                const current = prev.thirds[openThird - 1];
+                let nextPhoto: EditPhoto | null = null;
+                if (payload.photo_file) {
+                  nextPhoto = current?.kind === "new" && current.file === payload.photo_file
+                    ? current
+                    : { kind: "new", file: payload.photo_file };
+                } else if (payload.photo_kept_url) {
+                  nextPhoto = current?.kind === "kept" && current.url === payload.photo_kept_url
+                    ? current
+                    : { kind: "kept", url: payload.photo_kept_url };
+                }
+                const nextThirds = [...prev.thirds] as EditThirds;
+                nextThirds[openThird - 1] = nextPhoto;
+                return { ...prev, thirds: nextThirds };
+              });
+            } else {
+              const nextPhotos = [...thirdPhotos];
+              nextPhotos[openThird - 1] = payload.photo_file ?? null;
+              setThirdPhotos(nextPhotos);
+            }
             setOpenThird(null);
           }}
         />
