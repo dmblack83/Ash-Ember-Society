@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerUser }            from "@/lib/auth/server-user";
 import { createServiceClientFor }   from "@/utils/supabase/service";
+import { checkRateLimit }           from "@/lib/rate-limit";
 
 /* ------------------------------------------------------------------
    POST /api/cigar-edit-suggestions
@@ -66,7 +67,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // 2. Parse + validate body
+  // 2. Rate limit — only user-facing write endpoint without one; same
+  //    call shape and error convention as /api/push/subscribe.
+  const rl = await checkRateLimit(user.id, { limit: 10, window: "1 h", prefix: "cigar-edit-suggestions" });
+  if (!rl.ok) {
+    if (rl.reason === "rate_limit_unavailable") {
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503 });
+    }
+    return NextResponse.json(
+      { error: "Too many edit suggestions. Try again later." },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit":     String(rl.limit),
+          "X-RateLimit-Remaining": String(rl.remaining),
+          "X-RateLimit-Reset":     String(rl.reset),
+          "Retry-After":           String(Math.max(1, Math.ceil((rl.reset - Date.now()) / 1000))),
+        },
+      },
+    );
+  }
+
+  // 3. Parse + validate body
   let body: RequestBody;
   try {
     body = (await request.json()) as RequestBody;
@@ -88,7 +110,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "No changes provided" }, { status: 400 });
   }
 
-  // 3. Verify the cigar exists. Service-role read because cigar_catalog
+  // 4. Verify the cigar exists. Service-role read because cigar_catalog
   //    has restrictive RLS and we want to confirm the row without
   //    leaking other policy nuances into this route.
   const admin = createServiceClientFor(
@@ -109,7 +131,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Cigar not found" }, { status: 404 });
   }
 
-  // 4. Insert. Pin suggested_by to the verified user.id; service-role
+  // 5. Insert. Pin suggested_by to the verified user.id; service-role
   //    bypasses RLS so we set it explicitly rather than relying on
   //    auth.uid() inside a policy.
   const { data: inserted, error: insertErr } = await admin

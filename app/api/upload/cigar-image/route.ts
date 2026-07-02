@@ -39,6 +39,12 @@ export async function POST(request: NextRequest) {
   if (!cigarId) {
     return NextResponse.json({ error: "cigar_id is required" }, { status: 400 });
   }
+  // cigarId is interpolated into the storage path and inserted below;
+  // reject anything that is not a plain UUID before it goes further.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(cigarId)) {
+    return NextResponse.json({ error: "cigar_id must be a valid UUID" }, { status: 400 });
+  }
   if (!file.type.startsWith("image/")) {
     return NextResponse.json({ error: "File must be an image" }, { status: 400 });
   }
