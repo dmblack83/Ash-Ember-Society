@@ -29,6 +29,7 @@ returns table (
 language sql
 stable
 security invoker
+set search_path = public
 as $$
   with owners as (
     select distinct user_id

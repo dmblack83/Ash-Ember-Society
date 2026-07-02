@@ -43,11 +43,23 @@ export async function computeReportNumbers(
     return result;
   }
 
-  log.warn({
-    scope:   "burn-report-number",
-    message: "get_report_numbers RPC unavailable; using legacy fallback",
-    error:   rpcError,
-  });
+  /* PGRST202 = function not found (migration not applied yet) — the
+     expected pre-migration state, warn-level. Anything else means the
+     deployed RPC is failing and needs eyes: error-level so it stands
+     out, but still fall back so report numbers keep rendering. */
+  if (rpcError.code === "PGRST202") {
+    log.warn({
+      scope:   "burn-report-number",
+      message: "get_report_numbers RPC not deployed; using legacy fallback",
+      error:   rpcError,
+    });
+  } else {
+    log.error({
+      scope:   "burn-report-number",
+      message: "get_report_numbers RPC failed; using legacy fallback",
+      error:   rpcError,
+    });
+  }
 
   const { data: scoped } = await supabase
     .from("smoke_logs")

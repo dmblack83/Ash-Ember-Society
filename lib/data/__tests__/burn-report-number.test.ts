@@ -25,12 +25,14 @@ function rpcClient(rows: { smoke_log_id: string; report_number: number | string 
   return { client: { rpc, from } as unknown as SupabaseClient, rpc, from };
 }
 
-/** Fake client whose rpc() errors (function missing) and whose
-    from() serves the two legacy queries against `allLogs`. */
-function fallbackClient(allLogs: LogRow[]) {
+/** Fake client whose rpc() errors and whose from() serves the two
+    legacy queries against `allLogs`. Defaults to the missing-function
+    code (migration not applied); pass another code to simulate a
+    deployed-but-failing RPC. */
+function fallbackClient(allLogs: LogRow[], errorCode = "PGRST202") {
   const rpc = vi.fn().mockResolvedValue({
     data:  null,
-    error: { code: "PGRST202", message: "function get_report_numbers does not exist" },
+    error: { code: errorCode, message: "rpc failed" },
   });
   const from = vi.fn(() => ({
     select: (columns: string) => ({
@@ -105,5 +107,29 @@ describe("computeReportNumbers", () => {
     const result = await computeReportNumbers(client, ["missing-id"]);
 
     expect(result).toEqual({});
+  });
+
+  test("fallback numbers multiple ids from the same owner independently", async () => {
+    const { client } = fallbackClient([
+      { id: "u1-first",  user_id: "user-1", smoked_at: "2026-01-01T00:00:00Z" },
+      { id: "u1-second", user_id: "user-1", smoked_at: "2026-02-01T00:00:00Z" },
+      { id: "u1-third",  user_id: "user-1", smoked_at: "2026-03-01T00:00:00Z" },
+    ]);
+
+    const result = await computeReportNumbers(client, ["u1-first", "u1-third"]);
+
+    expect(result).toEqual({ "u1-first": 1, "u1-third": 3 });
+  });
+
+  test("falls back on non-PGRST202 RPC errors too, keeping numbers rendering", async () => {
+    const { client, rpc } = fallbackClient(
+      [{ id: "log-a", user_id: "user-1", smoked_at: "2026-01-01T00:00:00Z" }],
+      "57014", // statement timeout — deployed RPC failing, not missing
+    );
+
+    const result = await computeReportNumbers(client, ["log-a"]);
+
+    expect(rpc).toHaveBeenCalledOnce();
+    expect(result).toEqual({ "log-a": 1 });
   });
 });
