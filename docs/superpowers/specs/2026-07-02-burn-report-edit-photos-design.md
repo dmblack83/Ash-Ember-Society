@@ -43,12 +43,15 @@ editThirdPhotos: [EditPhoto | null, EditPhoto | null, EditPhoto | null]
   slot (mirror of create's `handleRemovePhoto`).
 - Adding a photo inside a third's sheet appends it to the main list
   (mirror of create's shared-list sync), subject to the 3-photo cap.
-- Cap: 3 total (kept + new). Add affordances hide when full, including
-  inside the third's sheet.
+- Cap: 3 total (kept + new). The main row's Add slots disappear when
+  full. Adding from inside a third's sheet is always allowed and
+  mirrors create exactly: the third's photo takes priority in the
+  shared list and the invariant trims overflow from the manual end.
 - Degenerate data: if a third's saved URL is not present in
   `photo_urls` (should not happen — create always syncs them — but old
-  or hand-edited rows may exist), the third slot still shows it as a
-  standalone kept entry; it does not join the main list.
+  or hand-edited rows may exist), the third slot shows it as a kept
+  entry and the shared-list invariant merges it into the main list on
+  first reconcile, self-healing the data on save (subject to the cap).
 
 Pure helpers (unit-testable, no React):
 - `initEditPhotos(photoUrls, thirdPhotoUrls)` → `{ editPhotos, editThirdPhotos }`
