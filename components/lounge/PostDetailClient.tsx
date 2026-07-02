@@ -689,8 +689,23 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
 
   /* ---- Comment tree ----------------------------------------------- */
 
-  const topLevel = localComments.filter((c) => c.parent_comment_id === null);
-  const repliesOf = (parentId: string) => localComments.filter((c) => c.parent_comment_id === parentId);
+  /* Group comments once per data change instead of re-filtering (top-level
+     + a filter-per-parent) on every render, e.g. each composer keystroke.
+     Order matches the source array, so the rendered tree is identical. */
+  const { topLevel, repliesByParent } = useMemo(() => {
+    const top: Comment[] = [];
+    const byParent = new Map<string, Comment[]>();
+    for (const c of localComments) {
+      if (c.parent_comment_id === null) {
+        top.push(c);
+      } else {
+        const existing = byParent.get(c.parent_comment_id);
+        if (existing) existing.push(c);
+        else byParent.set(c.parent_comment_id, [c]);
+      }
+    }
+    return { topLevel: top, repliesByParent: byParent };
+  }, [localComments]);
 
   /* ---- Portals ---------------------------------------------------- */
 
@@ -919,7 +934,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
                 onEditSave={handleEditSave}
                 onReplyCreated={handleReplyCreated}
               />
-              {repliesOf(comment.id).map((reply) => (
+              {(repliesByParent.get(comment.id) ?? []).map((reply) => (
                 <CommentNode
                   key={reply.id}
                   comment={reply}
