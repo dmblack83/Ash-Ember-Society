@@ -164,7 +164,7 @@ export function CategoryFeed({
     /* Burn Reports posts have to be tied to a saved smoke_log; the
        composer can't author one from scratch. Send the user to the
        humidor so they pick a cigar, log a smoke, and share from
-       there. CategoryCard.handleNewPost has the matching branch. */
+       there. The burn-reports guard below performs that redirect. */
     if (category.slug === "burn-reports") {
       router.push("/humidor");
       return;

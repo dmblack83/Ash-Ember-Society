@@ -284,7 +284,7 @@ export function LoungeForumClient({
             The Lounge
           </h1>
           {/* No global "+ New Post" — composing is scoped to a category.
-              Each CategoryCard surfaces its own +New Post (or, for the
+              Each category's feed surfaces its own +New Post (or, for the
               Burn Reports category, a redirect to /humidor). */}
           <RefreshButton
             style={{

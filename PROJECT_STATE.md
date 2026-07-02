@@ -2,7 +2,12 @@
 
 > This file is auto-loaded by CLAUDE.md and updated at the end of every session.
 > It gives Claude (both Claude Code and Cowork) full project context without needing reminders.
-> Last updated: 2026-05-05
+> Last updated: 2026-07-02
+>
+> Verified deep-dive companion: `docs/llm-wiki/` (PR #540) holds the architecture,
+> data-model, conventions, performance, and gotchas references, verified against
+> the codebase. This PROJECT_STATE stays the session-facing summary; llm-wiki is
+> the authoritative detail layer.
 
 ---
 
@@ -25,7 +30,7 @@
 
 ## Design System (Implemented — Do Not Redefine)
 
-- **Background:** `#1A1210` (near-black espresso)
+- **Background:** `#15110b` (deep cognac-black)
 - **Foreground:** `#F5E6D3` (warm cream)
 - **Card:** `#241C17` (dark walnut)
 - **Primary:** `#C17817` (amber — whiskey in light)
@@ -33,10 +38,10 @@
 - **Ember:** `#E8642C` (active states, notifications)
 - **Secondary:** `#3D2E23` (dark leather)
 - **Muted foreground:** `#A69080` (aged tobacco)
-- **Fonts:** Playfair Display (serif, headings) + Inter (sans, body)
+- **Fonts:** Cormorant Garamond (display face — headings + wordmark, self-hosted via `next/font`, no Google CDN request) + native system sans stack for body/UI (no body webfont). `--font-serif` and `--font-playfair` both bind to Cormorant; a system mono stack (`--font-mono`) drives eyebrow/meta labels. Cormorant is display-only — never route body copy through `--font-serif`.
 - **Aesthetic:** Exclusive cigar lounge — dark, warm, rich. NOT a generic tech dark mode.
 
-All design tokens already implemented in `globals.css` and `tailwind.config.ts`. Never redefine them.
+Styling is Tailwind v4 with CSS-first configuration: all design tokens live on `:root` and in the `@theme inline` block in `globals.css`. There is no `tailwind.config.ts`. Never redefine the tokens.
 
 ---
 
@@ -140,8 +145,8 @@ Vercel env vars: all set to Production + Preview.
 - `components/cigar-search.tsx` — `CatalogResult` type (includes `image_url: string | null`), shared select string
 - `components/cigars/AddToHumidorSheet.tsx` — slide-up sheet for adding cigars to humidor
 - `components/humidor/BurnReport.tsx` — burn report multi-step form
-- `components/membership/PaywallGate.tsx` — wraps gated content
-- `components/membership/MembershipCard.tsx` — digital card with QR code
+- `components/membership/UpgradeLimitModal.tsx` — free-tier limit prompt (gating UI; PaywallGate + MembershipCard/QR removed in #545)
+- `components/membership/SuccessConfetti.tsx` — post-checkout success animation
 - `components/ui/toast.tsx` — toast appears ABOVE nav bar
 - `components/ui/view-toggle.tsx` — grid/list toggle for Discover Cigars
 - `components/account/AccountClient.tsx` — Profile / Membership / Legal tabs
@@ -155,8 +160,9 @@ Vercel env vars: all set to Production + Preview.
 | `scripts/seed-cigar-catalog.ts` | Seeds 4,221 cigars from cigars_clean.json |
 | `scripts/seed-cigar-images.ts` | Fetches cigar images via Google Custom Search, uploads to cigar-photos bucket |
 | `scripts/attach-test-image.ts` | One-off: attaches a single image to first cigar for testing |
-| `scripts/seed-cigars.ts` | Original 50-cigar seed (superseded by full catalog) |
 | `scripts/seed-shops.ts` | Seeds sample Utah shops |
+
+(The legacy 50-cigar `scripts/seed-cigars.ts` was removed in #545, superseded by the full catalog seed. Other maintenance/seed scripts also live in `scripts/`.)
 
 ---
 
@@ -212,11 +218,13 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 
 ## Membership Tiers
 
+**Launch scope: two tiers (Free + Member).** Premium is deferred until the user base is large enough to entice vendor partners; its pricing is retained below for when it ships.
+
 | Tier | Price | Limits |
 |------|-------|--------|
 | Free | $0 | 25 humidor items, read-only feed |
 | Member | $4.99/mo or $50/yr | Unlimited, community posting, shop discounts (10%), events |
-| Premium | $9.99/mo or $100/yr | Everything + exclusive events, 15% discount |
+| Premium (deferred) | $9.99/mo or $100/yr | Everything + exclusive events, 15% discount |
 
 ---
 
@@ -266,16 +274,34 @@ Three independent mechanisms layered to recover from launch hangs (an indefinite
 
 ---
 
+## 2026-07-02 audit-fix wave + dead-code sweep
+
+Shipped to main (verified against git history):
+
+| PR | What |
+|---|---|
+| #541 | Bump Next 16.2.1 → 16.2.10 + safe transitive audit fixes |
+| #542 | API input hardening — RSS scheme guard, UUID validation, cigar-edit-suggestions rate limit |
+| #543 | Reuse cached flavor tags on lounge post detail (fewer round-trips) |
+| #544 | Narrowed humidor fetcher selects to consumed columns |
+| #545 | Dead-code sweep (~3.6k lines) — removed legacy lounge components (LoungeClient, CategoryCard, FeedbackCard), SmokeScreen, cigar-placeholder, strength, dashboard-section, lib/geo, app/actions/auth, membership PaywallGate + MembershipCard, scripts/seed-cigars.ts, plus unused deps `qrcode.react` and `@stripe/stripe-js` |
+| #546 | Lounge comments — unmount guard, error logging, memoized grouping |
+| #547 | Burn-report numbers via SQL window-function RPC (`get_report_numbers`) + smoke_logs index. Migration `supabase/migrations/20260702_report_number_rpc.sql` is manual-apply in the Supabase SQL editor; code falls back to legacy JS counting (with a `burn-report-number` log marker) until it is run |
+
+**Prod DB (applied manually 2026-07-02 by Dave):** `humidor_items_wishlist_unique` partial unique index live; `humidor_items_aging_ready_idx` partial index created; redundant `idx_humidor_user` + `idx_humidor_wishlist` dropped (5 indexes remain on humidor_items, verified).
+
+---
+
 ## Pending / Next Steps
 
 1. **SWR per-feature migrations** (Phase 3 follow-ups) — foundation landed in #264; convert one feature at a time using the pattern in `lib/data/keys.ts`:
    - Humidor (`HumidorClient`, `WishlistClient`)
-   - Lounge (`LoungeForumClient`, `CategoryFeed`, `FeedbackCard`)
+   - Lounge (`LoungeForumClient`, `CategoryFeed` — already on `useSWRInfinite`)
    - Cigar discover (`DiscoverCigarsClient`)
 
 2. **SW navigation strategy upgrade** — Phase 2 uses `NetworkFirst` for navigation requests; the obvious next step is `StaleWhileRevalidate` for instant repeat loads. Not a one-liner: even with Phase 1's shell decomposition, the streamed HTML still contains the islands' rendered content. Caching that under one URL key means a shared browser could briefly serve User A's cached HTML to User B post-sign-in. Real fix requires either a cookie-aware cache key (Serwist supports this via a custom plugin) or a sign-out hook that clears the `navigations` cache. Worth doing — but as its own scoped PR, not a strategy swap.
 
-3. **Performance budget in CI** — RUM (Speed Insights) shipped in #265; the budget half is deferred. `.github/workflows/ci.yml` is now in place (typecheck-only — runs `tsc --noEmit` on main + `tsconfig.sw.json`). Missing: bundle-size gate, lint gate, Lighthouse / perf budget. Improvement path: add a `bundle-size` job to `ci.yml` running `npm run analyze` and diffing against `BUNDLE_BASELINE.md`.
+3. **Performance budget in CI** — RUM (Speed Insights) shipped in #265. `.github/workflows/ci.yml` now runs multiple jobs: type check (project `tsc --noEmit` + `tsconfig.sw.json`), PWA URL absoluteness (`npm run check:pwa`), a bundle-size gate (`npm run analyze` + `npm run check:bundle`, diffing `scripts/bundle-baseline.json`; added in #539 but gated on the `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` repo secrets so `next build` can run — skipped until they're configured), unit tests (`npm run test:unit`), and a prod PWA URL smoke check. Still missing: a lint gate (main has ~63 pre-existing eslint errors, so lint is driven down in cleanup PRs before becoming a hard gate) and a Lighthouse / perf budget. Authenticated e2e specs exist under `tests/e2e` (#539) but need a test user configured to run in CI.
 
 4. **Humidor fixed header** — Fixed header: tabs row + title/button row + sort/view toggle row.
 

@@ -23,7 +23,7 @@ import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
 import type { Comment }            from "@/components/lounge/PostDetailClient";
 
-/* ── Feedback-card post shape (shared by FeedbackCard + this fetcher). */
+/* ── Feedback-card post shape returned by fetchFeedbackPosts below. */
 export interface FeedbackPost {
   id:              string;
   title:           string;
