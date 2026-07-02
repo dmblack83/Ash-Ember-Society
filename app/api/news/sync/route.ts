@@ -112,6 +112,20 @@ function extractImage(item: RssItem): string | null {
   return null;
 }
 
+/**
+ * Feed values are stored verbatim and later rendered as href/src, so
+ * only http(s) URLs may pass; anything else (javascript:, data:,
+ * relative paths, garbage) is rejected.
+ */
+function toHttpUrl(raw: string): string | null {
+  try {
+    const proto = new URL(raw).protocol;
+    return proto === "http:" || proto === "https:" ? raw : null;
+  } catch {
+    return null;
+  }
+}
+
 const parser = new XMLParser({
   ignoreAttributes:  false,
   attributeNamePrefix: "@_",
@@ -142,7 +156,8 @@ async function fetchFeed(feed: NewsFeed): Promise<NewsRow[]> {
 
   for (const it of items) {
     const title = unwrap(it.title).trim();
-    const link  = (unwrap(it.link) || "").trim();
+    // Invalid or non-http(s) link → skip the whole item.
+    const link  = toHttpUrl((unwrap(it.link) || "").trim());
     if (!title || !link) continue;
 
     const guidRaw = unwrap(it.guid).trim() || link;
@@ -155,7 +170,9 @@ async function fetchFeed(feed: NewsFeed): Promise<NewsRow[]> {
 
     const summaryHtml = it.description ?? it["content:encoded"] ?? "";
     const summary     = summaryHtml ? stripHtml(summaryHtml).slice(0, 400) : null;
-    const image_url   = extractImage(it);
+    // Invalid or non-http(s) image → null it, keep the item.
+    const imageRaw    = extractImage(it);
+    const image_url   = imageRaw ? toHttpUrl(imageRaw) : null;
 
     rows.push({
       guid,
