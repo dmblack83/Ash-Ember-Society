@@ -34,20 +34,28 @@ interface SaveLocalPayload {
   construction_rating:  number;
   flavor_rating:        number;
   flavor_tag_ids:       string[];
-  photo_file?:          File | null;
+  /* Exactly one of the two is non-null when a photo is present.
+     photo_file = fresh pick (create, or replacement in edit);
+     photo_kept_url = already-uploaded photo left unchanged (edit). */
+  photo_file:     File | null;
+  photo_kept_url: string | null;
 }
+
+/* The slot's photo can be a fresh pick (File) or an already-uploaded
+   photo (URL, edit mode). One union, one render path. */
+type SheetPhoto =
+  | { kind: "file"; file: File }
+  | { kind: "url"; url: string }
+  | null;
 
 interface Props {
   open:        boolean;
   index:       1 | 2 | 3;
   initial:     PerThirdData | null;
   initialPhoto?: File | null;
-  /* Edit mode: the third's saved photo exists only as a storage URL
-     (no File). Shown read-only when photoReadOnly is set — photos
-     cannot be changed while editing (v1), matching the main photo
-     row. */
+  /* Edit mode: the third's saved photo when it is an already-uploaded
+     URL. Fully editable — remove or replace like any fresh pick. */
   initialPhotoUrl?: string | null;
-  photoReadOnly?:   boolean;
   flavorTags:  FlavorTag[];
   onCancel:    () => void;
   onSave:      (payload: SaveLocalPayload) => void;
@@ -55,7 +63,7 @@ interface Props {
 
 export function PerThirdSheet({
   open, index, initial, initialPhoto = null, initialPhotoUrl = null,
-  photoReadOnly = false, flavorTags, onCancel, onSave,
+  flavorTags, onCancel, onSave,
 }: Props) {
   const tag = TAGS_BY_INDEX[index];
 
@@ -67,7 +75,11 @@ export function PerThirdSheet({
   const [build,    setBuild]    = useState(initial?.construction_rating ?? 0);
   const [flavor,   setFlavor]   = useState(initial?.flavor_rating ?? 0);
   const [tagIds,   setTagIds]   = useState<string[]>(initial?.flavor_tag_ids ?? []);
-  const [photo,    setPhoto]    = useState<File | null>(initialPhoto);
+  const [photo,    setPhoto]    = useState<SheetPhoto>(
+    initialPhoto ? { kind: "file", file: initialPhoto }
+    : initialPhotoUrl ? { kind: "url", url: initialPhotoUrl }
+    : null,
+  );
   const [subOpen,  setSubOpen]  = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -296,45 +308,9 @@ export function PerThirdSheet({
               </button>
             </div>
 
-            {/* Photo — edit mode shows the saved photo read-only (URL,
-                not File); photos cannot be changed while editing (v1),
-                same rule as the main photo row. A read-only third with
-                no photo hides the section entirely. */}
-            {photoReadOnly ? (
-              initialPhotoUrl && (
-                <div>
-                  <p
-                    style={{
-                      fontFamily:    "var(--font-mono)",
-                      fontSize:      9,
-                      fontWeight:    500,
-                      letterSpacing: "0.22em",
-                      textTransform: "uppercase",
-                      color:         "var(--paper-mute)",
-                      margin:        "0 0 6px",
-                    }}
-                  >
-                    Photo
-                  </p>
-                  <div style={{ width: 96, aspectRatio: "1 / 1", borderRadius: 4, overflow: "hidden", border: "1px solid var(--line-strong)" }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={initialPhotoUrl} alt="Per-third photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  </div>
-                  <p
-                    style={{
-                      fontFamily:    "var(--font-mono)",
-                      fontSize:      9,
-                      letterSpacing: "0.18em",
-                      textTransform: "uppercase",
-                      color:         "var(--paper-mute)",
-                      margin:        "6px 0 0",
-                    }}
-                  >
-                    Photos cannot be changed when editing
-                  </p>
-                </div>
-              )
-            ) : (
+            {/* Photo — one interactive path for both modes; the
+                preview handles a fresh File or an already-uploaded
+                URL. */}
             <div>
               <p
                 style={{
@@ -354,12 +330,15 @@ export function PerThirdSheet({
                 type="file"
                 accept="image/*"
                 className="sr-only"
-                onChange={(e) => setPhoto(e.target.files?.[0] ?? null)}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) setPhoto({ kind: "file", file: f });
+                }}
               />
               {photo ? (
                 <div style={{ position: "relative", width: 96, aspectRatio: "1 / 1", borderRadius: 4, overflow: "hidden", border: "1px solid var(--line-strong)" }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={URL.createObjectURL(photo)} alt="Per-third photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  <img src={photo.kind === "file" ? URL.createObjectURL(photo.file) : photo.url} alt="Per-third photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                   <button
                     type="button"
                     onClick={() => setPhoto(null)}
@@ -404,7 +383,6 @@ export function PerThirdSheet({
                 </button>
               )}
             </div>
-            )}
           </div>
 
           {/* Footer */}
@@ -439,7 +417,8 @@ export function PerThirdSheet({
                 construction_rating: build,
                 flavor_rating:       flavor,
                 flavor_tag_ids:      tagIds,
-                photo_file:          photo,
+                photo_file:          photo?.kind === "file" ? photo.file : null,
+                photo_kept_url:      photo?.kind === "url"  ? photo.url  : null,
               })}
               style={{
                 flex:          1,

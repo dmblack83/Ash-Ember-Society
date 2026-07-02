@@ -2385,7 +2385,6 @@ export function BurnReport({
           initial={form.thirds[openThird - 1]}
           initialPhoto={thirdPhotos[openThird - 1]}
           initialPhotoUrl={isEdit ? existing?.third_photo_urls[openThird - 1] ?? null : null}
-          photoReadOnly={isEdit}
           flavorTags={flavorTags}
           onCancel={() => setOpenThird(null)}
           onSave={(payload) => {
