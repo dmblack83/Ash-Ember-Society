@@ -123,6 +123,9 @@ type PersistableForm = Omit<FormData, "photo_files">;
 export interface BurnReportExisting extends PersistableForm {
   smoke_log_id: string;
   photo_urls:   string[];
+  /* Saved per-third photos by slot (first/second/final). URLs, not
+     Files — PerThirdSheet shows them read-only in edit mode. */
+  third_photo_urls: [string | null, string | null, string | null];
 }
 
 function defaultForm(): FormData {
@@ -1476,9 +1479,15 @@ export function BurnReport({
      read-only thumbnail row inside Step5). */
   const [form, setForm] = useState<FormData>(() => {
     if (isEdit && existing) {
-      const { photo_urls: _photo_urls, smoke_log_id: _smoke_log_id, ...rest } = existing;
+      const {
+        photo_urls: _photo_urls,
+        smoke_log_id: _smoke_log_id,
+        third_photo_urls: _third_photo_urls,
+        ...rest
+      } = existing;
       void _photo_urls;
       void _smoke_log_id;
+      void _third_photo_urls;
       return { ...defaultForm(), ...rest, photo_files: [] };
     }
     return defaultForm();
@@ -2375,6 +2384,8 @@ export function BurnReport({
           index={openThird}
           initial={form.thirds[openThird - 1]}
           initialPhoto={thirdPhotos[openThird - 1]}
+          initialPhotoUrl={isEdit ? existing?.third_photo_urls[openThird - 1] ?? null : null}
+          photoReadOnly={isEdit}
           flavorTags={flavorTags}
           onCancel={() => setOpenThird(null)}
           onSave={(payload) => {

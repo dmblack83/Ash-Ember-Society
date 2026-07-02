@@ -42,13 +42,20 @@ interface Props {
   index:       1 | 2 | 3;
   initial:     PerThirdData | null;
   initialPhoto?: File | null;
+  /* Edit mode: the third's saved photo exists only as a storage URL
+     (no File). Shown read-only when photoReadOnly is set — photos
+     cannot be changed while editing (v1), matching the main photo
+     row. */
+  initialPhotoUrl?: string | null;
+  photoReadOnly?:   boolean;
   flavorTags:  FlavorTag[];
   onCancel:    () => void;
   onSave:      (payload: SaveLocalPayload) => void;
 }
 
 export function PerThirdSheet({
-  open, index, initial, initialPhoto = null, flavorTags, onCancel, onSave,
+  open, index, initial, initialPhoto = null, initialPhotoUrl = null,
+  photoReadOnly = false, flavorTags, onCancel, onSave,
 }: Props) {
   const tag = TAGS_BY_INDEX[index];
 
@@ -289,7 +296,45 @@ export function PerThirdSheet({
               </button>
             </div>
 
-            {/* Photo */}
+            {/* Photo — edit mode shows the saved photo read-only (URL,
+                not File); photos cannot be changed while editing (v1),
+                same rule as the main photo row. A read-only third with
+                no photo hides the section entirely. */}
+            {photoReadOnly ? (
+              initialPhotoUrl && (
+                <div>
+                  <p
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      9,
+                      fontWeight:    500,
+                      letterSpacing: "0.22em",
+                      textTransform: "uppercase",
+                      color:         "var(--paper-mute)",
+                      margin:        "0 0 6px",
+                    }}
+                  >
+                    Photo
+                  </p>
+                  <div style={{ width: 96, aspectRatio: "1 / 1", borderRadius: 4, overflow: "hidden", border: "1px solid var(--line-strong)" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={initialPhotoUrl} alt="Per-third photo" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  </div>
+                  <p
+                    style={{
+                      fontFamily:    "var(--font-mono)",
+                      fontSize:      9,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      color:         "var(--paper-mute)",
+                      margin:        "6px 0 0",
+                    }}
+                  >
+                    Photos cannot be changed when editing
+                  </p>
+                </div>
+              )
+            ) : (
             <div>
               <p
                 style={{
@@ -359,6 +404,7 @@ export function PerThirdSheet({
                 </button>
               )}
             </div>
+            )}
           </div>
 
           {/* Footer */}
