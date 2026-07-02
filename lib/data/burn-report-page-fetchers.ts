@@ -102,6 +102,7 @@ interface BurnReportThirdRowClient {
   construction_rating: number;
   flavor_rating:       number;
   flavor_tag_ids:      string[];
+  photo_url:           string | null;
 }
 
 function rowsToFormThirds(
@@ -118,6 +119,21 @@ function rowsToFormThirds(
       flavor_rating:       row.flavor_rating,
       flavor_tag_ids:      row.flavor_tag_ids,
     };
+  }
+  return [out[0], out[1], out[2]];
+}
+
+/* Saved per-third photos exist only as storage URLs in edit mode
+   (the create flow's File objects are long gone). PerThirdSheet
+   renders these read-only so an existing photo is visible while
+   editing instead of looking deleted. */
+export function rowsToThirdPhotoUrls(
+  rows: Array<{ third_index: number; photo_url: string | null }>,
+): [string | null, string | null, string | null] {
+  const out: (string | null)[] = [null, null, null];
+  for (const row of rows) {
+    if (row.third_index < 1 || row.third_index > 3) continue;
+    out[row.third_index - 1] = row.photo_url;
   }
   return [out[0], out[1], out[2]];
 }
@@ -191,18 +207,23 @@ export async function fetchBurnReportEditBundle(
               burn_rating,
               construction_rating,
               flavor_rating,
+              photo_url,
               burn_report_third_flavor_tags ( flavor_tag_id )
             `)
             .eq("burn_report_id", burnReportId)
             .order("third_index", { ascending: true })
-            .then(({ data }) =>
-              (data ?? []).map((row) => ({
+            .then(({ data, error }) => {
+              /* Fail loudly: silently treating an error as "no thirds"
+                 renders a clean edit form whose Save would then erase
+                 the report's real per-third rows. */
+              if (error) throw new Error(error.message);
+              return (data ?? []).map((row) => ({
                 ...row,
                 flavor_tag_ids: (row.burn_report_third_flavor_tags ?? []).map(
                   (j: { flavor_tag_id: string }) => j.flavor_tag_id,
                 ),
-              })) as BurnReportThirdRowClient[],
-            )
+              })) as BurnReportThirdRowClient[];
+            })
         : Promise.resolve([] as BurnReportThirdRowClient[]),
       /* Display number = chronological position, same as the list. */
       supabase
@@ -256,6 +277,7 @@ export async function fetchBurnReportEditBundle(
     third_middle:           thirds?.third_middle    ?? "",
     third_end:              thirds?.third_end       ?? "",
     thirds:                 rowsToFormThirds(thirdsRows),
+    third_photo_urls:       rowsToThirdPhotoUrls(thirdsRows),
   };
 
   return {
