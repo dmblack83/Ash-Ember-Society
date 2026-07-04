@@ -2,8 +2,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getMembershipTier, FREE_TIER_LIMITS, type MembershipProfile } from "@/lib/membership";
 
 /**
- * Thrown when a free-tier user tries to add an 11th distinct cigar to
- * their humidor. Callers should catch this and present the upgrade modal.
+ * Thrown when a free-tier user tries to add a distinct cigar beyond the
+ * FREE_TIER_LIMITS.humidor_items cap. Callers should catch this and
+ * present the upgrade modal.
  */
 export class HumidorLimitError extends Error {
   constructor() {
@@ -35,8 +36,8 @@ export interface HumidorInsertPayload {
  *  - Wishlist add (is_wishlist=true) → never called from addHumidorItem
  *    on the wishlist path; safe to call here regardless.
  *  - Free tier, cigarId already owned → pass (batch-add is free).
- *  - Free tier, new cigarId, < 10 distinct → pass.
- *  - Free tier, new cigarId, ≥ 10 distinct → throw.
+ *  - Free tier, new cigarId, under the cap → pass.
+ *  - Free tier, new cigarId, at the cap → throw.
  */
 export async function assertCanAddHumidor(
   supabase: SupabaseClient,

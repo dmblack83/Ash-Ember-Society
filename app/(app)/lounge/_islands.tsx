@@ -18,7 +18,6 @@
 import { createClient }            from "@/utils/supabase/server";
 import { getProfileLite }          from "@/lib/data/profile";
 import { LoungeForumClient }       from "@/components/lounge/LoungeForumClient";
-import { getMembershipTier }       from "@/lib/membership";
 import {
   getAllForumCategories,
   getForumCategoryStats,
@@ -36,9 +35,8 @@ export async function LoungeDataIsland({ userId, userEmail }: Props) {
   const [categories, stats, profile, rulesPostRes, todayRes] = await Promise.all([
     getAllForumCategories(),
     getForumCategoryStats(),
-    /* React.cache()-deduped — see lib/data/profile.ts. The
-       getMembershipTier() call below reads .membership_tier; the
-       projection in getProfileLite includes it. */
+    /* React.cache()-deduped — see lib/data/profile.ts. Used for the
+       display name; posting is open to all tiers (2026-07-03). */
     getProfileLite(userId),
     supabase
       .from("forum_posts")
@@ -87,7 +85,6 @@ export async function LoungeDataIsland({ userId, userEmail }: Props) {
   }
 
   const displayName    = profile?.display_name ?? userEmail?.split("@")[0] ?? "Member";
-  const membershipTier = getMembershipTier(profile);
 
   return (
     <LoungeForumClient
@@ -97,7 +94,6 @@ export async function LoungeDataIsland({ userId, userEmail }: Props) {
       agreementCount={agreementCount}
       userId={userId}
       displayName={displayName}
-      membershipTier={membershipTier}
     />
   );
 }

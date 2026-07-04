@@ -52,7 +52,6 @@ interface Props {
   initialPinnedPosts?: PostItem[];
   initialLikedIds:    string[];
   userId:             string;
-  membershipTier:     string;
   isFounder?:         boolean;
   hasMore:            boolean;
 }
@@ -61,7 +60,7 @@ interface Props {
 
 export function CategoryFeed({
   category, allCategories, initialPosts, initialPinnedPosts, initialLikedIds,
-  userId, membershipTier, isFounder = false, hasMore: initialHasMore,
+  userId, isFounder = false, hasMore: initialHasMore,
 }: Props) {
   const router = useRouter();
 
@@ -151,7 +150,6 @@ export function CategoryFeed({
   const [showNewPost, setShowNewPost] = useState(false);
   const [toast,       setToast]       = useState<string | null>(null);
 
-  const canPost            = membershipTier !== "free";
   const postableCategories = allCategories.filter((c) => !c.is_locked && !c.is_gate);
 
   function showToast(msg: string) {
@@ -160,7 +158,6 @@ export function CategoryFeed({
   }
 
   function handleNewPost() {
-    if (!canPost) { showToast("Upgrade to Member to post in the Lounge."); return; }
     /* Burn Reports posts have to be tied to a saved smoke_log; the
        composer can't author one from scratch. Send the user to the
        humidor so they pick a cigar, log a smoke, and share from

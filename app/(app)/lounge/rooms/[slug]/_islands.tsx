@@ -27,7 +27,6 @@ import { redirect, notFound }      from "next/navigation";
 import { CategoryFeed }            from "@/components/lounge/CategoryFeed";
 import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
-import { getMembershipTier }       from "@/lib/membership";
 import { getAllForumCategories }   from "@/lib/data/forum";
 import { getProfileLite }          from "@/lib/data/profile";
 
@@ -300,7 +299,6 @@ export async function CategoryFeedDataIsland({ slug, userId }: Props) {
       initialPinnedPosts={initialPinnedPosts}
       initialLikedIds={[...likedSet]}
       userId={userId}
-      membershipTier={getMembershipTier(profile)}
       isFounder={isFounder}
       hasMore={posts.length >= PAGE_SIZE}
     />

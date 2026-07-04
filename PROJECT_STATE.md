@@ -222,9 +222,11 @@ Synopsis style: factual, direct, Dave's voice. No em dashes. End with one senten
 
 | Tier | Price | Limits |
 |------|-------|--------|
-| Free | $0 | 25 humidor items, read-only feed |
-| Member | $4.99/mo or $50/yr | Unlimited, community posting, shop discounts (10%), events |
+| Free | $0 | 20 unique cigars (unlimited quantity each, wishlist unlimited), full lounge access, unlimited burn reports |
+| Member | $4.99/mo or $50/yr | Unlimited unique cigars, shop discounts (10%), events |
 | Premium (deferred) | $9.99/mo or $100/yr | Everything + exclusive events, 15% discount |
+
+Enforcement: DB trigger `enforce_humidor_free_limit` (20 distinct cigar_id, wishlist + re-buys exempt) + client check in `lib/humidor/add-item.ts` + `UpgradeLimitModal`. Lounge posting is ungated for all tiers (2026-07-03). Burn reports have never been gated.
 
 ---
 
