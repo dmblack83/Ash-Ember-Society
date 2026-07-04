@@ -80,8 +80,37 @@ const iosSplash = (deviceW: number, deviceH: number, dpr: 2 | 3, orientation: "p
 };
 
 export const metadata: Metadata = {
+  /* Canonical host for resolving relative metadata URLs. All links use
+     the www host; bare-host links drift the PWA out of manifest scope on
+     iOS. See the marketing page metadata for the same convention. */
+  metadataBase: new URL("https://www.ashember.vip"),
   title: "Ash & Ember Society",
   description: "A premium cigar enthusiast experience.",
+  /* Default social-share preview. Lives on the ROOT layout so every route
+     that does not set its own openGraph (signup, login, onboarding, in-app
+     pages) inherits a real thumbnail instead of the host's generic
+     fallback. The marketing page overrides this with richer copy. */
+  openGraph: {
+    title: "Ash & Ember Society",
+    description: "A premium cigar enthusiast experience.",
+    url: "https://www.ashember.vip",
+    siteName: "Ash & Ember Society",
+    images: [
+      {
+        url: "https://www.ashember.vip/og-image.png",
+        width: 1200,
+        height: 632,
+        alt: "Ash & Ember Society",
+      },
+    ],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ash & Ember Society",
+    description: "A premium cigar enthusiast experience.",
+    images: ["https://www.ashember.vip/og-image.png"],
+  },
   /* Next 16 maps `appleWebApp.capable: true` to the new W3C
      `mobile-web-app-capable` tag and stopped emitting the legacy
      Apple-prefixed `apple-mobile-web-app-capable`. iOS still
