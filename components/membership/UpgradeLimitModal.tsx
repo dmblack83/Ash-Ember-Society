@@ -9,8 +9,8 @@ interface UpgradeLimitModalProps {
 }
 
 /**
- * Soft-nudge modal shown when a free-tier user tries to add an 11th
- * distinct cigar to their humidor. Primary CTA → Membership tab.
+ * Soft-nudge modal shown when a free-tier user tries to add a distinct
+ * cigar beyond the free cap. Primary CTA → Membership tab.
  * Secondary CTA "Manage humidor" just closes the modal (returns user
  * to prior context — no forced redirect).
  */

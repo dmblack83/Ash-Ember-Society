@@ -21,7 +21,7 @@ import { createClient } from "@supabase/supabase-js";
        (components/cigars/CigarActions.tsx)
      - Sheet submit button:   <button type="submit">Add to Humidor</button>
        (components/cigars/AddToHumidorSheet.tsx)
-     - Cap modal heading:     "You've reached your 10-cigar limit"
+     - Cap modal heading:     `You've reached your ${CAP}-cigar limit`
        (components/membership/UpgradeLimitModal.tsx)
      - Upgrade CTA:           <Link href="/account?tab=membership">
                                 Upgrade to Member
@@ -37,8 +37,14 @@ const USER_ID       = process.env.E2E_FREE_USER_ID!;
 
 const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
+/* Free-tier unique-cigar cap. Mirrors FREE_TIER_LIMITS.humidor_items in
+   lib/membership.ts and the trigger threshold in
+   supabase/migrations/20260703_free_tier_20_unique.sql. */
+const CAP = 20;
+const CAP_HEADING = `You've reached your ${CAP}-cigar limit`;
+
 /** Wipe humidor_items for the test user and seed with `count` distinct cigars.
- *  Returns the seeded cigar_ids plus one spare unseeded id for "11th" tests. */
+ *  Returns the seeded cigar_ids plus one spare unseeded id for over-cap tests. */
 async function seedHumidor(count: number): Promise<{ seeded: string[]; spare: string }> {
   await admin.from("humidor_items").delete().eq("user_id", USER_ID);
 
@@ -80,25 +86,25 @@ test.describe("free-tier humidor cap", () => {
     await page.waitForURL(/\/home|\/onboarding|\/$/);
   });
 
-  test("free user with 9 distinct cigars can add a 10th", async ({ page }) => {
-    const { spare } = await seedHumidor(9);
+  test("free user one under the cap can add one more", async ({ page }) => {
+    const { spare } = await seedHumidor(CAP - 1);
 
     await page.goto(`/discover/cigars/${spare}`);
     await page.getByRole("button", { name: /add to humidor/i }).first().click();
     await page.locator('button[type="submit"]', { hasText: /add to humidor/i }).click();
 
-    await expect(page.getByText("You've reached your 10-cigar limit")).toHaveCount(0);
+    await expect(page.getByText(CAP_HEADING)).toHaveCount(0);
     await expect(page.getByText(/added/i)).toBeVisible({ timeout: 5_000 });
   });
 
-  test("free user with 10 distinct cigars is blocked on the 11th", async ({ page }) => {
-    const { spare } = await seedHumidor(10);
+  test("free user at the cap is blocked on the next distinct cigar", async ({ page }) => {
+    const { spare } = await seedHumidor(CAP);
 
     await page.goto(`/discover/cigars/${spare}`);
     await page.getByRole("button", { name: /add to humidor/i }).first().click();
     await page.locator('button[type="submit"]', { hasText: /add to humidor/i }).click();
 
-    await expect(page.getByText("You've reached your 10-cigar limit")).toBeVisible();
+    await expect(page.getByText(CAP_HEADING)).toBeVisible();
     await expect(page.getByRole("link", { name: /upgrade to member/i })).toBeVisible();
 
     const { data: rows } = await admin
@@ -110,7 +116,7 @@ test.describe("free-tier humidor cap", () => {
   });
 
   test("free user can add another batch of an already-owned cigar at the cap", async ({ page }) => {
-    const { seeded } = await seedHumidor(10);
+    const { seeded } = await seedHumidor(CAP);
     const ownedCigarId = seeded[0];
 
     await page.goto(`/discover/cigars/${ownedCigarId}`);
@@ -122,7 +128,7 @@ test.describe("free-tier humidor cap", () => {
     // same-cigar exemption in assertCanAddHumidor should let this through.
     await page.getByRole("button", { name: /add as new entry/i }).click();
 
-    await expect(page.getByText("You've reached your 10-cigar limit")).toHaveCount(0);
+    await expect(page.getByText(CAP_HEADING)).toHaveCount(0);
 
     const { count } = await admin
       .from("humidor_items")
@@ -133,7 +139,7 @@ test.describe("free-tier humidor cap", () => {
   });
 
   test("upgrade CTA lands on /account with the Membership sheet open", async ({ page }) => {
-    const { spare } = await seedHumidor(10);
+    const { spare } = await seedHumidor(CAP);
 
     await page.goto(`/discover/cigars/${spare}`);
     await page.getByRole("button", { name: /add to humidor/i }).first().click();
@@ -146,7 +152,7 @@ test.describe("free-tier humidor cap", () => {
   });
 
   test("Manage humidor CTA closes modal and stays on prior page", async ({ page }) => {
-    const { spare } = await seedHumidor(10);
+    const { spare } = await seedHumidor(CAP);
 
     await page.goto(`/discover/cigars/${spare}`);
     const cigarDetailUrl = page.url();
@@ -155,13 +161,13 @@ test.describe("free-tier humidor cap", () => {
     await page.locator('button[type="submit"]', { hasText: /add to humidor/i }).click();
 
     // Modal opens.
-    await expect(page.getByText("You've reached your 10-cigar limit")).toBeVisible();
+    await expect(page.getByText(CAP_HEADING)).toBeVisible();
 
     // Click "Manage humidor" — secondary CTA — should just close the modal.
     await page.getByRole("button", { name: /manage humidor/i }).click();
 
     // Modal gone, URL unchanged (no forced redirect).
-    await expect(page.getByText("You've reached your 10-cigar limit")).toHaveCount(0);
+    await expect(page.getByText(CAP_HEADING)).toHaveCount(0);
     expect(page.url()).toBe(cigarDetailUrl);
   });
 

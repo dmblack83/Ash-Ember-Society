@@ -86,7 +86,7 @@ export const PLAN_PRICING = {
 } as const;
 
 export const TIER_DESCRIPTION: Record<MembershipTier, string> = {
-  free:    "10 unique cigars, full lounge access, unlimited burn reports",
+  free:    "20 unique cigars, full lounge access, unlimited burn reports",
   member:  "Unlimited unique cigars, full lounge access, unlimited burn reports",
   premium: "Unlimited unique cigars, full lounge access, unlimited burn reports", // legacy alias
 };
