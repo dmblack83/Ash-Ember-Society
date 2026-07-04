@@ -44,7 +44,6 @@ interface Props {
   agreementCount: number;
   userId:         string;
   displayName:    string;
-  membershipTier: string;
 }
 
 const HEADER_H = 56;
@@ -177,7 +176,7 @@ function RulesModal({
 
 export function LoungeForumClient({
   categories, rulesPost, hasUnlocked, agreementCount,
-  userId, displayName, membershipTier,
+  userId, displayName,
 }: Props) {
   const [unlocked,        setUnlocked]       = useState(hasUnlocked);
   const [liking,          setLiking]         = useState(false);
@@ -190,7 +189,6 @@ export function LoungeForumClient({
   const router   = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  const canPost          = membershipTier !== "free";
   const nonGateCategories  = categories.filter((c) => !c.is_gate && !c.is_feedback);
   const feedbackCategories = categories.filter((c) => c.is_feedback);
   const gateCategory       = categories.find((c) => c.is_gate);
@@ -201,7 +199,6 @@ export function LoungeForumClient({
   }
 
   function handleNewPost(categoryId?: string) {
-    if (!canPost) { showToast("Upgrade to Member to post in the Lounge."); return; }
     setNewPostCategory(categoryId ?? nonGateCategories[0]?.id ?? "");
     setShowNewPost(true);
   }

@@ -9,8 +9,8 @@ interface UpgradeLimitModalProps {
 }
 
 /**
- * Soft-nudge modal shown when a free-tier user tries to add an 11th
- * distinct cigar to their humidor. Primary CTA → Membership tab.
+ * Soft-nudge modal shown when a free-tier user tries to add a distinct
+ * cigar beyond the free cap. Primary CTA → Membership tab.
  * Secondary CTA "Manage humidor" just closes the modal (returns user
  * to prior context — no forced redirect).
  */
@@ -82,7 +82,7 @@ export function UpgradeLimitModal({ isOpen, onClose }: UpgradeLimitModalProps) {
             marginBottom: 12,
           }}
         >
-          You&apos;ve reached your 10-cigar limit
+          You&apos;ve reached your 20-cigar limit
         </h2>
 
         <p
@@ -93,7 +93,7 @@ export function UpgradeLimitModal({ isOpen, onClose }: UpgradeLimitModalProps) {
             marginBottom: 24,
           }}
         >
-          Free members can track up to 10 unique cigars. Upgrade to Member for unlimited cigars.
+          Free members can track up to 20 unique cigars. Upgrade to Member for unlimited cigars.
         </p>
 
         <Link

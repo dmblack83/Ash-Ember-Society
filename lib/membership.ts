@@ -5,7 +5,7 @@
  * enum still contains "premium"; the TypeScript type is kept for safe
  * reads. Any "premium" DB row is treated as "member" at runtime.
  *
- *   free    — 10 unique cigars, full lounge, unlimited burn reports
+ *   free    — 20 unique cigars, full lounge, unlimited burn reports
  *   member  — $5/mo, unlimited unique cigars, full lounge, unlimited burn reports
  */
 
@@ -62,7 +62,7 @@ export function canAccess(profile: MembershipProfile | null, feature: Feature): 
 }
 
 export const FREE_TIER_LIMITS = {
-  humidor_items: 10,
+  humidor_items: 20,
 } as const;
 
 export function isAtHumidorLimit(
@@ -86,7 +86,7 @@ export const PLAN_PRICING = {
 } as const;
 
 export const TIER_DESCRIPTION: Record<MembershipTier, string> = {
-  free:    "10 unique cigars, full lounge access, unlimited burn reports",
+  free:    "20 unique cigars, full lounge access, unlimited burn reports",
   member:  "Unlimited unique cigars, full lounge access, unlimited burn reports",
   premium: "Unlimited unique cigars, full lounge access, unlimited burn reports", // legacy alias
 };
