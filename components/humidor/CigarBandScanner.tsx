@@ -6,6 +6,8 @@ import { createClient }           from "@/utils/supabase/client";
 import { CigarImage }             from "@/components/ui/CigarImage";
 import { AddToHumidorSheet }      from "@/components/cigars/AddToHumidorSheet";
 import type { CatalogResult }     from "@/components/cigar-search";
+import { computeCoverCrop }       from "@/lib/scanner/crop";
+import { selectQueryWords, scoreCandidates } from "@/lib/scanner/ocr-match";
 
 /* ------------------------------------------------------------------
    Types
@@ -26,26 +28,26 @@ interface Props {
 }
 
 /* ------------------------------------------------------------------
+   Viewfinder frame geometry — the capture crop is derived from these,
+   so the gold frame on screen is exactly what gets OCR'd (plus padding).
+   ------------------------------------------------------------------ */
+
+const FRAME_VW_FRAC      = 0.8;   // frame edge = min(80vw, 300px)
+const FRAME_MAX_PX       = 300;
+const FRAME_OFFSET_Y_FRAC = -0.1; // frame center sits 10% of its height above screen center
+const CROP_PAD           = 1.2;   // 20% slop around the frame for loose framing
+const OUTPUT_MAX_PX      = 1024;
+
+const CAMERA_CONSTRAINTS: MediaStreamConstraints = {
+  video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+};
+
+/* ------------------------------------------------------------------
    Catalog matching — runs client-side for speed
    ------------------------------------------------------------------ */
 
-const STOP_WORDS = new Set([
-  "the","and","for","from","with","hand","rolled","made","since","est",
-  "republic","republica","dominicana","dominican","cuba","cubana","body",
-  "medium","full","light","natural","colorado","claro","oscuro","premium",
-  "cigar","cigars","tobacco","blend","wrapper","binder","filler",
-  "honduras","nicaragua","mexico","ecuador","cameroon","brazil","indonesia",
-  "connecticut","habano","corojo","criollo",
-]);
-
 async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
-  const words = ocrText
-    .replace(/[^\w\s]/g, " ")
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((w) => w.length >= 3 && !STOP_WORDS.has(w))
-    .slice(0, 8);
-
+  const words = selectQueryWords(ocrText);
   if (words.length === 0) return [];
 
   const orFilter = words
@@ -64,47 +66,35 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
     )
     .or(orFilter)
     .order("usage_count", { ascending: false })
-    .limit(20);
+    .limit(50);
 
   if (!data?.length) return [];
 
-  type Scored = CatalogResult & { _score: number };
-  const scored: Scored[] = data.map((cigar) => {
-    const brand         = (cigar.brand  ?? "").toLowerCase();
-    const seriesFormat  = `${cigar.series ?? ""} ${cigar.format ?? ""}`.toLowerCase();
-
-    // Brand hits worth 3×, series/format hits worth 2×
-    const brandHits        = words.filter((w) => brand.includes(w)).length;
-    const seriesFormatHits = words.filter((w) => seriesFormat.includes(w)).length;
-    // Bonus if a word is an exact full match for the brand
-    const brandExact       = words.some((w) => brand === w) ? 3 : 0;
-
-    return {
-      ...(cigar as CatalogResult),
-      _score: brandHits * 3 + seriesFormatHits * 2 + brandExact,
-    };
-  });
-
-  return scored
-    .filter((c) => c._score >= 2)
-    .sort((a, b) => b._score - a._score)
-    .slice(0, 5)
-    .map(({ _score, ...rest }) => rest as CatalogResult);
+  return scoreCandidates(words, ocrText, data as CatalogResult[]);
 }
 
 /* ------------------------------------------------------------------
-   Image capture — resize to ≤ 800 px before encoding
+   Image capture — crop to the viewfinder frame at native camera
+   resolution (≤ 1024 px output) instead of downscaling the full frame
    ------------------------------------------------------------------ */
 
 function captureImage(video: HTMLVideoElement): string {
-  const MAX = 800;
-  const ratio = Math.min(MAX / video.videoWidth, MAX / video.videoHeight, 1);
-  const w = Math.round(video.videoWidth  * ratio);
-  const h = Math.round(video.videoHeight * ratio);
+  const frameSize = Math.min(window.innerWidth * FRAME_VW_FRAC, FRAME_MAX_PX);
+  const { sx, sy, size } = computeCoverCrop({
+    videoWidth:  video.videoWidth,
+    videoHeight: video.videoHeight,
+    screenWidth:  window.innerWidth,
+    screenHeight: window.innerHeight,
+    frameSize,
+    frameOffsetYFrac: FRAME_OFFSET_Y_FRAC,
+    pad: CROP_PAD,
+  });
+
+  const out = Math.round(Math.min(size, OUTPUT_MAX_PX));
   const canvas = document.createElement("canvas");
-  canvas.width  = w;
-  canvas.height = h;
-  canvas.getContext("2d")!.drawImage(video, 0, 0, w, h);
+  canvas.width  = out;
+  canvas.height = out;
+  canvas.getContext("2d")!.drawImage(video, sx, sy, size, size, 0, 0, out, out);
   return canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
 }
 
@@ -133,9 +123,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
 
     async function start() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
+        const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS);
         if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         if (videoRef.current) {
@@ -216,9 +204,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
     setPhase("requesting");
     setMatches([]);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
-      });
+      const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS);
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -268,9 +254,9 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
               position:  "absolute",
               top:       "50%",
               left:      "50%",
-              transform: "translate(-50%, -50%) translateY(-10%)",
-              width:     "min(80vw, 300px)",
-              height:    "min(80vw, 300px)",
+              transform: `translate(-50%, -50%) translateY(${FRAME_OFFSET_Y_FRAC * 100}%)`,
+              width:     `min(${FRAME_VW_FRAC * 100}vw, ${FRAME_MAX_PX}px)`,
+              height:    `min(${FRAME_VW_FRAC * 100}vw, ${FRAME_MAX_PX}px)`,
               boxShadow: "0 0 0 9999px rgba(0,0,0,0.62)",
               borderRadius: 8,
               zIndex:    1,
