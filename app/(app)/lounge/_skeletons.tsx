@@ -1,8 +1,8 @@
 /*
- * Shared skeleton for the Lounge home route. Used by:
+ * Shared skeleton for the unified Lounge feed route. Used by:
  *  - `loading.tsx` (rendered during client-side route prefetch
  *    before the page tree mounts)
- *  - the in-page `<Suspense>` fallback around `LoungeDataIsland`
+ *  - the in-page `<Suspense>` fallback around `LoungeFeedDataIsland`
  *    in `page.tsx` (rendered while the data fetch is still resolving)
  *
  * Same shape both places so the swap between prefetch skeleton →
@@ -11,25 +11,34 @@
 
 export function LoungeShellSkeleton() {
   return (
-    <div className="px-4 sm:px-6 pt-6 pb-6 max-w-2xl mx-auto">
-      {/* Page header */}
-      <div className="animate-pulse mb-6">
-        <div className="h-8 bg-muted rounded w-32 mb-3" />
-        <div className="h-4 bg-muted rounded w-2/3" />
+    <div style={{ minHeight: "100dvh", backgroundColor: "var(--background)" }}>
+      {/* Stacked header placeholder: title + chips + secondary rows */}
+      <div
+        style={{
+          position: "fixed", top: 0, left: "var(--app-content-left)", right: 0,
+          zIndex: 40, height: 148, backgroundColor: "rgba(26,18,16,0.97)",
+          borderBottom: "1px solid var(--border)",
+        }}
+      >
+        <div className="px-4 md:max-w-[50%] md:mx-auto">
+          <div className="animate-pulse rounded" style={{ width: 120, height: 22, marginTop: 18, backgroundColor: "var(--card)" }} />
+          <div className="flex gap-2" style={{ marginTop: 20 }}>
+            {[72, 84, 110, 92].map((w, i) => (
+              <div key={i} className="animate-pulse rounded-full" style={{ width: w, height: 30, backgroundColor: "var(--card)" }} />
+            ))}
+          </div>
+          <div className="flex gap-5" style={{ marginTop: 14 }}>
+            {[36, 30, 60].map((w, i) => (
+              <div key={i} className="animate-pulse rounded" style={{ width: w, height: 14, backgroundColor: "var(--card)" }} />
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Category cards */}
-      <div className="flex flex-col gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="card animate-pulse">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-muted flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-muted rounded w-1/2" />
-                <div className="h-3 bg-muted rounded w-3/4" />
-              </div>
-            </div>
-          </div>
+      {/* Feed card placeholders */}
+      <div className="px-4 flex flex-col gap-3 w-full md:max-w-[50%] md:mx-auto" style={{ paddingTop: 160 }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="animate-pulse rounded-2xl" style={{ height: 150, backgroundColor: "var(--card)", border: "1px solid var(--border)" }} />
         ))}
       </div>
     </div>

@@ -619,6 +619,12 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
    * any tuple keyed `["lounge-feed", category_id, *, *]`. Cached
    * entries get marked stale; mounted hooks revalidate, unmounted
    * caches refetch on next mount.
+   *
+   * The unified All feed is keyed with the "all-categories" sentinel
+   * (see keyFor.loungeFeed in lib/data/keys.ts), which never equals a
+   * real category_id, so it's matched explicitly here too, ensuring
+   * both the post's own category pages and the All feed's pages get
+   * invalidated.
    */
   function invalidateCategoryFeed() {
     const categoryId = post.category_id;
@@ -626,7 +632,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       (key) =>
         Array.isArray(key) &&
         key[0] === "lounge-feed" &&
-        key[1] === categoryId,
+        (key[1] === categoryId || key[1] === "all-categories"),
       undefined,
       { revalidate: true },
     );

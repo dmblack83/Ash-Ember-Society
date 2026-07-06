@@ -1,29 +1,35 @@
 import { Suspense }            from "react";
 import { redirect }             from "next/navigation";
 import { getServerUser }        from "@/lib/auth/server-user";
-import { LoungeDataIsland }     from "./_islands";
+import { LoungeFeedDataIsland } from "./_islands";
 import { LoungeShellSkeleton }  from "./_skeletons";
 import { PullToRefresh }        from "@/components/ui/PullToRefresh";
 
 /*
  * Edge runtime: faster cold start than the Node serverless target.
- * No `force-dynamic` — the data island is implicitly dynamic (per-user
- * queries) but the shell here is static, so removing the flag lets the
- * static portion be served from the edge cache where possible.
+ * The data island is implicitly dynamic (per-user queries); the shell
+ * streams first. Pattern mirrors `app/(app)/home/` and `/humidor/`.
  *
- * Pattern mirrors `app/(app)/home/` and `app/(app)/humidor/`.
+ * ?c=<chip>&v=<view> select the category chip and secondary view.
+ * Subsequent chip taps update the URL via shallow pushState (no
+ * server round-trip); only full loads (deep link, refresh, PWA
+ * resume) pass through here.
  */
 export const runtime  = "edge";
 export const metadata = { title: "The Lounge — Ash & Ember Society" };
 
-export default async function LoungePage() {
-  const user = await getServerUser();
+interface Props {
+  searchParams: Promise<{ c?: string; v?: string }>;
+}
+
+export default async function LoungePage({ searchParams }: Props) {
+  const [{ c, v }, user] = await Promise.all([searchParams, getServerUser()]);
   if (!user) redirect("/login");
 
   return (
     <PullToRefresh>
       <Suspense fallback={<LoungeShellSkeleton />}>
-        <LoungeDataIsland userId={user.id} userEmail={user.email} />
+        <LoungeFeedDataIsland userId={user.id} chipParam={c ?? null} viewParam={v ?? null} />
       </Suspense>
     </PullToRefresh>
   );

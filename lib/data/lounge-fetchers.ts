@@ -1,27 +1,26 @@
 "use client";
 
 /*
- * Client-side fetcher for the Lounge category feed.
+ * Client-side fetcher for the unified Lounge feed.
  *
- * Mirrors the composite query previously inline in CategoryFeed's
- * `loadMore` callback (posts + author profiles + liked status +
- * smoke logs + flavor tags + votes). Used by useSWRInfinite — each
- * page index becomes one cache entry; mutations target individual
- * pages or the full slice as needed.
+ * Composite query (posts + author profiles + liked status + smoke
+ * logs + flavor tags + votes). Used by useSWRInfinite — each page
+ * index becomes one cache entry; mutations target individual pages
+ * or the full slice as needed.
  *
  * Note: the SERVER-side initial-page query in
- * app/(app)/lounge/rooms/[slug]/page.tsx additionally computes
- * `report_number` per smoke log (lifetime author count). That field
- * is intentionally absent here — matching the existing client
- * behaviour where pages 1+ never had it. If it ever needs to be
- * present on dynamically-loaded pages, port `computeReportNumbers`
- * to a client-callable function.
+ * app/(app)/lounge/_islands.tsx additionally computes `report_number`
+ * per smoke log (lifetime author count). That field is intentionally
+ * absent here — matching the existing client behaviour where pages
+ * 1+ never had it. If it ever needs to be present on dynamically-loaded
+ * pages, port `computeReportNumbers` to a client-callable function.
  */
 
 import { createClient }            from "@/utils/supabase/client";
 import type { PostItem }           from "@/components/lounge/InlinePost";
 import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
 import type { Comment }            from "@/components/lounge/PostDetailClient";
+import { log }                     from "@/lib/log";
 
 /* ── Feedback-card post shape returned by fetchFeedbackPosts below. */
 export interface FeedbackPost {
@@ -45,50 +44,44 @@ export interface CategoryFeedPage {
   hasMore:  boolean;
 }
 
-interface FetchArgs {
-  categoryId: string;
-  userId:     string;
-  isFeedback: boolean;
-  pageIndex:  number;
-  pageSize:   number;
-  /* "all"    → every post in the category (default)
-     "mine"   → only posts authored by `userId`
-     "open"   → feedback: only open posts
-     "closed" → feedback: only closed posts */
-  filter?:    "all" | "mine" | "open" | "closed";
+export type LoungeFilter = "all" | "mine" | "open" | "closed";
+export type LoungeSort   = "new" | "hot";
+
+/* Reorder DB rows to match a ranked id list (the hot RPC returns ids
+   in rank order; the follow-up .in() fetch does not preserve it). */
+export function orderByIds<T extends { id: string }>(rows: T[], ids: string[]): T[] {
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter(Boolean) as T[];
 }
 
-export async function fetchCategoryFeedPage({
+interface FetchLoungeFeedArgs {
+  /* null = the unified All feed (no category filter). */
+  categoryId:         string | null;
+  /* Product Feedback category id — vote tallies are fetched for posts
+     in this category regardless of which chip is active. */
+  feedbackCategoryId: string | null;
+  userId:             string;
+  pageIndex:          number;
+  pageSize:           number;
+  filter?:            LoungeFilter;
+  sort?:              LoungeSort;
+}
+
+const POST_SELECT =
+  "id, title, content, created_at, user_id, category_id, image_url, is_locked, is_system, smoke_log_id, status, " +
+  "forum_post_likes(count), forum_comments(count)";
+
+export async function fetchLoungeFeedPage({
   categoryId,
+  feedbackCategoryId,
   userId,
-  isFeedback,
   pageIndex,
   pageSize,
   filter = "all",
-}: FetchArgs): Promise<CategoryFeedPage> {
+  sort   = "new",
+}: FetchLoungeFeedArgs): Promise<CategoryFeedPage> {
   const supabase = createClient();
   const offset   = pageIndex * pageSize;
-
-  /* ── 1. Posts (excluding pinned) ──────────────────────────────── */
-  let postsQuery = supabase
-    .from("forum_posts")
-    .select(
-      "id, title, content, created_at, user_id, image_url, is_locked, is_system, smoke_log_id, status, " +
-      "forum_post_likes(count), forum_comments(count)"
-    )
-    .eq("category_id", categoryId)
-    .eq("is_system",   false)
-    .neq("is_pinned",  true);
-
-  if (filter === "mine")   postsQuery = postsQuery.eq("user_id", userId);
-  if (filter === "open")   postsQuery = postsQuery.eq("status",  "open");
-  if (filter === "closed") postsQuery = postsQuery.eq("status",  "closed");
-
-  const { data: rawPosts, error: postsError } = await postsQuery
-    .order("created_at", { ascending: false })
-    .range(offset, offset + pageSize - 1);
-
-  if (postsError) throw new Error(postsError.message);
 
   type RawPost = {
     id:                string;
@@ -96,6 +89,7 @@ export async function fetchCategoryFeedPage({
     content:           string;
     created_at:        string;
     user_id:           string | null;
+    category_id:       string | null;
     image_url:         string | null;
     is_locked:         boolean;
     is_system:         boolean;
@@ -105,7 +99,59 @@ export async function fetchCategoryFeedPage({
     forum_comments:    { count: number }[];
   };
 
-  const batch = (rawPosts ?? []) as unknown as RawPost[];
+  /* ── 1. Posts (excluding pinned) ──────────────────────────────── */
+  let batch: RawPost[] = [];
+
+  let usedHot = false;
+  if (sort === "hot") {
+    /* Hot ranking lives in the get_hot_posts RPC (comment count over
+       the trailing 7 days, tie-break created_at desc). If the RPC is
+       missing (manual SQL not applied yet) fall back to New — same
+       pattern as get_report_numbers. */
+    const { data: hotRows, error: hotError } = await supabase.rpc("get_hot_posts", {
+      p_category_id: categoryId,
+      p_limit:       pageSize,
+      p_offset:      offset,
+    });
+    if (!hotError && hotRows) {
+      usedHot = true;
+      const ids = (hotRows as { post_id: string }[]).map((r) => r.post_id);
+      if (ids.length === 0) return { posts: [], likedIds: [], hasMore: false };
+      const { data: rows, error } = await supabase
+        .from("forum_posts")
+        .select(POST_SELECT)
+        .in("id", ids);
+      if (error) throw new Error(error.message);
+      batch = orderByIds((rows ?? []) as unknown as RawPost[], ids);
+    } else if (hotError) {
+      log.warn({
+        scope:   "lounge-hot-fallback",
+        message: "get_hot_posts RPC unavailable, falling back to newest-first",
+        error:   hotError,
+      });
+    }
+  }
+
+  if (!usedHot) {
+    let postsQuery = supabase
+      .from("forum_posts")
+      .select(POST_SELECT)
+      .eq("is_system", false)
+      .neq("is_pinned", true);
+
+    if (categoryId)          postsQuery = postsQuery.eq("category_id", categoryId);
+    if (filter === "mine")   postsQuery = postsQuery.eq("user_id", userId);
+    if (filter === "open")   postsQuery = postsQuery.eq("status",  "open");
+    if (filter === "closed") postsQuery = postsQuery.eq("status",  "closed");
+
+    const { data: rawPosts, error: postsError } = await postsQuery
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1);
+
+    if (postsError) throw new Error(postsError.message);
+    batch = (rawPosts ?? []) as unknown as RawPost[];
+  }
+
   if (batch.length === 0) {
     return { posts: [], likedIds: [], hasMore: false };
   }
@@ -181,11 +227,11 @@ export async function fetchCategoryFeedPage({
       for (const t of (tags ?? []) as { id: string; name: string }[]) tagNameMap[t.id] = t.name;
     }
 
-    for (const log of rawLogs) {
-      const author = log.user_id ? nameMap[log.user_id as string] : null;
-      smokeLogMap[log.id] = {
-        ...(log as unknown as SmokeLogData),
-        flavor_tag_names: (log.flavor_tag_ids ?? [])
+    for (const logRow of rawLogs) {
+      const author = logRow.user_id ? nameMap[logRow.user_id as string] : null;
+      smokeLogMap[logRow.id] = {
+        ...(logRow as unknown as SmokeLogData),
+        flavor_tag_names: (logRow.flavor_tag_ids ?? [])
           .map((id) => tagNameMap[id])
           .filter(Boolean) as string[],
         author_display_name: author?.display_name ?? null,
@@ -194,13 +240,16 @@ export async function fetchCategoryFeedPage({
     }
   }
 
-  /* ── 5. Vote tallies (only meaningful for feedback category) ──── */
+  /* ── 5. Vote tallies for feedback posts in this batch ─────────── */
+  const feedbackPostIds = feedbackCategoryId
+    ? batch.filter((p) => p.category_id === feedbackCategoryId).map((p) => p.id)
+    : [];
   const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
-  if (isFeedback && newPostIds.length > 0) {
+  if (feedbackPostIds.length > 0) {
     const { data: votes } = await supabase
       .from("forum_post_votes")
       .select("post_id, user_id, value")
-      .in("post_id", newPostIds);
+      .in("post_id", feedbackPostIds);
     for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
       const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
       if (v.value === 1)  cur.upvotes   += 1;
@@ -219,6 +268,7 @@ export async function fetchCategoryFeedPage({
       content:       p.content,
       created_at:    p.created_at,
       user_id:       p.user_id,
+      category_id:   p.category_id ?? null,
       author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
       like_count:    p.forum_post_likes[0]?.count ?? 0,
       comment_count: p.forum_comments[0]?.count   ?? 0,

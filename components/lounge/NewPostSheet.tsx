@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal }                          from "react-dom";
+import { useRouter }                             from "next/navigation";
 import { createClient }                          from "@/utils/supabase/client";
 import { checkResponse }                         from "@/lib/telemetry/fetch-checks";
 import { BottomSheet }                           from "@/components/ui/BottomSheet";
@@ -9,16 +10,17 @@ import { BottomSheet }                           from "@/components/ui/BottomShe
 /* ------------------------------------------------------------------ */
 
 interface Category {
-  id:        string;
-  name:      string;
-  is_locked: boolean;
+  id:           string;
+  name:         string;
+  is_locked:    boolean;
+  slug?:        string;
+  is_feedback?: boolean;
 }
 
 interface Props {
   categories:         Category[];
   userId:             string;
   initialCategoryId?: string;
-  isFeedback?:        boolean;
   onCreated:          (categoryId: string) => void;
   onClose:            () => void;
 }
@@ -28,11 +30,15 @@ type FeedbackType = typeof FEEDBACK_TYPES[number];
 
 /* ------------------------------------------------------------------ */
 
-export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback, onCreated, onClose }: Props) {
+export function NewPostSheet({ categories, userId, initialCategoryId, onCreated, onClose }: Props) {
   const [mounted,        setMounted]        = useState(false);
   const [categoryId,     setCategoryId]     = useState(
     initialCategoryId ?? categories.find((c) => !c.is_locked)?.id ?? ""
   );
+  const selected   = categories.find((c) => c.id === categoryId) ?? null;
+  const isFeedback = !!selected?.is_feedback;
+  const isBurn     = selected?.slug === "burn-reports";
+  const router     = useRouter();
   const [feedbackType,   setFeedbackType]   = useState<FeedbackType>("Feature Request");
   const [title,          setTitle]          = useState("");
   const [content,        setContent]        = useState("");
@@ -65,7 +71,8 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
   }, []);
 
   async function handleSubmit() {
-    const targetCategoryId = isFeedback ? (initialCategoryId ?? "") : categoryId;
+    if (isBurn) return;
+    const targetCategoryId = categoryId;
     if (!targetCategoryId || !title.trim() || !content.trim()) return;
     setSubmitting(true);
     setError(null);
@@ -118,8 +125,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
     onCreated(data.category_id);
   }
 
-  const canSubmit = title.trim().length > 0 && content.trim().length > 0 &&
-    (isFeedback ? !!(initialCategoryId) : categoryId.length > 0);
+  const canSubmit = !isBurn && title.trim().length > 0 && content.trim().length > 0 && categoryId.length > 0;
 
   const modalTitle    = isFeedback ? "Share an Idea" : "New Post";
   const titleLabel    = isFeedback ? "Title" : "Title";
@@ -213,7 +219,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
                 more than one option. Composing from inside a category
                 hands us a single-entry list, so we drop the picker
                 entirely; the category context is implicit. */}
-            {!isFeedback && categories.length > 1 && (
+            {categories.length > 1 && (
               <div>
                 <label
                   className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
@@ -245,7 +251,41 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
               </div>
             )}
 
+            {/* Burn Reports explainer — burn posts only come from a
+                logged smoke in the humidor, so the form is replaced
+                with a redirect prompt instead. */}
+            {isBurn && (
+              <div
+                className="rounded-xl p-4"
+                style={{ backgroundColor: "rgba(61,46,35,0.35)", border: "1px solid var(--border)" }}
+              >
+                <p className="text-sm font-semibold mb-1" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
+                  Burn reports start from a logged smoke.
+                </p>
+                <p className="text-xs mb-4" style={{ color: "var(--muted-foreground)", lineHeight: 1.5 }}>
+                  Head to your humidor, pick the cigar, and share the report from there.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => router.push("/humidor")}
+                  className="w-full rounded-xl font-semibold text-sm"
+                  style={{
+                    height:                  48,
+                    background:              "linear-gradient(135deg, #D4A04A, #C17817)",
+                    color:                   "#1A1210",
+                    border:                  "none",
+                    cursor:                  "pointer",
+                    touchAction:             "manipulation",
+                    WebkitTapHighlightColor: "transparent",
+                  }}
+                >
+                  Log a Smoke in the Humidor
+                </button>
+              </div>
+            )}
+
             {/* Title */}
+            {!isBurn && (
             <div>
               <label
                 className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
@@ -273,8 +313,10 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
                 {title.length}/200
               </p>
             </div>
+            )}
 
             {/* Content */}
+            {!isBurn && (
             <div>
               <label
                 className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
@@ -301,9 +343,10 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
                 {content.length}/2000
               </p>
             </div>
+            )}
 
             {/* Image upload — standard posts only */}
-            {!isFeedback && (
+            {!isFeedback && !isBurn && (
               <div>
                 <label
                   className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
@@ -374,28 +417,30 @@ export function NewPostSheet({ categories, userId, initialCategoryId, isFeedback
 
   const footerSlot = (
     <div className="px-5 py-4" style={{ borderTop: "1px solid var(--border)" }}>
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={!canSubmit || submitting}
-        className="w-full rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
-        style={{
-          height:                  52,
-          background:              submitBg,
-          color:                   "#1A1210",
-          border:                  "none",
-          cursor:                  canSubmit && !submitting ? "pointer" : "default",
-          touchAction:             "manipulation",
-          WebkitTapHighlightColor: "transparent",
-        }}
-      >
-        {submitting ? (
-          <span
-            className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
-            style={{ width: 16, height: 16 }}
-          />
-        ) : submitLabel}
-      </button>
+      {!isBurn && (
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!canSubmit || submitting}
+          className="w-full rounded-xl font-semibold text-sm flex items-center justify-center gap-2"
+          style={{
+            height:                  52,
+            background:              submitBg,
+            color:                   "#1A1210",
+            border:                  "none",
+            cursor:                  canSubmit && !submitting ? "pointer" : "default",
+            touchAction:             "manipulation",
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          {submitting ? (
+            <span
+              className="inline-block rounded-full border-2 border-current border-t-transparent animate-spin"
+              style={{ width: 16, height: 16 }}
+            />
+          ) : submitLabel}
+        </button>
+      )}
     </div>
   );
 
