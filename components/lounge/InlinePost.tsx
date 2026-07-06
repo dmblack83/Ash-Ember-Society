@@ -25,6 +25,9 @@ import type { SmokeLogData }                   from "./PostDetailClient";
 
 export interface PostItem {
   id:            string;
+  /* Source category. Optional during the room→feed transition; the
+     unified fetcher always sets it. */
+  category_id?:  string | null;
   title:         string;
   content:       string;
   created_at:    string;
