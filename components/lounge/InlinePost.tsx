@@ -225,6 +225,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
   const [userVote,           setUserVote]           = useState<0 | 1 | -1>(post.user_vote);
   const [voting,             setVoting]             = useState(false);
   const [commentsOpen,       setCommentsOpen]       = useState(false);
+  const [commentsEverOpened, setCommentsEverOpened] = useState(false);
   const [commentCount,       setCommentCount]       = useState(post.comment_count);
   const [showDeletePost,     setShowDeletePost]     = useState(false);
   const [deletingPost,       setDeletingPost]       = useState(false);
@@ -601,7 +602,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
           )}
 
           {/* Comments */}
-          <button type="button" onClick={() => setCommentsOpen((v) => !v)}
+          <button type="button" onClick={() => {
+            setCommentsOpen((v) => !v);
+            setCommentsEverOpened(true);
+          }}
             className="flex items-center gap-1.5"
             style={{
               background: "none", border: "none",
@@ -621,8 +625,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
       </div>
 
       {/* Inline comments */}
-      {!previewMode && commentsOpen && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px" }}>
+      {!previewMode && commentsEverOpened && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px", display: commentsOpen ? undefined : "none" }}>
+          {/* Mounted once and kept alive across open/close; display toggle preserves loaded comments
+              (no re-fetch on reopen). */}
           <PostComments
             postId={post.id}
             userId={userId}
