@@ -401,7 +401,6 @@ export function CategoryFeed({
             is_locked:  category.is_locked,
           }]}
           initialCategoryId={category.id}
-          isFeedback={category.is_feedback}
           userId={userId}
           onClose={() => setShowNewPost(false)}
           onCreated={() => {

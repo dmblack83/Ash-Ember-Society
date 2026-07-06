@@ -352,7 +352,6 @@ export function LoungeForumClient({
           <NewPostSheet
             categories={[selected]}
             initialCategoryId={newPostCategory}
-            isFeedback={feedbackCategories.some((c) => c.id === newPostCategory)}
             userId={userId}
             onClose={() => setShowNewPost(false)}
             onCreated={() => {
