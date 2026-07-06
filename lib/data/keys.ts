@@ -53,16 +53,18 @@ export const keyFor = {
    *   of the key — switching account on the same browser produces a
    *   fresh cache, not stale liked flags.
    *
-   *   `filter` partitions the cache between "all posts" and "my posts
-   *   only" so toggling the segmented control in CategoryFeed hits a
-   *   different cache entry instead of refetching the same data into
-   *   the same key. Both views are independently paginated. */
+   *   categoryId is null for the unified All feed ("all-categories"
+   *   sentinel keeps the tuple shape stable). `filter` and `sort`
+   *   partition the cache per secondary-row view so toggling chips
+   *   or views hits independent cache entries. Stale keys persisted
+   *   by the old per-room lounge are orphaned and harmless. */
   loungeFeed:   (
-    categoryId: string,
+    categoryId: string | null,
     page:       number,
     userId:     string,
     filter:     "all" | "mine" | "open" | "closed" = "all",
-  ) => ["lounge-feed", categoryId, page, userId, filter] as const,
+    sort:       "new" | "hot" = "new",
+  ) => ["lounge-feed", categoryId ?? "all-categories", page, userId, filter, sort] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
   /* Feedback category list — separate from `loungeFeed` because the
    * vote tallies and the hidden-by-default expand UX have a different
