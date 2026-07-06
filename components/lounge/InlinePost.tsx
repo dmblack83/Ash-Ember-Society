@@ -111,6 +111,12 @@ interface BurnReportCardProps {
   /* Bubbles comment add/delete deltas up so the card's count badge
      stays in sync with comments made in the fullscreen view. */
   onCommentCountChange?: (delta: number) => void;
+  /* Like state shared with the card's action bar so liking from the
+     fullscreen view and from the feed stay in sync. */
+  liked:        boolean;
+  likeCount:    number;
+  likeBusy:     boolean;
+  onToggleLike: () => void;
 }
 
 const BurnReportCard = memo(function BurnReportCard({
@@ -120,6 +126,10 @@ const BurnReportCard = memo(function BurnReportCard({
   postId,
   postLocked,
   onCommentCountChange,
+  liked,
+  likeCount,
+  likeBusy,
+  onToggleLike,
 }: BurnReportCardProps) {
   /* Photo URLs flow into the lightbox so prev/next can tab through
      all of them, not just the one tapped. Filter out null/empty
@@ -179,6 +189,28 @@ const BurnReportCard = memo(function BurnReportCard({
         onPhotoClick={lightbox.open}
         belowCard={
           <>
+            {/* Like — same state as the card's action bar, so liking
+                here is reflected on the feed card and vice versa. */}
+            <div style={{ marginTop: 20, display: "flex", justifyContent: "center" }}>
+              <button
+                type="button"
+                onClick={onToggleLike}
+                disabled={likeBusy}
+                className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold"
+                style={{
+                  background:              liked ? "rgba(212,160,74,0.12)" : "rgba(255,255,255,0.04)",
+                  border:                  liked ? "1px solid rgba(212,160,74,0.4)" : "1px solid var(--line)",
+                  color:                   liked ? "var(--gold,#D4A04A)" : "var(--paper-mute)",
+                  cursor:                  likeBusy ? "default" : "pointer",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  minHeight:               44,
+                }}
+              >
+                <FlameIcon size={16} filled={liked} />
+                {likeCount} {likeCount === 1 ? "like" : "likes"}
+              </button>
+            </div>
             {canWishlist && (
               <AddCigarToWishlistButton
                 cigarId={log.cigar_id as string}
@@ -258,8 +290,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
 
   useEffect(() => { setMounted(true); }, []);
 
-  /* Like */
-  async function handleLike() {
+  /* Like — useCallback so the memoized BurnReportCard (which surfaces
+     the same like control inside the fullscreen view) only re-renders
+     when like state actually changes. */
+  const handleLike = useCallback(async () => {
     if (liking) return;
     /* Tap haptic on every like/unlike — these are the highest-frequency
        interactions in the lounge feed. */
@@ -279,7 +313,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
       }
     }
     setLiking(false);
-  }
+  }, [liked, liking, post.id, supabase, userId]);
 
   /* Vote (feedback posts) */
   async function handleVote(direction: 1 | -1) {
@@ -456,6 +490,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
               postId={post.id}
               postLocked={post.is_locked}
               onCommentCountChange={handleModalCommentCountChange}
+              liked={liked}
+              likeCount={likeCount}
+              likeBusy={liking}
+              onToggleLike={handleLike}
             />
           </>
         ) : (
