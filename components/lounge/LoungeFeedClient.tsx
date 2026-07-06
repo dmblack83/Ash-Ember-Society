@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import useSWRInfinite         from "swr/infinite";
 import { useSearchParams }    from "next/navigation";
 import dynamic                from "next/dynamic";
@@ -100,6 +100,7 @@ export function LoungeFeedClient({
   }
 
   function handleViewTap(next: string) {
+    if (next === view) return;
     const isDefault = next === (isFeedbackChip ? "open" : "new");
     pushUrl(chip, isDefault ? null : next);
   }
@@ -139,6 +140,25 @@ export function LoungeFeedClient({
       revalidateFirstPage: false,
     },
   );
+
+  /* The SSR seed (fallbackData) paints the initial key instantly, but
+     revalidateOnMount stays false for it even when the user navigates
+     away and back (the hook never unmounts, so SWR re-serves the
+     frozen seed). Detect a return to the seeded key and revalidate in
+     the background: seeded paint stays instant, data stays fresh. */
+  const feedKeyId     = `${activeCategoryId ?? "all"}|${filter}|${sort}`;
+  const initialKeyId  = useRef(feedKeyId);
+  const hasLeftSeeded = useRef(false);
+  useEffect(() => {
+    if (feedKeyId !== initialKeyId.current) {
+      hasLeftSeeded.current = true;
+      return;
+    }
+    if (hasLeftSeeded.current) {
+      mutateFeed();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [feedKeyId]);
 
   const pages    = useMemo(
     () => data ?? (seedMatches ? [initialPage as CategoryFeedPage] : []),
@@ -297,6 +317,8 @@ export function LoungeFeedClient({
 
         {/* Row 2 — category chips (horizontally scrollable) */}
         <div
+          role="tablist"
+          aria-label="Category filter"
           className="flex items-center gap-2 px-4 md:max-w-[50%] md:mx-auto"
           style={{ height: CHIPS_H, overflowX: "auto", scrollbarWidth: "none" }}
         >
@@ -319,7 +341,8 @@ export function LoungeFeedClient({
                   WebkitTapHighlightColor: "transparent",
                   transition:              "background 0.15s, border-color 0.15s, color 0.15s",
                 }}
-                aria-pressed={active}
+                role="tab"
+                aria-selected={active}
               >
                 {c.label}
               </button>
@@ -332,7 +355,7 @@ export function LoungeFeedClient({
           className="flex items-center px-4 md:max-w-[50%] md:mx-auto"
           style={{ height: SECONDARY_H, gap: 22, justifyContent: "space-between" }}
         >
-          <div className="flex items-center" style={{ gap: 22 }}>
+          <div role="tablist" aria-label="Feed view" className="flex items-center" style={{ gap: 22 }}>
             {secondaryOptions.map((opt) => {
               const active = opt.value === view;
               return (
@@ -351,7 +374,8 @@ export function LoungeFeedClient({
                     touchAction:             "manipulation",
                     WebkitTapHighlightColor: "transparent",
                   }}
-                  aria-pressed={active}
+                  role="tab"
+                  aria-selected={active}
                 >
                   {opt.label}
                 </button>
