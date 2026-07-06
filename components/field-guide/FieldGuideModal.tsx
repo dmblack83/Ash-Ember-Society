@@ -47,7 +47,7 @@ function Caret({ dir }: { dir: "up" | "down" }) {
 }
 
 /* ------------------------------------------------------------------
-   FlameIcon — matches LoungeForumClient / PostDetailClient exactly
+   FlameIcon — matches InlinePost / PostDetailClient exactly
    ------------------------------------------------------------------ */
 
 function FlameIcon({ size = 19, filled = false }: { size?: number; filled?: boolean }) {
