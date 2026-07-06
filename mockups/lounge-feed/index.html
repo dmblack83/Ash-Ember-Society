@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lounge Feed — Final Concept</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="phone">
+
+  <div class="header">
+    <div class="header-row">
+      <h1>The Lounge</h1>
+      <button class="new-post">+ New Post</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="subfilter" id="subfilter"></div>
+
+  <div class="feed" id="feed"></div>
+</div>
+
+<div id="overlay-root"></div>
+
+<script>
+const CATS = [
+  { slug: "all",          name: "All" },
+  { slug: "general",      name: "General" },
+  { slug: "burn-reports", name: "Burn Reports" },
+  { slug: "feedback",     name: "Feedback" },
+];
+
+const POSTS = [
+  { type: "discussion", cat: "general", author: "Marcus T.", initial: "M", time: "12 min ago",
+    title: "Anyone hitting the Vegas show next month?",
+    body: "Thinking about making the trip out for the trade show. Curious who else from the Society is going and whether it's worth the badge price for a hobbyist.",
+    likes: 4,
+    comments: [
+      { author: "Elena R.", initial: "E", text: "Went last year. Worth it for the seminars alone." },
+      { author: "Dave B.", initial: "D", text: "If enough of us go we should organize a Society herf." },
+    ] },
+  { type: "burn", cat: "burn-reports", author: "Dave B.", initial: "D", time: "38 min ago",
+    brand: "PADRÓN", series: "1964 Anniversary", vitola: "Torpedo · Maduro",
+    reportNo: 47, date: "Report #47 · Tonight", grade: "9.2", gradeWord: "Superb",
+    duration: "96 min", pairing: "Buffalo Trace",
+    draw: "9.0", burnRating: "8.5", construction: "9.5", flavor: "9.5",
+    hasPhoto: true, photoLabel: "First third · cut & light",
+    likes: 6,
+    comments: [
+      { author: "Sam K.", initial: "S", text: "That grade tracks. The '64 never misses for me either." },
+    ],
+    thirds: [
+      { name: "First Third", stars: "★★★★☆", tags: ["Cocoa", "Espresso", "Cedar"] },
+      { name: "Second Third", stars: "★★★★★", tags: ["Dark chocolate", "Leather", "Pepper"] },
+      { name: "Final Third", stars: "★★★★★", tags: ["Earth", "Sweet spice"] },
+    ],
+    review: "Razor sharp burn the whole way down. The second third is where this one earns its reputation — the chocolate note turns almost dessert-like against the bourbon. Resting these another year would be a crime; they're ready now." },
+  { type: "discussion", cat: "general", author: "Elena R.", initial: "E", time: "1 hr ago",
+    title: "Hot take: Connecticut wrappers are underrated",
+    body: "Everyone chases maduro and oscuro these days, but a well-aged Connecticut shade in the morning with coffee is still one of the great smoking experiences. Fight me.",
+    likes: 11,
+    comments: [
+      { author: "Marcus T.", initial: "M", text: "No fight here. Morning Connecticut is a ritual." },
+    ] },
+  { type: "burn", cat: "burn-reports", author: "Sam K.", initial: "S", time: "2 hrs ago",
+    brand: "OLIVA", series: "Serie V Melanio", vitola: "Robusto · Sumatra",
+    reportNo: 12, date: "Report #12 · This evening", grade: "7.8", gradeWord: "Good",
+    duration: "62 min", pairing: "Black coffee",
+    draw: "8.0", burnRating: "6.5", construction: "8.0", flavor: "8.5",
+    hasPhoto: false,
+    likes: 3, comments: [],
+    thirds: [
+      { name: "First Third", stars: "★★★★☆", tags: ["Cream", "Nuts"] },
+      { name: "Second Third", stars: "★★★☆☆", tags: ["Coffee", "Wood"] },
+      { name: "Final Third", stars: "★★★★☆", tags: ["Baking spice"] },
+    ],
+    review: "Needed two touch-ups in the middle third which is unusual for these. Flavor stayed on course though. Might have been my storage — running a bit humid this month." },
+  { type: "discussion", cat: "feedback", author: "Priya N.", initial: "P", time: "Yesterday",
+    title: "Feature request: export my humidor to CSV",
+    body: "Would love a way to pull my collection out for insurance documentation. Even a simple spreadsheet export would do it.",
+    likes: 5, comments: [] },
+];
+
+let activeCat = "all";
+let sortMode = "new";       // new | hot | mine
+let feedbackStatus = "open"; // open | closed | mine (feedback chip only)
+let openComments = new Set();
+const ME = "Dave B.";
+
+const feedEl = document.getElementById("feed");
+const chipsEl = document.getElementById("chips");
+const overlayRoot = document.getElementById("overlay-root");
+
+function catName(slug) { return CATS.find(c => c.slug === slug).name; }
+
+function commentsHTML(p, heading) {
+  return `
+  <div class="comments">
+    ${heading ? `<h3>${p.comments.length} comment${p.comments.length === 1 ? "" : "s"}</h3>` : ""}
+    ${p.comments.map(c => `
+      <div class="comment">
+        <div class="avatar">${c.initial}</div>
+        <div class="comment-body">
+          <div class="comment-author">${c.author}</div>
+          <div class="comment-text">${c.text}</div>
+        </div>
+      </div>`).join("")}
+    <div class="comment-input">
+      <input placeholder="Add a comment…">
+      <button>Post</button>
+    </div>
+  </div>`;
+}
+
+function footHTML(p, idx) {
+  return `
+  <div class="post-foot">
+    <button>♡ ${p.likes}</button>
+    <button onclick="event.stopPropagation();toggleComments(${idx})">💬 ${p.comments.length} · Comment</button>
+  </div>`;
+}
+
+function reportHTML(p) {
+  return `
+  <div class="report">
+    <div class="report-top">
+      <div class="report-no">${p.date}</div>
+      <h2>${p.brand} ${p.series}</h2>
+      <p>${p.vitola} · by ${p.author}</p>
+      <div class="report-grade"><b>${p.grade}</b><span>${p.gradeWord}</span></div>
+      <div class="stars">★★★★★</div>
+      <div class="report-stats">
+        <span>🕐 ${p.duration}</span><span>🥃 ${p.pairing}</span>
+      </div>
+    </div>
+    ${p.thirds.map(t => `
+      <div class="third">
+        <div class="third-head"><b>${t.name}</b><span class="stars" style="font-size:12px">${t.stars}</span></div>
+        <div class="tags">${t.tags.map(x => `<span class="tag">${x}</span>`).join("")}</div>
+        <div class="photos"><div class="photo">Photo</div><div class="photo">Photo</div></div>
+      </div>`).join("")}
+    <div class="review">${p.review}</div>
+    <div class="report-foot"><span>♡ ${p.likes} likes</span><span>↗ Share</span></div>
+    ${commentsHTML(p, true)}
+  </div>`;
+}
+
+function burnCardHTML(p, idx) {
+  const tag = activeCat === "all"
+    ? `<span class="cat-tag" onclick="event.stopPropagation();setCat('${p.cat}')">${catName(p.cat)}</span>` : "";
+  return `
+  <div class="post burn">
+    <div class="tappable" onclick="openReport(${idx})">
+      <div class="post-head">
+        <div class="avatar">${p.initial}</div>
+        <div class="post-meta">
+          <div class="post-author">${p.author}</div>
+          <div class="post-time">${p.time} · Report #${p.reportNo}</div>
+        </div>
+        ${tag}
+      </div>
+      <div class="burn-band">
+        <div class="burn-cigar">
+          <div class="burn-brand">${p.brand}</div>
+          <div class="burn-series">${p.series}</div>
+          <div class="burn-sub">${p.vitola} · ${p.duration}</div>
+        </div>
+        <div class="grade"><b>${p.grade}</b><i>${p.gradeWord}</i></div>
+      </div>
+      <div class="stripe">
+        <div><i>Draw</i><b>${p.draw}</b></div>
+        <div><i>Burn</i><b>${p.burnRating}</b></div>
+        <div><i>Const.</i><b>${p.construction}</b></div>
+        <div><i>Flavor</i><b>${p.flavor}</b></div>
+      </div>
+      ${p.hasPhoto ? `<div class="burn-photo"><span>${p.photoLabel}</span></div>` : ""}
+    </div>
+    ${footHTML(p, idx)}
+    ${openComments.has(idx) ? commentsHTML(p, false) : ""}
+  </div>`;
+}
+
+function discussionHTML(p, idx) {
+  const tag = activeCat === "all"
+    ? `<span class="cat-tag" onclick="setCat('${p.cat}')">${catName(p.cat)}</span>` : "";
+  return `
+  <div class="post">
+    <div class="post-head">
+      <div class="avatar">${p.initial}</div>
+      <div class="post-meta">
+        <div class="post-author">${p.author}</div>
+        <div class="post-time">${p.time}</div>
+      </div>
+      ${tag}
+    </div>
+    <div class="post-title">${p.title}</div>
+    <div class="post-body">${p.body}</div>
+    ${footHTML(p, idx)}
+    ${openComments.has(idx) ? commentsHTML(p, false) : ""}
+  </div>`;
+}
+
+function render() {
+  let visible = POSTS.filter(p => activeCat === "all" || p.cat === activeCat);
+
+  if (activeCat !== "feedback") {
+    if (sortMode === "mine") visible = visible.filter(p => p.author === ME);
+    if (sortMode === "hot") {
+      visible = [...visible].sort((a, b) => b.comments.length - a.comments.length);
+    }
+  } else if (feedbackStatus === "mine") {
+    visible = visible.filter(p => p.author === ME);
+  }
+
+  feedEl.innerHTML = visible.length
+    ? visible.map(p => {
+        const idx = POSTS.indexOf(p);
+        return p.type === "burn" ? burnCardHTML(p, idx) : discussionHTML(p, idx);
+      }).join("")
+    : `<div style="text-align:center;color:var(--muted);font-size:13px;padding:48px 20px">
+         Nothing here yet.
+       </div>`;
+
+  chipsEl.innerHTML = CATS
+    .map(c => `<button class="chip ${c.slug === activeCat ? "active" : ""}" onclick="setCat('${c.slug}')">${c.name}</button>`)
+    .join("");
+
+  // Secondary row is ONE slot: status pills on Feedback, sort pills elsewhere
+  const sub = document.getElementById("subfilter");
+  sub.style.display = "flex";
+  if (activeCat === "feedback") {
+    sub.innerHTML = [
+      ["open", "Open"], ["closed", "Closed"], ["mine", "My posts"],
+    ].map(([v, l]) =>
+      `<button class="${feedbackStatus === v ? "on" : ""}" onclick="setFeedbackStatus('${v}')">${l}</button>`
+    ).join("");
+  } else {
+    sub.innerHTML = [
+      ["new", "New"], ["hot", "Hot"], ["mine", "My Posts"],
+    ].map(([v, l]) =>
+      `<button class="${sortMode === v ? "on" : ""}" onclick="setSort('${v}')">${l}</button>`
+    ).join("");
+  }
+}
+
+function setCat(slug) {
+  activeCat = slug;
+  openComments.clear();
+  render();
+}
+
+function setSort(v) { sortMode = v; render(); }
+function setFeedbackStatus(v) { feedbackStatus = v; render(); }
+
+function toggleComments(idx) {
+  if (openComments.has(idx)) openComments.delete(idx);
+  else openComments.add(idx);
+  render();
+}
+
+function openReport(idx) {
+  const p = POSTS[idx];
+  overlayRoot.innerHTML = `
+    <div class="overlay-full">
+      <div class="inner">
+        <div class="bar">
+          <button class="close-btn" onclick="closeOverlay()">✕</button>
+          <span class="bar-label">Burn Report</span>
+          <span style="width:36px"></span>
+        </div>
+        ${reportHTML(p)}
+      </div>
+    </div>`;
+}
+
+function closeOverlay() { overlayRoot.innerHTML = ""; }
+
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeOverlay(); });
+
+render();
+</script>
+</body>
+</html>
