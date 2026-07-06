@@ -141,22 +141,22 @@ export function LoungeFeedClient({
     },
   );
 
-  /* The SSR seed (fallbackData) paints the initial key instantly, but
-     revalidateOnMount stays false for it even when the user navigates
-     away and back (the hook never unmounts, so SWR re-serves the
-     frozen seed). Detect a return to the seeded key and revalidate in
-     the background: seeded paint stays instant, data stays fresh. */
-  const feedKeyId     = `${activeCategoryId ?? "all"}|${filter}|${sort}`;
-  const initialKeyId  = useRef(feedKeyId);
-  const hasLeftSeeded = useRef(false);
+  /* Stale-while-revalidate on every chip/view switch. Cached pages
+     (or the SSR seed) paint instantly; a background revalidation of
+     the switched-to key brings in anything new — a post just composed
+     into that category, someone else's post since the pages were
+     cached, or the frozen seed when returning to the initial key (the
+     hook never unmounts, so SWR would otherwise re-serve stale data
+     forever). First run is skipped: the initial key is served by the
+     seed or its own fresh fetch. Brand-new keys dedupe with their
+     in-flight first fetch, so this adds no extra request there. */
+  const feedKeyId = `${activeCategoryId ?? "all"}|${filter}|${sort}`;
+  const prevKeyId = useRef<string | null>(null);
   useEffect(() => {
-    if (feedKeyId !== initialKeyId.current) {
-      hasLeftSeeded.current = true;
-      return;
-    }
-    if (hasLeftSeeded.current) {
+    if (prevKeyId.current !== null && prevKeyId.current !== feedKeyId) {
       mutateFeed();
     }
+    prevKeyId.current = feedKeyId;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedKeyId]);
 
@@ -226,11 +226,15 @@ export function LoungeFeedClient({
     showToast("Post created.");
     const slug       = slugById[categoryId];
     const targetChip = slug ? chipForCategorySlug(slug) : null;
-    if (targetChip && targetChip !== chip) {
-      /* Jump to the new post's chip; the fresh key fetches from the top. */
-      pushUrl(targetChip, null);
-    } else {
+    /* The All feed contains every category, so when the user composed
+       from All (or is already on the post's chip) stay put and refresh
+       the loaded pages — the new post lands at the top. Only jump
+       chips when the post would not be visible where the user is; the
+       key-change effect above revalidates the destination. */
+    if (chip === "all" || !targetChip || targetChip === chip) {
       mutateFeed();
+    } else {
+      pushUrl(targetChip, null);
     }
   }
 
