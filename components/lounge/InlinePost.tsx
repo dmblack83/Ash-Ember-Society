@@ -108,6 +108,9 @@ interface BurnReportCardProps {
   /* Post identity for the comments section inside the fullscreen view. */
   postId:       string;
   postLocked:   boolean;
+  /* Bubbles comment add/delete deltas up so the card's count badge
+     stays in sync with comments made in the fullscreen view. */
+  onCommentCountChange?: (delta: number) => void;
 }
 
 const BurnReportCard = memo(function BurnReportCard({
@@ -116,6 +119,7 @@ const BurnReportCard = memo(function BurnReportCard({
   viewerId,
   postId,
   postLocked,
+  onCommentCountChange,
 }: BurnReportCardProps) {
   /* Photo URLs flow into the lightbox so prev/next can tab through
      all of them, not just the one tapped. Filter out null/empty
@@ -194,7 +198,7 @@ const BurnReportCard = memo(function BurnReportCard({
               >
                 Comments
               </h3>
-              <PostComments postId={postId} userId={viewerId} isLocked={postLocked} />
+              <PostComments postId={postId} userId={viewerId} isLocked={postLocked} onCountChange={onCommentCountChange} />
             </div>
           </>
         }
@@ -439,6 +443,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
               viewerId={userId}
               postId={post.id}
               postLocked={post.is_locked}
+              onCommentCountChange={(delta) => setCommentCount((n) => Math.max(0, n + delta))}
             />
           </>
         ) : (
