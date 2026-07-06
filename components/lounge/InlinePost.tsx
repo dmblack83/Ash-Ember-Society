@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import Link                                    from "next/link";
@@ -237,6 +237,16 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
      modal is open. */
   useEscapeKey(showDeletePost, () => setShowDeletePost(false));
 
+  /* Stable identity so the memoized BurnReportCard doesn't re-render
+     on every parent render (e.g. each like tap). setCommentCount is
+     a stable setState, so empty deps are correct. Reused for the
+     inline comments panel below for consistency, even though
+     PostComments isn't memoized. */
+  const handleModalCommentCountChange = useCallback(
+    (delta: number) => setCommentCount((n) => Math.max(0, n + delta)),
+    [],
+  );
+
   /* Image lightbox for inline post images (non-burn-report). Uses
      the shared PhotoLightbox via usePhotoLightbox so close UX +
      [Close] button placement matches every other photo viewer in
@@ -443,7 +453,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
               viewerId={userId}
               postId={post.id}
               postLocked={post.is_locked}
-              onCommentCountChange={(delta) => setCommentCount((n) => Math.max(0, n + delta))}
+              onCommentCountChange={handleModalCommentCountChange}
             />
           </>
         ) : (
@@ -572,7 +582,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
             postId={post.id}
             userId={userId}
             isLocked={post.is_locked}
-            onCountChange={(delta) => setCommentCount((n) => Math.max(0, n + delta))}
+            onCountChange={handleModalCommentCountChange}
           />
         </div>
       )}
