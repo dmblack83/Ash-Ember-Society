@@ -361,17 +361,6 @@ export function CategoryFeed({
               isFounder={isFounder}
               onDelete={handleDeletePost}
               onClose={category.is_feedback ? handleClosePost : undefined}
-              /* Welcome/Introductions, General Discussion, and Burn
-                 Reports all surface as scannable previews — subject +
-                 first ~4 lines (text), or the BurnReportPreviewCard
-                 (burn-report posts). Tap routes to /lounge/[postId]
-                 for the full read and inline comments. Other rooms
-                 keep the full inline render. */
-              previewMode={
-                category.slug === "welcome" ||
-                category.slug === "general-discussion" ||
-                category.slug === "burn-reports"
-              }
             />
           ))}
 

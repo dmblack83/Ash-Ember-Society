@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, memo } from "react";
 import { createPortal }                        from "react-dom";
 import Image                                   from "next/image";
 import Link                                    from "next/link";
-import { useRouter }                           from "next/navigation";
 import { createClient }                        from "@/utils/supabase/client";
 import { formatDistanceToNow }                 from "date-fns";
 import { AvatarFrame }                         from "@/components/ui/AvatarFrame";
@@ -51,20 +50,17 @@ export interface PostItem {
 }
 
 interface Props {
-  post:         PostItem;
-  initialLiked: boolean;
-  userId:       string;
-  isFeedback:   boolean;
-  isFounder?:   boolean;
-  onDelete:     (postId: string) => void;
-  onClose?:     (postId: string) => void;
-  /* Preview mode: feed surfaces only the subject + first ~4 lines of
-     body (or the BurnReportPreviewCard for burn-report posts), the
-     whole card links to the detail page, no inline comments or
-     like/vote interaction. Used for Welcome/Introductions, General
-     Discussion, and Burn Reports where the scannable list matters
-     more than the inline read. */
-  previewMode?: boolean;
+  post:             PostItem;
+  initialLiked:     boolean;
+  userId:           string;
+  isFeedback:       boolean;
+  isFounder?:       boolean;
+  onDelete:         (postId: string) => void;
+  onClose?:         (postId: string) => void;
+  /* Category tag chip (All view only). Rendered in the author row;
+     tapping it activates that category's chip in the feed. */
+  categoryTag?:     string | null;
+  onCategoryTagTap?: () => void;
 }
 
 /* ------------------------------------------------------------------ */
@@ -109,28 +105,24 @@ interface BurnReportCardProps {
      own cigar to your own wishlist is a no-op. */
   postAuthorId: string | null;
   viewerId:     string;
-  /* Preview mode (Burn Reports room): tap routes to /lounge/[postId]
-     instead of opening the inline modal. The modal + photo lightbox
-     are skipped — they live on the detail page. */
-  previewMode?: boolean;
-  postId?:      string;
+  /* Post identity for the comments section inside the fullscreen view. */
+  postId:       string;
+  postLocked:   boolean;
 }
 
 const BurnReportCard = memo(function BurnReportCard({
   log,
   postAuthorId,
   viewerId,
-  previewMode = false,
   postId,
+  postLocked,
 }: BurnReportCardProps) {
-  const router = useRouter();
-
   /* Photo URLs flow into the lightbox so prev/next can tab through
      all of them, not just the one tapped. Filter out null/empty
      entries the way the modal already does — the array passed here
      must match what BurnReportModal renders. */
   const photoUrls = (log.photo_urls ?? []).filter(Boolean);
-  const lightbox  = usePhotoLightbox(previewMode ? [] : photoUrls);
+  const lightbox  = usePhotoLightbox(photoUrls);
   const thirds    = unwrapBurnReport(log.burn_report);
   const [expanded, setExpanded] = useState(false);
 
@@ -139,13 +131,6 @@ const BurnReportCard = memo(function BurnReportCard({
      (legacy logs may not have one). */
   const canWishlist =
     !!log.cigar_id && postAuthorId !== null && postAuthorId !== viewerId;
-
-  /* In preview mode the tap routes to the detail page; otherwise the
-     in-place modal opens as before. */
-  const handleTap =
-    previewMode && postId
-      ? () => router.push(`/lounge/${postId}`)
-      : () => setExpanded(true);
 
   return (
     <div style={{ marginTop: 4 }}>
@@ -159,47 +144,63 @@ const BurnReportCard = memo(function BurnReportCard({
         constructionRating={log.construction_rating}
         flavorRating={log.flavor_rating}
         smokeDurationMinutes={log.smoke_duration_minutes}
-        onTap={handleTap}
+        photoUrl={photoUrls[0] ?? null}
+        onTap={() => setExpanded(true)}
       />
 
-      {!previewMode && (
-        <BurnReportModal
-          open={expanded}
-          onClose={() => setExpanded(false)}
-          cigar={log.cigar}
-          reportNumber={log.report_number ?? null}
-          smokedAt={log.smoked_at}
-          overallRating={log.overall_rating}
-          drawRating={log.draw_rating}
-          burnRating={log.burn_rating}
-          constructionRating={log.construction_rating}
-          flavorRating={log.flavor_rating}
-          reviewText={log.review_text}
-          smokeDurationMinutes={log.smoke_duration_minutes}
-          pairingDrink={log.pairing_drink}
-          occasion={log.occasion}
-          flavorTagNames={log.flavor_tag_names ?? []}
-          photoUrls={photoUrls}
-          thirdsEnabled={thirds?.thirds_enabled ?? false}
-          thirdBeginning={thirds?.third_beginning ?? null}
-          thirdMiddle={thirds?.third_middle ?? null}
-          thirdEnd={thirds?.third_end ?? null}
-          thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
-          displayName={log.author_display_name ?? null}
-          city={log.author_city ?? null}
-          onPhotoClick={lightbox.open}
-          belowCard={
-            canWishlist ? (
+      <BurnReportModal
+        open={expanded}
+        onClose={() => setExpanded(false)}
+        cigar={log.cigar}
+        reportNumber={log.report_number ?? null}
+        smokedAt={log.smoked_at}
+        overallRating={log.overall_rating}
+        drawRating={log.draw_rating}
+        burnRating={log.burn_rating}
+        constructionRating={log.construction_rating}
+        flavorRating={log.flavor_rating}
+        reviewText={log.review_text}
+        smokeDurationMinutes={log.smoke_duration_minutes}
+        pairingDrink={log.pairing_drink}
+        occasion={log.occasion}
+        flavorTagNames={log.flavor_tag_names ?? []}
+        photoUrls={photoUrls}
+        thirdsEnabled={thirds?.thirds_enabled ?? false}
+        thirdBeginning={thirds?.third_beginning ?? null}
+        thirdMiddle={thirds?.third_middle ?? null}
+        thirdEnd={thirds?.third_end ?? null}
+        thirdsTaggedRows={thirds?.thirds_tagged_rows ?? []}
+        displayName={log.author_display_name ?? null}
+        city={log.author_city ?? null}
+        onPhotoClick={lightbox.open}
+        belowCard={
+          <>
+            {canWishlist && (
               <AddCigarToWishlistButton
                 cigarId={log.cigar_id as string}
                 userId={viewerId}
               />
-            ) : null
-          }
-        />
-      )}
+            )}
+            <div style={{ marginTop: 24, borderTop: "1px solid var(--line)", paddingTop: 16 }}>
+              <h3
+                style={{
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color:         "var(--paper-dim)",
+                  margin:        "0 0 12px",
+                }}
+              >
+                Comments
+              </h3>
+              <PostComments postId={postId} userId={viewerId} isLocked={postLocked} />
+            </div>
+          </>
+        }
+      />
 
-      {!previewMode && lightbox.node}
+      {lightbox.node}
     </div>
   );
 });
@@ -208,13 +209,7 @@ const BurnReportCard = memo(function BurnReportCard({
 /* InlinePost                                                            */
 /* ------------------------------------------------------------------ */
 
-export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder = false, onDelete, onClose, previewMode = false }: Props) {
-  /* Two preview shapes:
-     - isTextPreview: previewMode + no smoke_log → title + clamped body
-     - previewMode + smoke_log → BurnReportPreviewCard (no modal)
-     Both share the same counts-on-left + Read-more-right action bar
-     and skip the inline comments section. */
-  const isTextPreview = previewMode && !post.smoke_log;
+export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder = false, onDelete, onClose, categoryTag, onCategoryTagTap }: Props) {
   const supabase = useMemo(() => createClient(), []);
 
   const [liked,              setLiked]              = useState(initialLiked);
@@ -375,6 +370,24 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
                 Burn Report
               </span>
             )}
+            {categoryTag && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onCategoryTagTap?.(); }}
+                className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{
+                  background:              "rgba(212,160,74,0.1)",
+                  color:                   "var(--gold,#D4A04A)",
+                  border:                  "1px solid rgba(212,160,74,0.22)",
+                  cursor:                  onCategoryTagTap ? "pointer" : "default",
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                  whiteSpace:              "nowrap",
+                }}
+              >
+                {categoryTag}
+              </button>
+            )}
             {isFeedback && (
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
                 style={postStatus === "closed"
@@ -412,16 +425,24 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
         </div>
 
         {/* Title + body
-            - Burn-report posts: BurnReportCard (preview-card pattern)
-            - Text-preview mode: title + 4-line clamped body wrapped in a
-              Link to /lounge/[postId]. No image preview, no full body —
-              the user taps in to read.
-            - Default: title + full pre-line body + optional image */}
+            - Burn-report posts: BurnReportCard (fullscreen modal on tap)
+            - Default: title (links to detail page) + full pre-line body
+              + optional image */}
         {post.smoke_log ? (
-          previewMode ? (
-            /* Burn Reports room: title and preview card both link to
-               the detail page. The card's onTap (set inside
-               BurnReportCard) also routes there — defense in depth. */
+          <>
+            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
+              {post.title}
+            </h2>
+            <BurnReportCard
+              log={post.smoke_log}
+              postAuthorId={post.user_id}
+              viewerId={userId}
+              postId={post.id}
+              postLocked={post.is_locked}
+            />
+          </>
+        ) : (
+          <>
             <Link
               href={`/lounge/${post.id}`}
               prefetch={false}
@@ -430,55 +451,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
               <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
                 {post.title}
               </h2>
-              <BurnReportCard
-                log={post.smoke_log}
-                postAuthorId={post.user_id}
-                viewerId={userId}
-                previewMode
-                postId={post.id}
-              />
             </Link>
-          ) : (
-            <>
-              <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-                {post.title}
-              </h2>
-              <BurnReportCard
-                log={post.smoke_log}
-                postAuthorId={post.user_id}
-                viewerId={userId}
-              />
-            </>
-          )
-        ) : isTextPreview ? (
-          <Link
-            href={`/lounge/${post.id}`}
-            prefetch={false}
-            style={{ display: "block", textDecoration: "none", color: "inherit" }}
-          >
-            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-              {post.title}
-            </h2>
-            <p
-              className="text-sm leading-relaxed"
-              style={{
-                color:            "var(--foreground)",
-                whiteSpace:       "pre-line",
-                opacity:          0.9,
-                display:          "-webkit-box",
-                WebkitLineClamp:  4,
-                WebkitBoxOrient:  "vertical",
-                overflow:         "hidden",
-              } as React.CSSProperties}
-            >
-              {post.content}
-            </p>
-          </Link>
-        ) : (
-          <>
-            <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
-              {post.title}
-            </h2>
             <p className="text-sm leading-relaxed" style={{ color: "var(--foreground)", whiteSpace: "pre-line", opacity: 0.9 }}>
               {post.content}
             </p>
@@ -501,45 +474,7 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
           </>
         )}
 
-        {/* Action bar
-            In preview mode (text OR burn-report) this collapses to a
-            static counts row aligned left with a "Read more →" on the
-            right — engagement happens on the detail page after a tap. */}
-        {previewMode ? (
-          <Link
-            href={`/lounge/${post.id}`}
-            prefetch={false}
-            className="flex items-center gap-4 mt-4"
-            style={{ textDecoration: "none" }}
-          >
-            <span
-              className="flex items-center gap-1.5 text-xs font-medium"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <FlameIcon size={16} filled={false} />
-              {post.like_count}
-            </span>
-            <span
-              className="flex items-center gap-1.5 text-xs font-medium"
-              style={{ color: "var(--muted-foreground)" }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" />
-              </svg>
-              {post.comment_count}
-            </span>
-            <span
-              className="text-xs font-medium ml-auto"
-              style={{
-                color:         "var(--gold,#D4A04A)",
-                letterSpacing: "0.04em",
-              }}
-            >
-              Read more →
-            </span>
-          </Link>
-        ) : (
+        {/* Action bar */}
         <div className="flex items-center justify-end gap-4 mt-4">
           {isFeedback ? (
             <>
@@ -621,11 +556,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
             <span className="text-xs font-medium">{commentCount}</span>
           </button>
         </div>
-        )}
       </div>
 
       {/* Inline comments */}
-      {!previewMode && commentsEverOpened && (
+      {commentsEverOpened && (
         <div style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 16px", display: commentsOpen ? undefined : "none" }}>
           {/* Mounted once and kept alive across open/close; display toggle preserves loaded comments
               (no re-fetch on reopen). */}
