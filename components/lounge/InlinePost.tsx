@@ -384,7 +384,9 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
                 Burn Report
               </span>
             )}
-            {categoryTag && (
+            {/* Category tag is redundant next to the Burn Report pill —
+                burn posts show only the pill (chips row still filters). */}
+            {categoryTag && !post.smoke_log && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onCategoryTagTap?.(); }}
