@@ -299,10 +299,11 @@ export function BurnReportPreviewCard({
       </div>
 
       {photoUrl && (
+        /* Whole photo scaled to the card width (no crop). The
+           1200x900 props only reserve a pre-load aspect ratio;
+           height:auto takes the real ratio once loaded. */
         <div
           style={{
-            position:     "relative",
-            height:       165,
             margin:       "0 10px 10px",
             borderRadius: 6,
             overflow:     "hidden",
@@ -312,10 +313,11 @@ export function BurnReportPreviewCard({
           <Image
             src={photoUrl}
             alt=""
-            fill
+            width={1200}
+            height={900}
             sizes="(max-width: 768px) 100vw, 560px"
             quality={78}
-            style={{ objectFit: "cover" }}
+            style={{ width: "100%", height: "auto", display: "block" }}
           />
         </div>
       )}

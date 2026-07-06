@@ -474,17 +474,22 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
             </p>
 
             {post.image_url && (
+              /* Whole image scaled to the card width (no crop). The
+                 1200x900 props only reserve a pre-load aspect ratio;
+                 height:auto takes the real ratio once loaded. Tap
+                 opens the lightbox at full size. */
               <button type="button" onClick={() => post.image_url && postImageLightbox.open(post.image_url)}
-                className="mt-3 rounded-xl overflow-hidden block relative"
-                style={{ width: "100%", height: 260, border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
+                className="mt-3 rounded-xl overflow-hidden block"
+                style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
                 aria-label="View image">
                 <Image
                   src={post.image_url}
                   alt=""
-                  fill
+                  width={1200}
+                  height={900}
                   sizes="(max-width: 768px) 100vw, 600px"
                   quality={78}
-                  style={{ objectFit: "cover", display: "block" }}
+                  style={{ width: "100%", height: "auto", display: "block" }}
                 />
               </button>
             )}
