@@ -38,6 +38,17 @@ interface BurnReportModalProps extends VerdictCardProps {
 export function BurnReportModal({ open, onClose, belowCard, ...verdictProps }: BurnReportModalProps) {
   const mountedRef = useRef(false);
 
+  /* Latest-callback ref. The lifecycle effect below must run exactly
+     once per open — callers pass inline `onClose` arrows whose
+     identity changes on every parent re-render (e.g. when the photo
+     lightbox opens from inside this modal and re-renders the shared
+     parent). If `onClose` were a dependency, that re-render would
+     re-run the effect: its cleanup pops our history sentinel and
+     briefly unlocks the body mid-view, desyncing the sentinel stack
+     so the next popstate closes the whole report. */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; });
+
   /* Body scroll lock + browser-back wiring. Enter on open, leave
      on close. We snapshot scrollY before locking so we can restore
      position when the modal closes (iOS scrolls to top otherwise
@@ -64,12 +75,12 @@ export function BurnReportModal({ open, onClose, belowCard, ...verdictProps }: B
      */
     const onPop = () => {
       if (window.history.state?.__burnReportModal !== true) {
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener("popstate", onPop);
 
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCloseRef.current(); };
     document.addEventListener("keydown", onKey);
 
     const scrollY = window.scrollY;
@@ -96,7 +107,9 @@ export function BurnReportModal({ open, onClose, belowCard, ...verdictProps }: B
         window.history.back();
       }
     };
-  }, [open, onClose]);
+    /* `onClose` intentionally not a dependency — read via ref above. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   /* SSR portal guard — createPortal needs document.body. */
   useEffect(() => { mountedRef.current = true; }, []);

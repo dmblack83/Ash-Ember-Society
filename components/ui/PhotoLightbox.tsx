@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal }        from "react-dom";
 import Image                   from "next/image";
 
@@ -49,6 +49,20 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
 
+  /* Latest-value refs for the lifetime effect below. The sentinel +
+     scroll-lock lifecycle must run exactly once per open — if it
+     re-ran whenever a parent re-render handed us a new inline
+     `onClose` identity, its cleanup would pop the history sentinel
+     and unlock the body mid-view, which is exactly the bug where
+     closing a photo collapsed the whole BurnReportModal underneath
+     and scrolled the feed back to the top. */
+  const onCloseRef = useRef(onClose);
+  const countRef   = useRef(urls.length);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+    countRef.current   = urls.length;
+  });
+
   /* Body scroll lock + key handlers + history sentinel.
    *
    * Keydown listener runs in CAPTURE phase so Esc here fires BEFORE
@@ -66,16 +80,16 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
-      if (urls.length > 1) {
+      if (countRef.current > 1) {
         if (e.key === "ArrowRight") {
           e.stopPropagation();
-          setIndex((i) => (i + 1) % urls.length);
+          setIndex((i) => (i + 1) % countRef.current);
         } else if (e.key === "ArrowLeft") {
           e.stopPropagation();
-          setIndex((i) => (i - 1 + urls.length) % urls.length);
+          setIndex((i) => (i - 1 + countRef.current) % countRef.current);
         }
       }
     }
@@ -93,26 +107,37 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
        it pops its own sentinel. */
     const onPop = () => {
       if (window.history.state?.__photoLightbox !== true) {
-        onClose();
+        onCloseRef.current();
       }
     };
     window.addEventListener("popstate", onPop);
 
-    const scrollY = window.scrollY;
+    /* Scroll lock — nesting-aware. When the lightbox opens from
+       inside BurnReportModal the body is ALREADY position:fixed with
+       the modal's scroll offset in `top`. Overwriting that lock and
+       then restoring to empty + scrollTo(0) is what yanked the feed
+       to the top. If a lock is already held, leave the body alone;
+       the holder restores scroll when IT closes. */
     const body = document.body;
-    body.style.position = "fixed";
-    body.style.top      = `-${scrollY}px`;
-    body.style.width    = "100%";
-    body.style.overflow = "hidden";
+    const alreadyLocked = body.style.position === "fixed";
+    const scrollY = window.scrollY;
+    if (!alreadyLocked) {
+      body.style.position = "fixed";
+      body.style.top      = `-${scrollY}px`;
+      body.style.width    = "100%";
+      body.style.overflow = "hidden";
+    }
 
     return () => {
       document.removeEventListener("keydown", onKey, true);
       window.removeEventListener("popstate", onPop);
-      body.style.position = "";
-      body.style.top      = "";
-      body.style.width    = "";
-      body.style.overflow = "";
-      window.scrollTo(0, scrollY);
+      if (!alreadyLocked) {
+        body.style.position = "";
+        body.style.top      = "";
+        body.style.width    = "";
+        body.style.overflow = "";
+        window.scrollTo(0, scrollY);
+      }
 
       /* Pop our sentinel if it's still on top of the stack. If close
          was triggered BY a popstate event, our entry is already gone
@@ -121,7 +146,10 @@ export function PhotoLightbox({ urls, initialIndex, onClose }: Props) {
         window.history.back();
       }
     };
-  }, [onClose, urls.length]);
+    /* Mount-once by design: sentinel + lock lifecycle == open lifetime.
+       Latest onClose/urls.length are read through refs above. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!mounted || typeof document === "undefined") return null;
   if (urls.length === 0) return null;

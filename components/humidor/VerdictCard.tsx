@@ -192,12 +192,27 @@ function PhotoStrip({
 }) {
   if (urls.length === 0) return null;
 
-  // Each cell wraps a next/image in fill mode so the optimizer
-  // generates a srcset matched to the rendered size. blob: URLs
-  // (in-flight previews from URL.createObjectURL) bypass the
-  // optimizer; everything else (Supabase Storage) goes through it.
-  function cell(url: string, cellStyle: React.CSSProperties) {
-    const inner = (
+  // Each cell wraps a next/image so the optimizer generates a srcset
+  // matched to the rendered size. blob: URLs (in-flight previews from
+  // URL.createObjectURL) bypass the optimizer; everything else
+  // (Supabase Storage) goes through it.
+  //
+  // Photos scale to FIT, never crop: `natural` cells (single photo)
+  // take the image's own aspect ratio; grid cells keep their layout
+  // ratio and letterbox with objectFit contain on a dim backdrop.
+  function cell(url: string, cellStyle: React.CSSProperties, natural = false) {
+    const inner = natural ? (
+      <Image
+        src={url}
+        alt=""
+        width={1200}
+        height={900}
+        sizes={sizesHint}
+        quality={82}
+        unoptimized={isBlobUrl(url)}
+        style={{ width: "100%", height: "auto", display: "block", borderRadius: 3 }}
+      />
+    ) : (
       <Image
         src={url}
         alt=""
@@ -205,12 +220,13 @@ function PhotoStrip({
         sizes={sizesHint}
         quality={82}
         unoptimized={isBlobUrl(url)}
-        style={{ objectFit: "cover", borderRadius: 3 }}
+        style={{ objectFit: "contain", borderRadius: 3 }}
       />
     );
 
     const wrapperStyle: React.CSSProperties = {
       position: "relative",
+      ...(natural ? {} : { background: "rgba(0,0,0,0.25)", borderRadius: 3 }),
       ...cellStyle,
     };
 
@@ -232,7 +248,7 @@ function PhotoStrip({
   if (urls.length === 1) {
     return (
       <div style={{ marginTop: 22 }}>
-        {cell(urls[0], { width: "100%", aspectRatio: "16 / 10" })}
+        {cell(urls[0], { width: "100%" }, true)}
       </div>
     );
   }
