@@ -396,9 +396,11 @@ export function CategoryFeed({
       {showNewPost && (
         <NewPostSheet
           categories={[{
-            id:         category.id,
-            name:       category.name,
-            is_locked:  category.is_locked,
+            id:          category.id,
+            name:        category.name,
+            is_locked:   category.is_locked,
+            slug:        category.slug,
+            is_feedback: category.is_feedback,
           }]}
           initialCategoryId={category.id}
           userId={userId}
