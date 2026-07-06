@@ -21,6 +21,7 @@
    ------------------------------------------------------------------ */
 
 import React from "react";
+import Image from "next/image";
 
 /* Same grade thresholds as VerdictCard. Kept in sync so the two
    surfaces always show the same word for the same score. */
@@ -115,6 +116,9 @@ export interface BurnReportPreviewCardProps {
   smokeDurationMinutes?: number | null;
   /* Tap handler — opens the full view. */
   onTap?: () => void;
+  /* First report photo, rendered below the rating stripe. Omitted
+     entirely when null (reports without photos keep the compact card). */
+  photoUrl?: string | null;
 }
 
 export function BurnReportPreviewCard({
@@ -128,6 +132,7 @@ export function BurnReportPreviewCard({
   flavorRating       = null,
   smokeDurationMinutes,
   onTap,
+  photoUrl           = null,
 }: BurnReportPreviewCardProps) {
   const score = overallRating ?? 0;
   const grade = overallRating != null ? gradeFor(overallRating) : "—";
@@ -292,6 +297,28 @@ export function BurnReportPreviewCard({
         <StripeCell label="Build"  val={constructionRating ?? 0} isLast={false} />
         <StripeCell label="Flavor" val={flavorRating       ?? 0} isLast={true} />
       </div>
+
+      {photoUrl && (
+        <div
+          style={{
+            position:     "relative",
+            height:       165,
+            margin:       "0 10px 10px",
+            borderRadius: 6,
+            overflow:     "hidden",
+            border:       "1px solid var(--line-soft)",
+          }}
+        >
+          <Image
+            src={photoUrl}
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 560px"
+            quality={78}
+            style={{ objectFit: "cover" }}
+          />
+        </div>
+      )}
     </button>
   );
 }
