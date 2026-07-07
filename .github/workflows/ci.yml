@@ -134,6 +134,13 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         run: npm run check:bundle
 
+      # Bottom-nav routes must prerender as static shells — a dynamic
+      # route here gets fully server-rendered by the nav's prefetch on
+      # every app open (the 2026-07-06 cold-load regression, PR #557).
+      - name: Static-shell gate
+        if: steps.gate.outputs.run == 'true'
+        run: npm run check:shells
+
   unit-test:
     name: Unit tests
     runs-on: ubuntu-latest

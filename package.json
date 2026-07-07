@@ -15,7 +15,8 @@
     "test:unit:watch": "vitest lib/",
     "check:pwa": "node scripts/check-pwa-urls.mjs",
     "check:bundle": "node scripts/check-bundle-size.mjs",
-    "check:bundle:write": "node scripts/check-bundle-size.mjs --write"
+    "check:bundle:write": "node scripts/check-bundle-size.mjs --write",
+    "check:shells": "node scripts/check-static-shells.mjs"
   },
   "dependencies": {
     "@fontsource/cormorant-garamond": "^5.2.11",
