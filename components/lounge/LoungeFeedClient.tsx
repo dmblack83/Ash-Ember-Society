@@ -163,6 +163,13 @@ export function LoungeFeedClient({
   /* Rendered only when a specific category chip is active (All stays
      clean, per spec). Local state so optimistic delete works. */
   const [pinnedPosts, setPinnedPosts] = useState<PostItem[]>(initialPinnedPosts);
+  /* Resync when the shell SWR bundle revalidates (pull-to-refresh,
+     focus revalidation) — this component stays mounted, so without
+     this the refreshed prop would be silently ignored. Server truth
+     overrides any local optimistic delete, which is correct. */
+  useEffect(() => {
+    setPinnedPosts(initialPinnedPosts);
+  }, [initialPinnedPosts]);
   const visiblePinnedPosts = useMemo(() => {
     if (!activeCategoryId) return [];
     const inCategory = pinnedPosts.filter((p) => p.category_id === activeCategoryId);
@@ -172,6 +179,12 @@ export function LoungeFeedClient({
   /* ---- Composer + rules gate --------------------------------------- */
 
   const [unlocked,       setUnlocked]       = useState(hasUnlocked);
+  /* Upgrade-only resync: a shell revalidation confirming agreement
+     unlocks the composer, but never re-locks a session where the user
+     just agreed locally and the refetch raced the write. */
+  useEffect(() => {
+    if (hasUnlocked) setUnlocked(true);
+  }, [hasUnlocked]);
   const [showRules,      setShowRules]      = useState(false);
   const [pendingCompose, setPendingCompose] = useState(false);
   const [showNewPost,    setShowNewPost]    = useState(false);
