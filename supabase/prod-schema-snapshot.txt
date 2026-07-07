@@ -1,0 +1,801 @@
+# Production schema snapshot — qagaiuibtwuhihukghyx.supabase.co
+# Captured 2026-07-07 via the introspection query in docs/db-drift-audit-2026-07-07.md.
+# Format: SECTION<TAB>item — one line per schema object, alphabetized within section.
+# Regenerate by re-running the query in the Supabase SQL editor (No limit) and
+# replacing this file; diff against the previous version to see prod schema drift.
+# RELIABILITY: the SQL-editor copy path can silently drop rows (one confirmed:
+# smoke_logs.pairing_food was absent from the 2026-07-07 export but verified
+# present via a REST probe and re-added below). Treat absences as candidates,
+# verify via REST probe before acting. All 33 migration-defined tables and
+# their 221 columns were probe-verified present on 2026-07-07.
+# CONSTRAINT section omitted (PK/FK noise, derivable); see the audit report.
+COLUMN	aging_alerts.alert_sent boolean DEFAULT false
+COLUMN	aging_alerts.alert_sent_at timestamp with time zone
+COLUMN	aging_alerts.created_at timestamp with time zone DEFAULT now()
+COLUMN	aging_alerts.humidor_item_id uuid NOT NULL
+COLUMN	aging_alerts.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	aging_alerts.target_days integer NOT NULL
+COLUMN	aging_alerts.user_id uuid NOT NULL
+COLUMN	badges.criteria jsonb
+COLUMN	badges.description text
+COLUMN	badges.icon_url text
+COLUMN	badges.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	badges.name text NOT NULL
+COLUMN	badges.sort_order integer DEFAULT 0
+COLUMN	blog_post_comments.content text NOT NULL
+COLUMN	blog_post_comments.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	blog_post_comments.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	blog_post_comments.post_id uuid NOT NULL
+COLUMN	blog_post_comments.user_id uuid NOT NULL
+COLUMN	blog_post_reactions.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	blog_post_reactions.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	blog_post_reactions.post_id uuid NOT NULL
+COLUMN	blog_post_reactions.type text NOT NULL DEFAULT 'like'::text
+COLUMN	blog_post_reactions.user_id uuid NOT NULL
+COLUMN	blog_posts.body text
+COLUMN	blog_posts.category text DEFAULT 'news'::text
+COLUMN	blog_posts.cover_image text
+COLUMN	blog_posts.cover_image_url text
+COLUMN	blog_posts.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	blog_posts.excerpt text
+COLUMN	blog_posts.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	blog_posts.published_at timestamp with time zone
+COLUMN	blog_posts.slug text
+COLUMN	blog_posts.source_name text
+COLUMN	blog_posts.source_url text
+COLUMN	blog_posts.synopsis text
+COLUMN	blog_posts.title text NOT NULL
+COLUMN	blog_posts.type text NOT NULL DEFAULT 'blog'::text
+COLUMN	burn_report_third_flavor_tags.flavor_tag_id uuid NOT NULL
+COLUMN	burn_report_third_flavor_tags.third_id uuid NOT NULL
+COLUMN	burn_report_thirds.burn_rating smallint NOT NULL
+COLUMN	burn_report_thirds.burn_report_id uuid NOT NULL
+COLUMN	burn_report_thirds.construction_rating smallint NOT NULL
+COLUMN	burn_report_thirds.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	burn_report_thirds.draw_rating smallint NOT NULL
+COLUMN	burn_report_thirds.flavor_rating smallint NOT NULL
+COLUMN	burn_report_thirds.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	burn_report_thirds.notes text NOT NULL
+COLUMN	burn_report_thirds.photo_url text
+COLUMN	burn_report_thirds.third_index smallint NOT NULL
+COLUMN	burn_report_thirds.user_id uuid NOT NULL
+COLUMN	burn_reports.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	burn_reports.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	burn_reports.smoke_log_id uuid NOT NULL
+COLUMN	burn_reports.third_beginning text
+COLUMN	burn_reports.third_end text
+COLUMN	burn_reports.third_middle text
+COLUMN	burn_reports.thirds_enabled boolean NOT NULL DEFAULT false
+COLUMN	burn_reports.user_id uuid NOT NULL
+COLUMN	cigar_catalog.approved boolean DEFAULT true
+COLUMN	cigar_catalog.binder_country text
+COLUMN	cigar_catalog.brand text
+COLUMN	cigar_catalog.community_added boolean DEFAULT false
+COLUMN	cigar_catalog.created_at timestamp with time zone DEFAULT now()
+COLUMN	cigar_catalog.filler_countries ARRAY DEFAULT '{}'::text[]
+COLUMN	cigar_catalog.format text
+COLUMN	cigar_catalog.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	cigar_catalog.image_url text
+COLUMN	cigar_catalog.length_inches numeric
+COLUMN	cigar_catalog.ring_gauge numeric
+COLUMN	cigar_catalog.search_text text
+COLUMN	cigar_catalog.series text
+COLUMN	cigar_catalog.shade text
+COLUMN	cigar_catalog.source_id text
+COLUMN	cigar_catalog.strength text
+COLUMN	cigar_catalog.usage_count integer DEFAULT 0
+COLUMN	cigar_catalog.wrapper text
+COLUMN	cigar_catalog.wrapper_country text
+COLUMN	cigar_catalog_suggestions.binder_country text
+COLUMN	cigar_catalog_suggestions.brand text
+COLUMN	cigar_catalog_suggestions.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	cigar_catalog_suggestions.filler_countries ARRAY
+COLUMN	cigar_catalog_suggestions.format text
+COLUMN	cigar_catalog_suggestions.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	cigar_catalog_suggestions.length_inches numeric
+COLUMN	cigar_catalog_suggestions.name text NOT NULL
+COLUMN	cigar_catalog_suggestions.ring_gauge numeric
+COLUMN	cigar_catalog_suggestions.series text
+COLUMN	cigar_catalog_suggestions.shade text
+COLUMN	cigar_catalog_suggestions.status text NOT NULL DEFAULT 'pending'::text
+COLUMN	cigar_catalog_suggestions.suggested_by uuid NOT NULL
+COLUMN	cigar_catalog_suggestions.wrapper text
+COLUMN	cigar_catalog_suggestions.wrapper_country text
+COLUMN	cigar_edit_suggestions.cigar_id uuid NOT NULL
+COLUMN	cigar_edit_suggestions.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	cigar_edit_suggestions.current jsonb NOT NULL
+COLUMN	cigar_edit_suggestions.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	cigar_edit_suggestions.reviewed_at timestamp with time zone
+COLUMN	cigar_edit_suggestions.reviewed_by uuid
+COLUMN	cigar_edit_suggestions.status text NOT NULL DEFAULT 'pending'::text
+COLUMN	cigar_edit_suggestions.suggested jsonb NOT NULL
+COLUMN	cigar_edit_suggestions.suggested_by uuid NOT NULL
+COLUMN	cigar_image_submissions.cigar_id uuid NOT NULL
+COLUMN	cigar_image_submissions.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	cigar_image_submissions.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	cigar_image_submissions.reviewed_at timestamp with time zone
+COLUMN	cigar_image_submissions.reviewed_by uuid
+COLUMN	cigar_image_submissions.status text NOT NULL DEFAULT 'pending'::text
+COLUMN	cigar_image_submissions.storage_path text NOT NULL
+COLUMN	cigar_image_submissions.user_id uuid NOT NULL
+COLUMN	cigars.avg_rating numeric DEFAULT 0
+COLUMN	cigars.binder text
+COLUMN	cigars.brand text NOT NULL
+COLUMN	cigars.country text
+COLUMN	cigars.created_at timestamp with time zone DEFAULT now()
+COLUMN	cigars.description text
+COLUMN	cigars.filler text
+COLUMN	cigars.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	cigars.image_url text
+COLUMN	cigars.is_verified boolean DEFAULT false
+COLUMN	cigars.length_inches numeric
+COLUMN	cigars.line text
+COLUMN	cigars.moderation_status USER-DEFINED DEFAULT 'active'::moderation_status
+COLUMN	cigars.msrp_cents integer
+COLUMN	cigars.name text NOT NULL
+COLUMN	cigars.ring_gauge integer
+COLUMN	cigars.search_vector tsvector
+COLUMN	cigars.strength USER-DEFINED
+COLUMN	cigars.submitted_by uuid
+COLUMN	cigars.total_ratings integer DEFAULT 0
+COLUMN	cigars.total_smoked integer DEFAULT 0
+COLUMN	cigars.updated_at timestamp with time zone DEFAULT now()
+COLUMN	cigars.vitola text
+COLUMN	cigars.wrapper text
+COLUMN	comment_likes.comment_id uuid NOT NULL
+COLUMN	comment_likes.created_at timestamp with time zone DEFAULT now()
+COLUMN	comment_likes.user_id uuid NOT NULL
+COLUMN	comments.body text NOT NULL
+COLUMN	comments.created_at timestamp with time zone DEFAULT now()
+COLUMN	comments.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	comments.likes_count integer DEFAULT 0
+COLUMN	comments.moderation_status USER-DEFINED DEFAULT 'active'::moderation_status
+COLUMN	comments.parent_comment_id uuid
+COLUMN	comments.post_id uuid NOT NULL
+COLUMN	comments.user_id uuid NOT NULL
+COLUMN	content_channels.created_at timestamp with time zone DEFAULT now()
+COLUMN	content_channels.custom_url text
+COLUMN	content_channels.description text
+COLUMN	content_channels.handle text NOT NULL
+COLUMN	content_channels.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	content_channels.is_active boolean DEFAULT true
+COLUMN	content_channels.last_synced_at timestamp with time zone
+COLUMN	content_channels.name text NOT NULL
+COLUMN	content_channels.section text NOT NULL DEFAULT 'partner'::text
+COLUMN	content_channels.subscriber_count bigint
+COLUMN	content_channels.thumbnail_url text
+COLUMN	content_channels.uploads_playlist_id text NOT NULL
+COLUMN	content_channels.user_id uuid
+COLUMN	content_channels.youtube_channel_id text NOT NULL
+COLUMN	content_reports.comment_id uuid
+COLUMN	content_reports.created_at timestamp with time zone DEFAULT now()
+COLUMN	content_reports.details text
+COLUMN	content_reports.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	content_reports.post_id uuid
+COLUMN	content_reports.profile_id uuid
+COLUMN	content_reports.reason text NOT NULL
+COLUMN	content_reports.reporter_id uuid NOT NULL
+COLUMN	content_reports.reviewed_at timestamp with time zone
+COLUMN	content_reports.shop_review_id uuid
+COLUMN	content_reports.status text DEFAULT 'pending'::text
+COLUMN	content_video_comments.content text NOT NULL
+COLUMN	content_video_comments.created_at timestamp with time zone DEFAULT now()
+COLUMN	content_video_comments.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	content_video_comments.updated_at timestamp with time zone DEFAULT now()
+COLUMN	content_video_comments.user_id uuid NOT NULL
+COLUMN	content_video_comments.video_id uuid NOT NULL
+COLUMN	content_video_likes.created_at timestamp with time zone DEFAULT now()
+COLUMN	content_video_likes.user_id uuid NOT NULL
+COLUMN	content_video_likes.video_id uuid NOT NULL
+COLUMN	content_videos.channel_id uuid NOT NULL
+COLUMN	content_videos.created_at timestamp with time zone DEFAULT now()
+COLUMN	content_videos.description text
+COLUMN	content_videos.duration_seconds integer
+COLUMN	content_videos.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	content_videos.is_active boolean DEFAULT true
+COLUMN	content_videos.position smallint
+COLUMN	content_videos.published_at timestamp with time zone
+COLUMN	content_videos.thumbnail_url text
+COLUMN	content_videos.title text NOT NULL
+COLUMN	content_videos.view_count bigint DEFAULT 0
+COLUMN	content_videos.youtube_video_id text NOT NULL
+COLUMN	cron_run_log.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	cron_run_log.duration_ms integer
+COLUMN	cron_run_log.error text
+COLUMN	cron_run_log.finished_at timestamp with time zone
+COLUMN	cron_run_log.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	cron_run_log.name text NOT NULL
+COLUMN	cron_run_log.ok boolean
+COLUMN	cron_run_log.started_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	cron_run_log.summary jsonb
+COLUMN	event_rsvps.created_at timestamp with time zone DEFAULT now()
+COLUMN	event_rsvps.event_id uuid NOT NULL
+COLUMN	event_rsvps.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	event_rsvps.status USER-DEFINED DEFAULT 'going'::rsvp_status
+COLUMN	event_rsvps.updated_at timestamp with time zone DEFAULT now()
+COLUMN	event_rsvps.user_id uuid NOT NULL
+COLUMN	events.address text
+COLUMN	events.capacity integer
+COLUMN	events.city text
+COLUMN	events.cost_cents integer DEFAULT 0
+COLUMN	events.created_at timestamp with time zone DEFAULT now()
+COLUMN	events.created_by uuid NOT NULL
+COLUMN	events.description text
+COLUMN	events.ends_at timestamp with time zone
+COLUMN	events.featured_cigar_ids ARRAY
+COLUMN	events.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	events.image_url text
+COLUMN	events.is_active boolean DEFAULT true
+COLUMN	events.lat numeric
+COLUMN	events.lng numeric
+COLUMN	events.members_only boolean DEFAULT false
+COLUMN	events.moderation_status USER-DEFINED DEFAULT 'active'::moderation_status
+COLUMN	events.rsvp_count integer DEFAULT 0
+COLUMN	events.shop_id uuid
+COLUMN	events.starts_at timestamp with time zone NOT NULL
+COLUMN	events.state text
+COLUMN	events.title text NOT NULL
+COLUMN	events.type USER-DEFINED DEFAULT 'other'::event_type
+COLUMN	events.updated_at timestamp with time zone DEFAULT now()
+COLUMN	events.venue_name text
+COLUMN	field_guide_comments.content text NOT NULL
+COLUMN	field_guide_comments.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	field_guide_comments.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	field_guide_comments.parent_comment_id uuid
+COLUMN	field_guide_comments.updated_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	field_guide_comments.user_id uuid NOT NULL
+COLUMN	field_guide_comments.vol_number smallint NOT NULL
+COLUMN	field_guide_likes.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	field_guide_likes.user_id uuid NOT NULL
+COLUMN	field_guide_likes.vol_number smallint NOT NULL
+COLUMN	flavor_tags.category text
+COLUMN	flavor_tags.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	flavor_tags.name text NOT NULL
+COLUMN	follows.created_at timestamp with time zone DEFAULT now()
+COLUMN	follows.follower_id uuid NOT NULL
+COLUMN	follows.following_id uuid NOT NULL
+COLUMN	forum_categories.created_at timestamp with time zone DEFAULT now()
+COLUMN	forum_categories.description text
+COLUMN	forum_categories.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	forum_categories.is_feedback boolean NOT NULL DEFAULT false
+COLUMN	forum_categories.is_gate boolean DEFAULT false
+COLUMN	forum_categories.is_locked boolean DEFAULT false
+COLUMN	forum_categories.name text NOT NULL
+COLUMN	forum_categories.slug text NOT NULL
+COLUMN	forum_categories.sort_order integer DEFAULT 0
+COLUMN	forum_comments.content text NOT NULL
+COLUMN	forum_comments.created_at timestamp with time zone DEFAULT now()
+COLUMN	forum_comments.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	forum_comments.parent_comment_id uuid
+COLUMN	forum_comments.post_id uuid NOT NULL
+COLUMN	forum_comments.updated_at timestamp with time zone DEFAULT now()
+COLUMN	forum_comments.user_id uuid NOT NULL
+COLUMN	forum_post_likes.created_at timestamp with time zone DEFAULT now()
+COLUMN	forum_post_likes.post_id uuid NOT NULL
+COLUMN	forum_post_likes.user_id uuid NOT NULL
+COLUMN	forum_post_votes.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	forum_post_votes.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	forum_post_votes.post_id uuid NOT NULL
+COLUMN	forum_post_votes.user_id uuid NOT NULL
+COLUMN	forum_post_votes.value smallint NOT NULL
+COLUMN	forum_posts.category_id uuid NOT NULL
+COLUMN	forum_posts.content text NOT NULL
+COLUMN	forum_posts.created_at timestamp with time zone DEFAULT now()
+COLUMN	forum_posts.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	forum_posts.image_url text
+COLUMN	forum_posts.is_locked boolean DEFAULT false
+COLUMN	forum_posts.is_pinned boolean DEFAULT false
+COLUMN	forum_posts.is_system boolean DEFAULT false
+COLUMN	forum_posts.smoke_log_id uuid
+COLUMN	forum_posts.status text DEFAULT 'open'::text
+COLUMN	forum_posts.title text NOT NULL
+COLUMN	forum_posts.updated_at timestamp with time zone DEFAULT now()
+COLUMN	forum_posts.user_id uuid
+COLUMN	humidor_items.aging_start date
+COLUMN	humidor_items.aging_start_date date
+COLUMN	humidor_items.aging_target_date date
+COLUMN	humidor_items.cigar_id uuid NOT NULL
+COLUMN	humidor_items.created_at timestamp with time zone DEFAULT now()
+COLUMN	humidor_items.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	humidor_items.is_wishlist boolean DEFAULT false
+COLUMN	humidor_items.notes text
+COLUMN	humidor_items.price_paid_cents integer
+COLUMN	humidor_items.purchase_date date
+COLUMN	humidor_items.purchase_quantity integer
+COLUMN	humidor_items.quantity integer DEFAULT 1
+COLUMN	humidor_items.source text
+COLUMN	humidor_items.source_shop_id uuid
+COLUMN	humidor_items.updated_at timestamp with time zone DEFAULT now()
+COLUMN	humidor_items.user_id uuid NOT NULL
+COLUMN	moderation_log.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	moderation_log.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	moderation_log.passed boolean NOT NULL
+COLUMN	moderation_log.reason text
+COLUMN	moderation_log.safety_scores jsonb NOT NULL DEFAULT '{}'::jsonb
+COLUMN	moderation_log.type text NOT NULL
+COLUMN	moderation_log.user_id uuid NOT NULL
+COLUMN	news_items.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	news_items.guid text NOT NULL
+COLUMN	news_items.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	news_items.image_url text
+COLUMN	news_items.link text NOT NULL
+COLUMN	news_items.published_at timestamp with time zone NOT NULL
+COLUMN	news_items.source_name text NOT NULL
+COLUMN	news_items.source_slug text NOT NULL
+COLUMN	news_items.summary text
+COLUMN	news_items.title text NOT NULL
+COLUMN	notification_preferences.email_aging_alert boolean DEFAULT true
+COLUMN	notification_preferences.email_comment_reply boolean DEFAULT true
+COLUMN	notification_preferences.email_event_reminder boolean DEFAULT true
+COLUMN	notification_preferences.email_new_follower boolean DEFAULT true
+COLUMN	notification_preferences.email_shop_deals boolean DEFAULT true
+COLUMN	notification_preferences.email_weekly_digest boolean DEFAULT true
+COLUMN	notification_preferences.updated_at timestamp with time zone DEFAULT now()
+COLUMN	notification_preferences.user_id uuid NOT NULL
+COLUMN	notification_views.last_seen_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	notification_views.post_id uuid NOT NULL
+COLUMN	notification_views.user_id uuid NOT NULL
+COLUMN	post_comments.content text NOT NULL
+COLUMN	post_comments.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	post_comments.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	post_comments.post_id uuid NOT NULL
+COLUMN	post_comments.user_id uuid NOT NULL
+COLUMN	post_likes.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	post_likes.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	post_likes.post_id uuid NOT NULL
+COLUMN	post_likes.user_id uuid NOT NULL
+COLUMN	post_saves.created_at timestamp with time zone DEFAULT now()
+COLUMN	post_saves.post_id uuid NOT NULL
+COLUMN	post_saves.user_id uuid NOT NULL
+COLUMN	posts.cigar_brand text
+COLUMN	posts.cigar_name text
+COLUMN	posts.comments_count integer NOT NULL DEFAULT 0
+COLUMN	posts.content text NOT NULL
+COLUMN	posts.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	posts.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	posts.image_url text
+COLUMN	posts.likes_count integer NOT NULL DEFAULT 0
+COLUMN	posts.shop_id uuid
+COLUMN	posts.user_id uuid NOT NULL
+COLUMN	profiles.assigned_badges ARRAY NOT NULL DEFAULT '{}'::text[]
+COLUMN	profiles.avatar_url text
+COLUMN	profiles.badge text
+COLUMN	profiles.bio text
+COLUMN	profiles.city text
+COLUMN	profiles.created_at timestamp with time zone DEFAULT now()
+COLUMN	profiles.date_of_birth date
+COLUMN	profiles.display_name text
+COLUMN	profiles.email text
+COLUMN	profiles.experience_level USER-DEFINED DEFAULT 'newcomer'::experience_level
+COLUMN	profiles.first_name text
+COLUMN	profiles.id uuid NOT NULL
+COLUMN	profiles.is_admin boolean NOT NULL DEFAULT false
+COLUMN	profiles.is_shop_owner boolean DEFAULT false
+COLUMN	profiles.last_name text
+COLUMN	profiles.membership_tier USER-DEFINED DEFAULT 'free'::membership_tier
+COLUMN	profiles.notification_preferences jsonb NOT NULL DEFAULT '{}'::jsonb
+COLUMN	profiles.onboarding_completed boolean DEFAULT false
+COLUMN	profiles.phone text
+COLUMN	profiles.preferred_wrappers ARRAY
+COLUMN	profiles.smoking_frequency text
+COLUMN	profiles.state text
+COLUMN	profiles.stripe_customer_id text
+COLUMN	profiles.stripe_subscription_id text
+COLUMN	profiles.subscription_expires_at timestamp with time zone
+COLUMN	profiles.updated_at timestamp with time zone DEFAULT now()
+COLUMN	profiles.zip text
+COLUMN	profiles.zip_code text
+COLUMN	public_profiles.avatar_url text
+COLUMN	public_profiles.badge text
+COLUMN	public_profiles.display_name text
+COLUMN	public_profiles.id uuid
+COLUMN	public_profiles.membership_tier USER-DEFINED
+COLUMN	push_outbox.attempts integer NOT NULL DEFAULT 0
+COLUMN	push_outbox.category text NOT NULL
+COLUMN	push_outbox.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	push_outbox.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	push_outbox.last_attempt_at timestamp with time zone
+COLUMN	push_outbox.last_error text
+COLUMN	push_outbox.next_attempt_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	push_outbox.payload jsonb NOT NULL
+COLUMN	push_outbox.status text NOT NULL DEFAULT 'pending'::text
+COLUMN	push_outbox.user_id uuid NOT NULL
+COLUMN	push_send_log.category text NOT NULL
+COLUMN	push_send_log.error text
+COLUMN	push_send_log.failed_count integer NOT NULL DEFAULT 0
+COLUMN	push_send_log.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	push_send_log.pruned_count integer NOT NULL DEFAULT 0
+COLUMN	push_send_log.result text NOT NULL
+COLUMN	push_send_log.sent_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	push_send_log.sent_count integer NOT NULL DEFAULT 0
+COLUMN	push_send_log.source text NOT NULL DEFAULT 'direct'::text
+COLUMN	push_send_log.title text
+COLUMN	push_send_log.url text
+COLUMN	push_send_log.user_id uuid NOT NULL
+COLUMN	push_subscriptions.auth text NOT NULL
+COLUMN	push_subscriptions.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	push_subscriptions.endpoint text NOT NULL
+COLUMN	push_subscriptions.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	push_subscriptions.last_used_at timestamp with time zone
+COLUMN	push_subscriptions.p256dh text NOT NULL
+COLUMN	push_subscriptions.user_agent text
+COLUMN	push_subscriptions.user_id uuid NOT NULL
+COLUMN	shop_checkins.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	shop_checkins.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	shop_checkins.note text
+COLUMN	shop_checkins.shop_id uuid NOT NULL
+COLUMN	shop_checkins.user_id uuid NOT NULL
+COLUMN	shop_redemptions.discount_applied text
+COLUMN	shop_redemptions.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	shop_redemptions.membership_tier USER-DEFINED NOT NULL
+COLUMN	shop_redemptions.redeemed_at timestamp with time zone DEFAULT now()
+COLUMN	shop_redemptions.shop_id uuid NOT NULL
+COLUMN	shop_redemptions.user_id uuid NOT NULL
+COLUMN	shop_redemptions.verified_by text
+COLUMN	shop_reviews.created_at timestamp with time zone DEFAULT now()
+COLUMN	shop_reviews.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	shop_reviews.moderation_status USER-DEFINED DEFAULT 'active'::moderation_status
+COLUMN	shop_reviews.photo_urls ARRAY
+COLUMN	shop_reviews.rating integer NOT NULL
+COLUMN	shop_reviews.review_text text
+COLUMN	shop_reviews.shop_id uuid NOT NULL
+COLUMN	shop_reviews.updated_at timestamp with time zone DEFAULT now()
+COLUMN	shop_reviews.user_id uuid NOT NULL
+COLUMN	shop_reviews.visit_date date
+COLUMN	shops.address text NOT NULL
+COLUMN	shops.amenities ARRAY DEFAULT '{}'::text[]
+COLUMN	shops.city text NOT NULL
+COLUMN	shops.cover_photo_url text
+COLUMN	shops.created_at timestamp with time zone DEFAULT now()
+COLUMN	shops.description text
+COLUMN	shops.hours jsonb
+COLUMN	shops.id uuid NOT NULL DEFAULT gen_random_uuid()
+COLUMN	shops.is_founding_partner boolean DEFAULT false
+COLUMN	shops.is_partner boolean DEFAULT false
+COLUMN	shops.lat numeric NOT NULL
+COLUMN	shops.lng numeric NOT NULL
+COLUMN	shops.member_discount text
+COLUMN	shops.name text NOT NULL
+COLUMN	shops.perk_description text
+COLUMN	shops.phone text
+COLUMN	shops.photo_urls ARRAY DEFAULT '{}'::text[]
+COLUMN	shops.premium_discount text
+COLUMN	shops.rating numeric
+COLUMN	shops.slug text NOT NULL
+COLUMN	shops.state text NOT NULL
+COLUMN	shops.total_ratings integer DEFAULT 0
+COLUMN	shops.website text
+COLUMN	shops.zip text NOT NULL
+COLUMN	smoke_logs.burn_rating numeric
+COLUMN	smoke_logs.cigar_id uuid NOT NULL
+COLUMN	smoke_logs.construction_rating numeric
+COLUMN	smoke_logs.content_video_id uuid
+COLUMN	smoke_logs.created_at timestamp with time zone DEFAULT now()
+COLUMN	smoke_logs.draw_rating numeric
+COLUMN	smoke_logs.flavor_rating numeric
+COLUMN	smoke_logs.flavor_tag_ids ARRAY
+COLUMN	smoke_logs.humidor_item_id uuid
+COLUMN	smoke_logs.id uuid NOT NULL DEFAULT uuid_generate_v4()
+COLUMN	smoke_logs.location text
+COLUMN	smoke_logs.location_shop_id uuid
+COLUMN	smoke_logs.moderation_status USER-DEFINED DEFAULT 'active'::moderation_status
+COLUMN	smoke_logs.occasion text
+COLUMN	smoke_logs.overall_rating integer
+COLUMN	smoke_logs.pairing_drink text
+COLUMN	smoke_logs.pairing_food text
+COLUMN	smoke_logs.photo_urls ARRAY
+COLUMN	smoke_logs.review_text text
+COLUMN	smoke_logs.smoke_duration_minutes integer
+COLUMN	smoke_logs.smoked_at timestamp with time zone DEFAULT now()
+COLUMN	smoke_logs.user_id uuid NOT NULL
+COLUMN	stripe_processed_events.created_at timestamp with time zone NOT NULL DEFAULT now()
+COLUMN	stripe_processed_events.event_id text NOT NULL
+COLUMN	stripe_processed_events.processed_at timestamp with time zone
+COLUMN	user_badges.badge_id uuid NOT NULL
+COLUMN	user_badges.earned_at timestamp with time zone DEFAULT now()
+COLUMN	user_badges.user_id uuid NOT NULL
+INDEX	aging_alerts_pkey ON aging_alerts
+INDEX	badges_name_key ON badges
+INDEX	badges_pkey ON badges
+INDEX	blog_post_comments_pkey ON blog_post_comments
+INDEX	blog_post_comments_post_idx ON blog_post_comments
+INDEX	blog_post_reactions_pkey ON blog_post_reactions
+INDEX	blog_post_reactions_post_id_user_id_type_key ON blog_post_reactions
+INDEX	blog_post_reactions_post_idx ON blog_post_reactions
+INDEX	blog_posts_pkey ON blog_posts
+INDEX	blog_posts_published_at_idx ON blog_posts
+INDEX	blog_posts_slug_key ON blog_posts
+INDEX	burn_report_third_flavor_tags_pkey ON burn_report_third_flavor_tags
+INDEX	burn_report_third_flavor_tags_tag_idx ON burn_report_third_flavor_tags
+INDEX	burn_report_thirds_burn_report_id_idx ON burn_report_thirds
+INDEX	burn_report_thirds_burn_report_id_third_index_key ON burn_report_thirds
+INDEX	burn_report_thirds_pkey ON burn_report_thirds
+INDEX	burn_report_thirds_user_id_idx ON burn_report_thirds
+INDEX	burn_reports_pkey ON burn_reports
+INDEX	burn_reports_smoke_log_id_key ON burn_reports
+INDEX	burn_reports_user_id_idx ON burn_reports
+INDEX	cigar_catalog_pkey ON cigar_catalog
+INDEX	cigar_catalog_search_text_trgm ON cigar_catalog
+INDEX	cigar_catalog_source_id_key ON cigar_catalog
+INDEX	cigar_catalog_suggestions_pkey ON cigar_catalog_suggestions
+INDEX	cigar_edit_suggestions_cigar_status_idx ON cigar_edit_suggestions
+INDEX	cigar_edit_suggestions_one_pending_per_user_cigar ON cigar_edit_suggestions
+INDEX	cigar_edit_suggestions_pkey ON cigar_edit_suggestions
+INDEX	cigar_image_submissions_one_pending ON cigar_image_submissions
+INDEX	cigar_image_submissions_pkey ON cigar_image_submissions
+INDEX	cigar_image_submissions_status_idx ON cigar_image_submissions
+INDEX	cigar_image_submissions_user_idx ON cigar_image_submissions
+INDEX	cigars_pkey ON cigars
+INDEX	comment_likes_pkey ON comment_likes
+INDEX	comments_pkey ON comments
+INDEX	content_channels_pkey ON content_channels
+INDEX	content_channels_section_idx ON content_channels
+INDEX	content_channels_user_id ON content_channels
+INDEX	content_channels_youtube_channel_id_key ON content_channels
+INDEX	content_reports_pkey ON content_reports
+INDEX	content_video_comments_pkey ON content_video_comments
+INDEX	content_video_likes_pkey ON content_video_likes
+INDEX	content_videos_pkey ON content_videos
+INDEX	content_videos_youtube_video_id_key ON content_videos
+INDEX	cron_run_log_name_started_idx ON cron_run_log
+INDEX	cron_run_log_pkey ON cron_run_log
+INDEX	cron_run_log_started_at_idx ON cron_run_log
+INDEX	cron_run_log_unfinished_idx ON cron_run_log
+INDEX	event_rsvps_event_id_user_id_key ON event_rsvps
+INDEX	event_rsvps_pkey ON event_rsvps
+INDEX	events_pkey ON events
+INDEX	field_guide_comments_pkey ON field_guide_comments
+INDEX	field_guide_comments_vol_idx ON field_guide_comments
+INDEX	field_guide_likes_pkey ON field_guide_likes
+INDEX	flavor_tags_name_key ON flavor_tags
+INDEX	flavor_tags_pkey ON flavor_tags
+INDEX	follows_pkey ON follows
+INDEX	forum_categories_pkey ON forum_categories
+INDEX	forum_categories_slug_key ON forum_categories
+INDEX	forum_comments_pkey ON forum_comments
+INDEX	forum_comments_post_created_idx ON forum_comments
+INDEX	forum_post_likes_pkey ON forum_post_likes
+INDEX	forum_post_votes_pkey ON forum_post_votes
+INDEX	forum_post_votes_user_id_post_id_key ON forum_post_votes
+INDEX	forum_posts_category_created_idx ON forum_posts
+INDEX	forum_posts_created_at_idx ON forum_posts
+INDEX	forum_posts_pkey ON forum_posts
+INDEX	humidor_items_aging_ready_idx ON humidor_items
+INDEX	humidor_items_pkey ON humidor_items
+INDEX	humidor_items_wishlist_unique ON humidor_items
+INDEX	idx_aging_alerts_pending ON aging_alerts
+INDEX	idx_blog_posts_published_at ON blog_posts
+INDEX	idx_cigar_catalog_brand ON cigar_catalog
+INDEX	idx_cigar_catalog_series ON cigar_catalog
+INDEX	idx_cigar_catalog_usage_count ON cigar_catalog
+INDEX	idx_cigars_brand ON cigars
+INDEX	idx_cigars_search ON cigars
+INDEX	idx_cigars_strength ON cigars
+INDEX	idx_comments_parent ON comments
+INDEX	idx_comments_post ON comments
+INDEX	idx_events_date ON events
+INDEX	idx_events_location ON events
+INDEX	idx_events_shop ON events
+INDEX	idx_follows_following ON follows
+INDEX	idx_humidor_cigar ON humidor_items
+INDEX	idx_humidor_items_user_created ON humidor_items
+INDEX	idx_redemptions_date ON shop_redemptions
+INDEX	idx_redemptions_shop ON shop_redemptions
+INDEX	idx_redemptions_user ON shop_redemptions
+INDEX	idx_shops_is_partner ON shops
+INDEX	idx_smoke_logs_cigar ON smoke_logs
+INDEX	idx_smoke_logs_date ON smoke_logs
+INDEX	idx_smoke_logs_user ON smoke_logs
+INDEX	idx_smoke_logs_user_cigar ON smoke_logs
+INDEX	idx_smoke_logs_user_id ON smoke_logs
+INDEX	idx_smoke_logs_user_smoked_at ON smoke_logs
+INDEX	moderation_log_pkey ON moderation_log
+INDEX	news_items_guid_key ON news_items
+INDEX	news_items_pkey ON news_items
+INDEX	news_items_published_at_idx ON news_items
+INDEX	notification_preferences_pkey ON notification_preferences
+INDEX	notification_views_pkey ON notification_views
+INDEX	post_comments_pkey ON post_comments
+INDEX	post_likes_pkey ON post_likes
+INDEX	post_likes_post_id_user_id_key ON post_likes
+INDEX	post_saves_pkey ON post_saves
+INDEX	posts_pkey ON posts
+INDEX	profiles_assigned_badges_gin ON profiles
+INDEX	profiles_pkey ON profiles
+INDEX	push_outbox_due_idx ON push_outbox
+INDEX	push_outbox_pkey ON push_outbox
+INDEX	push_outbox_user_idx ON push_outbox
+INDEX	push_send_log_category_idx ON push_send_log
+INDEX	push_send_log_pkey ON push_send_log
+INDEX	push_send_log_sent_at_idx ON push_send_log
+INDEX	push_send_log_user_idx ON push_send_log
+INDEX	push_subscriptions_pkey ON push_subscriptions
+INDEX	push_subscriptions_user_id_endpoint_key ON push_subscriptions
+INDEX	push_subscriptions_user_id_idx ON push_subscriptions
+INDEX	shop_checkins_pkey ON shop_checkins
+INDEX	shop_redemptions_pkey ON shop_redemptions
+INDEX	shop_reviews_pkey ON shop_reviews
+INDEX	shop_reviews_shop_id_user_id_key ON shop_reviews
+INDEX	shops_pkey ON shops
+INDEX	shops_slug_key ON shops
+INDEX	smoke_logs_content_video_id ON smoke_logs
+INDEX	smoke_logs_pkey ON smoke_logs
+INDEX	smoke_logs_user_cigar_idx ON smoke_logs
+INDEX	smoke_logs_user_id_smoked_at_idx ON smoke_logs
+INDEX	stripe_processed_events_created_at_idx ON stripe_processed_events
+INDEX	stripe_processed_events_pkey ON stripe_processed_events
+INDEX	user_badges_pkey ON user_badges
+POLICY	aging_alerts: Users can create own alerts [INSERT]
+POLICY	aging_alerts: Users can delete own alerts [DELETE]
+POLICY	aging_alerts: Users can update own alerts [UPDATE]
+POLICY	aging_alerts: Users can view own alerts [SELECT]
+POLICY	badges: Badges are viewable [SELECT]
+POLICY	blog_post_comments: Authenticated users can read all comments [SELECT] roles={authenticated}
+POLICY	blog_post_comments: Users can delete own comments [DELETE] roles={authenticated}
+POLICY	blog_post_comments: Users can insert own comments [INSERT] roles={authenticated}
+POLICY	blog_post_reactions: Authenticated users can read all reactions [SELECT] roles={authenticated}
+POLICY	blog_post_reactions: Users can delete own reactions [DELETE] roles={authenticated}
+POLICY	blog_post_reactions: Users can insert own reactions [INSERT] roles={authenticated}
+POLICY	blog_posts: Published blog posts are publicly readable [SELECT]
+POLICY	burn_report_third_flavor_tags: lounge readers can read shared per-third flavor tag joins [SELECT] roles={authenticated}
+POLICY	burn_report_third_flavor_tags: users can delete their own per-third flavor tag joins [DELETE] roles={authenticated}
+POLICY	burn_report_third_flavor_tags: users can insert their own per-third flavor tag joins [INSERT] roles={authenticated}
+POLICY	burn_report_third_flavor_tags: users can read their own per-third flavor tag joins [SELECT] roles={authenticated}
+POLICY	burn_report_thirds: lounge readers can read shared burn report thirds [SELECT] roles={authenticated}
+POLICY	burn_report_thirds: users can delete their own burn report thirds [DELETE] roles={authenticated}
+POLICY	burn_report_thirds: users can insert their own burn report thirds [INSERT] roles={authenticated}
+POLICY	burn_report_thirds: users can read their own burn report thirds [SELECT] roles={authenticated}
+POLICY	burn_report_thirds: users can update their own burn report thirds [UPDATE] roles={authenticated}
+POLICY	burn_reports: lounge readers can read attached burn_reports [SELECT] roles={authenticated}
+POLICY	burn_reports: users can delete their own burn reports [DELETE] roles={authenticated}
+POLICY	burn_reports: users can insert their own burn reports [INSERT] roles={authenticated}
+POLICY	burn_reports: users can read their own burn reports [SELECT] roles={authenticated}
+POLICY	burn_reports: users can update their own burn reports [UPDATE] roles={authenticated}
+POLICY	cigar_catalog: Authenticated users can read catalog [SELECT] roles={authenticated}
+POLICY	cigar_catalog_suggestions: users can insert their own suggestions [INSERT] roles={authenticated}
+POLICY	cigar_catalog_suggestions: users can read their own suggestions [SELECT] roles={authenticated}
+POLICY	cigar_edit_suggestions: users can insert their own edit suggestions [INSERT] roles={authenticated}
+POLICY	cigar_edit_suggestions: users can read their own edit suggestions [SELECT] roles={authenticated}
+POLICY	cigar_image_submissions: cigar_image_submissions_insert_own [INSERT]
+POLICY	cigar_image_submissions: cigar_image_submissions_select_own [SELECT]
+POLICY	cigars: Authenticated users can submit cigars [INSERT]
+POLICY	cigars: Cigars are viewable by everyone [SELECT]
+POLICY	comment_likes: Comment likes are viewable [SELECT]
+POLICY	comment_likes: Users can like comments [INSERT]
+POLICY	comment_likes: Users can unlike comments [DELETE]
+POLICY	comments: Active comments are viewable [SELECT]
+POLICY	comments: Authenticated users can comment [INSERT]
+POLICY	comments: Users can delete own comments [DELETE]
+POLICY	comments: Users can update own comments [UPDATE]
+POLICY	content_channels: read active channels [SELECT] roles={authenticated}
+POLICY	content_channels: service channels [ALL] roles={service_role}
+POLICY	content_reports: Authenticated users can report [INSERT]
+POLICY	content_reports: Users can view own reports [SELECT]
+POLICY	content_video_comments: authenticated can comment [INSERT] roles={authenticated}
+POLICY	content_video_comments: delete own comment [DELETE] roles={authenticated}
+POLICY	content_video_comments: edit own comment [UPDATE] roles={authenticated}
+POLICY	content_video_comments: read comments [SELECT] roles={authenticated}
+POLICY	content_video_likes: authenticated can like [INSERT] roles={authenticated}
+POLICY	content_video_likes: read likes [SELECT] roles={authenticated}
+POLICY	content_video_likes: unlike own [DELETE] roles={authenticated}
+POLICY	content_videos: read videos [SELECT] roles={authenticated}
+POLICY	content_videos: service videos [ALL] roles={service_role}
+POLICY	event_rsvps: RSVPs are viewable [SELECT]
+POLICY	event_rsvps: Users can RSVP [INSERT]
+POLICY	event_rsvps: Users can cancel RSVP [DELETE]
+POLICY	event_rsvps: Users can update own RSVP [UPDATE]
+POLICY	events: Active events are viewable [SELECT]
+POLICY	events: Creators can update own events [UPDATE]
+POLICY	events: Users can create events [INSERT]
+POLICY	field_guide_comments: field_guide_comments_delete [DELETE]
+POLICY	field_guide_comments: field_guide_comments_insert [INSERT]
+POLICY	field_guide_comments: field_guide_comments_select [SELECT]
+POLICY	field_guide_comments: field_guide_comments_update [UPDATE]
+POLICY	field_guide_likes: field_guide_likes_delete [DELETE]
+POLICY	field_guide_likes: field_guide_likes_insert [INSERT]
+POLICY	field_guide_likes: field_guide_likes_select [SELECT]
+POLICY	flavor_tags: Flavor tags are viewable [SELECT]
+POLICY	follows: Follows are viewable [SELECT]
+POLICY	follows: Users can follow [INSERT]
+POLICY	follows: Users can unfollow [DELETE]
+POLICY	forum_categories: forum_categories_select [SELECT]
+POLICY	forum_comments: forum_comments_delete [DELETE]
+POLICY	forum_comments: forum_comments_insert [INSERT]
+POLICY	forum_comments: forum_comments_select [SELECT]
+POLICY	forum_comments: forum_comments_update [UPDATE]
+POLICY	forum_post_likes: forum_post_likes_delete [DELETE]
+POLICY	forum_post_likes: forum_post_likes_insert [INSERT]
+POLICY	forum_post_likes: forum_post_likes_select [SELECT]
+POLICY	forum_post_votes: forum_post_votes_delete [DELETE] roles={authenticated}
+POLICY	forum_post_votes: forum_post_votes_insert [INSERT] roles={authenticated}
+POLICY	forum_post_votes: forum_post_votes_select [SELECT] roles={authenticated}
+POLICY	forum_post_votes: forum_post_votes_update [UPDATE] roles={authenticated}
+POLICY	forum_posts: forum_posts_delete [DELETE]
+POLICY	forum_posts: forum_posts_insert [INSERT]
+POLICY	forum_posts: forum_posts_select [SELECT]
+POLICY	forum_posts: forum_posts_update [UPDATE]
+POLICY	humidor_items: Users can delete own humidor items [DELETE]
+POLICY	humidor_items: Users can insert own humidor items [INSERT]
+POLICY	humidor_items: Users can update own humidor items [UPDATE]
+POLICY	humidor_items: Users can view own humidor [SELECT]
+POLICY	humidor_items: Users can view own humidor items [SELECT]
+POLICY	news_items: news_items_select [SELECT] roles={anon,authenticated}
+POLICY	notification_preferences: Users can insert own prefs [INSERT]
+POLICY	notification_preferences: Users can update own prefs [UPDATE]
+POLICY	notification_preferences: Users can view own prefs [SELECT]
+POLICY	notification_views: users insert their own notification views [INSERT] roles={authenticated}
+POLICY	notification_views: users read their own notification views [SELECT] roles={authenticated}
+POLICY	notification_views: users update their own notification views [UPDATE] roles={authenticated}
+POLICY	post_comments: authenticated users can read comments [SELECT] roles={authenticated}
+POLICY	post_comments: users can delete their own comments [DELETE] roles={authenticated}
+POLICY	post_comments: users can insert their own comments [INSERT] roles={authenticated}
+POLICY	post_likes: authenticated users can read likes [SELECT] roles={authenticated}
+POLICY	post_likes: users can delete their own likes [DELETE] roles={authenticated}
+POLICY	post_likes: users can manage their own likes [INSERT] roles={authenticated}
+POLICY	post_saves: Users can save posts [INSERT]
+POLICY	post_saves: Users can unsave posts [DELETE]
+POLICY	post_saves: Users can view own saves [SELECT]
+POLICY	posts: authenticated users can read posts [SELECT] roles={authenticated}
+POLICY	posts: users can delete their own posts [DELETE] roles={authenticated}
+POLICY	posts: users can insert their own posts [INSERT] roles={authenticated}
+POLICY	posts: users can update their own posts [UPDATE] roles={authenticated}
+POLICY	profiles: Users can insert own profile [INSERT] roles={authenticated}
+POLICY	profiles: Users can read own profile [SELECT] roles={authenticated}
+POLICY	profiles: Users can update own profile [UPDATE]
+POLICY	push_subscriptions: users can delete their own push subscriptions [DELETE] roles={authenticated}
+POLICY	push_subscriptions: users can insert their own push subscriptions [INSERT] roles={authenticated}
+POLICY	push_subscriptions: users can read their own push subscriptions [SELECT] roles={authenticated}
+POLICY	shop_checkins: authenticated users can read all checkins [SELECT] roles={authenticated}
+POLICY	shop_checkins: users can delete their own checkins [DELETE] roles={authenticated}
+POLICY	shop_checkins: users can insert their own checkins [INSERT] roles={authenticated}
+POLICY	shop_redemptions: Users can insert own redemptions [INSERT]
+POLICY	shop_redemptions: Users can view own redemptions [SELECT]
+POLICY	shop_reviews: Authenticated users can write reviews [INSERT]
+POLICY	shop_reviews: Shop reviews are viewable by everyone [SELECT]
+POLICY	shop_reviews: Users can delete own reviews [DELETE]
+POLICY	shop_reviews: Users can update own reviews [UPDATE]
+POLICY	smoke_logs: Smoke logs are viewable by everyone [SELECT]
+POLICY	smoke_logs: Users can delete own smoke logs [DELETE]
+POLICY	smoke_logs: Users can insert own smoke logs [INSERT]
+POLICY	smoke_logs: Users can update own smoke logs [UPDATE]
+POLICY	smoke_logs: Users can view own smoke logs [SELECT]
+POLICY	user_badges: User badges are viewable [SELECT]
+POLICYDEF	flavor_tags: Flavor tags are viewable [SELECT] USING true
+POLICYDEF	forum_categories: forum_categories_select [SELECT] USING true
+POLICYDEF	forum_post_likes: forum_post_likes_delete [DELETE] USING (auth.uid() = user_id)
+POLICYDEF	forum_post_likes: forum_post_likes_insert [INSERT] CHECK (auth.uid() = user_id)
+POLICYDEF	forum_post_likes: forum_post_likes_select [SELECT] USING true
+POLICYDEF	smoke_logs: Smoke logs are viewable by everyone [SELECT] USING true
+POLICYDEF	smoke_logs: Users can delete own smoke logs [DELETE] USING (auth.uid() = user_id)
+POLICYDEF	smoke_logs: Users can insert own smoke logs [INSERT] CHECK (auth.uid() = user_id)
+POLICYDEF	smoke_logs: Users can update own smoke logs [UPDATE] USING (auth.uid() = user_id)
+POLICYDEF	smoke_logs: Users can view own smoke logs [SELECT] USING (auth.uid() = user_id)
+RLS	all 51 public tables: ENABLED (verified 2026-07-07; no table had RLS disabled)
+FUNCTION	decrement_likes(post_id uuid)
+FUNCTION	enforce_humidor_free_limit()
+FUNCTION	find_or_create_cigar(p_brand text, p_line text, p_vitola text, p_ring_gauge numeric, p_length_inches numeric, p_wrapper text, p_wrapper_country text)
+FUNCTION	find_or_create_cigar(p_brand text, p_line text, p_vitola text, p_wrapper text, p_wrapper_country text, p_ring_gauge numeric, p_length_inches numeric)
+FUNCTION	get_forum_category_stats()
+FUNCTION	get_hot_posts(p_category_id uuid, p_limit integer, p_offset integer)
+FUNCTION	get_notification_summary()
+FUNCTION	get_report_numbers(p_smoke_log_ids uuid[])
+FUNCTION	handle_new_user()
+FUNCTION	increment_comments(post_id uuid)
+FUNCTION	increment_likes(post_id uuid)
+FUNCTION	insert_cigar_to_catalog(p_brand text, p_name text, p_series text, p_format text, p_wrapper text, p_ring_gauge numeric, p_length numeric)
+FUNCTION	insert_cigar_to_catalog(p_brand text, p_series text, p_format text, p_ring_gauge numeric, p_length_inches numeric, p_wrapper text, p_wrapper_country text)
+FUNCTION	insert_cigar_to_catalog(p_brand text, p_series text, p_format text, p_ring_gauge numeric, p_length_inches numeric, p_wrapper text, p_wrapper_country text, p_shade text)
+FUNCTION	insert_cigar_to_catalog(p_brand text, p_series text, p_format text, p_ring_gauge numeric, p_length_inches numeric, p_wrapper text, p_wrapper_country text, p_shade text, p_binder_country text, p_filler_countries text[])
+FUNCTION	update_cigar_rating()
+FUNCTION	update_post_comments_count()
+FUNCTION	update_post_likes_count()
+FUNCTION	update_updated_at()
+FUNCTION	(pg_trgm extension functions omitted: gin_*/gtrgm_*/similarity*/word_similarity*/show_*/set_limit)
+TRIGGER	cigars: update_cigars_updated_at [UPDATE]
+TRIGGER	comments: on_comment [INSERT,DELETE]
+TRIGGER	events: update_events_updated_at [UPDATE]
+TRIGGER	humidor_items: humidor_free_limit_check [INSERT]
+TRIGGER	humidor_items: update_humidor_updated_at [UPDATE]
+TRIGGER	profiles: update_profiles_updated_at [UPDATE]
+TRIGGER	smoke_logs: on_smoke_log [INSERT,DELETE,UPDATE]
+VIEW	public_profiles
