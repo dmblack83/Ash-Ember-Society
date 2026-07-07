@@ -62,3 +62,4 @@ next-env.d.ts
 /playwright/.auth
 /blob-report
 /playwright/.cache
+verification-shots/
