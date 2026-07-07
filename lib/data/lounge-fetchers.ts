@@ -22,6 +22,10 @@ import type { Comment }                   from "@/components/lounge/PostDetailCl
 import type { ForumCategory }             from "@/lib/data/forum";
 import { computeReportNumbers }           from "@/lib/data/burn-report-number";
 import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds-batch";
+import {
+  getCachedForumCategories,
+  getCachedFlavorTagMap,
+} from "@/lib/data/cached-lookups";
 import { log }                            from "@/lib/log";
 
 /* ── Feedback-card post shape returned by fetchFeedbackPosts below. */
@@ -130,70 +134,80 @@ async function enrichPostBatch(
 ): Promise<{ posts: PostItem[]; likedIds: string[] }> {
   if (batch.length === 0) return { posts: [], likedIds: [] };
 
-  /* ── Author profiles ──────────────────────────────────────────── */
-  const authorIds = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
+  const authorIds   = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
+  const postIds     = batch.map((p) => p.id);
+  const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+  const feedbackPostIds = feedbackCategoryId
+    ? batch.filter((p) => p.category_id === feedbackCategoryId).map((p) => p.id)
+    : [];
+
   type AuthorEntry = {
     display_name:    string | null;
     avatar_url:      string | null;
     badge:           string | null;
     membership_tier: string | null;
   };
-  const nameMap: Record<string, AuthorEntry> = {};
-  if (authorIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("public_profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier")
-      .in("id", authorIds);
-    for (const p of (profiles ?? []) as Array<{ id: string } & AuthorEntry>) {
-      nameMap[p.id] = {
-        display_name:    p.display_name,
-        avatar_url:      p.avatar_url,
-        badge:           p.badge           ?? null,
-        membership_tier: p.membership_tier ?? null,
-      };
-    }
-  }
 
-  /* ── Liked status for the viewer ──────────────────────────────── */
-  const postIds  = batch.map((p) => p.id);
-  const likedSet = new Set<string>();
-  {
-    const { data: likes } = await supabase
+  /* ── One parallel wave: profiles, likes, votes, and the smoke-log
+     group (logs + cached tag map + report numbers) are mutually
+     independent. Only the per-third lookup below genuinely depends
+     on a result from this wave (the burn-report ids). ───────────── */
+  const [profilesRes, likesRes, votesRes, logsRes, tagNameMap, reportNumberMap] = await Promise.all([
+    authorIds.length > 0
+      ? supabase
+          .from("public_profiles")
+          .select("id, display_name, avatar_url, badge, membership_tier")
+          .in("id", authorIds)
+      : Promise.resolve({ data: null }),
+    supabase
       .from("forum_post_likes")
       .select("post_id")
       .eq("user_id", userId)
-      .in("post_id", postIds);
-    for (const l of (likes ?? []) as { post_id: string }[]) likedSet.add(l.post_id);
+      .in("post_id", postIds),
+    feedbackPostIds.length > 0
+      ? supabase
+          .from("forum_post_votes")
+          .select("post_id, user_id, value")
+          .in("post_id", feedbackPostIds)
+      : Promise.resolve({ data: null }),
+    smokeLogIds.length > 0
+      ? supabase
+          .from("smoke_logs")
+          .select(`
+            id, smoked_at, overall_rating, draw_rating, burn_rating,
+            construction_rating, flavor_rating, pairing_drink, pairing_food,
+            location, occasion, smoke_duration_minutes, review_text, photo_urls,
+            content_video_id, flavor_tag_ids, user_id, cigar_id,
+            cigar:cigar_catalog(brand, series, format),
+            burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
+          `)
+          .in("id", smokeLogIds)
+      : Promise.resolve({ data: null }),
+    /* Session-cached full tag map (24h TTL, lib/data/cached-lookups):
+       covers both the logs' flavor_tag_ids and the per-third joins. */
+    smokeLogIds.length > 0 ? getCachedFlavorTagMap() : Promise.resolve({} as Record<string, string>),
+    smokeLogIds.length > 0
+      ? computeReportNumbers(supabase, smokeLogIds)
+      : Promise.resolve({} as Record<string, number>),
+  ]);
+
+  const nameMap: Record<string, AuthorEntry> = {};
+  for (const p of (profilesRes.data ?? []) as Array<{ id: string } & AuthorEntry>) {
+    nameMap[p.id] = {
+      display_name:    p.display_name,
+      avatar_url:      p.avatar_url,
+      badge:           p.badge           ?? null,
+      membership_tier: p.membership_tier ?? null,
+    };
   }
 
-  /* ── Smoke logs + flavor tags + report numbers + thirds ───────── */
-  const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+  const likedSet = new Set<string>();
+  for (const l of (likesRes.data ?? []) as { post_id: string }[]) likedSet.add(l.post_id);
+
+  /* ── Smoke logs assembly + per-third notes ────────────────────── */
   const smokeLogMap: Record<string, SmokeLogData> = {};
   if (smokeLogIds.length > 0) {
-    const [logsRes, tagsRes, reportNumberMap] = await Promise.all([
-      supabase
-        .from("smoke_logs")
-        .select(`
-          id, smoked_at, overall_rating, draw_rating, burn_rating,
-          construction_rating, flavor_rating, pairing_drink, pairing_food,
-          location, occasion, smoke_duration_minutes, review_text, photo_urls,
-          content_video_id, flavor_tag_ids, user_id, cigar_id,
-          cigar:cigar_catalog(brand, series, format),
-          burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
-        `)
-        .in("id", smokeLogIds),
-      /* Full tag list (small, static table): covers both the logs'
-         own flavor_tag_ids and the per-third tag joins below. */
-      supabase.from("flavor_tags").select("id, name"),
-      computeReportNumbers(supabase, smokeLogIds),
-    ]);
-
     const rawLogs = (logsRes.data ?? []) as unknown as RawSmokeLog[];
-
-    const tagNameMap: Record<string, string> = {};
-    for (const t of (tagsRes.data ?? []) as { id: string; name: string }[]) {
-      tagNameMap[t.id] = t.name;
-    }
 
     for (const logRow of rawLogs) {
       const author = logRow.user_id ? nameMap[logRow.user_id as string] : null;
@@ -227,16 +241,9 @@ async function enrichPostBatch(
   }
 
   /* ── Vote tallies for feedback posts in this batch ────────────── */
-  const feedbackPostIds = feedbackCategoryId
-    ? batch.filter((p) => p.category_id === feedbackCategoryId).map((p) => p.id)
-    : [];
   const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
-  if (feedbackPostIds.length > 0) {
-    const { data: votes } = await supabase
-      .from("forum_post_votes")
-      .select("post_id, user_id, value")
-      .in("post_id", feedbackPostIds);
-    for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
+  {
+    for (const v of (votesRes.data ?? []) as { post_id: string; user_id: string; value: number }[]) {
       const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
       if (v.value === 1)  cur.upvotes   += 1;
       if (v.value === -1) cur.downvotes += 1;
@@ -375,12 +382,11 @@ export interface LoungeShellData {
 export async function fetchLoungeShellData(userId: string): Promise<LoungeShellData> {
   const supabase = createClient();
 
-  /* Wave 1 — independent reads. */
-  const [categoriesRes, pinnedRes, rulesPostRes, profileRes] = await Promise.all([
-    supabase
-      .from("forum_categories")
-      .select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback")
-      .order("sort_order"),
+  /* Wave 1 — independent reads. Categories come from the session
+     TTL cache (lib/data/cached-lookups) — same 1h freshness the old
+     server-side unstable_cache gave this table. */
+  const [categories, pinnedRes, rulesPostRes, profileRes] = await Promise.all([
+    getCachedForumCategories(),
     supabase
       .from("forum_posts")
       .select(POST_SELECT)
@@ -400,10 +406,8 @@ export async function fetchLoungeShellData(userId: string): Promise<LoungeShellD
       .maybeSingle(),
   ]);
 
-  if (categoriesRes.error) throw new Error(categoriesRes.error.message);
-  if (pinnedRes.error)     throw new Error(pinnedRes.error.message);
+  if (pinnedRes.error) throw new Error(pinnedRes.error.message);
 
-  const categories = (categoriesRes.data ?? []) as ForumCategory[];
   const rulesPost  = rulesPostRes.data ?? null;
   const badges     = (profileRes.data?.assigned_badges ?? []) as string[];
   const feedbackCategoryId = categories.find((c) => c.is_feedback)?.id ?? null;
