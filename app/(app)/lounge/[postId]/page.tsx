@@ -1,18 +1,13 @@
-import { Suspense }              from "react";
-import { redirect }               from "next/navigation";
-import { getServerUser }          from "@/lib/auth/server-user";
-import { PostDetailDataIsland }   from "./_islands";
-import { PostDetailSkeleton }     from "./_skeletons";
+import { PostDetailRoute } from "./PostDetailRoute";
 
 /*
- * Edge runtime: faster cold start than the Node serverless target.
- * No `force-dynamic` — the data island is implicitly dynamic (per-user
- * queries) but the shell here is static, so removing the flag lets the
- * static portion be served from the edge cache where possible.
- *
- * Pattern mirrors `app/(app)/home/` and `app/(app)/humidor/`.
+ * Lounge post detail — client shell (same pattern as /humidor/[id]).
+ * The post, comments, like state, and smoke-log bundle that used to
+ * render server-side in a data island now load client-side in
+ * lib/data/post-detail-fetchers.ts under the viewer's RLS. The route
+ * stays dynamic (path param) but the document carries no data and no
+ * auth work, so tapping a post paints the skeleton instantly.
  */
-export const runtime = "edge";
 
 interface Props {
   params: Promise<{ postId: string }>;
@@ -20,12 +15,5 @@ interface Props {
 
 export default async function PostDetailPage({ params }: Props) {
   const { postId } = await params;
-  const user       = await getServerUser();
-  if (!user) redirect("/login");
-
-  return (
-    <Suspense fallback={<PostDetailSkeleton />}>
-      <PostDetailDataIsland postId={postId} userId={user.id} />
-    </Suspense>
-  );
+  return <PostDetailRoute postId={postId} />;
 }
