@@ -2,11 +2,11 @@
  * Shared skeleton for the unified Lounge feed route. Used by:
  *  - `loading.tsx` (rendered during client-side route prefetch
  *    before the page tree mounts)
- *  - the in-page `<Suspense>` fallback around `LoungeFeedDataIsland`
- *    in `page.tsx` (rendered while the data fetch is still resolving)
+ *  - `LoungeRoute.tsx` (rendered while the session gate and the
+ *    shell SWR bundle are still resolving)
  *
  * Same shape both places so the swap between prefetch skeleton →
- * Suspense skeleton → real content doesn't shift the page.
+ * shell skeleton → real content doesn't shift the page.
  */
 
 export function LoungeShellSkeleton() {

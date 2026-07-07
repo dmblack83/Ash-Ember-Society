@@ -47,9 +47,6 @@ interface RulesPost {
 interface Props {
   categories:     ForumCategory[];
   pinnedPosts:    PostItem[];
-  initialPage:    CategoryFeedPage | null;
-  initialChip:    ChipValue;
-  initialView:    string;
   rulesPost:      RulesPost | null;
   hasUnlocked:    boolean;
   agreementCount: number;
@@ -58,8 +55,8 @@ interface Props {
 }
 
 export function LoungeFeedClient({
-  categories, pinnedPosts: initialPinnedPosts, initialPage, initialChip,
-  initialView, rulesPost, hasUnlocked, agreementCount, userId, isFounder,
+  categories, pinnedPosts: initialPinnedPosts,
+  rulesPost, hasUnlocked, agreementCount, userId, isFounder,
 }: Props) {
   const searchParams = useSearchParams();
 
@@ -106,9 +103,10 @@ export function LoungeFeedClient({
   }
 
   /* ---- Feed (SWR infinite) ---------------------------------------- */
-
-  const seedMatches =
-    initialPage != null && chip === initialChip && view === initialView;
+  /* No server seed: page 0 loads through the same fetcher as every
+     other page. The persistent SWR cache paints revisits instantly
+     while a background revalidation runs; a first-ever visit shows
+     the shell skeleton then the fetched page. */
 
   const {
     data,
@@ -132,24 +130,19 @@ export function LoungeFeedClient({
         sort,
       }),
     {
-      /* fallbackData seeds only the server-rendered (chip, view) —
-         any other combination is a different key set and fetches
-         fresh. Same pattern the per-room feed used. */
-      fallbackData:        seedMatches ? [initialPage as CategoryFeedPage] : undefined,
-      revalidateOnMount:   !seedMatches,
       revalidateFirstPage: false,
     },
   );
 
   /* Stale-while-revalidate on every chip/view switch. Cached pages
-     (or the SSR seed) paint instantly; a background revalidation of
-     the switched-to key brings in anything new — a post just composed
-     into that category, someone else's post since the pages were
-     cached, or the frozen seed when returning to the initial key (the
-     hook never unmounts, so SWR would otherwise re-serve stale data
-     forever). First run is skipped: the initial key is served by the
-     seed or its own fresh fetch. Brand-new keys dedupe with their
-     in-flight first fetch, so this adds no extra request there. */
+     paint instantly; a background revalidation of the switched-to key
+     brings in anything new — a post just composed into that category,
+     someone else's post since the pages were cached, or stale pages
+     when returning to an earlier key (the hook never unmounts, so SWR
+     would otherwise re-serve stale data forever). First run is
+     skipped: the initial key does its own fresh fetch. Brand-new keys
+     dedupe with their in-flight first fetch, so this adds no extra
+     request there. */
   const feedKeyId = `${activeCategoryId ?? "all"}|${filter}|${sort}`;
   const prevKeyId = useRef<string | null>(null);
   useEffect(() => {
@@ -160,10 +153,7 @@ export function LoungeFeedClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedKeyId]);
 
-  const pages    = useMemo(
-    () => data ?? (seedMatches ? [initialPage as CategoryFeedPage] : []),
-    [data, seedMatches, initialPage],
-  );
+  const pages    = useMemo(() => data ?? [], [data]);
   const posts    = useMemo(() => pages.flatMap((p) => p.posts), [pages]);
   const likedIds = useMemo(() => new Set(pages.flatMap((p) => p.likedIds)), [pages]);
   const hasMore  = pages[pages.length - 1]?.hasMore ?? false;

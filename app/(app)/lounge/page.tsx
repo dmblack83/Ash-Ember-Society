@@ -1,36 +1,24 @@
-import { Suspense }            from "react";
-import { redirect }             from "next/navigation";
-import { getServerUser }        from "@/lib/auth/server-user";
-import { LoungeFeedDataIsland } from "./_islands";
-import { LoungeShellSkeleton }  from "./_skeletons";
-import { PullToRefresh }        from "@/components/ui/PullToRefresh";
+import { LoungeRoute } from "./LoungeRoute";
 
-/*
- * Edge runtime: faster cold start than the Node serverless target.
- * The data island is implicitly dynamic (per-user queries); the shell
- * streams first. Pattern mirrors `app/(app)/home/` and `/humidor/`.
- *
- * ?c=<chip>&v=<view> select the category chip and secondary view.
- * Subsequent chip taps update the URL via shallow pushState (no
- * server round-trip); only full loads (deep link, refresh, PWA
- * resume) pass through here.
- */
-export const runtime  = "edge";
 export const metadata = { title: "The Lounge — Ash & Ember Society" };
 
-interface Props {
-  searchParams: Promise<{ c?: string; v?: string }>;
-}
-
-export default async function LoungePage({ searchParams }: Props) {
-  const [{ c, v }, user] = await Promise.all([searchParams, getServerUser()]);
-  if (!user) redirect("/login");
-
-  return (
-    <PullToRefresh>
-      <Suspense fallback={<LoungeShellSkeleton />}>
-        <LoungeFeedDataIsland userId={user.id} chipParam={c ?? null} viewParam={v ?? null} />
-      </Suspense>
-    </PullToRefresh>
-  );
+/*
+ * Lounge — static client shell (same pattern as /humidor and /account).
+ * No server data fetch and no getServerUser() here, so the route
+ * renders user-agnostic HTML the service worker can serve to anyone
+ * (it carries no PII; the feed and shell data arrive client-side via
+ * SWR under RLS). Auth gating happens client-side in LoungeRoute; the
+ * proxy still 401s/redirects unauthenticated requests.
+ *
+ * Why this matters: the bottom nav prefetches this route with
+ * prefetch={true}. A static route makes that prefetch a cheap CDN hit;
+ * the previous dynamic version ran the full feed render server-side on
+ * every app open and stalled cold-network tab taps.
+ *
+ * ?c=<chip>&v=<view> still select the chip and secondary view —
+ * LoungeFeedClient reads them from useSearchParams; chip taps update
+ * the URL via shallow pushState with no server round-trip.
+ */
+export default function LoungePage() {
+  return <LoungeRoute />;
 }
