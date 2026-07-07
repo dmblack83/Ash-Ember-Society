@@ -32,3 +32,10 @@ describe("keyFor.loungeShell", () => {
     expect(keyFor.loungeShell("user-1")).not.toEqual(keyFor.loungeShell("user-2"));
   });
 });
+
+describe("keyFor.postDetail", () => {
+  it("is keyed by user and post", () => {
+    expect(keyFor.postDetail("u1", "p1")).toEqual(["post-detail", "u1", "p1"]);
+    expect(keyFor.postDetail("u1", "p1")).not.toEqual(keyFor.postDetail("u2", "p1"));
+  });
+});

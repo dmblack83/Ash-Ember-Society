@@ -70,6 +70,11 @@ export const keyFor = {
    * + founder badge). Per-user: pinned enrichment carries the viewer's
    * liked/vote state, and the rules-gate flag is the viewer's own. */
   loungeShell: (userId: string) => ["lounge-shell", userId] as const,
+  /* Post-detail bundle (post + comments + like state + smoke log) —
+   * keyed by userId AND postId so a user switch on a shared browser
+   * can't serve another user's cached hasLiked state. */
+  postDetail: (userId: string, postId: string) =>
+    ["post-detail", userId, postId] as const,
   /* Feedback category list — separate from `loungeFeed` because the
    * vote tallies and the hidden-by-default expand UX have a different
    * shape. Keyed per-user so vote state caches correctly. */
