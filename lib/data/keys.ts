@@ -66,6 +66,10 @@ export const keyFor = {
     sort:       "new" | "hot" = "new",
   ) => ["lounge-feed", categoryId ?? "all-categories", page, userId, filter, sort] as const,
   loungeComments: (postId: string) => ["lounge-comments", postId] as const,
+  /* Lounge static-shell bundle (categories + pinned posts + rules gate
+   * + founder badge). Per-user: pinned enrichment carries the viewer's
+   * liked/vote state, and the rules-gate flag is the viewer's own. */
+  loungeShell: (userId: string) => ["lounge-shell", userId] as const,
   /* Feedback category list — separate from `loungeFeed` because the
    * vote tallies and the hidden-by-default expand UX have a different
    * shape. Keyed per-user so vote state caches correctly. */

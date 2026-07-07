@@ -1,26 +1,28 @@
 "use client";
 
 /*
- * Client-side fetcher for the unified Lounge feed.
+ * Client-side fetchers for the unified Lounge feed and its static
+ * shell.
  *
- * Composite query (posts + author profiles + liked status + smoke
- * logs + flavor tags + votes). Used by useSWRInfinite — each page
- * index becomes one cache entry; mutations target individual pages
- * or the full slice as needed.
+ * `fetchLoungeFeedPage` — composite query (posts + author profiles +
+ * liked status + smoke logs + flavor tags + report numbers + thirds
+ * + votes). Used by useSWRInfinite — each page index becomes one
+ * cache entry; mutations target individual pages or the full slice
+ * as needed.
  *
- * Note: the SERVER-side initial-page query in
- * app/(app)/lounge/_islands.tsx additionally computes `report_number`
- * per smoke log (lifetime author count). That field is intentionally
- * absent here — matching the existing client behaviour where pages
- * 1+ never had it. If it ever needs to be present on dynamically-loaded
- * pages, port `computeReportNumbers` to a client-callable function.
+ * `fetchLoungeShellData` — everything the lounge shell needs besides
+ * the feed itself (categories, pinned posts, rules gate, founder
+ * badge). Fetched once per user via `keyFor.loungeShell`.
  */
 
-import { createClient }            from "@/utils/supabase/client";
-import type { PostItem }           from "@/components/lounge/InlinePost";
-import type { SmokeLogData }       from "@/components/lounge/PostDetailClient";
-import type { Comment }            from "@/components/lounge/PostDetailClient";
-import { log }                     from "@/lib/log";
+import { createClient }                   from "@/utils/supabase/client";
+import type { PostItem }                  from "@/components/lounge/InlinePost";
+import type { SmokeLogData }              from "@/components/lounge/PostDetailClient";
+import type { Comment }                   from "@/components/lounge/PostDetailClient";
+import type { ForumCategory }             from "@/lib/data/forum";
+import { computeReportNumbers }           from "@/lib/data/burn-report-number";
+import { getBurnReportThirdsTaggedBatch } from "@/lib/data/burn-report-thirds-batch";
+import { log }                            from "@/lib/log";
 
 /* ── Feedback-card post shape returned by fetchFeedbackPosts below. */
 export interface FeedbackPost {
@@ -71,6 +73,205 @@ const POST_SELECT =
   "id, title, content, created_at, user_id, category_id, image_url, is_locked, is_system, smoke_log_id, status, " +
   "forum_post_likes(count), forum_comments(count)";
 
+type RawPost = {
+  id:                string;
+  title:             string;
+  content:           string;
+  created_at:        string;
+  user_id:           string | null;
+  category_id:       string | null;
+  image_url:         string | null;
+  is_locked:         boolean;
+  is_system:         boolean;
+  smoke_log_id:      string | null;
+  status:            string | null;
+  forum_post_likes:  { count: number }[];
+  forum_comments:    { count: number }[];
+};
+
+type RawSmokeLog = Record<string, unknown> & {
+  id:             string;
+  flavor_tag_ids: string[] | null;
+  user_id:        string | null;
+  burn_report:    Array<Record<string, unknown>> | null;
+};
+
+/* Index thirds-enabled burn reports in a fetched smoke-log batch.
+   burn_report arrives as a to-one join that Supabase may type as an
+   array — handle both. Pure; exported for unit tests. */
+export function buildThirdsIndex(rawLogs: RawSmokeLog[]): {
+  burnReportIds:        string[];
+  reportIdToSmokeLogId: Record<string, string>;
+} {
+  const burnReportIds: string[] = [];
+  const reportIdToSmokeLogId: Record<string, string> = {};
+  for (const logRow of rawLogs) {
+    const brArr = Array.isArray(logRow.burn_report)
+      ? logRow.burn_report
+      : logRow.burn_report ? [logRow.burn_report] : [];
+    const br = brArr[0] as { id?: string; thirds_enabled?: boolean } | undefined;
+    if (br?.id && br.thirds_enabled) {
+      burnReportIds.push(br.id);
+      reportIdToSmokeLogId[br.id] = logRow.id;
+    }
+  }
+  return { burnReportIds, reportIdToSmokeLogId };
+}
+
+/* ── Shared enrichment: author profiles + liked status + smoke logs
+   (with flavor tags, report numbers, per-third notes) + feedback
+   votes, normalized to PostItem[]. Used by the feed pages and the
+   shell's pinned posts so every surface renders identical cards. ── */
+async function enrichPostBatch(
+  supabase:           ReturnType<typeof createClient>,
+  batch:              RawPost[],
+  userId:             string,
+  feedbackCategoryId: string | null,
+): Promise<{ posts: PostItem[]; likedIds: string[] }> {
+  if (batch.length === 0) return { posts: [], likedIds: [] };
+
+  /* ── Author profiles ──────────────────────────────────────────── */
+  const authorIds = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
+  type AuthorEntry = {
+    display_name:    string | null;
+    avatar_url:      string | null;
+    badge:           string | null;
+    membership_tier: string | null;
+  };
+  const nameMap: Record<string, AuthorEntry> = {};
+  if (authorIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from("public_profiles")
+      .select("id, display_name, avatar_url, badge, membership_tier")
+      .in("id", authorIds);
+    for (const p of (profiles ?? []) as Array<{ id: string } & AuthorEntry>) {
+      nameMap[p.id] = {
+        display_name:    p.display_name,
+        avatar_url:      p.avatar_url,
+        badge:           p.badge           ?? null,
+        membership_tier: p.membership_tier ?? null,
+      };
+    }
+  }
+
+  /* ── Liked status for the viewer ──────────────────────────────── */
+  const postIds  = batch.map((p) => p.id);
+  const likedSet = new Set<string>();
+  {
+    const { data: likes } = await supabase
+      .from("forum_post_likes")
+      .select("post_id")
+      .eq("user_id", userId)
+      .in("post_id", postIds);
+    for (const l of (likes ?? []) as { post_id: string }[]) likedSet.add(l.post_id);
+  }
+
+  /* ── Smoke logs + flavor tags + report numbers + thirds ───────── */
+  const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
+  const smokeLogMap: Record<string, SmokeLogData> = {};
+  if (smokeLogIds.length > 0) {
+    const [logsRes, tagsRes, reportNumberMap] = await Promise.all([
+      supabase
+        .from("smoke_logs")
+        .select(`
+          id, smoked_at, overall_rating, draw_rating, burn_rating,
+          construction_rating, flavor_rating, pairing_drink, pairing_food,
+          location, occasion, smoke_duration_minutes, review_text, photo_urls,
+          content_video_id, flavor_tag_ids, user_id, cigar_id,
+          cigar:cigar_catalog(brand, series, format),
+          burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
+        `)
+        .in("id", smokeLogIds),
+      /* Full tag list (small, static table): covers both the logs'
+         own flavor_tag_ids and the per-third tag joins below. */
+      supabase.from("flavor_tags").select("id, name"),
+      computeReportNumbers(supabase, smokeLogIds),
+    ]);
+
+    const rawLogs = (logsRes.data ?? []) as unknown as RawSmokeLog[];
+
+    const tagNameMap: Record<string, string> = {};
+    for (const t of (tagsRes.data ?? []) as { id: string; name: string }[]) {
+      tagNameMap[t.id] = t.name;
+    }
+
+    for (const logRow of rawLogs) {
+      const author = logRow.user_id ? nameMap[logRow.user_id as string] : null;
+      smokeLogMap[logRow.id] = {
+        ...(logRow as unknown as SmokeLogData),
+        flavor_tag_names: (logRow.flavor_tag_ids ?? [])
+          .map((id) => tagNameMap[id])
+          .filter(Boolean) as string[],
+        author_display_name: author?.display_name ?? null,
+        author_city:         null,
+        report_number:       reportNumberMap[logRow.id] ?? null,
+      };
+    }
+
+    /* Per-third tasting notes for thirds-enabled reports. */
+    const { burnReportIds, reportIdToSmokeLogId } = buildThirdsIndex(rawLogs);
+    if (burnReportIds.length > 0) {
+      const taggedByReport = await getBurnReportThirdsTaggedBatch(
+        supabase, burnReportIds, tagNameMap,
+      );
+      for (const [brId, rows] of Object.entries(taggedByReport)) {
+        const slid = reportIdToSmokeLogId[brId];
+        const cur  = smokeLogMap[slid];
+        if (!cur) continue;
+        const brArr = Array.isArray(cur.burn_report)
+          ? cur.burn_report
+          : (cur.burn_report ? [cur.burn_report] : []);
+        cur.burn_report = brArr.map((b) => ({ ...b, thirds_tagged_rows: rows })) as typeof cur.burn_report;
+      }
+    }
+  }
+
+  /* ── Vote tallies for feedback posts in this batch ────────────── */
+  const feedbackPostIds = feedbackCategoryId
+    ? batch.filter((p) => p.category_id === feedbackCategoryId).map((p) => p.id)
+    : [];
+  const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
+  if (feedbackPostIds.length > 0) {
+    const { data: votes } = await supabase
+      .from("forum_post_votes")
+      .select("post_id, user_id, value")
+      .in("post_id", feedbackPostIds);
+    for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
+      const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+      if (v.value === 1)  cur.upvotes   += 1;
+      if (v.value === -1) cur.downvotes += 1;
+      if (v.user_id === userId) cur.userVote = v.value as 1 | -1;
+      voteMap[v.post_id] = cur;
+    }
+  }
+
+  /* ── Normalize ────────────────────────────────────────────────── */
+  const posts: PostItem[] = batch.map((p) => {
+    const v = voteMap[p.id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
+    return {
+      id:            p.id,
+      title:         p.title,
+      content:       p.content,
+      created_at:    p.created_at,
+      user_id:       p.user_id,
+      category_id:   p.category_id ?? null,
+      author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
+      like_count:    p.forum_post_likes[0]?.count ?? 0,
+      comment_count: p.forum_comments[0]?.count   ?? 0,
+      image_url:     p.image_url ?? null,
+      is_locked:     p.is_locked,
+      is_system:     p.is_system,
+      smoke_log:     p.smoke_log_id ? (smokeLogMap[p.smoke_log_id] ?? null) : null,
+      upvotes:       v.upvotes,
+      downvotes:     v.downvotes,
+      user_vote:     v.userVote,
+      status:        (p.status === "closed" ? "closed" : "open") as "open" | "closed",
+    };
+  });
+
+  return { posts, likedIds: [...likedSet] };
+}
+
 export async function fetchLoungeFeedPage({
   categoryId,
   feedbackCategoryId,
@@ -82,22 +283,6 @@ export async function fetchLoungeFeedPage({
 }: FetchLoungeFeedArgs): Promise<CategoryFeedPage> {
   const supabase = createClient();
   const offset   = pageIndex * pageSize;
-
-  type RawPost = {
-    id:                string;
-    title:             string;
-    content:           string;
-    created_at:        string;
-    user_id:           string | null;
-    category_id:       string | null;
-    image_url:         string | null;
-    is_locked:         boolean;
-    is_system:         boolean;
-    smoke_log_id:      string | null;
-    status:            string | null;
-    forum_post_likes:  { count: number }[];
-    forum_comments:    { count: number }[];
-  };
 
   /* ── 1. Posts (excluding pinned) ──────────────────────────────── */
   let batch: RawPost[] = [];
@@ -156,137 +341,98 @@ export async function fetchLoungeFeedPage({
     return { posts: [], likedIds: [], hasMore: false };
   }
 
-  /* ── 2. Author profiles ─────────────────────────────────────── */
-  const authorIds = [...new Set(batch.map((p) => p.user_id).filter(Boolean) as string[])];
-  type AuthorEntry = {
-    display_name:    string | null;
-    avatar_url:      string | null;
-    badge:           string | null;
-    membership_tier: string | null;
-  };
-  const nameMap: Record<string, AuthorEntry> = {};
-  if (authorIds.length > 0) {
-    const { data: profiles } = await supabase
-      .from("public_profiles")
-      .select("id, display_name, avatar_url, badge, membership_tier")
-      .in("id", authorIds);
-    for (const p of (profiles ?? []) as Array<{ id: string } & AuthorEntry>) {
-      nameMap[p.id] = {
-        display_name:    p.display_name,
-        avatar_url:      p.avatar_url,
-        badge:           p.badge           ?? null,
-        membership_tier: p.membership_tier ?? null,
-      };
-    }
-  }
-
-  /* ── 3. Liked status for the viewer ───────────────────────────── */
-  const newPostIds = batch.map((p) => p.id);
-  const likedSet   = new Set<string>();
-  if (newPostIds.length > 0) {
-    const { data: likes } = await supabase
-      .from("forum_post_likes")
-      .select("post_id")
-      .eq("user_id", userId)
-      .in("post_id", newPostIds);
-    for (const l of (likes ?? []) as { post_id: string }[]) likedSet.add(l.post_id);
-  }
-
-  /* ── 4. Smoke logs + flavor tags (verdict card data) ──────────── */
-  const smokeLogIds = batch.map((p) => p.smoke_log_id).filter(Boolean) as string[];
-  const smokeLogMap: Record<string, SmokeLogData> = {};
-  if (smokeLogIds.length > 0) {
-    const { data: logs } = await supabase
-      .from("smoke_logs")
-      .select(`
-        id, smoked_at, overall_rating, draw_rating, burn_rating,
-        construction_rating, flavor_rating, pairing_drink, pairing_food,
-        location, occasion, smoke_duration_minutes, review_text, photo_urls,
-        content_video_id, flavor_tag_ids, user_id, cigar_id,
-        cigar:cigar_catalog(brand, series, format),
-        burn_report:burn_reports(thirds_enabled, third_beginning, third_middle, third_end)
-      `)
-      .in("id", smokeLogIds);
-
-    const rawLogs = (logs ?? []) as Array<
-      Record<string, unknown> & {
-        id:               string;
-        flavor_tag_ids:   string[] | null;
-        user_id:          string | null;
-        burn_report:      Array<Record<string, unknown>> | null;
-      }
-    >;
-
-    const allTagIds = [...new Set(rawLogs.flatMap((l) => l.flavor_tag_ids ?? []))];
-    const tagNameMap: Record<string, string> = {};
-    if (allTagIds.length > 0) {
-      const { data: tags } = await supabase
-        .from("flavor_tags")
-        .select("id, name")
-        .in("id", allTagIds);
-      for (const t of (tags ?? []) as { id: string; name: string }[]) tagNameMap[t.id] = t.name;
-    }
-
-    for (const logRow of rawLogs) {
-      const author = logRow.user_id ? nameMap[logRow.user_id as string] : null;
-      smokeLogMap[logRow.id] = {
-        ...(logRow as unknown as SmokeLogData),
-        flavor_tag_names: (logRow.flavor_tag_ids ?? [])
-          .map((id) => tagNameMap[id])
-          .filter(Boolean) as string[],
-        author_display_name: author?.display_name ?? null,
-        author_city:         null,
-      };
-    }
-  }
-
-  /* ── 5. Vote tallies for feedback posts in this batch ─────────── */
-  const feedbackPostIds = feedbackCategoryId
-    ? batch.filter((p) => p.category_id === feedbackCategoryId).map((p) => p.id)
-    : [];
-  const voteMap: Record<string, { upvotes: number; downvotes: number; userVote: 0 | 1 | -1 }> = {};
-  if (feedbackPostIds.length > 0) {
-    const { data: votes } = await supabase
-      .from("forum_post_votes")
-      .select("post_id, user_id, value")
-      .in("post_id", feedbackPostIds);
-    for (const v of (votes ?? []) as { post_id: string; user_id: string; value: number }[]) {
-      const cur = voteMap[v.post_id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
-      if (v.value === 1)  cur.upvotes   += 1;
-      if (v.value === -1) cur.downvotes += 1;
-      if (v.user_id === userId) cur.userVote = v.value as 1 | -1;
-      voteMap[v.post_id] = cur;
-    }
-  }
-
-  /* ── 6. Normalize ─────────────────────────────────────────────── */
-  const posts: PostItem[] = batch.map((p) => {
-    const v = voteMap[p.id] ?? { upvotes: 0, downvotes: 0, userVote: 0 as 0 | 1 | -1 };
-    return {
-      id:            p.id,
-      title:         p.title,
-      content:       p.content,
-      created_at:    p.created_at,
-      user_id:       p.user_id,
-      category_id:   p.category_id ?? null,
-      author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
-      like_count:    p.forum_post_likes[0]?.count ?? 0,
-      comment_count: p.forum_comments[0]?.count   ?? 0,
-      image_url:     p.image_url ?? null,
-      is_locked:     p.is_locked,
-      is_system:     p.is_system,
-      smoke_log:     p.smoke_log_id ? (smokeLogMap[p.smoke_log_id] ?? null) : null,
-      upvotes:       v.upvotes,
-      downvotes:     v.downvotes,
-      user_vote:     v.userVote,
-      status:        (p.status === "closed" ? "closed" : "open") as "open" | "closed",
-    };
-  });
+  /* ── 2. Enrich + normalize (shared with the shell's pinned posts) */
+  const { posts, likedIds } = await enrichPostBatch(supabase, batch, userId, feedbackCategoryId);
 
   return {
     posts,
-    likedIds: [...likedSet],
-    hasMore:  batch.length >= pageSize,
+    likedIds,
+    hasMore: batch.length >= pageSize,
+  };
+}
+
+/* ──────────────────────────────────────────────────────────────────
+   Lounge shell data
+
+   Everything the static /lounge shell needs besides the feed pages:
+   categories (chips + composer), pinned posts (fully enriched so
+   PinnedPostCard renders identically to feed cards), the rules post
+   with the viewer's agreement state, and the founder badge.
+
+   Two waves: the second needs category ids (feedback category for
+   vote enrichment) and the rules post id (agreement counts).
+   ────────────────────────────────────────────────────────────── */
+
+export interface LoungeShellData {
+  categories:     ForumCategory[];
+  pinnedPosts:    PostItem[];
+  rulesPost:      { id: string; title: string; content: string } | null;
+  hasUnlocked:    boolean;
+  agreementCount: number;
+  isFounder:      boolean;
+}
+
+export async function fetchLoungeShellData(userId: string): Promise<LoungeShellData> {
+  const supabase = createClient();
+
+  /* Wave 1 — independent reads. */
+  const [categoriesRes, pinnedRes, rulesPostRes, profileRes] = await Promise.all([
+    supabase
+      .from("forum_categories")
+      .select("id, name, slug, description, sort_order, is_locked, is_gate, is_feedback")
+      .order("sort_order"),
+    supabase
+      .from("forum_posts")
+      .select(POST_SELECT)
+      .eq("is_system", false)
+      .eq("is_pinned", true)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("forum_posts")
+      .select("id, title, content")
+      .eq("is_system", true)
+      .eq("is_pinned", true)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("assigned_badges")
+      .eq("id", userId)
+      .maybeSingle(),
+  ]);
+
+  if (categoriesRes.error) throw new Error(categoriesRes.error.message);
+  if (pinnedRes.error)     throw new Error(pinnedRes.error.message);
+
+  const categories = (categoriesRes.data ?? []) as ForumCategory[];
+  const rulesPost  = rulesPostRes.data ?? null;
+  const badges     = (profileRes.data?.assigned_badges ?? []) as string[];
+  const feedbackCategoryId = categories.find((c) => c.is_feedback)?.id ?? null;
+
+  /* Wave 2 — needs wave-1 ids. */
+  const [pinned, userAgreedRes, totalAgreedRes] = await Promise.all([
+    enrichPostBatch(
+      supabase,
+      (pinnedRes.data ?? []) as unknown as RawPost[],
+      userId,
+      feedbackCategoryId,
+    ),
+    rulesPost
+      ? supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
+          .eq("user_id", userId).eq("post_id", rulesPost.id)
+      : Promise.resolve({ count: 0 }),
+    rulesPost
+      ? supabase.from("forum_post_likes").select("*", { count: "exact", head: true })
+          .eq("post_id", rulesPost.id)
+      : Promise.resolve({ count: 0 }),
+  ]);
+
+  return {
+    categories,
+    pinnedPosts:    pinned.posts,
+    rulesPost,
+    hasUnlocked:    (userAgreedRes.count ?? 0) > 0,
+    agreementCount: totalAgreedRes.count ?? 0,
+    isFounder:      badges.includes("founder"),
   };
 }
 

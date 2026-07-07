@@ -25,3 +25,10 @@ describe("keyFor.loungeFeed", () => {
     );
   });
 });
+
+describe("keyFor.loungeShell", () => {
+  it("is keyed per user", () => {
+    expect(keyFor.loungeShell("user-1")).toEqual(["lounge-shell", "user-1"]);
+    expect(keyFor.loungeShell("user-1")).not.toEqual(keyFor.loungeShell("user-2"));
+  });
+});
