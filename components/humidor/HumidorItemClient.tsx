@@ -14,7 +14,7 @@ import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect"
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
-import { agingDays }               from "@/lib/format";
+import { agingDays, todayLocalYmd } from "@/lib/format";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -146,7 +146,7 @@ function EditSheet({
   /* Escape-key dismissal — listener only attached while open. */
   useEscapeKey(isOpen, onClose);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocalYmd();
 
   const [purchaseDate, setPurchaseDate] = useState(item.purchase_date ?? "");
   const [priceDollars, setPriceDollars] = useState(
@@ -370,7 +370,7 @@ function SmokeModal({
   /* Escape-key dismissal — listener only attached while open. */
   useEscapeKey(isOpen, onClose);
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = todayLocalYmd();
   const [smokedAt, setSmokedAt] = useState(today);
   const [rating, setRating] = useState<number>(8);
   const [reviewText, setReviewText] = useState("");
