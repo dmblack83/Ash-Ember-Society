@@ -155,10 +155,13 @@ export async function GET(
   const { data: pngBuf, width, height } = await renderSquarePng(svg);
   console.log(`[share-image] page=${page} out=${width}x${height}`);
 
+  /* no-store: ShareReportButton prefetches this on mount, so a cached
+     response would serve a pre-edit render for up to the max-age after
+     the user edits the report and re-exports. Regenerating is the point. */
   return new NextResponse(new Uint8Array(pngBuf), {
     headers: {
       "Content-Type":  "image/png",
-      "Cache-Control": "private, max-age=300",
+      "Cache-Control": "no-store",
     },
   });
 }

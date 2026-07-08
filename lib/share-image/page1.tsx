@@ -1,6 +1,7 @@
 import React from "react";
 import { T }            from "./tokens";
 import { gradeFor, starFillPct } from "./helpers";
+import { smokedAtToLocalDate }   from "@/lib/format";
 import type { ShareImageProps }  from "./types";
 
 const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
@@ -136,9 +137,7 @@ export function buildPage1(p: ShareImageProps): React.ReactElement {
   const grade     = p.overallRating != null ? gradeFor(p.overallRating) : "—";
   const firstName = (p.displayName?.trim().split(/\s+/)[0] ?? "").toUpperCase() || null;
 
-  const smokedDate = new Date(
-    p.smokedAt.length === 10 ? p.smokedAt + "T00:00:00" : p.smokedAt
-  );
+  const smokedDate = smokedAtToLocalDate(p.smokedAt) ?? new Date();
   const mastheadDate = smokedDate
     .toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })
     .toUpperCase()

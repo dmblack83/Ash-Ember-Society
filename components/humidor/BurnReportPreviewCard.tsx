@@ -22,6 +22,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { smokedAtToLocalDate } from "@/lib/format";
 
 /* Same grade thresholds as VerdictCard. Kept in sync so the two
    surfaces always show the same word for the same score. */
@@ -34,8 +35,8 @@ function gradeFor(v: number): string {
 }
 
 function formatDate(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
+  const d = smokedAtToLocalDate(iso);
+  if (!d) return "";
   return d
     .toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
     .toUpperCase();

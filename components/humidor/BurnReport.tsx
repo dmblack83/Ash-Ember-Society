@@ -19,6 +19,7 @@ import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
+import { todayLocalYmd } from "@/lib/format";
 import {
   initEditPhotos,
   reconcileEditPhotos,
@@ -138,7 +139,7 @@ export interface BurnReportExisting extends PersistableForm {
 
 function defaultForm(): FormData {
   return {
-    smoked_at: new Date().toISOString().split("T")[0],
+    smoked_at: todayLocalYmd(),
     location: "",
     occasion: "",
     pairing_drink: "",

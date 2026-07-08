@@ -19,6 +19,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { smokedAtToLocalDate } from "@/lib/format";
 
 /* ------------------------------------------------------------------
    Helpers
@@ -384,9 +385,7 @@ export function VerdictCard({
   const cityUpper = city?.trim().toUpperCase() || null;
 
   // Masthead date: "MAY 02 2026" — uppercase, mono, no commas.
-  const smokedDate = smokedAt
-    ? new Date(smokedAt.length === 10 ? smokedAt + "T00:00:00" : smokedAt)
-    : new Date();
+  const smokedDate = (smokedAt ? smokedAtToLocalDate(smokedAt) : null) ?? new Date();
   const mastheadDate = smokedDate
     .toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" })
     .toUpperCase()
