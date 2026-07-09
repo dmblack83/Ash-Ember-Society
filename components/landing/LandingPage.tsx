@@ -84,6 +84,14 @@ export function Navbar() {
             </a>
           ))}
           <a
+            href="/login"
+            style={{ fontSize: 14, fontWeight: 500, color: "var(--muted-foreground)", textDecoration: "none", transition: "color 0.2s" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--gold)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted-foreground)")}
+          >
+            Sign In
+          </a>
+          <a
             href="/signup"
             style={{
               padding:        "10px 20px",
@@ -176,6 +184,27 @@ export function Navbar() {
                 }}
               >
                 Join the Society
+              </a>
+              <a
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                style={{
+                  marginTop:       8,
+                  padding:         "14px",
+                  textAlign:       "center",
+                  fontSize:        15,
+                  fontWeight:      500,
+                  border:          "1px solid rgba(193,120,23,0.5)",
+                  color:           "var(--primary)",
+                  textDecoration:  "none",
+                  borderRadius:    "2px",
+                  minHeight:       44,
+                  display:         "flex",
+                  alignItems:      "center",
+                  justifyContent:  "center",
+                }}
+              >
+                Sign In
               </a>
             </div>
           </motion.div>
