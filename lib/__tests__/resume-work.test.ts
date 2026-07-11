@@ -4,6 +4,7 @@ import {
   decideStaleRevive,
   MIN_RESUME_INTERVAL_MS,
   RESUME_REFRESH_THRESHOLD_MS,
+  RESUME_DATA_REVALIDATE_THRESHOLD_MS,
   HEARTBEAT_STALE_MS,
   type ResumeInput,
   type ResumeEffect,
@@ -48,22 +49,33 @@ describe("decideResumeWork", () => {
     expect(
       decideResumeWork({
         ...base,
-        hiddenAt: NOW - (RESUME_REFRESH_THRESHOLD_MS - 1),
+        hiddenAt: NOW - (RESUME_DATA_REVALIDATE_THRESHOLD_MS - 1),
       }),
     ).toEqual({ act: false, effects: [] });
   });
 
-  it("after a meaningful gap on iOS standalone, warms auth and checks for a new SW", () => {
+  it("after a medium gap (past data threshold, short of the 5-min gate) only revalidates data", () => {
+    // The user was away long enough that other users' content likely
+    // changed, but not long enough to justify auth pre-warm / SW checks.
+    expect(
+      decideResumeWork({
+        ...base,
+        hiddenAt: NOW - (RESUME_REFRESH_THRESHOLD_MS - 1),
+      }),
+    ).toEqual({ act: true, effects: ["revalidate-data"] });
+  });
+
+  it("after a meaningful gap on iOS standalone, warms auth, checks for a new SW, revalidates data", () => {
     expect(decideResumeWork(base)).toEqual({
       act: true,
-      effects: ["refresh-session", "service-worker-update"],
+      effects: ["refresh-session", "service-worker-update", "revalidate-data"],
     });
   });
 
-  it("after a meaningful gap off iOS, only checks for a new SW (no auth pre-warm)", () => {
+  it("after a meaningful gap off iOS, checks for a new SW and revalidates data (no auth pre-warm)", () => {
     expect(decideResumeWork({ ...base, iosStandalone: false })).toEqual({
       act: true,
-      effects: ["service-worker-update"],
+      effects: ["service-worker-update", "revalidate-data"],
     });
   });
 
@@ -71,7 +83,13 @@ describe("decideResumeWork", () => {
     // router.refresh() on resume left the App Router pending on a cold
     // socket (~15s), queuing navigation to server-coupled routes. Resume
     // work must stay limited to non-blocking, fire-and-forget effects.
-    const allowed: ResumeEffect[] = ["refresh-session", "service-worker-update"];
+    // "revalidate-data" qualifies: SWR background revalidation of mounted
+    // keys never touches the App Router.
+    const allowed: ResumeEffect[] = [
+      "refresh-session",
+      "service-worker-update",
+      "revalidate-data",
+    ];
     for (const iosStandalone of [true, false]) {
       const work = decideResumeWork({ ...base, iosStandalone });
       for (const effect of work.effects) {
