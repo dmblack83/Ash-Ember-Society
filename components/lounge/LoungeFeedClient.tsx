@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import useSWRInfinite         from "swr/infinite";
 import { useSearchParams }    from "next/navigation";
 import dynamic                from "next/dynamic";
@@ -134,22 +134,21 @@ export function LoungeFeedClient({
     },
   );
 
-  /* Stale-while-revalidate on every chip/view switch. Cached pages
-     paint instantly; a background revalidation of the switched-to key
-     brings in anything new — a post just composed into that category,
-     someone else's post since the pages were cached, or stale pages
-     when returning to an earlier key (the hook never unmounts, so SWR
-     would otherwise re-serve stale data forever). First run is
-     skipped: the initial key does its own fresh fetch. Brand-new keys
-     dedupe with their in-flight first fetch, so this adds no extra
-     request there. */
+  /* Stale-while-revalidate on mount AND on every chip/view switch.
+     Cached pages paint instantly; a background revalidation of the
+     active key brings in anything new — a post just composed into that
+     category, someone else's post since the pages were cached, or
+     stale pages when returning to an earlier key.
+
+     Mount is NOT skipped, on purpose: with the persistent localStorage
+     SWR cache + revalidateFirstPage:false, a cached mount serves the
+     stored pages with no background check at all — the "force close
+     and still see the old feed" bug. On a brand-new key (nothing
+     cached) this mutate dedupes with the in-flight first fetch, so it
+     adds no extra request there. */
   const feedKeyId = `${activeCategoryId ?? "all"}|${filter}|${sort}`;
-  const prevKeyId = useRef<string | null>(null);
   useEffect(() => {
-    if (prevKeyId.current !== null && prevKeyId.current !== feedKeyId) {
-      mutateFeed();
-    }
-    prevKeyId.current = feedKeyId;
+    void mutateFeed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedKeyId]);
 

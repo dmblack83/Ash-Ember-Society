@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useSWRConfig } from "swr";
 import { createClient } from "@/utils/supabase/client";
 import { decideResumeWork, decideStaleRevive } from "@/lib/resume-work";
 
@@ -11,12 +12,14 @@ import { decideResumeWork, decideStaleRevive } from "@/lib/resume-work";
    on resume or on a stale relaunch. That refresh re-rendered the current
    SSR route on a cold socket (~15s) and left the App Router pending, which
    queued navigation to server-coupled routes (tap Home → nothing → snaps
-   in ~15s later) while static client shells kept working. Freshness is
-   already covered by SWR-revalidate-on-navigation and Supabase
-   autoRefreshToken, so the gating + effect logic now lives in the pure,
-   unit-tested lib/resume-work.ts and is limited to fire-and-forget effects
-   that can't wedge the router. See that file's header for the full
-   write-up. */
+   in ~15s later) while static client shells kept working. The gating +
+   effect logic lives in the pure, unit-tested lib/resume-work.ts and is
+   limited to fire-and-forget effects that can't wedge the router.
+
+   What it DOES do for freshness: after a real background gap it fires a
+   background SWR revalidation of every mounted key (the same action as
+   pull-to-refresh). See lib/resume-work.ts for why "SWR revalidates on
+   navigation" was not enough on its own. */
 
 /* Performance-mark labels for diagnosing warm-resume issues. Marks land on
    the Performance Timeline and feed Vercel Speed Insights' RUM. View in
@@ -24,6 +27,7 @@ import { decideResumeWork, decideStaleRevive } from "@/lib/resume-work";
 const MARK_RESUME             = "ae:resume";
 const MARK_IOS_RESUME_REFRESH = "ae:ios-resume-refresh";
 const MARK_STALE_REVIVE       = "ae:stale-revive";
+const MARK_DATA_REVALIDATE    = "ae:resume-revalidate-data";
 
 /* JS-heap-eviction detection.
 
@@ -73,6 +77,10 @@ function checkForServiceWorkerUpdate() {
 }
 
 export function ResumeHandler() {
+  /* Root layout mounts this inside SWRProvider, so this is the app-wide
+     SWR cache — global mutate here reaches every mounted key. */
+  const { mutate } = useSWRConfig();
+
   useEffect(() => {
     let lastResume = 0;
     let hiddenAt: number | null = null;
@@ -141,6 +149,16 @@ export function ResumeHandler() {
       if (work.effects.includes("service-worker-update")) {
         checkForServiceWorkerUpdate();
       }
+      if (work.effects.includes("revalidate-data")) {
+        /* Same action as pull-to-refresh: background-revalidate every
+           MOUNTED SWR key. Cached data keeps rendering while fresh data
+           streams in; unmounted keys are untouched. Fire-and-forget —
+           never blocks the router. */
+        safeMark(MARK_DATA_REVALIDATE);
+        void mutate(() => true).catch(() => {
+          /* revalidation is best-effort; SWR owns retries */
+        });
+      }
     }
 
     function onVisibility() {
@@ -172,7 +190,7 @@ export function ResumeHandler() {
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("pageshow", onPageShow);
     };
-  }, []);
+  }, [mutate]); /* stable in SWR; listed for lint correctness */
 
   return null;
 }
