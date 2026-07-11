@@ -303,11 +303,26 @@ export function BottomSheet({
 
         {header && <div className="flex-shrink-0">{header}</div>}
 
-        {/* Scrollable body (+ optional overlay layer, e.g. carets) */}
-        <div className="relative flex-1 min-h-0">
+        {/* Scrollable body (+ optional overlay layer, e.g. carets).
+
+            Sizing is pure flex — flex-basis auto at BOTH levels, no
+            percentage heights. The desktop "auto" mode gives the sheet
+            height:fit-content, and the two obvious alternatives each
+            break one engine there:
+            - flex-1 (basis 0): Safari computes the container's
+              intrinsic height with basis-0 items contributing 0, so
+              the body collapses to 0px (the "New Post modal is empty
+              on desktop Safari" bug).
+            - basis auto + h-full scroller: Chromium only resolves a
+              child percentage against a flex item with a DEFINITE
+              basis, so tall content overflows unscrollably.
+            basis-auto items + a flex-column wrapper sizes the scroller
+            through flex layout alone; verified identical in WebKit and
+            Chromium across auto/definite heights, short/tall content. */}
+        <div className="relative flex-auto min-h-0 flex flex-col">
           <div
             ref={innerScrollRef}
-            className="h-full overflow-y-auto overflow-x-hidden"
+            className="flex-auto min-h-0 overflow-y-auto overflow-x-hidden"
             style={{
               overscrollBehavior:      "contain",
               WebkitOverflowScrolling: "touch",
