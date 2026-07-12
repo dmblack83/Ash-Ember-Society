@@ -5,6 +5,7 @@ import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
 import { fetchBurnReportsBundle } from "@/lib/data/burn-reports-fetchers";
 import { BurnReportsClient } from "@/components/humidor/BurnReportsClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import BurnReportsLoading from "./loading";
 
 /**
@@ -25,11 +26,13 @@ export function BurnReportsRoute() {
 
   if (!allowed || !session || data === undefined) return <BurnReportsLoading />;
   return (
-    <BurnReportsClient
-      reports={data.reports}
-      flavorTags={data.flavorTags}
-      displayName={data.displayName}
-      city={data.city}
-    />
+    <PullToRefresh>
+      <BurnReportsClient
+        reports={data.reports}
+        flavorTags={data.flavorTags}
+        displayName={data.displayName}
+        city={data.city}
+      />
+    </PullToRefresh>
   );
 }

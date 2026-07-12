@@ -13,7 +13,6 @@
    ------------------------------------------------------------------ */
 
 import { IntentLink } from "@/components/ui/IntentLink";
-import { RefreshButton } from "@/components/ui/RefreshButton";
 
 interface Props {
   displayName: string;
@@ -133,24 +132,6 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
         >
           {c.sub}
         </span>
-        <RefreshButton
-          style={{
-            background:              "none",
-            border:                  "none",
-            color:                   "var(--gold,#D4A04A)",
-            padding:                 8,
-            borderRadius:            999,
-            cursor:                  "pointer",
-            touchAction:             "manipulation",
-            WebkitTapHighlightColor: "transparent",
-            display:                 "flex",
-            alignItems:              "center",
-            justifyContent:          "center",
-            flexShrink:              0,
-          }}
-          className=""
-          ariaLabel="Refresh home"
-        />
       </div>
     </div>
     </header>

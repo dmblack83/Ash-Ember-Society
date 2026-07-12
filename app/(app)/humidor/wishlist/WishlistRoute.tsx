@@ -5,6 +5,7 @@ import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
 import { fetchWishlistItems } from "@/lib/data/humidor-fetchers";
 import { WishlistClient } from "@/components/humidor/WishlistClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { WishlistShellSkeleton } from "./_skeletons";
 
 /**
@@ -24,5 +25,9 @@ export function WishlistRoute() {
   );
 
   if (!allowed || !session || items === undefined) return <WishlistShellSkeleton />;
-  return <WishlistClient initialItems={items} userId={session.userId} />;
+  return (
+    <PullToRefresh>
+      <WishlistClient initialItems={items} userId={session.userId} />
+    </PullToRefresh>
+  );
 }

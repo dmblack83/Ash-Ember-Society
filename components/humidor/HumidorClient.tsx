@@ -413,8 +413,9 @@ function EmptyState({ hasWishlist, onAdd }: { hasWishlist: boolean; onAdd: () =>
    ─────────────────────────────────────────────────────────────────
    Receives server-fetched data as props so the cigar grid renders
    immediately with the page — no loading skeleton on initial render.
-   The manual refresh button re-fetches client-side and shows the
-   skeleton only during that refresh.
+   Manual refresh is the route-level pull-to-refresh gesture; the
+   internal refresh() below re-fetches client-side after add/scan
+   flows.
    ------------------------------------------------------------------ */
 
 interface HumidorClientProps {
@@ -475,9 +476,9 @@ export function HumidorClient({
   );
 
   /*
-   * Refresh both keys together — used by the toolbar refresh button
-   * and after add/scan flows complete. Returns a Promise so callers
-   * can await the refetch if needed.
+   * Refresh both keys together after add/scan flows complete. Returns
+   * a Promise so callers can await the refetch if needed. (User-
+   * initiated refresh is the route-level pull-to-refresh gesture.)
    */
   const refresh = () =>
     Promise.all([mutateItems(), mutateHasWishlist()]);
@@ -639,36 +640,6 @@ export function HumidorClient({
               {/* View toggle pushed to the right */}
               <div className="ml-auto flex items-center gap-2">
                 <ViewToggle view={view} onChange={setView} />
-                {/* Refresh */}
-                <button
-                  type="button"
-                  onClick={() => refresh()}
-                  disabled={loading}
-                  className="btn btn-ghost p-2 flex-shrink-0"
-                  aria-label="Refresh"
-                >
-                  {/* RefreshCw — Lucide's two-arrow circular refresh
-                      glyph. Reads unmistakably as "refresh" at 16px
-                      vs the prior single-arrow loop, which several
-                      users mistook for "history" or "back". */}
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    className={loading ? "animate-spin" : ""}
-                  >
-                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-                    <path d="M21 3v5h-5" />
-                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-                    <path d="M3 21v-5h5" />
-                  </svg>
-                </button>
               </div>
             </div>
           )}

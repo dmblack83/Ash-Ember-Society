@@ -10,6 +10,7 @@ import { fetchAccountProfile } from "@/lib/data/account-fetchers";
 import { getMembershipTier } from "@/lib/membership";
 import type { MembershipTier } from "@/lib/stripe";
 import { AccountClient } from "@/components/account/AccountClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { AccountShellSkeleton } from "./_skeletons";
 
 /**
@@ -54,8 +55,9 @@ export function AccountRoute() {
   const hasStripeCustomer = !!profile?.stripe_customer_id;
 
   return (
-    <AccountClient
-      userId={session.userId}
+    <PullToRefresh>
+      <AccountClient
+        userId={session.userId}
       email={session.email ?? ""}
       memberSince={profile?.created_at ?? null}
       badge={profile?.badge ?? null}
@@ -78,6 +80,7 @@ export function AccountRoute() {
         nextBillingDate:  null,
         currentPeriodEnd: null,
       }}
-    />
+      />
+    </PullToRefresh>
   );
 }
