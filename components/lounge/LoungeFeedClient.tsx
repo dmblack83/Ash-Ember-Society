@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import useSWRInfinite         from "swr/infinite";
+import { useRefreshSignal }   from "@/lib/hooks/use-refresh-signal";
 import { useSearchParams }    from "next/navigation";
 import dynamic                from "next/dynamic";
 import { InlinePost }         from "./InlinePost";
@@ -150,6 +151,12 @@ export function LoungeFeedClient({
     void mutateFeed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feedKeyId]);
+
+  /* Global refresh (pull-to-refresh, resume) must use the BOUND
+     mutate: with revalidateFirstPage:false a global SWR broadcast
+     refetches none of this feed's cached pages, so posts' like and
+     comment counts never moved on pull-to-refresh. */
+  useRefreshSignal(() => mutateFeed());
 
   const pages    = useMemo(() => data ?? [], [data]);
   const posts    = useMemo(() => pages.flatMap((p) => p.posts), [pages]);

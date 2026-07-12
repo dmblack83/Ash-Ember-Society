@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useSWRConfig } from "swr";
 import { createClient } from "@/utils/supabase/client";
 import { decideResumeWork, decideStaleRevive } from "@/lib/resume-work";
+import { emitRefreshSignal } from "@/lib/hooks/use-refresh-signal";
 
 /* ResumeHandler — runs non-blocking resume upkeep when the installed PWA
    returns to the foreground.
@@ -151,13 +152,16 @@ export function ResumeHandler() {
       }
       if (work.effects.includes("revalidate-data")) {
         /* Same action as pull-to-refresh: background-revalidate every
-           MOUNTED SWR key. Cached data keeps rendering while fresh data
-           streams in; unmounted keys are untouched. Fire-and-forget —
-           never blocks the router. */
+           MOUNTED SWR key, plus the refresh signal that forces
+           useSWRInfinite feeds (a plain global mutate never refetches
+           their cached pages — see lib/hooks/use-refresh-signal.ts).
+           Cached data keeps rendering while fresh data streams in;
+           fire-and-forget — never blocks the router. */
         safeMark(MARK_DATA_REVALIDATE);
         void mutate(() => true).catch(() => {
           /* revalidation is best-effort; SWR owns retries */
         });
+        void emitRefreshSignal();
       }
     }
 
