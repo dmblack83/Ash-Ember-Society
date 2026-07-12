@@ -7,6 +7,7 @@ import {
   PullQuote,
   Closer,
 } from "@/components/field-guide/article-components";
+import fg from "@/components/field-guide/field-guide.module.css";
 
 const S = {
   serif: "Inter, system-ui, sans-serif",
@@ -160,7 +161,7 @@ export function Vol02Content() {
           }}
         >
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
-          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 26, letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0 }}>
+          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: "clamp(18px, 5vw, 26px)", letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0, whiteSpace: "nowrap" }}>
             The Primings
           </h3>
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
@@ -178,12 +179,14 @@ export function Vol02Content() {
         </div>
       </div>
 
-      {/* Priming table */}
+      {/* Priming table — scrolls horizontally when the two columns
+          cannot both breathe */}
+      <div className={fg.hscroll} style={{ margin: "24px 0 8px" }}>
       <table
         style={{
           width:          "100%",
+          minWidth:       500,
           borderCollapse: "collapse",
-          margin:         "24px 0 8px",
           fontFamily:     S.sans,
           borderTop:      "1px solid rgba(212,160,74,0.22)",
           borderBottom:   "1px solid rgba(212,160,74,0.22)",
@@ -249,6 +252,7 @@ export function Vol02Content() {
           ))}
         </tbody>
       </table>
+      </div>
 
       <SectionRule />
 
@@ -287,13 +291,10 @@ export function Vol02Content() {
         ].map((role, i) => (
           <div
             key={role.name}
+            className={fg.roleRow}
             style={{
-              display:             "grid",
-              gridTemplateColumns: "minmax(180px, 1fr) 2.4fr",
-              gap:                 28,
-              padding:             "26px 4px",
-              borderBottom:        i < 2 ? "1px solid rgba(212,160,74,0.18)" : "none",
-              alignItems:          "center",
+              padding:      "26px 4px",
+              borderBottom: i < 2 ? "1px solid rgba(212,160,74,0.18)" : "none",
             }}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -328,12 +329,12 @@ export function Vol02Content() {
         Every cigar is a particular dirt. The same seed planted in different soil produces a different cigar; the same soil planted with different seed produces a different cigar. The countries below are the working geography of the modern cigar world.
       </p>
 
-      {/* Lands grid */}
+      {/* Lands grid — one column on mobile; the nowrap region names
+          used to shove the second column entirely off-screen */}
       <div
+        className={fg.landsGrid}
         style={{
           margin:     "32px 0 12px",
-          display:    "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
           borderTop:  "1px solid rgba(212,160,74,0.18)",
           borderLeft: "1px solid rgba(212,160,74,0.18)",
         }}
@@ -352,7 +353,7 @@ export function Vol02Content() {
               <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 22, letterSpacing: "0.02em", margin: 0, color: S.gold, fontStyle: "italic" }}>
                 {land.name}
               </h3>
-              <span style={{ fontFamily: S.sans, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: S.fg3, whiteSpace: "nowrap" }}>
+              <span style={{ fontFamily: S.sans, fontSize: 10.5, letterSpacing: "0.2em", textTransform: "uppercase", color: S.fg3, textAlign: "right" }}>
                 {land.region}
               </span>
             </div>
@@ -379,7 +380,10 @@ export function Vol02Content() {
         <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 22, textAlign: "center", margin: "0 0 22px", color: S.fg1 }}>
           From <em style={{ color: S.gold, fontStyle: "italic", fontWeight: 500 }}>Candela</em> to <em style={{ color: S.gold, fontStyle: "italic", fontWeight: 500 }}>Oscuro</em>
         </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", border: "1px solid rgba(212,160,74,0.18)" }}>
+        {/* Color scale is a left-to-right continuum — it scrolls
+            sideways on mobile instead of wrapping out of order */}
+        <div className={fg.hscroll}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", minWidth: 540, border: "1px solid rgba(212,160,74,0.18)" }}>
           {COLORS.map((c, i) => (
             <div
               key={c.name}
@@ -390,6 +394,7 @@ export function Vol02Content() {
               <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 10.5, marginTop: 2 }}>{c.alt}</div>
             </div>
           ))}
+        </div>
         </div>
       </div>
 

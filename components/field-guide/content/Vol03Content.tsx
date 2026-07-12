@@ -6,6 +6,7 @@ import {
   PullQuote,
   Closer,
 } from "@/components/field-guide/article-components";
+import fg from "@/components/field-guide/field-guide.module.css";
 
 const S = {
   serif: "Inter, system-ui, sans-serif",
@@ -60,7 +61,7 @@ export function Vol03Content() {
         <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 22, margin: "0 0 14px", lineHeight: 1.2, color: S.fg1 }}>
           Length &times; <em style={{ fontStyle: "italic", color: S.gold, fontWeight: 400 }}>Ring Gauge</em>
         </h3>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px 28px", marginTop: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: "20px 28px", marginTop: 20 }}>
           <div style={{ borderTop: "1px solid rgba(212,160,74,0.2)", paddingTop: 14 }}>
             <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 17, marginBottom: 4 }}>Length</div>
             <div style={{ fontFamily: S.sans, fontSize: 13.5, color: S.fg2, lineHeight: 1.55 }}>Foot to cap, in inches. The smoking time. A Robusto runs 5&Prime;; a Churchill, 7&Prime;.</div>
@@ -70,7 +71,7 @@ export function Vol03Content() {
             <div style={{ fontFamily: S.sans, fontSize: 13.5, color: S.fg2, lineHeight: 1.55 }}>Diameter in 64ths of an inch. Bigger numbers = thicker cigar. The wrapper-to-filler ratio.</div>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(212,160,74,0.2)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 12, marginTop: 20, paddingTop: 14, borderTop: "1px solid rgba(212,160,74,0.2)" }}>
           {[
             { rg: "32",  what: "Pencil-thin"   },
             { rg: "42",  what: "Classic Corona" },
@@ -101,10 +102,11 @@ export function Vol03Content() {
       <div style={{ margin: "36px 0 8px", background: "var(--card)", border: "1px solid rgba(212,160,74,0.22)", borderRadius: 6, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, padding: "28px 24px 8px" }}>
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
-          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 26, letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0 }}>Sizes</h3>
+          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: "clamp(18px, 5vw, 26px)", letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0, whiteSpace: "nowrap" }}>Sizes</h3>
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
         </div>
-        <div style={{ padding: "18px 12px 28px", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8 }}>
+        <div className={fg.hscroll}>
+        <div style={{ padding: "18px 12px 28px", display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 8, minWidth: 430 }}>
           {[
             { id: "corona",    label: "Corona",    dim: "5.5\u20136\u2033 \u00d7 42\u201344", h: 170, top: "5.5\u2033", bot: "6\u2033"   },
             { id: "robusto",   label: "Robusto",   dim: "5\u20135.5\u2033 \u00d7 50",         h: 154, top: "5\u2033",   bot: "5.5\u2033" },
@@ -136,10 +138,12 @@ export function Vol03Content() {
             </div>
           ))}
         </div>
+        </div>
       </div>
 
       {/* Sizes table */}
-      <table style={{ width: "100%", borderCollapse: "collapse", margin: "28px 0 8px", fontFamily: S.sans, fontSize: 14 }}>
+      <div className={fg.hscroll} style={{ margin: "28px 0 8px" }}>
+      <table style={{ width: "100%", minWidth: 560, borderCollapse: "collapse", fontFamily: S.sans, fontSize: 14 }}>
         <thead>
           <tr>
             {["Size", "Dimensions", "Character"].map((h) => (
@@ -175,6 +179,7 @@ export function Vol03Content() {
           </tr>
         </tbody>
       </table>
+      </div>
 
       {/* Lancero callout */}
       <div style={{ margin: "32px 0", padding: "28px 30px", background: "var(--card)", border: "1px solid rgba(212,160,74,0.3)", borderRadius: 6, position: "relative" }}>
@@ -190,13 +195,13 @@ export function Vol03Content() {
       {/* Honorable mentions */}
       <div style={{ margin: "32px 0", padding: "22px 26px", borderTop: "1px solid rgba(212,160,74,0.2)", borderBottom: "1px solid rgba(212,160,74,0.2)" }}>
         <div style={{ fontFamily: S.sans, fontSize: 10.5, letterSpacing: "0.22em", textTransform: "uppercase", color: S.fg2, marginBottom: 16, textAlign: "center" }}>Also In The Family</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 0 }}>
+        <div className={fg.trio}>
           {[
             { name: "Lonsdale",      dim: "6\u20136.75\u2033 \u00d7 42\u201344", desc: "A longer, slimmer corona. Classic in the Cuban tradition; missed by anyone who knows what they are missing." },
             { name: "Petit Corona",  dim: "4.5\u20135\u2033 \u00d7 40\u201342",   desc: "The little brother. A thirty-minute smoke when there is time for quality but not for length." },
             { name: "Double Corona", dim: "7.5\u20138\u2033 \u00d7 49\u201352",   desc: "The grand format. Full-bodied, two hours. The Hoyo de Monterrey is legendary." },
-          ].map((item, i) => (
-            <div key={item.name} style={{ textAlign: "center", padding: "0 14px", borderRight: i < 2 ? "1px solid rgba(212,160,74,0.14)" : "none" }}>
+          ].map((item) => (
+            <div key={item.name} style={{ textAlign: "center", padding: "10px 14px" }}>
               <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 16, marginBottom: 4, color: S.fg1 }}>{item.name}</div>
               <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 12, marginBottom: 6 }}>{item.dim}</div>
               <div style={{ fontFamily: S.sans, fontSize: 12.5, color: S.fg3, lineHeight: 1.5 }}>{item.desc}</div>
@@ -221,10 +226,10 @@ export function Vol03Content() {
       <div style={{ margin: "36px 0 8px", background: "var(--card)", border: "1px solid rgba(212,160,74,0.22)", borderRadius: 6, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 18, padding: "28px 24px 8px" }}>
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
-          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 26, letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0 }}>Shapes</h3>
+          <h3 style={{ fontFamily: S.serif, fontWeight: 600, fontSize: "clamp(18px, 5vw, 26px)", letterSpacing: "0.18em", textTransform: "uppercase", color: S.fg1, margin: 0, whiteSpace: "nowrap" }}>Shapes</h3>
           <span style={{ flex: "1 1 auto", height: 1, background: "linear-gradient(90deg, transparent, var(--gold) 12%, var(--gold) 88%, transparent)", display: "block" }} />
         </div>
-        <div style={{ padding: "18px 18px 56px", display: "grid", gridTemplateColumns: "1fr 1px 2fr", gap: 24, alignItems: "stretch" }}>
+        <div className={fg.shapesPlate} style={{ padding: "18px 18px 56px" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 22, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1, marginBottom: 4 }}>Parejo</div>
             <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 13, marginBottom: 22 }}>Straight</div>
@@ -244,7 +249,7 @@ export function Vol03Content() {
               </div>
             </div>
           </div>
-          <div style={{ width: 1, background: "linear-gradient(180deg, transparent, rgba(212,160,74,0.4) 20%, rgba(212,160,74,0.4) 80%, transparent)", alignSelf: "stretch" }} />
+          <div data-divider style={{ width: 1, background: "linear-gradient(180deg, transparent, rgba(212,160,74,0.4) 20%, rgba(212,160,74,0.4) 80%, transparent)", alignSelf: "stretch" }} />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 22, letterSpacing: "0.16em", textTransform: "uppercase", color: S.fg1, marginBottom: 4 }}>Figurado</div>
             <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 13, marginBottom: 22 }}>Tapered</div>
@@ -275,7 +280,7 @@ export function Vol03Content() {
       <p style={{ fontSize: 17, lineHeight: 1.78, color: S.fg1, margin: "0 0 22px" }}>The figurados worth knowing by name:</p>
 
       {/* Shape list */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0, margin: "28px 0 12px", borderTop: "1px solid rgba(212,160,74,0.2)" }}>
+      <div className={fg.duo} style={{ margin: "28px 0 12px", borderTop: "1px solid rgba(212,160,74,0.2)" }}>
         {[
           { name: "Torpedo", gloss: "Straight body, pointed cap", desc: "The pointed cap concentrates smoke into a narrower stream as it crosses the palate, which sharpens the flavor. Also a roller\u2019s flex, harder to make well. A great torpedo is one of the most pleasurable cigars on earth." },
           { name: "Pyramid", gloss: "A true tapered cone", desc: "Tapered from foot to cap. Starts with a wide-open foot for an easy light and a rich initial draw, then narrows toward the cap, so flavor concentration shifts as the cigar burns down." },
@@ -283,8 +288,8 @@ export function Vol03Content() {
           { name: "Belicoso", gloss: "Short, stout, tapered cap", desc: "Smaller than a torpedo, more compact, often a slightly thicker ring gauge. Punchy. The figurado for when there is no time for ceremony." },
           { name: "Diadema", gloss: "A statement piece", desc: "Very long, sometimes ten inches or more, tapered at one or both ends. Not for a Tuesday." },
           { name: "Culebra", gloss: "Three braided panatelas", desc: "Three thin panatelas braided together, untwisted and smoked one at a time. Once a way to give factory workers a daily ration that could not easily be smuggled. Now a curiosity, mostly bought as a conversation piece." },
-        ].map((item, i) => (
-          <div key={item.name} style={{ padding: i % 2 === 0 ? "22px 24px 22px 0" : "22px 0 22px 24px", borderBottom: "1px solid rgba(212,160,74,0.14)", borderLeft: i % 2 === 1 ? "1px solid rgba(212,160,74,0.14)" : "none" }}>
+        ].map((item) => (
+          <div key={item.name}>
             <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 19, color: S.fg1, letterSpacing: "-0.005em", marginBottom: 4 }}>{item.name}</div>
             <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 13, color: S.gold, marginBottom: 8 }}>{item.gloss}</div>
             <p style={{ fontFamily: S.sans, fontSize: 14, color: S.fg2, lineHeight: 1.55, margin: 0 }}>{item.desc}</p>

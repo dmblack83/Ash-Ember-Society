@@ -1,4 +1,5 @@
 import Image from "next/image";
+import fg from "@/components/field-guide/field-guide.module.css";
 
 const S = {
   serif: "Inter, system-ui, sans-serif",
@@ -116,7 +117,7 @@ export function Vol04Content() {
           background:   "linear-gradient(135deg, rgba(36,28,23,0.92) 0%, rgba(30,22,15,0.92) 100%)",
           border:       "1px solid rgba(166,144,128,0.18)",
           borderRadius: 12,
-          padding:      "32px 28px",
+          padding:      "clamp(20px, 5.5vw, 32px) clamp(16px, 4.5vw, 28px)",
           marginBottom: 36,
           position:     "relative",
           overflow:     "hidden",
@@ -153,8 +154,9 @@ export function Vol04Content() {
           style={{
             display:        "flex",
             justifyContent: "center",
-            gap:            32,
+            gap:            "24px 32px",
             alignItems:     "flex-end",
+            flexWrap:       "wrap",
             marginBottom:   28,
           }}
         >
@@ -166,8 +168,8 @@ export function Vol04Content() {
             sizes="350px"
             quality={80}
             style={{
-              height:  140,
-              width:   "auto",
+              width:   "min(350px, 100%)",
+              height:  "auto",
               display: "block",
               filter:  "drop-shadow(0 12px 20px rgba(0,0,0,0.55))",
             }}
@@ -217,7 +219,7 @@ export function Vol04Content() {
         <h2
           style={{
             fontFamily:    S.serif,
-            fontSize:      34,
+            fontSize:      "clamp(27px, 7.5vw, 34px)",
             fontWeight:    700,
             lineHeight:    1.05,
             letterSpacing: "-0.015em",
@@ -253,7 +255,7 @@ export function Vol04Content() {
         <div
           style={{
             display:             "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
+            gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))",
             gap:                 16,
             borderTop:           "1px solid rgba(166,144,128,0.18)",
             borderBottom:        "1px solid rgba(166,144,128,0.18)",
@@ -275,7 +277,7 @@ export function Vol04Content() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div className={fg.pairCols}>
           <div>
             <h4 style={{ margin: "0 0 10px", fontFamily: S.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase" as const, color: S.gold }}>
               In Its Favor
@@ -313,7 +315,7 @@ export function Vol04Content() {
           background:   "linear-gradient(135deg, rgba(36,28,23,0.92) 0%, rgba(30,22,15,0.92) 100%)",
           border:       "1px solid rgba(166,144,128,0.18)",
           borderRadius: 12,
-          padding:      "32px 28px",
+          padding:      "clamp(20px, 5.5vw, 32px) clamp(16px, 4.5vw, 28px)",
           marginBottom: 36,
           position:     "relative",
           overflow:     "hidden",
@@ -350,8 +352,9 @@ export function Vol04Content() {
           style={{
             display:        "flex",
             justifyContent: "center",
-            gap:            32,
+            gap:            "24px 32px",
             alignItems:     "flex-end",
+            flexWrap:       "wrap",
             marginBottom:   28,
           }}
         >
@@ -362,7 +365,7 @@ export function Vol04Content() {
             height={140}
             sizes="350px"
             quality={80}
-            style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
+            style={{ width: "min(350px, 100%)", height: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <Image
@@ -383,7 +386,7 @@ export function Vol04Content() {
         <div style={{ fontFamily: S.sans, fontSize: 10, fontWeight: 600, letterSpacing: "0.32em", textTransform: "uppercase" as const, color: S.ember, marginBottom: 10 }}>
           The Quiet One
         </div>
-        <h2 style={{ fontFamily: S.serif, fontSize: 34, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.015em", margin: "0 0 6px", color: S.fg1 }}>
+        <h2 style={{ fontFamily: S.serif, fontSize: "clamp(27px, 7.5vw, 34px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.015em", margin: "0 0 6px", color: S.fg1 }}>
           The Punch
         </h2>
         <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 15, color: S.fg2, marginBottom: 18 }}>
@@ -393,7 +396,7 @@ export function Vol04Content() {
           A small circular bore through the center of the cap, leaving the surrounding wrapper intact. The cap stays whole, the smoke draws through a tighter aperture, and the flavor concentrates instead of rushing the palate.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, borderTop: "1px solid rgba(166,144,128,0.18)", borderBottom: "1px solid rgba(166,144,128,0.18)", padding: "16px 0", marginBottom: 22 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 16, borderTop: "1px solid rgba(166,144,128,0.18)", borderBottom: "1px solid rgba(166,144,128,0.18)", padding: "16px 0", marginBottom: 22 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase" as const, color: S.fg3 }}>Draw</span>
             <span style={{ fontFamily: S.serif, fontSize: 17, fontWeight: 600, color: S.gold, lineHeight: 1.2 }}>Concentrated</span>
@@ -408,7 +411,7 @@ export function Vol04Content() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div className={fg.pairCols}>
           <div>
             <h4 style={{ margin: "0 0 10px", fontFamily: S.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase" as const, color: S.gold }}>
               In Its Favor
@@ -446,7 +449,7 @@ export function Vol04Content() {
           background:   "linear-gradient(135deg, rgba(36,28,23,0.92) 0%, rgba(30,22,15,0.92) 100%)",
           border:       "1px solid rgba(166,144,128,0.18)",
           borderRadius: 12,
-          padding:      "32px 28px",
+          padding:      "clamp(20px, 5.5vw, 32px) clamp(16px, 4.5vw, 28px)",
           marginBottom: 36,
           position:     "relative",
           overflow:     "hidden",
@@ -483,8 +486,9 @@ export function Vol04Content() {
           style={{
             display:        "flex",
             justifyContent: "center",
-            gap:            32,
+            gap:            "24px 32px",
             alignItems:     "flex-end",
+            flexWrap:       "wrap",
             marginBottom:   28,
           }}
         >
@@ -495,7 +499,7 @@ export function Vol04Content() {
             height={140}
             sizes="350px"
             quality={80}
-            style={{ height: 140, width: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
+            style={{ width: "min(350px, 100%)", height: "auto", display: "block", filter: "drop-shadow(0 12px 20px rgba(0,0,0,0.55))" }}
           />
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             <Image
@@ -516,7 +520,7 @@ export function Vol04Content() {
         <div style={{ fontFamily: S.sans, fontSize: 10, fontWeight: 600, letterSpacing: "0.32em", textTransform: "uppercase" as const, color: S.ember, marginBottom: 10 }}>
           The Connoisseur&apos;s Cut
         </div>
-        <h2 style={{ fontFamily: S.serif, fontSize: 34, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.015em", margin: "0 0 6px", color: S.fg1 }}>
+        <h2 style={{ fontFamily: S.serif, fontSize: "clamp(27px, 7.5vw, 34px)", fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.015em", margin: "0 0 6px", color: S.fg1 }}>
           The V-Cut
         </h2>
         <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 15, color: S.fg2, marginBottom: 18 }}>
@@ -526,7 +530,7 @@ export function Vol04Content() {
           A precise V-shaped notch cut into the cap, opening more surface area than a punch but less than a guillotine. The smoke fans across the tongue rather than down the center, broadening the flavor without overwhelming the wrapper.
         </p>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, borderTop: "1px solid rgba(166,144,128,0.18)", borderBottom: "1px solid rgba(166,144,128,0.18)", padding: "16px 0", marginBottom: 22 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 16, borderTop: "1px solid rgba(166,144,128,0.18)", borderBottom: "1px solid rgba(166,144,128,0.18)", padding: "16px 0", marginBottom: 22 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <span style={{ fontSize: 9.5, fontWeight: 600, letterSpacing: "0.28em", textTransform: "uppercase" as const, color: S.fg3 }}>Draw</span>
             <span style={{ fontFamily: S.serif, fontSize: 17, fontWeight: 600, color: S.gold, lineHeight: 1.2 }}>Balanced</span>
@@ -541,7 +545,7 @@ export function Vol04Content() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div className={fg.pairCols}>
           <div>
             <h4 style={{ margin: "0 0 10px", fontFamily: S.sans, fontSize: 10.5, fontWeight: 600, letterSpacing: "0.3em", textTransform: "uppercase" as const, color: S.gold }}>
               In Its Favor
@@ -579,7 +583,7 @@ export function Vol04Content() {
           background:   "var(--card)",
           border:       "1px solid rgba(166,144,128,0.18)",
           borderRadius: 12,
-          padding:      "32px 28px 36px",
+          padding:      "clamp(20px, 5.5vw, 32px) clamp(16px, 4.5vw, 28px) 36px",
           marginBottom: 48,
         }}
       >
