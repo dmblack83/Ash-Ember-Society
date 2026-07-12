@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
 import { mutate as globalMutate } from "swr";
+import { useRefreshSignal } from "@/lib/hooks/use-refresh-signal";
 import dynamic from "next/dynamic";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { createClient } from "@/utils/supabase/client";
@@ -334,6 +335,11 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
       revalidateFirstPage: false,
     },
   );
+
+  /* Global refresh (pull-to-refresh, resume) needs the BOUND mutate —
+     revalidateFirstPage:false means a global SWR broadcast refetches
+     none of this feed's cached pages. */
+  useRefreshSignal(() => mutateCigars());
 
   /* Derive flat views. `size === 1 && isLoading` distinguishes initial
      fetch from a load-more (which keeps prior pages on screen). */

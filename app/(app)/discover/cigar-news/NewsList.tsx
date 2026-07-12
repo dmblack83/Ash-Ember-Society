@@ -2,6 +2,7 @@
 
 import useSWRInfinite from "swr/infinite";
 import Image from "next/image";
+import { useRefreshSignal } from "@/lib/hooks/use-refresh-signal";
 import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";
 import { keyFor } from "@/lib/data/keys";
@@ -111,7 +112,7 @@ export function NewsList() {
    * renders instantly (including previously loaded pages) instead of
    * refetching from scratch and resetting to page one.
    */
-  const { data, size, setSize, isLoading, isValidating } =
+  const { data, size, setSize, isLoading, isValidating, mutate: mutateNews } =
     useSWRInfinite<NewsItem[]>(
       (pageIndex, prev) => {
         if (prev && prev.length < PAGE_SIZE) return null;   /* last page reached */
@@ -120,6 +121,11 @@ export function NewsList() {
       },
       ([, pageIndex]) => fetchNewsPage((pageIndex as number) * PAGE_SIZE, PAGE_SIZE),
     );
+
+  /* Global refresh (pull-to-refresh, resume): a global SWR broadcast
+     only refetches this feed's first page; the bound mutate refreshes
+     every loaded page. */
+  useRefreshSignal(() => mutateNews());
 
   const items = (data ?? []).flat();
   const lastPage = data?.[data.length - 1];

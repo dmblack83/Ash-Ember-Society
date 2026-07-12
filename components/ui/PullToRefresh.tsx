@@ -21,6 +21,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
+import { emitRefreshSignal } from "@/lib/hooks/use-refresh-signal";
 
 const PULL_THRESHOLD = 80;   /* px of pull to arm a refresh */
 const INDICATOR_SIZE = 36;
@@ -145,7 +146,11 @@ export function PullToRefresh({
         } else if (onRefresh) {
           await onRefresh();
         } else {
-          await mutate(() => true);
+          /* Global mutate covers plain useSWR keys; the refresh signal
+             covers useSWRInfinite feeds, which ignore the broadcast
+             (see lib/hooks/use-refresh-signal.ts). Await both so the
+             spinner reflects the real work. */
+          await Promise.all([mutate(() => true), emitRefreshSignal()]);
         }
       } catch {
         /* Refresh is best-effort; SWR error handling owns retries. */
