@@ -543,6 +543,19 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const [likeCount,       setLikeCount]       = useState(post.like_count);
   const [liking,          setLiking]          = useState(false);
 
+  /* Server-truth resync — same adjust-state-during-render pattern as
+     InlinePost: local state is for optimistic updates, but a refetched
+     bundle (pull-to-refresh, resume, background revalidation) must win
+     when the SERVER value changes. Value comparison keeps unconfirmed
+     optimistic updates from being clobbered by a refetch of the old
+     number. */
+  const [seenServer, setSeenServer] = useState({ liked: hasLiked, likeCount: post.like_count });
+  if (seenServer.liked !== hasLiked || seenServer.likeCount !== post.like_count) {
+    if (seenServer.liked !== hasLiked)               setLiked(hasLiked);
+    if (seenServer.likeCount !== post.like_count)    setLikeCount(post.like_count);
+    setSeenServer({ liked: hasLiked, likeCount: post.like_count });
+  }
+
   /*
    * Comments via SWR. fallbackData seeds page 0 from the server's
    * initial render; revalidateOnMount: false skips a redundant fetch

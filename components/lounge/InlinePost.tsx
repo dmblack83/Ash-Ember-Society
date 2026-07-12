@@ -264,6 +264,52 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
   const [closingPost,        setClosingPost]        = useState(false);
   const [mounted,            setMounted]            = useState(false);
 
+  /* Server-truth resync. The useState initializers above snapshot the
+     post ONCE at mount (local state exists for optimistic updates) —
+     without this block a feed refetch (pull-to-refresh, resume,
+     background revalidation) updates the props and the rendered
+     numbers silently ignore it; counts only ever changed on a full
+     remount, one navigation behind reality. Standard adjust-state-
+     during-render pattern (react.dev "You Might Not Need an Effect"):
+     each field resyncs only when its SERVER value changes, so an
+     optimistic update the server has not yet confirmed is NOT
+     clobbered by a refetch returning the old number. */
+  const [seenServer, setSeenServer] = useState({
+    liked:        initialLiked,
+    likeCount:    post.like_count,
+    commentCount: post.comment_count,
+    upvotes:      post.upvotes,
+    downvotes:    post.downvotes,
+    userVote:     post.user_vote,
+    status:       post.status,
+  });
+  if (
+    seenServer.liked        !== initialLiked       ||
+    seenServer.likeCount    !== post.like_count    ||
+    seenServer.commentCount !== post.comment_count ||
+    seenServer.upvotes      !== post.upvotes       ||
+    seenServer.downvotes    !== post.downvotes     ||
+    seenServer.userVote     !== post.user_vote     ||
+    seenServer.status       !== post.status
+  ) {
+    if (seenServer.liked        !== initialLiked)       setLiked(initialLiked);
+    if (seenServer.likeCount    !== post.like_count)    setLikeCount(post.like_count);
+    if (seenServer.commentCount !== post.comment_count) setCommentCount(post.comment_count);
+    if (seenServer.upvotes      !== post.upvotes)       setUpvotes(post.upvotes);
+    if (seenServer.downvotes    !== post.downvotes)     setDownvotes(post.downvotes);
+    if (seenServer.userVote     !== post.user_vote)     setUserVote(post.user_vote);
+    if (seenServer.status       !== post.status)        setPostStatus(post.status);
+    setSeenServer({
+      liked:        initialLiked,
+      likeCount:    post.like_count,
+      commentCount: post.comment_count,
+      upvotes:      post.upvotes,
+      downvotes:    post.downvotes,
+      userVote:     post.user_vote,
+      status:       post.status,
+    });
+  }
+
   /* Escape-key dismissal for the inline delete-post confirmation.
      Tied to showDeletePost so the listener only attaches while the
      modal is open. */
