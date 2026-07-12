@@ -8,6 +8,8 @@
    sub-tab links work.
    ------------------------------------------------------------------ */
 
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
+
 export const metadata = {
   title: "Vendors — Ash & Ember Society",
 };
@@ -22,6 +24,10 @@ export const dynamic = "force-dynamic";
 
 export default function VendorsPage() {
   return (
+    /* hardReload: this placeholder has no client cache to revalidate,
+       so the pull gesture reloads the document (SW-served, fast)
+       rather than spinning a refresh that changes nothing. */
+    <PullToRefresh hardReload>
     <div className="px-4 sm:px-6 pt-6 pb-6 max-w-2xl mx-auto">
       <div
         style={{
@@ -74,5 +80,6 @@ export default function VendorsPage() {
         </p>
       </div>
     </div>
+    </PullToRefresh>
   );
 }

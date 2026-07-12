@@ -28,10 +28,16 @@ const MIN_SPIN_MS    = 500;  /* keep the spinner visible long enough to read */
 
 export function PullToRefresh({
   onRefresh,
+  hardReload = false,
   children,
 }: {
   /** Defaults to revalidating all mounted SWR keys. */
   onRefresh?: () => Promise<unknown>;
+  /** Reload the document instead. For server-rendered pages with no
+      client-side cache to revalidate (e.g. the Vendors placeholder) —
+      the SW serves the cached shell, so the reload is near-instant.
+      Serializable, so server components can pass it. */
+  hardReload?: boolean;
   children:   React.ReactNode;
 }) {
   const { mutate } = useSWRConfig();
@@ -103,7 +109,11 @@ export function PullToRefresh({
       holdSpinning();
       const started = Date.now();
       try {
-        if (onRefresh) {
+        if (hardReload) {
+          window.location.reload();
+          /* Keep the spinner up until the navigation tears us down. */
+          await new Promise(() => {});
+        } else if (onRefresh) {
           await onRefresh();
         } else {
           await mutate(() => true);
@@ -130,16 +140,20 @@ export function PullToRefresh({
       document.removeEventListener("touchend",    onEnd);
       document.removeEventListener("touchcancel", onEnd);
     };
-  }, [mutate, onRefresh]);
+  }, [mutate, onRefresh, hardReload]);
 
   return (
     <>
-      {/* Indicator badge — fixed, starts hidden above the viewport. */}
+      {/* Indicator badge — fixed, starts hidden above the viewport.
+          zIndex 45: above every fixed page header (Account 10, Humidor
+          30, Lounge 40 — the Lounge header used to hide the badge
+          entirely), below sheets/modals (50+). */}
       <div
         ref={indicatorRef}
         aria-hidden="true"
-        className="fixed z-40 flex items-center justify-center rounded-full"
+        className="fixed flex items-center justify-center rounded-full"
         style={{
+          zIndex:          45,
           top:             `calc(env(safe-area-inset-top) - ${INDICATOR_SIZE + 8}px)`,
           left:            `calc(50% + var(--app-content-left) / 2)`,
           width:           INDICATOR_SIZE,
@@ -152,27 +166,25 @@ export function PullToRefresh({
           boxShadow:       "0 4px 16px rgba(0,0,0,0.45)",
         }}
       >
+        {/* RefreshCw — Lucide's two-arrow circular refresh glyph, the
+            same one the old header buttons used; reads unmistakably as
+            "refresh" at this size. */}
         <svg
           width="18"
           height="18"
-          viewBox="0 0 18 18"
+          viewBox="0 0 24 24"
           fill="none"
+          stroke="var(--ember, #E8642C)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
           aria-hidden="true"
           className={refreshing ? "animate-spin" : undefined}
         >
-          <path
-            d="M9 2a7 7 0 1 1-6.3 3.9"
-            stroke="var(--ember, #E8642C)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <path
-            d="M2.2 2.4v3.8H6"
-            stroke="var(--ember, #E8642C)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+          <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+          <path d="M3 21v-5h5" />
         </svg>
       </div>
 

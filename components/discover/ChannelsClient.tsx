@@ -5,6 +5,7 @@ import Image                   from "next/image";
 import { createClient }        from "@/utils/supabase/client";
 import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
+import { PullToRefresh }       from "@/components/ui/PullToRefresh";
 import { resolveBadge }        from "@/lib/badge";
 import { useEscapeKey }        from "@/lib/hooks/use-escape-key";
 import type { Channel, ChannelSection, ChannelVideo } from "@/app/(app)/discover/channels/page";
@@ -1231,7 +1232,27 @@ export function ChannelsClient({ userId, tier }: { userId: string; tier: string 
     return () => { cancelled = true; };
   }, [userId]);
 
+  /* Pull-to-refresh: drop the module-level caches and refetch, so a
+     deliberate pull always hits Supabase (bypassing the 5-min/1-min
+     TTLs). On failure the current channels stay on screen. */
+  const refresh = useCallback(async () => {
+    _baseCache  = null;
+    _likesCache = null;
+    try {
+      const base     = await getBase();
+      const videoIds = base.rawVideos.map((v) => v.id);
+      const likes    = await getLikes(userId, videoIds);
+      setChannels(buildChannels(base, likes));
+    } catch {
+      /* best-effort — keep rendering the data we have */
+    }
+  }, [userId]);
+
   if (dataLoading) return <ChannelsSkeleton />;
 
-  return <ChannelsRenderer channels={channels} userId={userId} tier={tier} />;
+  return (
+    <PullToRefresh onRefresh={refresh}>
+      <ChannelsRenderer channels={channels} userId={userId} tier={tier} />
+    </PullToRefresh>
+  );
 }
