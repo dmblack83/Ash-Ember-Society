@@ -26,6 +26,35 @@ const PULL_THRESHOLD = 80;   /* px of pull to arm a refresh */
 const INDICATOR_SIZE = 36;
 const MIN_SPIN_MS    = 500;  /* keep the spinner visible long enough to read */
 
+/* A pull must never arm while a modal layer owns the viewport, or when
+   the gesture would scroll an inner container rather than the page.
+   Without this, an open sheet (body scroll-locked, so window.scrollY
+   stays 0) turned every downward swipe into a refresh that yanked the
+   indicator down and closed the modal. Three independent signals:
+
+   1. Body scroll lock — useBodyScrollLock pins <body> position:fixed
+      while any BottomSheet is open.
+   2. The touch started inside a dialog — covers modals that render
+      role="dialog" / aria-modal without locking the body (confirm
+      dialogs, lightbox, etc.).
+   3. The touch started inside a vertically scrollable container —
+      that gesture belongs to the container, not the page. */
+function pullBlocked(target: EventTarget | null): boolean {
+  if (document.body.style.position === "fixed") return true;
+  if (!(target instanceof Element)) return false;
+  if (target.closest('[role="dialog"], [aria-modal="true"]')) return true;
+
+  let el: Element | null = target;
+  while (el && el !== document.documentElement && el !== document.body) {
+    if (el.scrollHeight > el.clientHeight) {
+      const oy = getComputedStyle(el).overflowY;
+      if (oy === "auto" || oy === "scroll") return true;
+    }
+    el = el.parentElement;
+  }
+  return false;
+}
+
 export function PullToRefresh({
   onRefresh,
   hardReload = false,
@@ -80,7 +109,7 @@ export function PullToRefresh({
 
     const onStart = (e: TouchEvent) => {
       if (refreshingRef.current) return;
-      armed   = window.scrollY <= 0;
+      armed   = window.scrollY <= 0 && !pullBlocked(e.target);
       startY  = e.touches[0].clientY;
       pulling = false;
     };
