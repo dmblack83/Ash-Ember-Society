@@ -5,6 +5,7 @@ import {
   PullQuote,
   Closer,
 } from "@/components/field-guide/article-components";
+import fg from "@/components/field-guide/field-guide.module.css";
 
 const S = {
   serif: "Inter, system-ui, sans-serif",
@@ -71,27 +72,25 @@ export function Vol01Content() {
         Three smokers worth keeping in mind, because half the romance of any old craft is the company that gathered around it.
       </p>
 
-      {/* Smokers 3-panel */}
+      {/* Smokers 3-panel — stacks with horizontal dividers on mobile */}
       <div
+        className={fg.trio}
         style={{
-          display:             "grid",
-          gridTemplateColumns: "repeat(3, 1fr)",
-          margin:              "36px 0 12px",
-          borderTop:           "1px solid rgba(212,160,74,0.2)",
-          borderBottom:        "1px solid rgba(212,160,74,0.2)",
+          margin:       "36px 0 12px",
+          borderTop:    "1px solid rgba(212,160,74,0.2)",
+          borderBottom: "1px solid rgba(212,160,74,0.2)",
         }}
       >
         {[
           { roman: "i.",   name: "Mark Twain",      stat: "40 / day",        sub: "by his own count"        },
           { roman: "ii.",  name: "Winston Churchill", stat: "8 - 10 / day",   sub: "for seventy years"       },
           { roman: "iii.", name: "John F. Kennedy",  stat: "1,200 Upmanns",   sub: "night before the embargo" },
-        ].map((s, i) => (
+        ].map((s) => (
           <div
             key={s.name}
             style={{
-              padding:     "24px 18px",
-              textAlign:   "center",
-              borderRight: i < 2 ? "1px solid rgba(212,160,74,0.14)" : "none",
+              padding:   "24px 18px",
+              textAlign: "center",
             }}
           >
             <div style={{ fontFamily: S.serif, fontStyle: "italic", fontSize: 12, color: S.gold, letterSpacing: "0.12em", marginBottom: 8 }}>
@@ -158,7 +157,7 @@ export function Vol01Content() {
             fontFamily:     S.serif,
             fontStyle:      "italic",
             fontWeight:     500,
-            fontSize:       28,
+            fontSize:       "clamp(21px, 6vw, 28px)",
             color:          S.gold,
             lineHeight:     1.2,
           }}
@@ -195,14 +194,14 @@ export function Vol01Content() {
         <div style={{ fontFamily: S.sans, fontSize: 10.5, letterSpacing: "0.22em", textTransform: "uppercase", color: "var(--muted-foreground)", textAlign: "center", marginBottom: 22 }}>
           Seed to Smoke &middot; The Long Road
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
+        <div className={fg.quad}>
           {[
             { num: "01", name: "Grow",        time: "~6 months"        },
             { num: "02", name: "Cure",        time: "45-60 days"       },
             { num: "03", name: "Ferment",     time: "months - years"   },
             { num: "04", name: "Roll & rest", time: "cedar, then time" },
-          ].map((step, i) => (
-            <div key={step.name} style={{ padding: "0 14px", borderRight: i < 3 ? "1px solid rgba(212,160,74,0.14)" : "none", textAlign: "center" }}>
+          ].map((step) => (
+            <div key={step.name} style={{ padding: "10px 14px", textAlign: "center" }}>
               <div style={{ fontFamily: S.serif, fontStyle: "italic", color: S.gold, fontSize: 18, marginBottom: 6, display: "block" }}>{step.num}</div>
               <div style={{ fontFamily: S.serif, fontWeight: 600, fontSize: 14, marginBottom: 4, color: S.fg1 }}>{step.name}</div>
               <div style={{ fontFamily: S.sans, fontSize: 10.5, color: S.fg3, letterSpacing: "0.08em", textTransform: "uppercase" }}>{step.time}</div>

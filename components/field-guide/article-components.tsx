@@ -39,7 +39,7 @@ export function SectionHeading({ children }: { children: ReactNode }) {
       style={{
         fontFamily:    S.serif,
         fontWeight:    600,
-        fontSize:      30,
+        fontSize:      "clamp(24px, 6.5vw, 30px)",
         lineHeight:    1.15,
         letterSpacing: "-0.01em",
         margin:        "56px 0 22px",
@@ -98,12 +98,14 @@ export function PullQuote({ children }: { children: ReactNode }) {
     <div
       style={{
         margin:       "44px 0",
-        padding:      "36px 52px",
+        /* Side padding collapses on narrow screens — at 52px each side
+           a 320px viewport left the quote a ~170px column. */
+        padding:      "clamp(28px, 8vw, 36px) clamp(24px, 12vw, 52px)",
         borderTop:    "1px solid rgba(212,160,74,0.28)",
         borderBottom: "1px solid rgba(212,160,74,0.28)",
         fontFamily:   S.serif,
         fontStyle:    "italic",
-        fontSize:     24,
+        fontSize:     "clamp(19px, 5.5vw, 24px)",
         lineHeight:   1.4,
         color:        S.fg1,
         textAlign:    "center",
@@ -245,7 +247,7 @@ export function ArticleShell({
         style={{
           maxWidth: 760,
           margin:   "0 auto",
-          padding:  "56px 24px 88px",
+          padding:  "clamp(32px, 8vw, 56px) clamp(16px, 4.5vw, 24px) 88px",
         }}
       >
         {/* Topbar */}
@@ -352,7 +354,7 @@ export function ArticleShell({
               style={{
                 fontFamily:    S.serif,
                 fontWeight:    800,
-                fontSize:      "clamp(44px, 7vw, 72px)",
+                fontSize:      "clamp(34px, 9vw, 72px)",
                 lineHeight:    0.98,
                 letterSpacing: "-0.02em",
                 margin:        0,
@@ -442,7 +444,7 @@ export function ArticleShell({
               style={{
                 fontFamily:    S.serif,
                 fontWeight:    700,
-                fontSize:      "clamp(40px, 6vw, 64px)",
+                fontSize:      "clamp(32px, 8.5vw, 64px)",
                 lineHeight:    1,
                 letterSpacing: "-0.02em",
                 textAlign:     "center",

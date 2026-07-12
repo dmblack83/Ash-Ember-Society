@@ -1,0 +1,133 @@
+/* ------------------------------------------------------------------
+   Field-guide responsive layouts.
+
+   The article components style everything inline (design tokens stay
+   there); this module exists ONLY for the layouts that need a real
+   breakpoint — multi-column strips whose hairline dividers must flip
+   from vertical to horizontal when the columns stack, and horizontal
+   scroll wrappers for plates/tables that cannot compress.
+
+   Breakpoints are viewport-based on purpose: both article surfaces
+   (the Home field-guide modal and the /discover/field-guide pages)
+   span the viewport up to a max-width, so viewport width is the
+   content width on every device that matters.
+   ------------------------------------------------------------------ */
+
+/* Three- and four-cell stat strips with hairline dividers. */
+.trio,
+.quad {
+  display: grid;
+}
+.trio { grid-template-columns: repeat(3, 1fr); }
+.quad { grid-template-columns: repeat(4, 1fr); }
+.trio > *,
+.quad > * {
+  border-right: 1px solid rgba(212, 160, 74, 0.14);
+}
+.trio > *:last-child,
+.quad > *:last-child {
+  border-right: none;
+}
+@media (max-width: 560px) {
+  .trio,
+  .quad {
+    grid-template-columns: 1fr;
+  }
+  .trio > *,
+  .quad > * {
+    border-right: none;
+    border-bottom: 1px solid rgba(212, 160, 74, 0.14);
+  }
+  .trio > *:last-child,
+  .quad > *:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Vol 02 — wrapper/binder/filler rows: name column + description. */
+.roleRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 2.4fr;
+  gap: 28px;
+  align-items: center;
+}
+@media (max-width: 560px) {
+  .roleRow {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+}
+
+/* Vol 02 — country cards. */
+.landsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+}
+@media (max-width: 640px) {
+  .landsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Vol 03 — figurado name/gloss/description two-column list. */
+.duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.duo > * {
+  padding: 22px 24px 22px 0;
+  border-bottom: 1px solid rgba(212, 160, 74, 0.14);
+}
+.duo > *:nth-child(even) {
+  padding: 22px 0 22px 24px;
+  border-left: 1px solid rgba(212, 160, 74, 0.14);
+}
+@media (max-width: 560px) {
+  .duo {
+    grid-template-columns: 1fr;
+  }
+  .duo > *,
+  .duo > *:nth-child(even) {
+    padding: 18px 0;
+    border-left: none;
+  }
+}
+
+/* Vol 03 — parejo | divider | figurado plate. */
+.shapesPlate {
+  display: grid;
+  grid-template-columns: 1fr 1px 2fr;
+  gap: 24px;
+  align-items: stretch;
+}
+@media (max-width: 560px) {
+  .shapesPlate {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+  .shapesPlate > [data-divider] {
+    display: none;
+  }
+}
+
+/* Vol 04 — "In Its Favor" / "Against" columns. */
+.pairCols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 560px) {
+  .pairCols {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Horizontal scroll strip for plates and tables that cannot compress
+   (wrapper color scale, sizes plate, data tables). The inner element
+   sets its own minWidth. */
+.hscroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
