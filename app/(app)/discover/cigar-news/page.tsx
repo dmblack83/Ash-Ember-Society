@@ -1,4 +1,5 @@
 import { NewsList } from "./NewsList";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 
 export const metadata = { title: "Industry News — Ash & Ember Society" };
 
@@ -11,6 +12,7 @@ export const metadata = { title: "Industry News — Ash & Ember Society" };
  */
 export default function NewsIndexPage() {
   return (
+    <PullToRefresh>
     <div className="max-w-2xl mx-auto" style={{ padding: "24px 16px 32px" }}>
       {/* Header */}
       <div style={{ marginBottom: 18 }}>
@@ -52,5 +54,6 @@ export default function NewsIndexPage() {
 
       <NewsList />
     </div>
+    </PullToRefresh>
   );
 }

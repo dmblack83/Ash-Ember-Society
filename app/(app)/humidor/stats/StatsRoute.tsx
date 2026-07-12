@@ -5,6 +5,7 @@ import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
 import { fetchStatsData } from "@/lib/data/stats-fetchers";
 import { StatsClientLazy } from "@/components/humidor/StatsClientLazy";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { StatsShellSkeleton } from "./_skeletons";
 
 /**
@@ -23,5 +24,9 @@ export function StatsRoute() {
   );
 
   if (!allowed || !session || data === undefined) return <StatsShellSkeleton />;
-  return <StatsClientLazy data={data} />;
+  return (
+    <PullToRefresh>
+      <StatsClientLazy data={data} />
+    </PullToRefresh>
+  );
 }

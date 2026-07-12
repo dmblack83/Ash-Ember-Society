@@ -7,6 +7,7 @@ import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
 import { fetchPostDetailBundle } from "@/lib/data/post-detail-fetchers";
 import { PostDetailClient } from "@/components/lounge/PostDetailClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { PostDetailSkeleton } from "./_skeletons";
 
 /**
@@ -72,12 +73,14 @@ export function PostDetailRoute({ postId }: { postId: string }) {
   }
 
   return (
-    <PostDetailClient
-      post={data.post}
-      comments={data.comments}
-      hasLiked={data.hasLiked}
-      userId={session.userId}
-      smokeLog={data.smokeLog}
-    />
+    <PullToRefresh>
+      <PostDetailClient
+        post={data.post}
+        comments={data.comments}
+        hasLiked={data.hasLiked}
+        userId={session.userId}
+        smokeLog={data.smokeLog}
+      />
+    </PullToRefresh>
   );
 }

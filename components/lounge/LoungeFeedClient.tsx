@@ -23,7 +23,6 @@ import {
 import type { ForumCategory } from "@/lib/data/forum";
 import { Toast }              from "@/components/ui/toast";
 import { ScrollCarets }       from "@/components/ui/ScrollCarets";
-import { RefreshButton }      from "@/components/ui/RefreshButton";
 
 /* NewPostSheet only mounts when the user taps "+ New Post". */
 const NewPostSheet = dynamic(
@@ -388,25 +387,6 @@ export function LoungeFeedClient({
               );
             })}
           </div>
-          <RefreshButton
-            style={{
-              background:              "none",
-              border:                  "none",
-              color:                   "var(--gold,#D4A04A)",
-              padding:                 8,
-              borderRadius:            999,
-              cursor:                  "pointer",
-              touchAction:             "manipulation",
-              WebkitTapHighlightColor: "transparent",
-              display:                 "flex",
-              alignItems:              "center",
-              justifyContent:          "center",
-              flexShrink:              0,
-            }}
-            className=""
-            onRefresh={async () => { await mutateFeed(); }}
-            ariaLabel="Refresh posts"
-          />
         </div>
       </div>
 

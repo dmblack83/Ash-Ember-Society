@@ -6,6 +6,7 @@ import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
 import { fetchHumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
 import { HumidorItemClient } from "@/components/humidor/HumidorItemClient";
+import { PullToRefresh } from "@/components/ui/PullToRefresh";
 import { ItemShellSkeleton } from "./_skeletons";
 
 /**
@@ -29,13 +30,15 @@ export function ItemRoute({ itemId }: { itemId: string }) {
   if (data === null) notFound();
 
   return (
-    <HumidorItemClient
-      item={data.item}
-      initialSmokeLogs={data.smokeLogs}
-      userId={session.userId}
-      hasPending={data.hasPending}
-      hasApproved={data.hasApproved}
-      hasPendingEdit={data.hasPendingEdit}
-    />
+    <PullToRefresh>
+      <HumidorItemClient
+        item={data.item}
+        initialSmokeLogs={data.smokeLogs}
+        userId={session.userId}
+        hasPending={data.hasPending}
+        hasApproved={data.hasApproved}
+        hasPendingEdit={data.hasPendingEdit}
+      />
+    </PullToRefresh>
   );
 }
