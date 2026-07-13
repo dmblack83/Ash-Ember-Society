@@ -35,6 +35,7 @@ import {
   subscribe as pushSubscribe,
   unsubscribe as pushUnsubscribe,
 } from "@/lib/push-client";
+import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
 import type { MembershipTier } from "@/lib/stripe";
 import { checkResponse } from "@/lib/telemetry/fetch-checks";
 
@@ -1127,14 +1128,55 @@ function isIOSBrowser(): boolean {
 }
 
 interface NotificationsSectionProps {
+  userId:  string;
   onToast: (msg: string) => void;
 }
 
-function NotificationsSection({ onToast }: NotificationsSectionProps) {
+function NotificationsSection({ userId, onToast }: NotificationsSectionProps) {
   const [state,   setState]   = useState<PushState>("loading");
   const [busy,    setBusy]    = useState(false);
   const [testing, setTesting] = useState(false);
   const [iosTab,  setIosTab]  = useState(false);
+
+  /* Per-category opt-outs (profiles.notification_preferences jsonb,
+     opt-OUT semantics: missing key = enabled). Loaded lazily once
+     push is on — the toggles only render then. */
+  const [prefs, setPrefs] = useState<Record<string, boolean> | null>(null);
+
+  useEffect(() => {
+    if (state !== "on") return;
+    let cancelled = false;
+    const supabase = createClient();
+    void supabase
+      .from("profiles")
+      .select("notification_preferences")
+      .eq("id", userId)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setPrefs((data?.notification_preferences as Record<string, boolean> | null) ?? {});
+      });
+    return () => { cancelled = true; };
+  }, [state, userId]);
+
+  async function handleCategoryToggle(categoryId: string) {
+    if (prefs === null) return;
+    const next = { ...prefs, [categoryId]: prefs[categoryId] === false };
+    /* Normalize: enabled is the default, so drop true-ish keys instead
+       of storing them — keeps the jsonb minimal (opt-out only). */
+    if (next[categoryId] !== false) delete next[categoryId];
+    const previous = prefs;
+    setPrefs(next);
+    const supabase = createClient();
+    const { error: prefsError } = await supabase
+      .from("profiles")
+      .update({ notification_preferences: next })
+      .eq("id", userId);
+    if (prefsError) {
+      setPrefs(previous);
+      onToast("Couldn't save that preference. Try again.");
+    }
+  }
 
   useEffect(() => {
     setIosTab(isIOSBrowser());
@@ -1222,7 +1264,7 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
     state === "loading"          ? "Checking this device…" :
     state === "needs-mobile-pwa" ? "Only available on mobile when installed to your home screen." :
     state === "denied"           ? "Blocked. Re-enable in your device settings." :
-                                   "Get a ping when an aging cigar hits its target date.";
+                                   "Aging alerts, comments on your posts, and replies.";
 
   const isOn       = state === "on";
   const isDisabled = state !== "off" && state !== "on";
@@ -1281,6 +1323,42 @@ function NotificationsSection({ onToast }: NotificationsSectionProps) {
             </ol>
           </div>
         )}
+
+        {/* Per-category opt-outs — only meaningful while push is on.
+            Rows come straight from the category catalog; `internal`
+            categories (test pushes) are hidden. */}
+        {isOn && prefs !== null &&
+          Object.values(NOTIFICATION_CATEGORIES)
+            .filter((c) => !("internal" in c))
+            .map((c) => (
+              <div
+                key={c.id}
+                style={{
+                  display:                 "flex",
+                  alignItems:              "center",
+                  justifyContent:          "space-between",
+                  padding:                 "14px 20px",
+                  borderTop:               "1px solid var(--border)",
+                  minHeight:               48,
+                  touchAction:             "manipulation",
+                  WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1, marginRight: 12 }}>
+                  <p style={{ fontSize: 13, fontWeight: 500, color: "var(--foreground)" }}>
+                    {c.label}
+                  </p>
+                  <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 2 }}>
+                    {c.description}
+                  </p>
+                </div>
+                <ToggleSwitch
+                  on={prefs[c.id] !== false}
+                  disabled={false}
+                  onChange={() => void handleCategoryToggle(c.id)}
+                />
+              </div>
+            ))}
 
         {/* Test-notification row — only shown when push is on. Lets
             the user verify the entire pipeline ends-to-end without
@@ -1676,7 +1754,7 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
             onToast={setToast}
           />
 
-          <NotificationsSection onToast={setToast} />
+          <NotificationsSection userId={userId} onToast={setToast} />
 
           <InviteFriendsSection />
 

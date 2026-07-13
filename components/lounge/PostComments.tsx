@@ -14,6 +14,19 @@
 
 import { useState, useEffect, useMemo, memo } from "react";
 import { createClient }        from "@/utils/supabase/client";
+
+/* Fire-and-forget push-notification trigger. The server re-verifies
+   the comment (must exist, belong to the caller, be fresh) and works
+   out recipients itself — see app/api/notify/comment/route.ts. A
+   failure here must never affect the comment UX. */
+function notifyCommentCreated(commentId: string) {
+  void fetch("/api/notify/comment", {
+    method:  "POST",
+    headers: { "Content-Type": "application/json" },
+    body:    JSON.stringify({ commentId }),
+    keepalive: true,
+  }).catch(() => {});
+}
 import { formatDistanceToNow } from "date-fns";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
 import { resolveBadge }        from "@/lib/badge";
@@ -107,6 +120,7 @@ const CommentNode = memo(function CommentNode({
       .select("id, content, created_at, updated_at, user_id, parent_comment_id")
       .single();
     if (error || !data) { setSubmitting(false); return; }
+    notifyCommentCreated(data.id);
     const { data: p } = await supabase.from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     onReplyCreated({ ...data, profiles: p ?? null });
@@ -263,6 +277,7 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
 
     setCommentSubmitting(false);
     if (error || !data) { setCommentError(error?.message ?? "Failed to post."); return; }
+    notifyCommentCreated(data.id);
 
     const { data: profileData } = await supabase.from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();

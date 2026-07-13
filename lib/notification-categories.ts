@@ -26,11 +26,24 @@ export const NOTIFICATION_CATEGORIES = {
     label:       "Cigar aging alerts",
     description: "Notify me when a cigar in my humidor reaches its aging target date.",
   },
+  /* Someone commented on one of your lounge posts. Triggered by
+     /api/notify/comment after a verified forum_comments insert. */
+  lounge_comment: {
+    id:          "lounge_comment",
+    label:       "Comments on your posts",
+    description: "Notify me when someone comments on one of my lounge posts.",
+  },
+  /* Someone replied to one of your comments. Same trigger route. */
+  lounge_reply: {
+    id:          "lounge_reply",
+    label:       "Replies to your comments",
+    description: "Notify me when someone replies to one of my comments.",
+  },
   /* On-demand test notifications triggered by the user from /account
-     (/api/push/test). Marked `internal: true` so the future per-
-     category preference UI hides this from the toggle list — users
-     don't think of "tests" as a notification category they'd want
-     to opt out of, and the endpoint is rate-limited anyway. */
+     (/api/push/test). Marked `internal: true` so the per-category
+     preference UI hides this from the toggle list — users don't
+     think of "tests" as a notification category they'd want to opt
+     out of, and the endpoint is rate-limited anyway. */
   test: {
     id:          "test",
     label:       "Test notifications",
