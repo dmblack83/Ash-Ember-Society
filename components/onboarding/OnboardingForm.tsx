@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { countryOptions } from "@/lib/country-name";
 import { createClient } from "@/utils/supabase/client";
 
 /* ===================================================================
@@ -122,7 +123,9 @@ export function OnboardingForm() {
   const [dobMonth, setDobMonth] = useState("");
   const [dobDay, setDobDay] = useState("");
   const [dobYear, setDobYear] = useState("");
+  const [country, setCountry] = useState("US");
   const [zip, setZip] = useState("");
+  const [cityInput, setCityInput] = useState("");
 
   // Validation
   const [nameError, setNameError] = useState<string | null>(null);
@@ -194,7 +197,9 @@ export function OnboardingForm() {
       }
     }
 
-    if (!/^\d{5}$/.test(zip.trim())) {
+    /* Location is optional (data minimization): validate the ZIP's
+       format only when one was actually entered. */
+    if (country === "US" && zip.trim() && !/^\d{5}$/.test(zip.trim())) {
       setZipError("Please enter a valid 5-digit ZIP code.");
       valid = false;
     } else {
@@ -253,8 +258,13 @@ export function OnboardingForm() {
         avatarUrl = avatarPreview;
       }
 
-      const z = zip.trim();
-      const { city, state } = await deriveCityState(z);
+      /* US: zip drives city/state (when provided). Elsewhere: the
+         member types their city; no postal code is collected at all. */
+      const isUS = country === "US";
+      const z    = isUS ? zip.trim() : "";
+      const { city, state } = isUS && z
+        ? await deriveCityState(z)
+        : { city: cityInput.trim() || null, state: null };
 
       const dateOfBirth = `${dobYear}-${String(dobMonth).padStart(2, "0")}-${String(dobDay).padStart(2, "0")}`;
 
@@ -262,9 +272,10 @@ export function OnboardingForm() {
         id:                   userId,
         display_name:         displayName.trim(),
         avatar_url:           avatarUrl,
-        zip_code:             z,
+        zip_code:             z || null,
         city:                 city,
         state:                state,
+        country:              country,
         onboarding_completed: true,
         updated_at:           new Date().toISOString(),
       });
@@ -422,27 +433,63 @@ export function OnboardingForm() {
               </div>
             </Field>
 
-            {/* ZIP code */}
-            <Field
-              id="zip-code"
-              label="ZIP Code"
-              error={zipError}
-              hint="Used only to enable location-based features (smoking conditions, nearby shops). Not shared, not tracked."
-            >
-              <input
-                id="zip-code"
-                type="text"
-                inputMode="numeric"
-                pattern="\d{5}"
-                maxLength={5}
+            {/* Country */}
+            <Field id="country" label="Country">
+              <select
+                id="country"
                 className="input"
-                value={zip}
-                onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
-                placeholder="e.g. 84101"
-                autoComplete="postal-code"
+                value={country}
+                onChange={(e) => { setCountry(e.target.value); setZipError(null); }}
                 disabled={loading}
-              />
+              >
+                {countryOptions().map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
             </Field>
+
+            {/* Location — ZIP for US members (auto city/state), city
+                everywhere else. Optional either way: it only powers
+                the smoking-conditions and nearby-shops features. */}
+            {country === "US" ? (
+              <Field
+                id="zip-code"
+                label="ZIP Code (optional)"
+                error={zipError}
+                hint="Used only to enable location features (smoking conditions, nearby shops). Not shared, not tracked. Skip it if you prefer."
+              >
+                <input
+                  id="zip-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="\d{5}"
+                  maxLength={5}
+                  className="input"
+                  value={zip}
+                  onChange={(e) => setZip(e.target.value.replace(/\D/g, ""))}
+                  placeholder="e.g. 84101"
+                  autoComplete="postal-code"
+                  disabled={loading}
+                />
+              </Field>
+            ) : (
+              <Field
+                id="city"
+                label="City (optional)"
+                hint="Used only to enable location features (smoking conditions, nearby shops). Not shared, not tracked. Skip it if you prefer."
+              >
+                <input
+                  id="city"
+                  type="text"
+                  className="input"
+                  value={cityInput}
+                  onChange={(e) => setCityInput(e.target.value)}
+                  placeholder="e.g. Manchester"
+                  autoComplete="address-level2"
+                  disabled={loading}
+                />
+              </Field>
+            )}
 
             {formError && (
               <p role="alert" className="text-sm text-destructive animate-fade-in -mt-1">

@@ -319,9 +319,12 @@ function NoLocation() {
 export function SmokingConditions({
   zip,
   city,
+  country,
 }: {
-  zip:  string | null;
-  city: string | null;
+  zip:     string | null;
+  city:    string | null;
+  /** ISO alpha-2 — disambiguates city geocoding for non-US members. */
+  country?: string | null;
 }) {
   const trimmedZip  = zip?.trim()  || null;
   const trimmedCity = city?.trim() || null;
@@ -349,6 +352,8 @@ export function SmokingConditions({
       const params = new URLSearchParams();
       if (trimmedZip)  params.set("zip",  trimmedZip);
       if (trimmedCity) params.set("city", trimmedCity);
+      const trimmedCountry = country?.trim();
+      if (trimmedCountry) params.set("country", trimmedCountry);
 
       try {
         const res = await fetch(`/api/weather?${params.toString()}`);
@@ -377,7 +382,7 @@ export function SmokingConditions({
 
     load();
     return () => { cancelled = true; };
-  }, [trimmedZip, trimmedCity, hasLocation, refetchKey]);
+  }, [trimmedZip, trimmedCity, country, hasLocation, refetchKey]);
 
   /* Trigger a background refetch when the document becomes visible
      and the cached reading is stale. No skeleton flash — only the

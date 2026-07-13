@@ -20,13 +20,16 @@
    deterministic across every client context.
    ------------------------------------------------------------------ */
 
-function findShopsUrl(zip: string | null): string {
+function findShopsUrl(zip: string | null, city: string | null): string {
   /* "cigar shops near {ZIP}" reads naturally to Google Maps; it
      returns the same results as a coordinate-anchored search but
      without needing geocoding on our end. URL-encode the query so
      spaces become `+` and any future special characters are safe. */
-  const query = zip
-    ? `cigar shops near ${zip}`
+  /* Non-US members have no zip; their city works just as well as a
+     Maps anchor ("cigar shops near Manchester"). */
+  const anchor = zip || city;
+  const query  = anchor
+    ? `cigar shops near ${anchor}`
     : "cigar shops near me";
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
@@ -45,8 +48,8 @@ function StorefrontIcon({ size = 18 }: { size?: number }) {
   );
 }
 
-export function LocalShops({ zip }: { zip: string | null }) {
-  const href = findShopsUrl(zip);
+export function LocalShops({ zip, city = null }: { zip: string | null; city?: string | null }) {
+  const href = findShopsUrl(zip, city);
   return (
     <section
       style={{
