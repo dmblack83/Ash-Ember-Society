@@ -36,6 +36,7 @@ import {
   unsubscribe as pushUnsubscribe,
 } from "@/lib/push-client";
 import { NOTIFICATION_CATEGORIES } from "@/lib/notification-categories";
+import { countryOptions } from "@/lib/country-name";
 import type { MembershipTier } from "@/lib/stripe";
 import { checkResponse } from "@/lib/telemetry/fetch-checks";
 
@@ -49,6 +50,7 @@ export interface ProfileData {
   city:         string | null;
   state:        string | null;
   zip_code:     string | null;
+  country:      string | null;
   avatar_url:   string | null;
 }
 
@@ -850,6 +852,7 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
   const [savingPhone, setSavingPhone] = useState(false);
 
   // Location
+  const [country,       setCountry]     = useState(profile.country ?? "US");
   const [zip,           setZip]         = useState(profile.zip_code ?? "");
   const [city,          setCity]         = useState(profile.city ?? "");
   const [stateAbbr,     setStateAbbr]   = useState(profile.state ?? "");
@@ -862,6 +865,7 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
 
   // Auto-populate city/state from zip
   useEffect(() => {
+    if (country !== "US") return;
     if (zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
     let cancelled = false;
     setLookingUpZip(true);
@@ -879,7 +883,7 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
       })
       .finally(() => { if (!cancelled) setLookingUpZip(false); });
     return () => { cancelled = true; };
-  }, [zip]);
+  }, [zip, country]);
 
   async function saveName() {
     if (!firstName.trim() || !lastName.trim()) {
@@ -931,13 +935,24 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
   }
 
   async function saveLocation() {
-    if (!zip.trim()) { onToast("Zip code is required."); return; }
+    /* Location is optional (data minimization). US members may enter a
+       ZIP (city/state auto-fill); everyone else types a city. */
+    const isUS = country === "US";
+    if (isUS && zip.trim() && !/^\d{5}$/.test(zip.trim())) {
+      onToast("Enter a valid 5-digit ZIP code, or leave it blank.");
+      return;
+    }
     setSavingLoc(true);
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("profiles")
-        .update({ zip_code: zip.trim(), city: city.trim() || null, state: stateAbbr.trim() || null })
+        .update({
+          country,
+          zip_code: isUS ? zip.trim() || null : null,
+          city:     city.trim() || null,
+          state:    isUS ? stateAbbr.trim() || null : null,
+        })
         .eq("id", userId);
       if (error) throw error;
       onToast("Location saved.");
@@ -1064,27 +1079,57 @@ function PersonalInfoSection({ userId, email, profile, onToast }: PersonalInfoPr
         {open === "location" && (
           <div style={panelPad}>
             <div>
-              <p style={miniLabel}>Zip Code *</p>
-              <FieldInput
-                value={zip}
-                onChange={v => setZip(v.replace(/\D/g, "").slice(0, 5))}
-                placeholder="84101"
-                type="tel"
-              />
-              {lookingUpZip && (
-                <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>Looking up zip…</p>
-              )}
+              <p style={miniLabel}>Country</p>
+              <select
+                className="input"
+                value={country}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setCountry(next);
+                  /* Old US fields don't carry across a country change. */
+                  if (next !== "US") { setZip(""); setStateAbbr(""); }
+                }}
+              >
+                {countryOptions().map((c) => (
+                  <option key={c.code} value={c.code}>{c.name}</option>
+                ))}
+              </select>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {country === "US" ? (
+              <>
+                <div>
+                  <p style={miniLabel}>Zip Code (optional)</p>
+                  <FieldInput
+                    value={zip}
+                    onChange={v => setZip(v.replace(/\D/g, "").slice(0, 5))}
+                    placeholder="84101"
+                    type="tel"
+                  />
+                  {lookingUpZip && (
+                    <p style={{ fontSize: 12, color: "var(--muted-foreground)", marginTop: 4 }}>Looking up zip…</p>
+                  )}
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div>
+                    <p style={miniLabel}>City</p>
+                    <FieldInput value={city} placeholder="Auto-populated" disabled />
+                  </div>
+                  <div>
+                    <p style={miniLabel}>State</p>
+                    <FieldInput value={stateAbbr} placeholder="Auto-populated" disabled />
+                  </div>
+                </div>
+              </>
+            ) : (
               <div>
-                <p style={miniLabel}>City</p>
-                <FieldInput value={city} placeholder="Auto-populated" disabled />
+                <p style={miniLabel}>City (optional)</p>
+                <FieldInput
+                  value={city}
+                  onChange={v => setCity(v)}
+                  placeholder="e.g. Manchester"
+                />
               </div>
-              <div>
-                <p style={miniLabel}>State</p>
-                <FieldInput value={stateAbbr} placeholder="Auto-populated" disabled />
-              </div>
-            </div>
+            )}
             <SaveButton loading={savingLoc} onClick={saveLocation} />
           </div>
         )}

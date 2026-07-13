@@ -61,6 +61,7 @@ export function SmokingConditionsIsland() {
     <SmokingConditions
       zip={data?.zip_code?.trim() || null}
       city={data?.city?.trim() || null}
+      country={data?.country?.trim() || null}
     />
   );
 }
@@ -104,5 +105,5 @@ export function LocalShopsIsland() {
     () => fetchProfileLite(userId as string),
   );
   if (!ready || !session || data === undefined) return null;
-  return <LocalShops zip={data?.zip_code?.trim() || null} />;
+  return <LocalShops zip={data?.zip_code?.trim() || null} city={data?.city?.trim() || null} />;
 }

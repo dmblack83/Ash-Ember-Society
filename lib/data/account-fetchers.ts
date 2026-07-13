@@ -25,6 +25,7 @@ export interface AccountProfileRow {
   city:                   string | null;
   state:                  string | null;
   zip_code:               string | null;
+  country:                 string | null;
   avatar_url:             string | null;
   created_at:             string;
 }
@@ -37,7 +38,7 @@ export async function fetchAccountProfile(
     .from("profiles")
     .select(
       "membership_tier, stripe_customer_id, stripe_subscription_id, badge, assigned_badges, " +
-      "display_name, first_name, last_name, phone, city, state, zip_code, avatar_url, created_at",
+      "display_name, first_name, last_name, phone, city, state, zip_code, country, avatar_url, created_at",
     )
     .eq("id", userId)
     .maybeSingle();

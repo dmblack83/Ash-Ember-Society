@@ -29,6 +29,15 @@ const COUNTRY_NAMES: Record<string, string> = {
   ZM: "Zambia", ZW: "Zimbabwe",
 };
 
+/** Sorted country options for location selects (US pinned first). */
+export function countryOptions(): { code: string; name: string }[] {
+  const rest = Object.entries(COUNTRY_NAMES)
+    .filter(([code]) => code !== "US")
+    .map(([code, name]) => ({ code, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return [{ code: "US", name: COUNTRY_NAMES.US }, ...rest];
+}
+
 /** Returns the full country name for a 2-letter ISO code, or the input unchanged if not found. */
 export function countryName(code: string | null | undefined): string {
   if (!code) return "";

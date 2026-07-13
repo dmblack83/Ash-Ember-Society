@@ -70,6 +70,7 @@ export function AccountRoute() {
         city:         profile?.city         ?? null,
         state:        profile?.state        ?? null,
         zip_code:     profile?.zip_code     ?? null,
+        country:      profile?.country      ?? null,
         avatar_url:   profile?.avatar_url   ?? null,
       }}
       membership={{

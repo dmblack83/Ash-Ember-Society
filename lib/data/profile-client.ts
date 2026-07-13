@@ -15,7 +15,7 @@ export async function fetchProfileLite(userId: string): Promise<ProfileLite | nu
   const supabase = createClient();
   const { data } = await supabase
     .from("profiles")
-    .select("display_name, first_name, city, zip_code, badge, assigned_badges, membership_tier, is_admin")
+    .select("display_name, first_name, city, zip_code, country, badge, assigned_badges, membership_tier, is_admin")
     .eq("id", userId)
     .single();
   return data ?? null;

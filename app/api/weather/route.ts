@@ -87,16 +87,22 @@ async function resolveZip(zip: string): Promise<ResolvedLocation | null> {
 }
 
 /* ── city → lat/lon (Open-Meteo geocoding fallback) ────────────── */
-async function resolveCity(city: string): Promise<ResolvedLocation | null> {
+async function resolveCity(city: string, country?: string | null): Promise<ResolvedLocation | null> {
   try {
     const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`,
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=10`,
       { next: { revalidate: 86400 } }
     );
     if (!res.ok) return null;
     const data = await res.json();
-    const loc  = data?.results?.[0];
-    if (!loc) return null;
+    const results: { latitude: number; longitude: number; name: string; country_code?: string }[] =
+      data?.results ?? [];
+    if (results.length === 0) return null;
+    /* Prefer the match in the user's own country ("Paris" for a French
+       member must be Paris FR, not Paris, Texas); fall back to the
+       most-populous match if none. */
+    const cc  = country?.toUpperCase();
+    const loc = (cc && results.find((r) => r.country_code?.toUpperCase() === cc)) || results[0];
     return { lat: loc.latitude, lon: loc.longitude, city: loc.name };
   } catch {
     return null;
@@ -193,9 +199,11 @@ async function openMeteoCurrent(lat: number, lon: number): Promise<CurrentReadin
 }
 
 export async function GET(req: NextRequest) {
-  const sp   = req.nextUrl.searchParams;
-  const zip  = sp.get("zip")?.trim()  || null;
-  const city = sp.get("city")?.trim() || null;
+  const sp      = req.nextUrl.searchParams;
+  const zip     = sp.get("zip")?.trim()  || null;
+  const city    = sp.get("city")?.trim() || null;
+  /* ISO alpha-2, disambiguates the city lookup for non-US members. */
+  const country = sp.get("country")?.trim().slice(0, 2) || null;
 
   if (!zip && !city) {
     return NextResponse.json({ error: "zip or city param required" }, { status: 400 });
@@ -208,7 +216,7 @@ export async function GET(req: NextRequest) {
     location = await resolveZip(zip);
   }
   if (!location && city) {
-    location = await resolveCity(city);
+    location = await resolveCity(city, country);
   }
   if (!location) {
     return NextResponse.json({ error: "location_not_found" }, { status: 404 });
