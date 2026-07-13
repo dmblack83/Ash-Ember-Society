@@ -7,6 +7,7 @@ import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
 import Image from "next/image";
 import { CigarImage } from "@/components/ui/CigarImage";
+import { ratingColor, ratingLabel } from "@/lib/rating";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
 import { Toast } from "@/components/ui/toast";
 import {
@@ -166,20 +167,8 @@ function defaultForm(): FormData {
    Helpers
    ------------------------------------------------------------------ */
 
-function ratingColor(v: number): string {
-  if (v <= 40) return "#C44536";
-  if (v <= 60) return "#8B6020";
-  if (v <= 80) return "#3A6B45";
-  return "#D4A04A";
-}
-
-function ratingLabel(v: number): string {
-  if (v <= 20) return "Poor";
-  if (v <= 40) return "Below Average";
-  if (v <= 60) return "Average";
-  if (v <= 80) return "Good";
-  return "Outstanding";
-}
+/* ratingColor / ratingLabel moved to lib/rating.ts — shared with the
+   quick-log modal so both surfaces grade the 1-100 scale identically. */
 
 /* ------------------------------------------------------------------
    ProgressRail — editorial progress (tick per step), gold-deep done /

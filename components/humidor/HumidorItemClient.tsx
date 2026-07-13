@@ -8,6 +8,7 @@ import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
+import { ratingLabel } from "@/lib/rating";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
@@ -372,7 +373,9 @@ function SmokeModal({
 
   const today = todayLocalYmd();
   const [smokedAt, setSmokedAt] = useState(today);
-  const [rating, setRating] = useState<number>(8);
+  /* 1-100, same scale + default as the burn report wizard. Quick logs
+     stored 1-10 until 2026-07 (existing rows migrated x10). */
+  const [rating, setRating] = useState<number>(75);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -380,7 +383,7 @@ function SmokeModal({
   useEffect(() => {
     if (!isOpen) return;
     setSmokedAt(today);
-    setRating(8);
+    setRating(75);
     setReviewText("");
     setError(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -474,28 +477,63 @@ function SmokeModal({
                 <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
                   Overall Rating
                 </p>
-                <div className="flex items-center gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setRating((r) => Math.max(1, r - 1))}
-                    className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center flex-shrink-0 text-xl leading-none"
-                  >
-                    −
-                  </button>
-                  <span
-                    className="text-4xl font-bold w-12 text-center"
-                    style={{ fontFamily: "var(--font-serif)", color: "var(--primary)" }}
+                {/* Same 1-100 slider treatment as the burn report
+                    wizard: big italic numeral + grade word + gold-fill
+                    track, so one rating scale reads identically
+                    everywhere. */}
+                <div className="text-center" style={{ paddingBottom: 4 }}>
+                  <p
+                    style={{
+                      fontFamily:    "var(--font-serif)",
+                      fontStyle:     "italic",
+                      fontWeight:    500,
+                      fontSize:      56,
+                      lineHeight:    0.9,
+                      letterSpacing: "-0.02em",
+                      color:         "var(--gold)",
+                      margin:        0,
+                    }}
                   >
                     {rating}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setRating((r) => Math.min(10, r + 1))}
-                    className="btn btn-secondary w-10 h-10 p-0 flex items-center justify-center flex-shrink-0 text-xl leading-none"
+                    <span
+                      style={{
+                        fontSize:      16,
+                        fontStyle:     "normal",
+                        letterSpacing: 0,
+                        color:         "var(--muted-foreground)",
+                        marginLeft:    6,
+                      }}
+                    >
+                      / 100
+                    </span>
+                  </p>
+                  <p
+                    style={{
+                      fontFamily: "var(--font-serif)",
+                      fontStyle:  "italic",
+                      fontSize:   15,
+                      fontWeight: 500,
+                      color:      "var(--paper-mute)",
+                      margin:     "4px 0 0",
+                    }}
                   >
-                    +
-                  </button>
-                  <span className="text-sm text-muted-foreground">/ 10</span>
+                    {ratingLabel(rating)}
+                  </p>
+                </div>
+                <div style={{ paddingLeft: 4, paddingRight: 4 }}>
+                  <input
+                    type="range"
+                    min={1}
+                    max={100}
+                    value={rating}
+                    onChange={(e) => setRating(parseInt(e.target.value))}
+                    className="burn-report-slider"
+                    aria-label="Overall rating, 1 to 100"
+                    style={{
+                      ["--p" as string]: `${rating}%`,
+                      width: "100%",
+                    }}
+                  />
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -897,7 +935,7 @@ export function HumidorItemClient({
           <StatCard
             label="Avg. Personal"
             value={avgPersonalRating ?? "—"}
-            sub={avgPersonalRating ? "/ 10" : undefined}
+            sub={avgPersonalRating ? "/ 100" : undefined}
           />
           {c.ring_gauge != null && (
             <StatCard label="Ring Gauge" value={String(c.ring_gauge)} />
