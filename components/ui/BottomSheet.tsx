@@ -21,14 +21,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { useBodyScrollLock } from "@/lib/hooks/use-body-scroll-lock";
+import { dragStart, dragMove, dragEnd, type SheetDragState } from "@/lib/sheet-drag";
 
 const DESKTOP_QUERY = "(min-width: 640px)";
-
-/* Dismiss when dragged past this fraction of the sheet height... */
-const DISMISS_FRACTION = 0.35;
-/* ...or flicked faster than this (px/ms) with meaningful travel. */
-const DISMISS_VELOCITY = 0.55;
-const DISMISS_MIN_TRAVEL = 24;
 
 export interface BottomSheetProps {
   open:      boolean;
@@ -122,18 +117,15 @@ export function BottomSheet({
   /* ── Drag-to-dismiss (mobile only) ─────────────────────────────
      Native listeners (touchmove must be non-passive to preventDefault
      the rubber-band once a drag is armed). All per-frame updates
-     mutate the DOM directly. */
+     mutate the DOM directly. Gesture classification (dismiss pull vs
+     content scroll) lives in lib/sheet-drag.ts — intent is decided
+     once per gesture at the first real movement and then locked, so
+     a scroll can never turn into a dismiss mid-gesture. */
   useEffect(() => {
     const sheet = sheetRef.current;
     if (!sheet || !open) return;
 
-    let startY   = 0;
-    let dy       = 0;
-    let armed    = false;
-    let dragging = false;
-    let lastY    = 0;
-    let lastT    = 0;
-    let velocity = 0;
+    let gesture: SheetDragState | null = null;
 
     const clearInline = () => {
       /* Hand style ownership back to React's declarative values. */
@@ -147,60 +139,39 @@ export function BottomSheet({
 
     const onStart = (e: TouchEvent) => {
       if (window.matchMedia(DESKTOP_QUERY).matches) return;
-      const scroller = innerScrollRef.current;
-      /* Only arm when the body is scrolled to the top — otherwise the
-         gesture is a content scroll, not a dismiss. */
-      armed    = !scroller || scroller.scrollTop <= 0;
-      startY   = e.touches[0].clientY;
-      lastY    = startY;
-      lastT    = e.timeStamp;
-      dy       = 0;
-      dragging = false;
-      velocity = 0;
+      gesture = dragStart(e.touches[0].clientY, e.timeStamp);
     };
 
     const onMove = (e: TouchEvent) => {
-      if (!armed) return;
-      const y = e.touches[0].clientY;
-      dy = y - startY;
+      if (!gesture) return;
+      const fx = dragMove(
+        gesture,
+        e.touches[0].clientY,
+        e.timeStamp,
+        innerScrollRef.current?.scrollTop ?? 0,
+      );
+      gesture = fx.state;
 
-      if (dy <= 0) {
-        /* Upward — not a dismiss. If we had started dragging, snap home. */
-        if (dragging) {
-          dragging = false;
-          clearInline();
-        }
-        return;
-      }
-
-      dragging = true;
-      e.preventDefault();
-
-      const dt = e.timeStamp - lastT;
-      if (dt > 0) velocity = (y - lastY) / dt;
-      lastY = y;
-      lastT = e.timeStamp;
+      if (fx.preventDefault) e.preventDefault();
+      if (fx.translateY === null) return;
 
       sheet.style.transition = "none";
-      sheet.style.transform  = `translateY(${dy}px)`;
+      sheet.style.transform  = `translateY(${fx.translateY}px)`;
       if (backdropRef.current) {
         const h = sheet.offsetHeight || 1;
         backdropRef.current.style.transition = "none";
         backdropRef.current.style.opacity =
-          String(Math.max(0, 1 - (dy / h) * 0.9));
+          String(Math.max(0, 1 - (fx.translateY / h) * 0.9));
       }
     };
 
     const onEnd = () => {
-      if (!dragging) return;
-      dragging = false;
+      if (!gesture) return;
+      const release = dragEnd(gesture, sheet.offsetHeight);
+      gesture = null;
+      if (release === "none") return;
 
-      const h = sheet.offsetHeight || 1;
-      const shouldDismiss =
-        dy > h * DISMISS_FRACTION ||
-        (velocity > DISMISS_VELOCITY && dy > DISMISS_MIN_TRAVEL);
-
-      if (shouldDismiss) {
+      if (release === "dismiss") {
         /* Finish the exit from the current position with the spring,
            then let the parent unmount/close. React's `open=false`
            styles take over seamlessly (same end state). */
