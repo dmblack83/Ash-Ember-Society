@@ -1,3 +1,12 @@
+export interface SharePhoto {
+  uri:    string;
+  /* Intrinsic pixel dimensions, read server-side via sharp. Null when
+     metadata could not be read; photo cells then fall back to a full-cell
+     fit instead of natural-aspect math. */
+  width:  number | null;
+  height: number | null;
+}
+
 export interface ShareImageProps {
   reportNumber:         number | null;
   smokedAt:             string;
@@ -12,7 +21,7 @@ export interface ShareImageProps {
   pairingDrink:         string | null;
   occasion:             string | null;
   flavorTagNames:       string[];
-  photoDataUris:        string[];
+  photos:               SharePhoto[];
   thirdsEnabled:        boolean;
   thirdBeginning:       string | null;
   thirdMiddle:          string | null;

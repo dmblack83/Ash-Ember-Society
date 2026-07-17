@@ -1,8 +1,8 @@
 import React from "react";
 import { T }            from "./tokens";
-import { gradeFor, starFillPct } from "./helpers";
+import { gradeFor, starFillPct, fitWithin, singlePhotoBandHeight } from "./helpers";
 import { smokedAtToLocalDate }   from "@/lib/format";
-import type { ShareImageProps }  from "./types";
+import type { ShareImageProps, SharePhoto } from "./types";
 
 const STAR_PATH = "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z";
 const STAR_LABELS = ["", "Poor", "Below Average", "Average", "Good", "Outstanding"] as const;
@@ -60,27 +60,51 @@ function SubRatingCell({ label, val, rowKey }: { label: string; val: number; row
   );
 }
 
-function PhotoStrip({ uris }: { uris: string[] }) {
-  if (uris.length === 0) return null;
+/* Photos scale to FIT, never crop — mirrors the in-app VerdictCard rule.
+   Each cell letterboxes its image on a dim backdrop; the drawn size comes
+   from fitWithin (explicit contain math, no reliance on Satori's object-fit
+   intrinsic-size sniffing). A single photo takes its natural aspect ratio
+   at content width, capped by singlePhotoBandHeight. */
+function PhotoCell({ photo, cellW, cellH }: { photo: SharePhoto; cellW: number; cellH: number }) {
+  // Unknown intrinsic size (sharp metadata failed): fill-the-cell crop, the
+  // pre-fix behavior — cropping beats stretching for real photos.
+  if (!photo.width || !photo.height) {
+    return (
+      <img src={photo.uri} width={cellW} height={cellH}
+        style={{ objectFit: "cover", borderRadius: 2 }} />
+    );
+  }
+  const fit = fitWithin(photo.width, photo.height, cellW, cellH);
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+      width: cellW, height: cellH, background: "rgba(0,0,0,0.25)", borderRadius: 2 }}>
+      <img src={photo.uri} width={fit.width} height={fit.height}
+        style={{ borderRadius: 2 }} />
+    </div>
+  );
+}
+
+function PhotoStrip({ photos }: { photos: SharePhoto[] }) {
+  if (photos.length === 0) return null;
   const cw   = T.CONTENT_WIDTH;
   const gap  = T.PHOTO_GAP;
   const band = T.PHOTO_BAND_H;
 
-  if (uris.length === 1) {
+  if (photos.length === 1) {
+    const h = singlePhotoBandHeight(photos[0].width, photos[0].height);
     return (
       <div style={{ display: "flex", marginTop: 24 }}>
-        <img src={uris[0]} width={cw} height={band}
-          style={{ objectFit: "cover", borderRadius: 2 }} />
+        <PhotoCell photo={photos[0]} cellW={cw} cellH={h} />
       </div>
     );
   }
 
-  if (uris.length === 2) {
+  if (photos.length === 2) {
     const w = Math.floor((cw - gap) / 2);
     return (
       <div style={{ display: "flex", gap, marginTop: 24 }}>
-        <img src={uris[0]} width={w} height={band} style={{ objectFit: "cover", borderRadius: 2 }} />
-        <img src={uris[1]} width={w} height={band} style={{ objectFit: "cover", borderRadius: 2 }} />
+        <PhotoCell photo={photos[0]} cellW={w} cellH={band} />
+        <PhotoCell photo={photos[1]} cellW={w} cellH={band} />
       </div>
     );
   }
@@ -91,13 +115,10 @@ function PhotoStrip({ uris }: { uris: string[] }) {
   const rightH = Math.floor((band - gap) / 2);
   return (
     <div style={{ display: "flex", gap, marginTop: 24 }}>
-      <img src={uris[0]} width={leftW} height={band}
-        style={{ objectFit: "cover", borderRadius: 2 }} />
+      <PhotoCell photo={photos[0]} cellW={leftW} cellH={band} />
       <div style={{ display: "flex", flexDirection: "column", gap }}>
-        <img src={uris[1]} width={rightW} height={rightH}
-          style={{ objectFit: "cover", borderRadius: 2 }} />
-        <img src={uris[2]} width={rightW} height={rightH}
-          style={{ objectFit: "cover", borderRadius: 2 }} />
+        <PhotoCell photo={photos[1]} cellW={rightW} cellH={rightH} />
+        <PhotoCell photo={photos[2]} cellW={rightW} cellH={rightH} />
       </div>
     </div>
   );
@@ -209,7 +230,7 @@ export function buildPage1(p: ShareImageProps): React.ReactElement {
           <SubRatingCell label="Flavor" val={p.flavorRating       ?? 0} rowKey="flavor" />
         </div>
 
-        <PhotoStrip uris={p.photoDataUris.slice(0, 3)} />
+        <PhotoStrip photos={p.photos.slice(0, 3)} />
 
         <Footer />
       </div>

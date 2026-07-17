@@ -1,4 +1,32 @@
+import { T } from "./tokens";
 import type { ShareImageProps } from "./types";
+
+/* Contain math for photo cells: scale the image to fit inside the cell
+   without cropping (mirrors the VerdictCard "scale to FIT, never crop"
+   rule). Computed in JS because Satori's own object-fit needs to sniff
+   intrinsic dimensions from the data URI; explicit sizes are deterministic.
+   Unknown dimensions fall back to the full cell. */
+export function fitWithin(
+  imgW: number | null,
+  imgH: number | null,
+  cellW: number,
+  cellH: number,
+): { width: number; height: number } {
+  if (!imgW || !imgH) return { width: cellW, height: cellH };
+  const scale = Math.min(cellW / imgW, cellH / imgH);
+  return {
+    width:  Math.min(cellW, Math.round(imgW * scale)),
+    height: Math.min(cellH, Math.round(imgH * scale)),
+  };
+}
+
+/* Single-photo band: use the photo's natural aspect ratio at content width
+   (like the in-app report card), capped at PHOTO_MAX_H so a tall portrait
+   can't stretch page 1 far past the square and shrink the text. */
+export function singlePhotoBandHeight(imgW: number | null, imgH: number | null): number {
+  if (!imgW || !imgH) return T.PHOTO_BAND_H;
+  return Math.min(Math.round(T.CONTENT_WIDTH * (imgH / imgW)), T.PHOTO_MAX_H);
+}
 
 export function gradeFor(v: number): string {
   if (v <= 20) return "Poor";

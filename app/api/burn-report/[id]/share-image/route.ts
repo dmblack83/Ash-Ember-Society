@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse }     from "next/server";
 import satori                            from "satori";
+import sharp                             from "sharp";
 import { getServerUser }                 from "@/lib/auth/server-user";
 import { createServiceClientFor }        from "@/utils/supabase/service";
 import { getFlavorTags }                 from "@/lib/data/flavor-tags";
@@ -19,21 +20,36 @@ import type { Font }                     from "satori";
 import { buildPage1 }                    from "@/lib/share-image/page1";
 import { buildPage2 }                    from "@/lib/share-image/page2";
 import { shouldRenderPage2 }             from "@/lib/share-image/helpers";
-import type { ShareImageProps }          from "@/lib/share-image/types";
+import type { ShareImageProps, SharePhoto } from "@/lib/share-image/types";
 import { T }                             from "@/lib/share-image/tokens";
 import { renderSquarePng }               from "@/lib/share-image/render";
 
 const ALLOWED_PHOTO_HOSTS = new Set(["qagaiuibtwuhihukghyx.supabase.co"]);
 
-async function toDataUri(url: string): Promise<string | null> {
+async function toSharePhoto(url: string): Promise<SharePhoto | null> {
   try {
     const { hostname } = new URL(url);
     if (!ALLOWED_PHOTO_HOSTS.has(hostname)) return null;
     const res = await fetch(url);
     if (!res.ok) return null;
-    const buf  = await res.arrayBuffer();
+    const buf  = Buffer.from(await res.arrayBuffer());
     const mime = res.headers.get("content-type") ?? "image/jpeg";
-    return `data:${mime};base64,${Buffer.from(buf).toString("base64")}`;
+
+    // Intrinsic dimensions drive the scale-to-fit math in PhotoStrip.
+    // EXIF orientation can swap width/height on phone photos; use the
+    // post-rotation values when present.
+    let width: number | null = null;
+    let height: number | null = null;
+    try {
+      const meta = await sharp(buf).metadata();
+      const swap = (meta.orientation ?? 1) >= 5;
+      width  = (swap ? meta.height : meta.width)  ?? null;
+      height = (swap ? meta.width  : meta.height) ?? null;
+    } catch {
+      // Unknown dimensions: PhotoStrip falls back to a full-cell fit.
+    }
+
+    return { uri: `data:${mime};base64,${buf.toString("base64")}`, width, height };
   } catch {
     return null;
   }
@@ -108,9 +124,9 @@ export async function GET(
     .eq("id", user.id)
     .maybeSingle();
 
-  // 8. Prefetch photos as data URIs
-  const photoUrls    = ((log.photo_urls ?? []) as string[]).filter(Boolean).slice(0, 3);
-  const photoDataUris = (await Promise.all(photoUrls.map(toDataUri))).filter(Boolean) as string[];
+  // 8. Prefetch photos as data URIs + intrinsic dimensions
+  const photoUrls = ((log.photo_urls ?? []) as string[]).filter(Boolean).slice(0, 3);
+  const photos    = (await Promise.all(photoUrls.map(toSharePhoto))).filter(Boolean) as SharePhoto[];
 
   // 9. Build props
   const cigarRaw = Array.isArray(log.cigar) ? log.cigar[0] : log.cigar;
@@ -128,7 +144,7 @@ export async function GET(
     pairingDrink:         (log.pairing_drink as string | null),
     occasion:             (log.occasion as string | null),
     flavorTagNames,
-    photoDataUris,
+    photos,
     thirdsEnabled:        br?.thirds_enabled ?? false,
     thirdBeginning:       br?.third_beginning ?? null,
     thirdMiddle:          br?.third_middle ?? null,

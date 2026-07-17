@@ -20,6 +20,7 @@ export const T = {
   CONTENT_WIDTH:  984 as const,
   PHOTO_GAP:      6 as const,
   PHOTO_BAND_H:   360 as const,    // reserved photo height so page 1 fits the square
+  PHOTO_MAX_H:    520 as const,    // single-photo natural-aspect cap; keeps page 1 near the square so text survives the downscale
   /* Centralized type scale (px on the 1080 canvas). Authored ~2x the prior
      inline sizes so the smallest meaningful text clears a legibility floor
      (body >= ~2.7% of width, labels >= ~1.6%) and survives the downscale a
