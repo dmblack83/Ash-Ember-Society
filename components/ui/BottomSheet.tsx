@@ -88,6 +88,8 @@ export function BottomSheet({
   const backdropRef = useRef<HTMLDivElement>(null);
   const sheetRef    = useRef<HTMLDivElement>(null);
   const innerScrollRef = useRef<HTMLDivElement>(null);
+  /* Top strip (handle + header) — the only surface that dismisses. */
+  const dragRegionRef = useRef<HTMLDivElement>(null);
 
   /* Reset scroll position each time the sheet opens. */
   useEffect(() => {
@@ -115,15 +117,18 @@ export function BottomSheet({
   });
 
   /* ── Drag-to-dismiss (mobile only) ─────────────────────────────
+     The gesture lives ONLY on the top strip (handle + header). The
+     scrollable body never competes with it: content scrolls freely
+     in both directions at any position, and scroll flicks can never
+     dismiss the sheet, no matter how fast or where the list sits.
      Native listeners (touchmove must be non-passive to preventDefault
-     the rubber-band once a drag is armed). All per-frame updates
-     mutate the DOM directly. Gesture classification (dismiss pull vs
-     content scroll) lives in lib/sheet-drag.ts — intent is decided
-     once per gesture at the first real movement and then locked, so
-     a scroll can never turn into a dismiss mid-gesture. */
+     text-selection drags once a pull is armed). All per-frame updates
+     mutate the DOM directly. Classification (pull vs not) lives in
+     lib/sheet-drag.ts — intent locks at the first real movement. */
   useEffect(() => {
-    const sheet = sheetRef.current;
-    if (!sheet || !open) return;
+    const sheet  = sheetRef.current;
+    const region = dragRegionRef.current;
+    if (!sheet || !region || !open) return;
 
     let gesture: SheetDragState | null = null;
 
@@ -144,12 +149,9 @@ export function BottomSheet({
 
     const onMove = (e: TouchEvent) => {
       if (!gesture) return;
-      const fx = dragMove(
-        gesture,
-        e.touches[0].clientY,
-        e.timeStamp,
-        innerScrollRef.current?.scrollTop ?? 0,
-      );
+      /* scrollTop 0: the top strip has no scroller, so any downward
+         movement here is a dismiss pull by definition. */
+      const fx = dragMove(gesture, e.touches[0].clientY, e.timeStamp, 0);
       gesture = fx.state;
 
       if (fx.preventDefault) e.preventDefault();
@@ -199,15 +201,15 @@ export function BottomSheet({
       }
     };
 
-    sheet.addEventListener("touchstart",  onStart, { passive: true });
-    sheet.addEventListener("touchmove",   onMove,  { passive: false });
-    sheet.addEventListener("touchend",    onEnd);
-    sheet.addEventListener("touchcancel", onEnd);
+    region.addEventListener("touchstart",  onStart, { passive: true });
+    region.addEventListener("touchmove",   onMove,  { passive: false });
+    region.addEventListener("touchend",    onEnd);
+    region.addEventListener("touchcancel", onEnd);
     return () => {
-      sheet.removeEventListener("touchstart",  onStart);
-      sheet.removeEventListener("touchmove",   onMove);
-      sheet.removeEventListener("touchend",    onEnd);
-      sheet.removeEventListener("touchcancel", onEnd);
+      region.removeEventListener("touchstart",  onStart);
+      region.removeEventListener("touchmove",   onMove);
+      region.removeEventListener("touchend",    onEnd);
+      region.removeEventListener("touchcancel", onEnd);
     };
   }, [open, onClose]);
 
@@ -265,14 +267,16 @@ export function BottomSheet({
           visibility:      shown ? "visible" : "hidden",
         }}
       >
-        {/* Drag handle — mobile only */}
-        {showHandle && !isDesktop && (
-          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full bg-muted" />
-          </div>
-        )}
-
-        {header && <div className="flex-shrink-0">{header}</div>}
+        {/* Drag region: handle + header. Pulling down anywhere on
+            this strip dismisses; the body below never does. */}
+        <div ref={dragRegionRef} className="flex-shrink-0">
+          {showHandle && !isDesktop && (
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-muted" />
+            </div>
+          )}
+          {header}
+        </div>
 
         {/* Scrollable body (+ optional overlay layer, e.g. carets).
 
