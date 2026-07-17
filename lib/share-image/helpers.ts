@@ -20,6 +20,20 @@ export function fitWithin(
   };
 }
 
+/* Row height for equal side-by-side photo cells: the tallest photo's
+   fitted height at the cell width, capped at PHOTO_BAND_H. Shorter photos
+   letterbox inside; a row of landscapes doesn't reserve dead backdrop.
+   Any unknown dimensions fall back to the full band. */
+export function photoRowHeight(
+  photos: Array<{ width: number | null; height: number | null }>,
+  cellW: number,
+): number {
+  const heights = photos.map((p) =>
+    p.width && p.height ? Math.round(cellW * (p.height / p.width)) : T.PHOTO_BAND_H,
+  );
+  return Math.min(T.PHOTO_BAND_H, Math.max(...heights));
+}
+
 /* Single-photo band: use the photo's natural aspect ratio at content width
    (like the in-app report card), capped at PHOTO_MAX_H so a tall portrait
    can't stretch page 1 far past the square and shrink the text. */

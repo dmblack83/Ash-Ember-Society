@@ -1,6 +1,6 @@
 import React from "react";
 import { T }            from "./tokens";
-import { gradeFor, starFillPct, fitWithin, singlePhotoBandHeight } from "./helpers";
+import { gradeFor, starFillPct, fitWithin, singlePhotoBandHeight, photoRowHeight } from "./helpers";
 import { smokedAtToLocalDate }   from "@/lib/format";
 import type { ShareImageProps, SharePhoto } from "./types";
 
@@ -86,9 +86,8 @@ function PhotoCell({ photo, cellW, cellH }: { photo: SharePhoto; cellW: number; 
 
 function PhotoStrip({ photos }: { photos: SharePhoto[] }) {
   if (photos.length === 0) return null;
-  const cw   = T.CONTENT_WIDTH;
-  const gap  = T.PHOTO_GAP;
-  const band = T.PHOTO_BAND_H;
+  const cw  = T.CONTENT_WIDTH;
+  const gap = T.PHOTO_GAP;
 
   if (photos.length === 1) {
     const h = singlePhotoBandHeight(photos[0].width, photos[0].height);
@@ -99,27 +98,16 @@ function PhotoStrip({ photos }: { photos: SharePhoto[] }) {
     );
   }
 
-  if (photos.length === 2) {
-    const w = Math.floor((cw - gap) / 2);
-    return (
-      <div style={{ display: "flex", gap, marginTop: 24 }}>
-        <PhotoCell photo={photos[0]} cellW={w} cellH={band} />
-        <PhotoCell photo={photos[1]} cellW={w} cellH={band} />
-      </div>
-    );
-  }
-
-  // 3-photo asymmetric layout: left tall, right two stacked, total = band
-  const leftW  = Math.floor((cw - gap) * (1.85 / 2.85));
-  const rightW = (cw - gap) - leftW;
-  const rightH = Math.floor((band - gap) / 2);
+  // 2 or 3 photos: equal cells side by side (the in-app asymmetric layout
+  // relies on tap-to-open; the export shows every photo at the same size).
+  // Row height tracks the tallest fitted photo, capped at the band.
+  const w = Math.floor((cw - gap * (photos.length - 1)) / photos.length);
+  const h = photoRowHeight(photos, w);
   return (
     <div style={{ display: "flex", gap, marginTop: 24 }}>
-      <PhotoCell photo={photos[0]} cellW={leftW} cellH={band} />
-      <div style={{ display: "flex", flexDirection: "column", gap }}>
-        <PhotoCell photo={photos[1]} cellW={rightW} cellH={rightH} />
-        <PhotoCell photo={photos[2]} cellW={rightW} cellH={rightH} />
-      </div>
+      {photos.map((photo, i) => (
+        <PhotoCell key={i} photo={photo} cellW={w} cellH={h} />
+      ))}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { gradeFor, starFillPct, shouldRenderPage2, clampText, fitWithin, singlePhotoBandHeight } from "../helpers";
+import { gradeFor, starFillPct, shouldRenderPage2, clampText, fitWithin, singlePhotoBandHeight, photoRowHeight } from "../helpers";
 import { T } from "../tokens";
 import type { ShareImageProps } from "../types";
 
@@ -138,6 +138,33 @@ describe("fitWithin — contain math for photo cells (scale to fit, never crop)"
   it("falls back to the full cell when dimensions are unknown", () => {
     expect(fitWithin(null, null, 984, 360)).toEqual({ width: 984, height: 360 });
     expect(fitWithin(0, 0, 984, 360)).toEqual({ width: 984, height: 360 });
+  });
+});
+
+describe("photoRowHeight — equal side-by-side cells sized to the tallest fitted photo", () => {
+  it("uses the tallest photo's fitted height when under the band", () => {
+    // Two 4:3 landscapes at cellW 324 → 243 each → row 243
+    const photos = [
+      { width: 1600, height: 1200 },
+      { width: 4000, height: 3000 },
+    ];
+    expect(photoRowHeight(photos, 324)).toBe(243);
+  });
+
+  it("caps at PHOTO_BAND_H when a portrait would exceed it", () => {
+    const photos = [
+      { width: 1600, height: 1200 },
+      { width: 1200, height: 1600 }, // 3:4 at 324 wide → 432, over the band
+    ];
+    expect(photoRowHeight(photos, 324)).toBe(T.PHOTO_BAND_H);
+  });
+
+  it("falls back to the band when any photo has unknown dimensions", () => {
+    const photos = [
+      { width: 2400, height: 1000 },
+      { width: null, height: null },
+    ];
+    expect(photoRowHeight(photos, 324)).toBe(T.PHOTO_BAND_H);
   });
 });
 
