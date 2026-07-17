@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { gradeFor, starFillPct, shouldRenderPage2, clampText } from "../helpers";
+import { gradeFor, starFillPct, shouldRenderPage2, clampText, fitWithin, singlePhotoBandHeight } from "../helpers";
+import { T } from "../tokens";
 import type { ShareImageProps } from "../types";
 
 const base = (): ShareImageProps => ({
@@ -16,7 +17,7 @@ const base = (): ShareImageProps => ({
   pairingDrink:         null,
   occasion:             null,
   flavorTagNames:       [],
-  photoDataUris:        [],
+  photos:               [],
   thirdsEnabled:        false,
   thirdBeginning:       null,
   thirdMiddle:          null,
@@ -102,5 +103,56 @@ describe("clampText", () => {
     expect(out.endsWith("…")).toBe(true);
     expect(text.startsWith(visible)).toBe(true);
     expect(text[visible.length]).toBe(" "); // clean cut at a space
+  });
+});
+
+describe("fitWithin — contain math for photo cells (scale to fit, never crop)", () => {
+  it("fits a landscape image into a wide band by height", () => {
+    // 4:3 landscape into 984×360 → height-bound: 480×360
+    expect(fitWithin(4000, 3000, 984, 360)).toEqual({ width: 480, height: 360 });
+  });
+
+  it("fits a panoramic image by width", () => {
+    // 4:1 pano into 984×360 → width-bound: 984×246
+    expect(fitWithin(4000, 1000, 984, 360)).toEqual({ width: 984, height: 246 });
+  });
+
+  it("fits a portrait image by height", () => {
+    // 3:4 portrait into 489×360 → 270×360
+    expect(fitWithin(3000, 4000, 489, 360)).toEqual({ width: 270, height: 360 });
+  });
+
+  it("never exceeds the cell in either dimension", () => {
+    const cases: Array<[number, number]> = [[1, 1000], [1000, 1], [123, 457], [4032, 3024]];
+    for (const [w, h] of cases) {
+      const fit = fitWithin(w, h, 984, 360);
+      expect(fit.width).toBeLessThanOrEqual(984);
+      expect(fit.height).toBeLessThanOrEqual(360);
+    }
+  });
+
+  it("an exact-ratio image fills the cell exactly (no visible letterbox)", () => {
+    expect(fitWithin(1968, 720, 984, 360)).toEqual({ width: 984, height: 360 });
+  });
+
+  it("falls back to the full cell when dimensions are unknown", () => {
+    expect(fitWithin(null, null, 984, 360)).toEqual({ width: 984, height: 360 });
+    expect(fitWithin(0, 0, 984, 360)).toEqual({ width: 984, height: 360 });
+  });
+});
+
+describe("singlePhotoBandHeight — natural aspect, capped for the square card", () => {
+  it("uses the image's natural ratio at content width when under the cap", () => {
+    // 3:2 landscape at 984 wide → 656 tall
+    expect(singlePhotoBandHeight(3000, 2000)).toBe(Math.min(656, T.PHOTO_MAX_H));
+  });
+
+  it("caps tall portraits at PHOTO_MAX_H so page 1 text stays legible after squaring", () => {
+    expect(singlePhotoBandHeight(3000, 4000)).toBe(T.PHOTO_MAX_H);
+  });
+
+  it("falls back to the standard band when dimensions are unknown", () => {
+    expect(singlePhotoBandHeight(null, null)).toBe(T.PHOTO_BAND_H);
+    expect(singlePhotoBandHeight(0, 0)).toBe(T.PHOTO_BAND_H);
   });
 });
