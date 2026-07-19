@@ -16,6 +16,10 @@
     {
       "path":     "/api/cron/push-retry",
       "schedule": "0 * * * *"
+    },
+    {
+      "path":     "/api/cron/govee-poll",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
