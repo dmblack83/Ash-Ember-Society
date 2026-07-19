@@ -7,6 +7,7 @@ import Link from "next/link";
 import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
+import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { keyFor } from "@/lib/data/keys";
 import { agingDays } from "@/lib/format";
 import {
@@ -652,6 +653,9 @@ export function HumidorClient({
 
       {/* ── Content ─────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+        <div className="empty:hidden" style={{ marginBottom: 12 }}>
+          <HumidorConditions userId={userId} />
+        </div>
         {(isLoading || loading) ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
