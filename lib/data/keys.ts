@@ -101,10 +101,10 @@ export const keyFor = {
   /* ── Home aging island (per-user). */
   homeAging:     (userId: string) => ["home-aging", userId] as const,
 
-  /* ── Govee humidor sensor status (per-user; /api/govee/connection).
-   *   Shared by the humidor strip, the home card, and the account
-   *   section — one cache entry, one request. */
-  goveeStatus:   (userId: string) => ["govee-status", userId] as const,
+  /* ── Govee account key status (per-user; /api/govee/connection).
+   *   Key management only — per-humidor sensor assignment lives on
+   *   the humidors table and is read via `humidors` below. */
+  goveeKey:      (userId: string) => ["govee-key", userId] as const,
 
   /* ── Humidor containers (per-user; humidors table, own-row RLS).
    *   Shared by chips, conditions strips, sheets, and the home card. */
