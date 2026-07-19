@@ -106,6 +106,10 @@ export const keyFor = {
    *   section — one cache entry, one request. */
   goveeStatus:   (userId: string) => ["govee-status", userId] as const,
 
+  /* ── Humidor containers (per-user; humidors table, own-row RLS).
+   *   Shared by chips, conditions strips, sheets, and the home card. */
+  humidors:      (userId: string) => ["humidors", userId] as const,
+
   /* ── Home news rail (public — shared across users). */
   newsLatest:    (limit: number) => ["news-latest", limit] as const,
   /* ── Industry News page (public, paginated via useSWRInfinite). */
