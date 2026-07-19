@@ -24,7 +24,11 @@ create table if not exists humidors (
   last_reading_at timestamptz,
   sensor_status   text check (sensor_status in ('active','auth_error','device_missing')),
   alert_state     jsonb not null default '{}',
-  created_at      timestamptz not null default now()
+  created_at      timestamptz not null default now(),
+  constraint humidors_humidity_range check (
+    humidity_min >= 30 and humidity_max <= 90 and humidity_min < humidity_max),
+  constraint humidors_temp_range check (
+    temp_min_f >= 40 and temp_max_f <= 90 and temp_min_f < temp_max_f)
 );
 
 create unique index if not exists humidors_one_default_per_user
@@ -99,6 +103,21 @@ drop trigger if exists humidors_free_limit_check on humidors;
 create trigger humidors_free_limit_check
   before insert on humidors for each row
   execute function enforce_humidors_free_limit();
+
+-- default humidor is never deletable, even via direct client DELETE
+create or replace function prevent_default_humidor_delete()
+returns trigger language plpgsql as $$
+begin
+  if old.is_default then
+    raise exception 'cannot_delete_default' using errcode = 'P0001';
+  end if;
+  return old;
+end $$;
+
+drop trigger if exists humidors_protect_default on humidors;
+create trigger humidors_protect_default
+  before delete on humidors for each row
+  execute function prevent_default_humidor_delete();
 
 -- 5. atomic move-then-delete (SECURITY INVOKER: caller's RLS applies)
 create or replace function delete_humidor(p_humidor_id uuid, p_dest_id uuid)

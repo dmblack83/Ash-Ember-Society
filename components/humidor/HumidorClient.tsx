@@ -722,6 +722,7 @@ export function HumidorClient({
                 <button
                   type="button"
                   onClick={() => setSelected("all")}
+                  aria-pressed={selected === "all"}
                   style={chipStyle(selected === "all")}
                 >
                   All
@@ -731,6 +732,7 @@ export function HumidorClient({
                     key={h.id}
                     type="button"
                     onClick={() => setSelected(h.id)}
+                    aria-pressed={selected === h.id}
                     style={chipStyle(selected === h.id)}
                   >
                     {h.name}
