@@ -13,6 +13,8 @@ export interface Humidor extends SensorLike {
   user_id: string;
   name: string;
   type: "humidor" | "tupperdor" | "cooler" | "travel";
+  sku: string | null;
+  device_name: string | null;
   is_default: boolean;
   created_at: string;
 }
@@ -20,7 +22,7 @@ export interface Humidor extends SensorLike {
 export const HUMIDOR_COLUMNS =
   "id, user_id, name, type, is_default, device_id, sku, device_name, " +
   "humidity_min, humidity_max, temp_min_f, temp_max_f, " +
-  "last_temp_f, last_humidity, last_reading_at, sensor_status, alert_state, created_at";
+  "last_temp_f, last_humidity, last_reading_at, sensor_status, created_at";
 
 export class HumidorLimitReachedError extends Error {
   constructor() {
