@@ -885,8 +885,8 @@ export function HumidorClient({
         editing={editingHumidor}
         deleteCount={editingHumidor ? (countsByHumidor.get(editingHumidor.id) ?? 0) : 0}
         onChanged={async () => {
-          await mutateHumidors();
-          if (selected !== "all" && !(humidors ?? []).some((h) => h.id === selected)) {
+          const fresh = await mutateHumidors();
+          if (selected !== "all" && !(fresh ?? []).some((h) => h.id === selected)) {
             setSelected("all");
           }
         }}
