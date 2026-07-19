@@ -91,9 +91,13 @@ function SingleStrip({ h, onEdit }: { h: Humidor; onEdit?: (id: string) => void 
           {h.name}
         </span>
         <span style={{ display: "flex", alignItems: "center" }}>
-          {hasSensor && reading
-            ? <span style={pillStyle(out)}>{out ? "Needs attention" : "In range"}</span>
-            : <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>No sensor</span>}
+          {hasSensor && reading ? (
+            <span style={pillStyle(out)}>{out ? "Needs attention" : "In range"}</span>
+          ) : hasSensor ? (
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>awaiting first reading</span>
+          ) : (
+            <span style={{ fontSize: 11, color: "var(--muted-foreground)" }}>No sensor</span>
+          )}
           {onEdit && <EditPencil onClick={() => onEdit(h.id)} />}
         </span>
       </div>
@@ -129,32 +133,46 @@ export function HumidorConditions({
 
   const v = deriveOverview(humidors);
   if (humidors.length === 1) {
-    /* one humidor: single strip when it has a sensor, else nothing
+    /* one humidor: single strip only once a reading exists, else nothing
        (matches the pre-multi-humidor behavior exactly) */
-    return humidors[0].device_id ? <SingleStrip h={humidors[0]} onEdit={onEdit} /> : null;
+    return readingOf(humidors[0]) !== null ? <SingleStrip h={humidors[0]} onEdit={onEdit} /> : null;
   }
   if (v.sensored === 0 && !onEdit) return null; // home: nothing to show
 
+  function toggleExpanded() {
+    setExpanded((e) => !e);
+  }
+
   return (
-    <section
-      aria-label="Humidor conditions"
-      style={{ ...sectionStyle, cursor: "pointer" }}
-      onClick={() => setExpanded((e) => !e)}
-    >
-      <div style={eyebrowStyle}>
-        <span aria-hidden="true" style={{ width: 18, height: 1, background: "var(--gold)" }} />
-        Humidor Conditions
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-        <span style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 19, color: "var(--foreground)" }}>
-          {v.total} humidors
-        </span>
-        <span>
-          {v.pill && <span style={pillStyle(v.pill === "bad")}>{v.pillLabel}</span>}
-          <span aria-hidden="true" style={{ color: "var(--muted-foreground)", fontSize: 12, marginLeft: 8,
-            display: "inline-block", transition: "transform .25s",
-            transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
-        </span>
+    <section aria-label="Humidor conditions" style={sectionStyle}>
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={expanded}
+        onClick={toggleExpanded}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            toggleExpanded();
+          }
+        }}
+        style={{ cursor: "pointer" }}
+      >
+        <div style={eyebrowStyle}>
+          <span aria-hidden="true" style={{ width: 18, height: 1, background: "var(--gold)" }} />
+          Humidor Conditions
+        </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <span style={{ fontFamily: "var(--font-serif)", fontStyle: "italic", fontSize: 19, color: "var(--foreground)" }}>
+            {v.total} humidors
+          </span>
+          <span>
+            {v.pill && <span style={pillStyle(v.pill === "bad")}>{v.pillLabel}</span>}
+            <span aria-hidden="true" style={{ color: "var(--muted-foreground)", fontSize: 12, marginLeft: 8,
+              display: "inline-block", transition: "transform .25s",
+              transform: expanded ? "rotate(180deg)" : "none" }}>▾</span>
+          </span>
+        </div>
       </div>
       {expanded && (
         <div style={{ paddingTop: 10 }}>
@@ -164,7 +182,16 @@ export function HumidorConditions({
             return (
               <div
                 key={h.id}
+                role={onSelect ? "button" : undefined}
+                tabIndex={onSelect ? 0 : undefined}
                 onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(h.id); } : undefined}
+                onKeyDown={onSelect ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect(h.id);
+                  }
+                } : undefined}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 2px",
                          borderTop: "1px solid var(--border)",
                          cursor: onSelect ? "pointer" : "default" }}
