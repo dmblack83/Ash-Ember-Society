@@ -39,6 +39,14 @@ export const NOTIFICATION_CATEGORIES = {
     label:       "Replies to your comments",
     description: "Notify me when someone replies to one of my comments.",
   },
+  /* Govee humidor sensor out-of-range alerts. Triggered by
+     /api/cron/govee-poll when a connected sensor's temperature or
+     humidity crosses the user's thresholds. */
+  humidor_sensor: {
+    id:          "humidor_sensor",
+    label:       "Humidor sensor alerts",
+    description: "Notify me when my connected humidor sensor reads outside my temperature or humidity range.",
+  },
   /* On-demand test notifications triggered by the user from /account
      (/api/push/test). Marked `internal: true` so the per-category
      preference UI hides this from the toggle list — users don't
