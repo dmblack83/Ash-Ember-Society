@@ -2,7 +2,7 @@
 
 import useSWR from "swr";
 import { keyFor } from "@/lib/data/keys";
-import { fetchHumidors, type Humidor } from "@/lib/data/humidors";
+import { fetchHumidors } from "@/lib/data/humidors";
 
 /* One SWR entry for the user's humidors (own-row RLS read; no API
    route, no member gate needed — free users simply have one row). */

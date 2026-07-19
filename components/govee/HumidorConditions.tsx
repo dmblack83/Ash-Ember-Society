@@ -186,6 +186,7 @@ export function HumidorConditions({
                 tabIndex={onSelect ? 0 : undefined}
                 onClick={onSelect ? (e) => { e.stopPropagation(); onSelect(h.id); } : undefined}
                 onKeyDown={onSelect ? (e) => {
+                  if (e.target !== e.currentTarget) return;
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     e.stopPropagation();
