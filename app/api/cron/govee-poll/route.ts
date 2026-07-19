@@ -71,16 +71,19 @@ async function pollOne(
     reading = await fetchSensorReading(row.api_key, row.sku, row.device_id);
   } catch (err) {
     if (err instanceof GoveeAuthError) {
-      await supabase.from("govee_connections")
+      const { error: markError } = await supabase.from("govee_connections")
         .update({ status: "auth_error" }).eq("user_id", row.user_id);
+      if (markError) console.error(`[govee-poll] auth_error mark failed for ${row.user_id}:`, markError.message);
       return "auth_error";
     }
+    console.error(`[govee-poll] fetch failed for ${row.user_id}:`, (err as Error).message);
     return "transient"; // row untouched; next tick retries
   }
 
   if (reading === null) {
-    await supabase.from("govee_connections")
+    const { error: markError } = await supabase.from("govee_connections")
       .update({ status: "device_missing" }).eq("user_id", row.user_id);
+    if (markError) console.error(`[govee-poll] device_missing mark failed for ${row.user_id}:`, markError.message);
     return "device_missing";
   }
 
@@ -90,13 +93,21 @@ async function pollOne(
   };
   const { nextState, alerts } = evaluateReading(reading, config, row.alert_state ?? {}, nowMs);
 
-  await supabase.from("govee_connections").update({
+  const { error: writeError } = await supabase.from("govee_connections").update({
     last_temp_f:     reading.tempF,
     last_humidity:   reading.humidity,
     last_reading_at: new Date(nowMs).toISOString(),
     alert_state:     nextState,
     status:          "active",
   }).eq("user_id", row.user_id);
+
+  if (writeError) {
+    /* Cooldown state failed to persist. Sending the alerts anyway
+       would re-fire them every 15 minutes until the write succeeds,
+       so skip them and retry the whole poll next tick. */
+    console.error(`[govee-poll] state write failed for ${row.user_id}:`, writeError.message);
+    return "transient";
+  }
 
   for (const a of alerts) {
     try {
