@@ -56,7 +56,7 @@ export function HumidorSensorSection({
             Connect a Govee WiFi sensor to see live temperature and humidity for your humidor, with alerts when conditions drift.
           </p>
           <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-            A Member perk. <Link href="/account" style={{ color: "var(--gold)" }}>Upgrade to Member</Link> to connect yours.
+            A Member perk. <Link href="/account?tab=membership" style={{ color: "var(--gold)" }}>Upgrade to Member</Link> to connect yours.
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export function HumidorSensorSection({
       await postJson("/api/govee/connection", "POST", {
         apiKey, deviceId: d.device, sku: d.sku, deviceName: d.deviceName,
       });
-      setApiKey(""); setDevices(null);
+      setApiKey(""); setDevices(null); setDraft(null);
       await mutate();
       onToast("Sensor connected.");
     } catch (err) { onToast((err as Error).message); }
@@ -118,6 +118,7 @@ export function HumidorSensorSection({
     setBusy(true);
     try {
       await postJson("/api/govee/connection", "DELETE");
+      setDraft(null);
       await mutate();
       onToast("Sensor disconnected.");
     } catch (err) { onToast((err as Error).message); }
