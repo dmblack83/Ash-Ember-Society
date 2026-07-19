@@ -63,9 +63,7 @@ export interface HumidorItem {
   notes: string | null;
   created_at: string;
   cigar: Cigar;
-  /* Optional until Task 9 adds it to the fetcher select; treat missing
-     as unassigned (null) everywhere it's consumed below. */
-  humidor_id?: string | null;
+  humidor_id: string | null;
 }
 
 // ViewMode is imported from @/components/ui/view-toggle
@@ -867,6 +865,7 @@ export function HumidorClient({
           onClose={() => setShowScanner(false)}
           onAdded={() => { setShowScanner(false); refresh(); }}
           onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
+          defaultHumidorId={selected === "all" ? null : selected}
         />
       )}
 

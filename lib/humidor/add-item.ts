@@ -25,6 +25,7 @@ export interface HumidorInsertPayload {
   aging_target_date?: string | null;
   notes?:            string | null;
   is_wishlist?:      boolean;
+  humidor_id?:       string | null;
 }
 
 /**
