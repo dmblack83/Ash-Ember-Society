@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { useHumidors } from "@/components/humidor/useHumidors";
+import { ensureDefaultHumidor } from "@/lib/data/humidors";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 
@@ -21,6 +23,9 @@ export interface AddToHumidorSheetProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  /* Humidor to preselect in the picker. Pass the currently-filtered
+     humidor id, or null/omit to fall back to the user's default. */
+  defaultHumidorId?: string | null;
 }
 
 /* ------------------------------------------------------------------
@@ -33,6 +38,7 @@ export function AddToHumidorSheet({
   isOpen,
   onClose,
   onSuccess,
+  defaultHumidorId = null,
 }: AddToHumidorSheetProps) {
   const today = new Date().toISOString().split("T")[0];
 
@@ -43,6 +49,12 @@ export function AddToHumidorSheet({
   const [source, setSource] = useState("");
   const [agingStartDate, setAgingStartDate] = useState(today);
   const [notes, setNotes] = useState("");
+
+  /* Humidor picker state. userId is resolved lazily (below) so the
+     sheet can mount before auth settles; useHumidors no-ops until then. */
+  const [userId, setUserId] = useState<string | null>(null);
+  const [pickedHumidorId, setPickedHumidorId] = useState<string | null>(null);
+  const { humidors } = useHumidors(userId);
 
   /* UI state */
   const [submitting, setSubmitting] = useState(false);
@@ -64,6 +76,7 @@ export function AddToHumidorSheet({
     setNotes("");
     setError(null);
     setShowConflict(false);
+    setPickedHumidorId(defaultHumidorId ?? null);
 
     async function checkExisting() {
       setCheckingExisting(true);
@@ -72,6 +85,8 @@ export function AddToHumidorSheet({
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) { setCheckingExisting(false); return; }
+
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("humidor_items")
@@ -86,7 +101,15 @@ export function AddToHumidorSheet({
 
     checkExisting();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, cigarId]);
+  }, [isOpen, cigarId, defaultHumidorId]);
+
+  /* Fall back to the user's default humidor once the list loads, but
+     only when no defaultHumidorId was supplied and nothing's picked yet. */
+  useEffect(() => {
+    if (!isOpen || pickedHumidorId || !humidors || humidors.length === 0) return;
+    const fallback = humidors.find((h) => h.is_default) ?? humidors[0];
+    setPickedHumidorId(fallback.id);
+  }, [isOpen, humidors, pickedHumidorId]);
 
   /* Sync aging start date with purchase date */
   useEffect(() => {
@@ -118,6 +141,7 @@ export function AddToHumidorSheet({
         : null;
 
     try {
+      const humidorId = pickedHumidorId ?? (await ensureDefaultHumidor(user.id)).id;
       await addHumidorItem(supabase, {
         user_id: user.id,
         cigar_id: cigarId,
@@ -129,6 +153,7 @@ export function AddToHumidorSheet({
         source: source.trim() || null,
         aging_start_date: agingStartDate || null,
         notes: notes.trim() || null,
+        humidor_id: humidorId,
       });
     } catch (e) {
       setSubmitting(false);
@@ -267,6 +292,30 @@ export function AddToHumidorSheet({
           ) : (
             /* ── Form ─────────────────────────────────────────── */
             <form onSubmit={handleSubmit} className="space-y-5">
+
+              {/* Humidor picker — only when the user has 2+ humidors */}
+              {humidors && humidors.length >= 2 && (
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="humidor-picker"
+                    className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium"
+                  >
+                    Humidor
+                  </label>
+                  <select
+                    id="humidor-picker"
+                    className="input"
+                    value={pickedHumidorId ?? ""}
+                    onChange={(e) => setPickedHumidorId(e.target.value)}
+                  >
+                    {humidors.map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Quantity stepper */}
               <div className="space-y-1.5">

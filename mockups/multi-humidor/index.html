@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multi-Humidor Mockup — Ash &amp; Ember</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: #15110b;
+    --card: #241C17;
+    --card-2: #2b211a;
+    --foreground: #F5E6D3;
+    --primary: #C17817;
+    --gold: #D4A04A;
+    --ember: #E8642C;
+    --secondary: #3D2E23;
+    --muted: #A69080;
+    --moss: #8fa36a;
+    --border: rgba(212,160,74,0.18);
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0d0a06;
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-wrap: wrap; gap: 40px; justify-content: center;
+    padding: 40px 20px 80px;
+  }
+  h2.mock-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.3em;
+    text-transform: uppercase; color: var(--muted); text-align: center;
+    margin-bottom: 14px;
+  }
+  .phone {
+    width: 390px; background: var(--background);
+    border: 1px solid #3a2d20; border-radius: 28px;
+    padding: 18px 16px 28px; min-height: 700px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5);
+  }
+  .controls {
+    width: 100%; text-align: center; margin-bottom: 8px;
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+  }
+  .controls button {
+    background: var(--secondary); color: var(--foreground);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 14px; margin: 0 4px; cursor: pointer;
+    font-family: var(--mono); font-size: 11px;
+  }
+  .controls button.on { background: var(--primary); color: #1a120c; font-weight: 700; }
+
+  /* ── page header ── */
+  .page-title {
+    font-family: var(--serif); font-size: 30px; font-weight: 700;
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin: 6px 2px 4px;
+  }
+  .add-btn {
+    font-family: -apple-system, sans-serif; font-size: 13px; font-weight: 600;
+    background: var(--primary); color: #1a120c; border-radius: 8px;
+    padding: 8px 14px;
+  }
+  .sub-count { font-size: 12px; color: var(--muted); margin: 0 2px 12px; }
+
+  /* ── chips ── */
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 14px; scrollbar-width: none; }
+  .chip {
+    flex: 0 0 auto; font-size: 13px; padding: 8px 14px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+    background: transparent; white-space: nowrap;
+  }
+  .chip.active { background: var(--secondary); color: var(--foreground); border-color: var(--gold); }
+  .chip.add { color: var(--gold); border-style: dashed; }
+
+  /* ── conditions strip ── */
+  .strip {
+    border: 1px solid var(--border); border-radius: 10px; background: var(--card);
+    padding: 13px 14px 12px; margin-bottom: 16px; cursor: pointer;
+  }
+  .eyebrow {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.28em;
+    text-transform: uppercase; color: var(--muted);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .eyebrow .rule { width: 18px; height: 1px; background: var(--gold); }
+  .eyebrow .meta { margin-left: auto; letter-spacing: 0.05em; text-transform: none; }
+  .verdict-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding-top: 9px;
+  }
+  .verdict-title { font-family: var(--serif); font-style: italic; font-size: 19px; }
+  .pill {
+    font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+  }
+  .pill.good  { color: var(--moss);  background: rgba(143,163,106,0.12); }
+  .pill.bad   { color: var(--ember); background: rgba(232,100,44,0.14); }
+  .caret { color: var(--muted); font-size: 12px; margin-left: 8px; transition: transform .25s; display:inline-block; }
+  .open .caret { transform: rotate(180deg); }
+
+  .rows { display: none; padding-top: 10px; }
+  .open .rows { display: block; }
+  .hrow {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 2px; border-top: 1px solid rgba(212,160,74,0.10);
+  }
+  .hrow .name { font-family: var(--serif); font-style: italic; font-size: 17px; flex: 1 1 auto; min-width: 0; }
+  .hrow .count { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .hrow .vals  { font-family: var(--mono); font-size: 13px; }
+  .hrow .vals .out { color: var(--ember); font-weight: 700; }
+  .hrow .nosensor { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+  /* single-humidor metric grid */
+  .metrics { display: none; padding-top: 12px; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .strip.single .metrics { display: grid; }
+  .strip.single .rows { display: none; }
+  .metric { text-align: center; }
+  .metric .lab {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  }
+  .metric .val { font-family: var(--serif); font-size: 24px; line-height: 1; }
+  .metric .val.out { color: var(--ember); }
+
+  /* ── sort + view row (moved below conditions card) ── */
+  .sortrow {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 0 2px 14px;
+  }
+  .sortsel {
+    font-size: 13px; color: var(--foreground); background: var(--secondary);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px;
+  }
+  .sortsel .lbl { color: var(--muted); font-size: 11px; margin-right: 6px; }
+  .viewtoggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .viewtoggle span { padding: 8px 12px; font-size: 13px; color: var(--muted); cursor: pointer; }
+  .viewtoggle span.on { background: var(--secondary); color: var(--gold); }
+
+  /* ── cigar grid placeholder ── */
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cigar {
+    background: var(--card); border: 1px solid rgba(212,160,74,0.10);
+    border-radius: 10px; padding: 10px; height: 118px;
+    display: flex; flex-direction: column; justify-content: flex-end;
+  }
+  .cigar .img { flex: 1; background: linear-gradient(160deg, #3a2d20, #241C17); border-radius: 6px; margin-bottom: 8px; }
+  .cigar .nm { font-size: 12px; font-weight: 600; }
+  .cigar .tag { font-family: var(--mono); font-size: 10px; color: var(--gold); margin-top: 2px; }
+
+  /* ── home card ── */
+  .home-note { font-size: 12px; color: var(--muted); text-align: center; margin: 8px 0 16px; }
+  .dots { display: flex; gap: 7px; justify-content: center; margin-top: 14px; }
+  .dot { width: 7px; height: 7px; border-radius: 4px; background: var(--secondary); }
+  .dot.on { width: 18px; background: var(--gold); }
+</style>
+</head>
+<body>
+
+<!-- ══════════ MY HUMIDOR PAGE ══════════ -->
+<div>
+  <h2 class="mock-label">My Humidor — chips + expandable overview</h2>
+  <div class="controls">strip state:
+    <button id="pg-good" class="on" onclick="setPageScenario('good')">all in range</button>
+    <button id="pg-bad" onclick="setPageScenario('bad')">one out of range</button>
+  </div>
+  <div class="phone" style="position:relative; overflow:hidden;">
+    <div class="page-title">My Humidors <span class="add-btn">Add Cigar</span></div>
+    <div class="sub-count" id="pg-count">37 cigars · $1,240 value</div>
+
+    <div class="chips" id="chips">
+      <button class="chip active" data-h="all" onclick="pick('all')">All</button>
+      <button class="chip" data-h="cab" onclick="pick('cab')">Cabinet</button>
+      <button class="chip" data-h="tup" onclick="pick('tup')">Tupperdor</button>
+      <button class="chip" data-h="trv" onclick="pick('trv')">Travel Case</button>
+      <button class="chip add">+ New</button>
+    </div>
+
+    <!-- ALL view: aggregate strip, collapsed by default -->
+    <div class="strip" id="strip-all" onclick="this.classList.toggle('open')">
+      <div class="eyebrow"><span class="rule"></span>Humidor Conditions<span class="meta" id="pg-meta">as of 4m ago</span></div>
+      <div class="verdict-row">
+        <span class="verdict-title" id="pg-verdict-title">3 humidors</span>
+        <span><span class="pill good" id="pg-pill">All in range</span><span class="caret">▾</span></span>
+      </div>
+      <div class="rows" id="pg-rows"></div>
+    </div>
+
+    <!-- SINGLE humidor view -->
+    <div class="strip single" id="strip-one" style="display:none">
+      <div class="eyebrow"><span class="rule"></span>Humidor Conditions<span class="meta" id="one-meta">as of 4m ago</span></div>
+      <div class="verdict-row">
+        <span class="verdict-title" id="one-name">Cabinet</span>
+        <span><span class="pill good" id="one-pill">In range</span>
+          <span style="color:var(--muted);font-size:14px;margin-left:10px;cursor:pointer" onclick="event.stopPropagation(); openEdit(currentKey)">✎</span></span>
+      </div>
+      <div class="metrics" id="one-metrics"></div>
+    </div>
+
+    <div class="sortrow">
+      <span class="sortsel"><span class="lbl">Sort</span>Date Added ▾</span>
+      <span class="viewtoggle"><span class="on">▦ Grid</span><span>☰ List</span></span>
+    </div>
+
+    <div class="grid" id="cigars"></div>
+
+    <!-- edit-humidor sheet -->
+    <div id="edit-scrim" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.55); border-radius:28px;" onclick="closeEdit()"></div>
+    <div id="edit-sheet" style="display:none; position:absolute; left:0; right:0; bottom:0;
+      background:var(--card-2); border-radius:22px 22px 26px 26px; padding:20px 18px 26px;
+      border-top:1px solid var(--border); box-shadow: 0 -18px 40px rgba(0,0,0,0.5);">
+      <div style="width:38px;height:4px;border-radius:2px;background:var(--secondary);margin:0 auto 16px"></div>
+      <div style="font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:14px">Edit Humidor</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Name</div>
+      <div id="ed-name" style="background:var(--background);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:16px;margin-bottom:14px">Cabinet</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Type</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px" id="ed-types">
+        <span class="chip active">Humidor</span><span class="chip">Tupperdor</span><span class="chip">Cooler</span><span class="chip">Travel</span>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Govee Sensor</div>
+      <div id="ed-sensor" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">
+        <div style="display:flex;justify-content:space-between;background:var(--background);border:1px solid var(--gold);border-radius:8px;padding:11px 12px;font-size:14px">
+          <span>Humidor WiFi RH <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">H5179</span></span><span style="color:var(--gold)">✓</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:var(--background);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;color:var(--muted)">
+          <span>Humidor WiFi RH 2 <span style="font-family:var(--mono);font-size:11px">H5179</span></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;background:var(--background);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;color:var(--muted)">
+          <span>No sensor</span>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:16px">Alert ranges stay per humidor and are edited here too (62 to 72% RH, 60 to 72°F). Reassigning a sensor moves its readings to this humidor.</div>
+      <div class="add-btn" style="display:block;text-align:center;padding:13px;font-size:15px;cursor:pointer" onclick="closeEdit()">Save Changes</div>
+      <div style="text-align:center;margin-top:14px">
+        <span style="color:var(--ember);font-size:14px;font-weight:600;cursor:pointer" onclick="toggleDelete()">Delete Humidor</span>
+        <div id="ed-delnote" style="font-size:11px;color:var(--muted);margin-top:4px">Burn history is always kept.</div>
+      </div>
+      <!-- delete destination picker: shown when 2+ other humidors exist; with only
+           the default left, cigars auto-move to "My Humidor" with no picker -->
+      <div id="ed-delpick" style="display:none;margin-top:12px;background:var(--background);border:1px solid rgba(232,100,44,0.4);border-radius:10px;padding:12px">
+        <div id="ed-delpick-title" style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Move 24 cigars to</div>
+        <div id="ed-delpick-opts" style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px"></div>
+        <div style="display:block;text-align:center;padding:12px;font-size:14px;font-weight:700;border-radius:8px;background:var(--ember);color:#1a120c;cursor:pointer" onclick="closeEdit()">Move Cigars &amp; Delete</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ HOME DASHBOARD CARD ══════════ -->
+<div>
+  <h2 class="mock-label">Home carousel card — 1 vs many sensors</h2>
+  <div class="controls">connected sensors:
+    <button id="hm-1" onclick="setHome(1)">1</button>
+    <button id="hm-3" class="on" onclick="setHome(3)">3</button>
+    &nbsp;·&nbsp;
+    <button id="hm-good" class="on" onclick="setHomeState('good')">all good</button>
+    <button id="hm-bad" onclick="setHomeState('bad')">one out</button>
+  </div>
+  <div class="phone" style="min-height:auto; padding-bottom: 22px;">
+    <div class="home-note">…dashboard carousel slide…</div>
+
+    <!-- multi-sensor: collapsed aggregate -->
+    <div class="strip" id="home-multi" onclick="this.classList.toggle('open')">
+      <div class="eyebrow"><span class="rule"></span>Humidor Conditions<span class="meta">as of 4m ago</span></div>
+      <div class="verdict-row">
+        <span class="verdict-title" id="hm-title">3 humidors</span>
+        <span><span class="pill good" id="hm-pill">All in range</span><span class="caret">▾</span></span>
+      </div>
+      <div class="rows" id="hm-rows"></div>
+    </div>
+
+    <!-- single-sensor: direct reading, like today -->
+    <div class="strip single" id="home-single" style="display:none">
+      <div class="eyebrow"><span class="rule"></span>Humidor Conditions<span class="meta">as of 4m ago</span></div>
+      <div class="verdict-row">
+        <span class="verdict-title">Cabinet</span>
+        <span class="pill good">In range</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="lab">Temp</div><div class="val">68°F</div></div>
+        <div class="metric"><div class="lab">Humidity</div><div class="val">65%</div></div>
+      </div>
+    </div>
+
+    <div class="dots"><span class="dot"></span><span class="dot on"></span><span class="dot"></span><span class="dot"></span></div>
+  </div>
+</div>
+
+<!-- ══════════ FIRST-RUN + ADD FLOW ══════════ -->
+<div>
+  <h2 class="mock-label">Single humidor + "add new" flow</h2>
+  <div class="controls">tier:
+    <button id="tr-member" class="on" onclick="setTier('member')">member</button>
+    <button id="tr-free" onclick="setTier('free')">free</button>
+    <span style="margin-left:10px">step:</span>
+    <button id="st-0" class="on" onclick="setStep(0)">start</button>
+    <button id="st-1" onclick="setStep(1)">sheet open</button>
+    <button id="st-2" onclick="setStep(2)">created</button>
+  </div>
+  <div class="phone" style="position:relative; overflow:hidden;">
+    <div class="page-title"><span id="fr-title">My Humidor</span> <span class="add-btn">Add Cigar</span></div>
+    <div class="sub-count">12 cigars · $410 value</div>
+
+    <!-- start state: only the default humidor exists — no filter chips, just the discover affordance -->
+    <div class="chips" id="fr-chips">
+      <button class="chip add" onclick="setStep(1)">+ New Humidor</button>
+    </div>
+
+    <div class="strip single">
+      <div class="eyebrow"><span class="rule"></span>Humidor Conditions<span class="meta">as of 4m ago</span></div>
+      <div class="verdict-row">
+        <span class="verdict-title" id="fr-default-name">My Humidor</span>
+        <span class="pill good">In range</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="lab">Temp</div><div class="val">68°F</div></div>
+        <div class="metric"><div class="lab">Humidity</div><div class="val">65%</div></div>
+      </div>
+    </div>
+
+    <div class="sortrow">
+      <span class="sortsel"><span class="lbl">Sort</span>Date Added ▾</span>
+      <span class="viewtoggle"><span class="on">▦ Grid</span><span>☰ List</span></span>
+    </div>
+    <div class="grid" id="fr-cigars"></div>
+
+    <!-- scrim + bottom sheet -->
+    <div id="sheet-scrim" style="display:none; position:absolute; inset:0; background:rgba(0,0,0,0.55); border-radius:28px;" onclick="setStep(0)"></div>
+    <div id="sheet" style="display:none; position:absolute; left:0; right:0; bottom:0;
+      background:var(--card-2); border-radius:22px 22px 26px 26px; padding:20px 18px 26px;
+      border-top:1px solid var(--border); box-shadow: 0 -18px 40px rgba(0,0,0,0.5);">
+      <div style="width:38px;height:4px;border-radius:2px;background:var(--secondary);margin:0 auto 16px"></div>
+
+      <!-- member sheet -->
+      <div id="sheet-member">
+        <div style="font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:14px">New Humidor</div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Name</div>
+        <div style="background:var(--background);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:16px;margin-bottom:14px">Desk Tupperdor</div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Type</div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <span class="chip">Humidor</span><span class="chip active">Tupperdor</span><span class="chip">Cooler</span><span class="chip">Travel</span>
+        </div>
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Govee Sensor</div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px">
+          <div style="display:flex;justify-content:space-between;background:var(--background);border:1px solid var(--gold);border-radius:8px;padding:11px 12px;font-size:14px">
+            <span>Humidor WiFi RH 2 <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">H5179</span></span><span style="color:var(--gold)">✓</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;background:var(--background);border:1px solid var(--border);border-radius:8px;padding:11px 12px;font-size:14px;color:var(--muted)">
+            <span>No sensor for now</span>
+          </div>
+          <div style="font-size:11px;color:var(--muted)">Sensors already assigned to another humidor don't appear here.</div>
+        </div>
+        <div class="add-btn" style="display:block;text-align:center;padding:13px;font-size:15px;cursor:pointer" onclick="setStep(2)">Create Humidor</div>
+      </div>
+
+      <!-- free-tier sheet -->
+      <div id="sheet-free" style="display:none">
+        <div style="font-family:var(--serif);font-size:22px;font-weight:700;margin-bottom:10px">More humidors, more room</div>
+        <div style="font-size:14px;color:var(--foreground);line-height:1.5;margin-bottom:8px">
+          Organize your collection across cabinets, tupperdors, coolers and travel cases, each with its own sensor and alerts.
+        </div>
+        <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Multiple humidors is a Member perk.</div>
+        <div class="add-btn" style="display:block;text-align:center;padding:13px;font-size:15px">Upgrade to Member · $4.99/mo</div>
+      </div>
+    </div>
+
+    <!-- created toast -->
+    <div id="fr-toast" style="display:none; position:absolute; left:50%; transform:translateX(-50%); bottom:24px;
+      background:var(--secondary); border:1px solid var(--gold); color:var(--foreground);
+      padding:10px 18px; border-radius:10px; font-size:13px;">Desk Tupperdor created</div>
+  </div>
+</div>
+
+<script>
+const HUMIDORS = {
+  cab: { name: "Cabinet",     count: 24, temp: 68, rh: 65, sensor: true },
+  tup: { name: "Tupperdor",   count: 8,  temp: 67, rh: 62, sensor: true },
+  trv: { name: "Travel Case", count: 5,  sensor: false },
+};
+let pageScenario = "good"; // tup drops to 53% when "bad"
+let homeState = "good", homeCount = 3;
+
+function rh(key) {
+  if (key === "tup" && pageScenario === "bad") return 53;
+  return HUMIDORS[key].rh;
+}
+function isOut(key) { return HUMIDORS[key].sensor && (rh(key) < 62 || rh(key) > 72); }
+
+function rowsHtml(interactive) {
+  return Object.keys(HUMIDORS).map(k => {
+    const h = HUMIDORS[k];
+    const vals = h.sensor
+      ? `<span class="vals">${h.temp}°F · <span class="${isOut(k) ? "out" : ""}">${rh(k)}%</span></span>`
+      : `<span class="nosensor">no sensor</span>`;
+    const click = interactive ? `onclick="event.stopPropagation(); pick('${k}')"` : "";
+    const pencil = interactive
+      ? `<span style="color:var(--muted);font-size:13px;padding-left:6px;cursor:pointer" onclick="event.stopPropagation(); openEdit('${k}')">✎</span>`
+      : "";
+    return `<div class="hrow" ${click}>
+      <span class="name">${h.name}</span>
+      <span class="count">${h.count} cigars</span>
+      ${vals}${pencil}
+    </div>`;
+  }).join("");
+}
+
+function renderPage() {
+  const anyOut = Object.keys(HUMIDORS).some(isOut);
+  document.getElementById("pg-rows").innerHTML = rowsHtml(true);
+  const pill = document.getElementById("pg-pill");
+  pill.textContent = anyOut ? "1 needs attention" : "All in range";
+  pill.className = "pill " + (anyOut ? "bad" : "good");
+  document.getElementById("pg-verdict-title").textContent = "3 humidors";
+  renderHome();
+}
+
+let currentKey = "cab";
+const TYPE_OF = { cab: "Humidor", tup: "Tupperdor", trv: "Travel" };
+function openEdit(key) {
+  currentKey = key;
+  const h = HUMIDORS[key];
+  document.getElementById("ed-name").textContent = h.name;
+  document.querySelectorAll("#ed-types .chip").forEach(c =>
+    c.classList.toggle("active", c.textContent === TYPE_OF[key]));
+  document.getElementById("ed-delnote").textContent =
+    `Its ${h.count} cigars move to My Humidor. Burn history is kept.`;
+  document.getElementById("edit-scrim").style.display = "";
+  document.getElementById("edit-sheet").style.display = "";
+}
+function closeEdit() {
+  document.getElementById("edit-scrim").style.display = "none";
+  document.getElementById("edit-sheet").style.display = "none";
+  document.getElementById("ed-delpick").style.display = "none";
+}
+function toggleDelete() {
+  const box = document.getElementById("ed-delpick");
+  const open = box.style.display !== "none";
+  if (open) { box.style.display = "none"; return; }
+  const h = HUMIDORS[currentKey];
+  document.getElementById("ed-delpick-title").textContent = `Move ${h.count} cigars to`;
+  const others = Object.keys(HUMIDORS).filter(k => k !== currentKey);
+  document.getElementById("ed-delpick-opts").innerHTML =
+    [`<div style="display:flex;justify-content:space-between;border:1px solid var(--gold);border-radius:8px;padding:10px 12px;font-size:14px;background:var(--card)"><span>My Humidor <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">default</span></span><span style="color:var(--gold)">✓</span></div>`]
+    .concat(others.map(k =>
+      `<div style="display:flex;justify-content:space-between;border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:14px;color:var(--muted);background:var(--card)"><span>${HUMIDORS[k].name}</span></div>`))
+    .join("");
+  box.style.display = "";
+}
+
+function pick(key) {
+  if (key !== "all") currentKey = key;
+  document.querySelectorAll("#chips .chip").forEach(c => c.classList.toggle("active", c.dataset.h === key));
+  const all = key === "all";
+  document.getElementById("strip-all").style.display = all ? "" : "none";
+  document.getElementById("strip-one").style.display = all ? "none" : "";
+  document.getElementById("pg-count").textContent = all
+    ? "37 cigars · $1,240 value"
+    : `${HUMIDORS[key].count} cigars in ${HUMIDORS[key].name}`;
+  if (!all) {
+    const h = HUMIDORS[key];
+    document.getElementById("one-name").textContent = h.name;
+    const m = document.getElementById("one-metrics");
+    const pill = document.getElementById("one-pill");
+    if (h.sensor) {
+      const out = isOut(key);
+      m.innerHTML = `<div class="metric"><div class="lab">Temp</div><div class="val">${h.temp}°F</div></div>
+        <div class="metric"><div class="lab">Humidity</div><div class="val ${out ? "out" : ""}">${rh(key)}%</div></div>`;
+      pill.textContent = out ? "Needs attention" : "In range";
+      pill.className = "pill " + (out ? "bad" : "good");
+      document.getElementById("one-meta").textContent = "as of 4m ago";
+    } else {
+      m.innerHTML = `<div class="metric" style="grid-column:1/3"><div class="lab">No sensor assigned</div><div class="val" style="font-size:14px;color:var(--muted);font-family:-apple-system,sans-serif;padding-top:4px">Assign a Govee sensor in the humidor sheet</div></div>`;
+      pill.textContent = "No sensor";
+      pill.className = "pill";
+      pill.style.color = "var(--muted)";
+      document.getElementById("one-meta").textContent = "";
+    }
+  }
+  renderCigars(key);
+}
+
+function renderCigars(key) {
+  const tags = { cab: "Cabinet", tup: "Tupperdor", trv: "Travel Case" };
+  const names = ["Padrón 1964", "Oliva Serie V", "My Father LB", "Undercrown Maduro", "RyJ 1875", "Aging Room"];
+  const el = document.getElementById("cigars");
+  el.innerHTML = names.map((n, i) => {
+    const home = key === "all" ? Object.keys(tags)[i % 3] : key;
+    return `<div class="cigar"><div class="img"></div><div class="nm">${n}</div>
+      <div class="tag">${tags[home] ?? ""}</div></div>`;
+  }).join("");
+}
+
+function setPageScenario(s) {
+  pageScenario = s;
+  document.getElementById("pg-good").classList.toggle("on", s === "good");
+  document.getElementById("pg-bad").classList.toggle("on", s === "bad");
+  renderPage();
+  const active = document.querySelector("#chips .chip.active")?.dataset.h ?? "all";
+  if (active !== "all") pick(active);
+}
+
+function renderHome() {
+  const multi = homeCount > 1;
+  document.getElementById("home-multi").style.display = multi ? "" : "none";
+  document.getElementById("home-single").style.display = multi ? "none" : "";
+  if (multi) {
+    const savedScenario = pageScenario;
+    pageScenario = homeState; // reuse row renderer with home's toggle
+    const anyOut = Object.keys(HUMIDORS).some(isOut);
+    document.getElementById("hm-rows").innerHTML = rowsHtml(false);
+    const pill = document.getElementById("hm-pill");
+    pill.textContent = anyOut ? "1 needs attention" : "All in range";
+    pill.className = "pill " + (anyOut ? "bad" : "good");
+    pageScenario = savedScenario;
+  }
+}
+function setHome(n) {
+  homeCount = n;
+  document.getElementById("hm-1").classList.toggle("on", n === 1);
+  document.getElementById("hm-3").classList.toggle("on", n === 3);
+  renderHome();
+}
+function setHomeState(s) {
+  homeState = s;
+  document.getElementById("hm-good").classList.toggle("on", s === "good");
+  document.getElementById("hm-bad").classList.toggle("on", s === "bad");
+  renderHome();
+}
+
+/* ── first-run + add flow ── */
+let tier = "member";
+function setTier(t) {
+  tier = t;
+  document.getElementById("tr-member").classList.toggle("on", t === "member");
+  document.getElementById("tr-free").classList.toggle("on", t === "free");
+  const step = document.querySelector('[id^="st-"].on')?.id.slice(3) ?? "0";
+  setStep(Number(step));
+}
+function setStep(n) {
+  if (tier === "free" && n === 2) n = 1; // free can't create
+  [0, 1, 2].forEach(i => document.getElementById("st-" + i).classList.toggle("on", i === n));
+  const sheetOpen = n === 1;
+  document.getElementById("sheet-scrim").style.display = sheetOpen ? "" : "none";
+  document.getElementById("sheet").style.display = sheetOpen ? "" : "none";
+  document.getElementById("sheet-member").style.display = tier === "member" ? "" : "none";
+  document.getElementById("sheet-free").style.display = tier === "free" ? "" : "none";
+  document.getElementById("fr-toast").style.display = n === 2 ? "" : "none";
+  /* 1 or fewer humidors -> "My Humidor"; 2 or more -> "My Humidors" */
+  document.getElementById("fr-title").textContent = n === 2 ? "My Humidors" : "My Humidor";
+  // after create: chips row gains All + both humidors
+  document.getElementById("fr-chips").innerHTML = n === 2
+    ? `<button class="chip active">All</button>
+       <button class="chip">My Humidor</button>
+       <button class="chip">Desk Tupperdor</button>
+       <button class="chip add">+ New</button>`
+    : `<button class="chip add" onclick="setStep(1)">+ New Humidor</button>`;
+  if (n === 2) setTimeout(() => { document.getElementById("fr-toast").style.display = "none"; }, 2500);
+}
+document.getElementById("fr-cigars").innerHTML =
+  ["Padrón 1964", "Oliva Serie V", "My Father LB", "Undercrown"].map(n =>
+    `<div class="cigar"><div class="img"></div><div class="nm">${n}</div><div class="tag"></div></div>`).join("");
+
+renderPage();
+renderCigars("all");
+</script>
+</body>
+</html>

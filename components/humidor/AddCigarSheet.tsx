@@ -5,6 +5,7 @@ import { createClient }      from "@/utils/supabase/client";
 import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
+import { ensureDefaultHumidor } from "@/lib/data/humidors";
 import { BottomSheet }       from "@/components/ui/BottomSheet";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
@@ -152,6 +153,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
       const priceCents = priceStr ? Math.round(parseFloat(priceStr) * 100) : null;
       try {
+        const humidorId = (await ensureDefaultHumidor(user.id)).id;
         await addHumidorItem(supabase, {
           user_id:           user.id,
           cigar_id:          cigarId,
@@ -163,6 +165,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
           aging_target_date: agingTarget      || null,
           notes:             notes.trim()     || null,
           is_wishlist:       false,
+          humidor_id:        humidorId,
         });
       } catch (e) {
         if (e instanceof HumidorLimitError) {

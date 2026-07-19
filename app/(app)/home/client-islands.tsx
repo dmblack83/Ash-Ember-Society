@@ -24,7 +24,7 @@ import { Notifications }     from "@/components/dashboard/Notifications";
 import { LocalShops }        from "@/components/dashboard/LocalShops";
 import { DashboardPager }    from "@/components/dashboard/DashboardPager";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
-import { useGoveeStatus }    from "@/components/govee/useGoveeStatus";
+import { useHumidors }       from "@/components/humidor/useHumidors";
 
 import {
   MastheadSkeleton,
@@ -125,9 +125,8 @@ export function GoveeSensorIsland() {
 export function DashboardPagerIsland() {
   const { ready, session } = useAppSession();
   const userId = ready && session ? session.userId : null;
-  const { status } = useGoveeStatus(userId);
-  const showSensor =
-    status?.connected === true && status.lastTempF !== null && status.lastHumidity !== null;
+  const { humidors } = useHumidors(userId);
+  const showSensor = (humidors ?? []).some(h => h.device_id !== null && h.last_temp_f !== null && h.last_humidity !== null);
 
   return (
     <DashboardPager initialIndex={1}>

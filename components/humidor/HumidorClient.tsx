@@ -8,8 +8,15 @@ import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
+import { HumidorSheet } from "@/components/humidor/HumidorSheet";
+import { useHumidors } from "@/components/humidor/useHumidors";
+import { humidorsTitle } from "@/lib/humidor/overview";
+import type { Humidor } from "@/lib/data/humidors";
+import { Toast } from "@/components/ui/toast";
 import { keyFor } from "@/lib/data/keys";
 import { agingDays } from "@/lib/format";
+import { fetchProfileLite } from "@/lib/data/profile-client";
+import { getMembershipTier } from "@/lib/membership";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -56,6 +63,7 @@ export interface HumidorItem {
   notes: string | null;
   created_at: string;
   cigar: Cigar;
+  humidor_id: string | null;
 }
 
 // ViewMode is imported from @/components/ui/view-toggle
@@ -83,6 +91,24 @@ const SORT_LABELS: Record<SortOption, string> = {
   brand_desc:    "Brand Z–A",
   aging_longest: "Aging (longest)",
   price_highest: "Price (highest)",
+};
+
+/* Humidor filter chips — mirrors HumidorSheet's chipStyle. */
+const chipStyle = (active: boolean): React.CSSProperties => ({
+  fontSize: 13,
+  padding: "8px 14px",
+  borderRadius: 999,
+  border: `1px solid ${active ? "var(--gold)" : "var(--border)"}`,
+  background: active ? "var(--secondary)" : "transparent",
+  color: active ? "var(--foreground)" : "var(--muted-foreground)",
+  cursor: "pointer",
+  whiteSpace: "nowrap",
+  flexShrink: 0,
+});
+const dashedChipStyle: React.CSSProperties = {
+  ...chipStyle(false),
+  borderStyle: "dashed",
+  color: "var(--gold)",
 };
 
 /* ------------------------------------------------------------------
@@ -161,7 +187,7 @@ function AgingBadge({ days }: { days: number }) {
    Grid card
    ------------------------------------------------------------------ */
 
-function GridCard({ item }: { item: HumidorItem }) {
+function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
@@ -217,6 +243,14 @@ function GridCard({ item }: { item: HumidorItem }) {
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
             {displayName}
           </p>
+          {tagName && (
+            <p
+              className="truncate"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)" }}
+            >
+              {tagName}
+            </p>
+          )}
           {c.format && (
             <p className="text-xs text-muted-foreground">{c.format}</p>
           )}
@@ -239,7 +273,7 @@ function GridCard({ item }: { item: HumidorItem }) {
    List row
    ------------------------------------------------------------------ */
 
-function ListRow({ item }: { item: HumidorItem }) {
+function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
@@ -278,6 +312,14 @@ function ListRow({ item }: { item: HumidorItem }) {
           <p className="text-sm font-semibold text-foreground truncate">
             {displayName}
           </p>
+          {tagName && (
+            <p
+              className="truncate"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--gold)" }}
+            >
+              {tagName}
+            </p>
+          )}
           {c.format && (
             <p className="text-xs text-muted-foreground">{c.format}</p>
           )}
@@ -495,7 +537,28 @@ export function HumidorClient({
   const [showOptions,  setShowOptions]  = useState(false);
   const [showScanner,  setShowScanner]  = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
+
+  /* Multi-humidor filter + sheet state. `selected` resets to "all" in
+     the HumidorSheet onChanged callback below if the selected humidor
+     is deleted. */
+  const [selected,       setSelected]       = useState<string>("all");
+  const [sheetOpen,      setSheetOpen]      = useState(false);
+  const [editingHumidor, setEditingHumidor] = useState<Humidor | null>(null);
+  const [toast,          setToast]          = useState<string | null>(null);
+
   const hasMounted = useRef(false);
+
+  const { humidors, mutate: mutateHumidors } = useHumidors(userId);
+  const multi = (humidors?.length ?? 0) >= 2;
+
+  /* Tier — profile via the shared SWR entry, membership derived from
+     it. Default "free" until it loads so HumidorSheet renders its
+     free-tier upsell rather than a flash of the member form. */
+  const { data: profile } = useSWR(
+    keyFor.profile(userId),
+    () => fetchProfileLite(userId),
+  );
+  const tier = profile ? getMembershipTier(profile) : "free";
 
   /* Fixed header height tracking */
   const headerRef    = useRef<HTMLDivElement>(null);
@@ -535,16 +598,41 @@ export function HumidorClient({
     if (hasMounted.current) localStorage.setItem("humidor_view", view);
   }, [view]);
 
-  /* Derived — sorted */
-  const displayed = useMemo(() => sortItems(items, sort), [items, sort]);
+  /* Humidor id → name, used for the "All" view tag on cards and the
+     count/value line's " in {name}" suffix. */
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const h of humidors ?? []) m.set(h.id, h.name);
+    return m;
+  }, [humidors]);
 
-  /* Stats */
-  const totalCount = items.reduce((s, i) => s + i.quantity, 0);
-  const totalValueCents = items.reduce((s, i) => {
+  /* Cigar counts per humidor (quantity-summed), fed to HumidorConditions'
+     expanded row and the delete-confirmation copy in HumidorSheet. */
+  const countsByHumidor = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const i of items) {
+      if (i.humidor_id) m.set(i.humidor_id, (m.get(i.humidor_id) ?? 0) + i.quantity);
+    }
+    return m;
+  }, [items]);
+
+  /* Derived — filtered by selected humidor, then sorted */
+  const visible = useMemo(
+    () => (selected === "all" ? items : items.filter((i) => i.humidor_id === selected)),
+    [items, selected],
+  );
+  const displayed = useMemo(() => sortItems(visible, sort), [visible, sort]);
+
+  /* Stats — computed over the visible (filtered) set so a per-humidor
+     view reads "8 cigars in Tupperdor" rather than the whole-collection
+     total. */
+  const totalCount = visible.reduce((s, i) => s + i.quantity, 0);
+  const totalValueCents = visible.reduce((s, i) => {
     if (i.price_paid_cents == null) return s;
     return s + i.quantity * i.price_paid_cents;
   }, 0);
   const hasValue = totalValueCents > 0;
+  const selectedHumidorName = selected !== "all" ? nameById.get(selected) : undefined;
 
   return (
     <>
@@ -595,10 +683,13 @@ export function HumidorClient({
           {/* Row 2: Title + Add Cigar */}
           <div className="flex items-start justify-between gap-4 pt-4 pb-3">
             <div className="space-y-0.5">
-              <h1 style={{ fontFamily: "var(--font-serif)" }}>My Humidor</h1>
-              {!loading && items.length > 0 && (
+              <h1 style={{ fontFamily: "var(--font-serif)" }}>
+                {humidorsTitle(humidors?.length ?? 1)}
+              </h1>
+              {!loading && visible.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {totalCount} {totalCount === 1 ? "cigar" : "cigars"}
+                  {selectedHumidorName ? ` in ${selectedHumidorName}` : ""}
                   {hasValue && (
                     <>
                       {" · "}Est.{" "}
@@ -621,29 +712,50 @@ export function HumidorClient({
             </button>
           </div>
 
-          {/* Row 3: Sort + View toggle (only when there is/may be content) */}
-          {(loading || items.length > 0) && (
-            <div className="flex items-center gap-3 pb-3">
-              {/* Sort */}
-              <select
-                className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortOption)}
-                aria-label="Sort by"
-              >
-                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                  <option key={key} value={key}>
-                    {SORT_LABELS[key]}
-                  </option>
+          {/* Row 2.5: Humidor chips */}
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-3"
+            style={{ scrollbarWidth: "none" }}
+          >
+            {multi ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelected("all")}
+                  aria-pressed={selected === "all"}
+                  style={chipStyle(selected === "all")}
+                >
+                  All
+                </button>
+                {(humidors ?? []).map((h) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => setSelected(h.id)}
+                    aria-pressed={selected === h.id}
+                    style={chipStyle(selected === h.id)}
+                  >
+                    {h.name}
+                  </button>
                 ))}
-              </select>
-
-              {/* View toggle pushed to the right */}
-              <div className="ml-auto flex items-center gap-2">
-                <ViewToggle view={view} onChange={setView} />
-              </div>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={() => { setEditingHumidor(null); setSheetOpen(true); }}
+                  style={dashedChipStyle}
+                >
+                  + New
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setEditingHumidor(null); setSheetOpen(true); }}
+                style={dashedChipStyle}
+              >
+                + New Humidor
+              </button>
+            )}
+          </div>
 
         </div>
       </div>
@@ -654,8 +766,43 @@ export function HumidorClient({
       {/* ── Content ─────────────────────────────────────────────── */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
         <div className="empty:hidden" style={{ marginBottom: 12 }}>
-          <HumidorConditions userId={userId} />
+          <HumidorConditions
+            userId={userId}
+            humidorId={selected === "all" ? null : selected}
+            counts={countsByHumidor}
+            onSelect={(id) => setSelected(id)}
+            onEdit={(id) => {
+              const h = humidors?.find((x) => x.id === id) ?? null;
+              setEditingHumidor(h);
+              setSheetOpen(true);
+            }}
+          />
         </div>
+
+        {/* Row 3: Sort + View toggle (only when there is/may be content) */}
+        {(loading || items.length > 0) && (
+          <div className="flex items-center gap-3" style={{ marginBottom: 12 }}>
+            {/* Sort */}
+            <select
+              className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortOption)}
+              aria-label="Sort by"
+            >
+              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                <option key={key} value={key}>
+                  {SORT_LABELS[key]}
+                </option>
+              ))}
+            </select>
+
+            {/* View toggle pushed to the right */}
+            <div className="ml-auto flex items-center gap-2">
+              <ViewToggle view={view} onChange={setView} />
+            </div>
+          </div>
+        )}
+
         {(isLoading || loading) ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -679,16 +826,28 @@ export function HumidorClient({
           </div>
         ) : items.length === 0 ? (
           <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowOptions(true)} />
+        ) : visible.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-16">
+            No cigars in this humidor yet.
+          </p>
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayed.map((item) => (
-              <GridCard key={item.id} item={item} />
+              <GridCard
+                key={item.id}
+                item={item}
+                tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
+              />
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2">
             {displayed.map((item) => (
-              <ListRow key={item.id} item={item} />
+              <ListRow
+                key={item.id}
+                item={item}
+                tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
+              />
             ))}
           </div>
         )}
@@ -707,6 +866,7 @@ export function HumidorClient({
           onClose={() => setShowScanner(false)}
           onAdded={() => { setShowScanner(false); refresh(); }}
           onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
+          defaultHumidorId={selected === "all" ? null : selected}
         />
       )}
 
@@ -715,6 +875,25 @@ export function HumidorClient({
         onClose={() => setShowAddSheet(false)}
         onAdded={() => { refresh(); }}
       />
+
+      <HumidorSheet
+        open={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        userId={userId}
+        tier={tier}
+        humidors={humidors ?? []}
+        editing={editingHumidor}
+        deleteCount={editingHumidor ? (countsByHumidor.get(editingHumidor.id) ?? 0) : 0}
+        onChanged={async () => {
+          const fresh = await mutateHumidors();
+          if (selected !== "all" && !(fresh ?? []).some((h) => h.id === selected)) {
+            setSelected("all");
+          }
+        }}
+        onToast={setToast}
+      />
+
+      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </>
   );
 }

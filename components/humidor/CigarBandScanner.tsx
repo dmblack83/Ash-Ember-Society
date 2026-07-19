@@ -25,6 +25,7 @@ interface Props {
   onClose:  () => void;
   onAdded:  () => void;   // refresh humidor list
   onSearch: () => void;   // fallback to text search
+  defaultHumidorId?: string | null;  // preselect in the AddToHumidorSheet picker
 }
 
 /* ------------------------------------------------------------------
@@ -102,7 +103,7 @@ function captureImage(video: HTMLVideoElement): string {
    CigarBandScanner
    ------------------------------------------------------------------ */
 
-export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
+export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId }: Props) {
   const [phase,         setPhase]         = useState<Phase>("requesting");
   const [statusText,    setStatusText]    = useState("Initializing camera…");
   const [matches,       setMatches]       = useState<CatalogResult[]>([]);
@@ -553,6 +554,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch }: Props) {
         <AddToHumidorSheet
           cigarId={addCigarId}
           isOpen={true}
+          defaultHumidorId={defaultHumidorId}
           onClose={() => setAddCigarId(null)}
           onSuccess={() => {
             setAddCigarId(null);
