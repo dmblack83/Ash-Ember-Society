@@ -247,7 +247,18 @@ export function HumidorSheet({
         await updateHumidor(editing.id, {
           name: trimmed,
           type,
-          ...(ranges ?? {}),
+          /* ThresholdConfig keys are camelCase; the humidors columns
+             are snake_case. Map explicitly — a spread compiles (TS
+             skips excess-property checks on spreads) but PostgREST
+             rejects the unknown camelCase columns at runtime. */
+          ...(ranges
+            ? {
+                humidity_min: ranges.humidityMin,
+                humidity_max: ranges.humidityMax,
+                temp_min_f:   ranges.tempMinF,
+                temp_max_f:   ranges.tempMaxF,
+              }
+            : {}),
         });
       } else {
         try {
