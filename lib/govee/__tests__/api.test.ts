@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { listSensorDevices, fetchSensorReading, GoveeAuthError, SUPPORTED_SENSOR_SKUS } from "../api";
+import { listSensorDevices, fetchSensorReading, GoveeAuthError, GoveeApiError, SUPPORTED_SENSOR_SKUS } from "../api";
 
 function mockFetch(status: number, json: unknown) {
   vi.stubGlobal("fetch", vi.fn(async () => ({
@@ -37,6 +37,10 @@ describe("listSensorDevices", () => {
   test("throws GoveeAuthError on 401", async () => {
     mockFetch(401, { code: 401, message: "unauthorized" });
     await expect(listSensorDevices("bad")).rejects.toBeInstanceOf(GoveeAuthError);
+  });
+  test("throws GoveeApiError on non-auth failure (500)", async () => {
+    mockFetch(500, { code: 500, message: "server error" });
+    await expect(listSensorDevices("key")).rejects.toBeInstanceOf(GoveeApiError);
   });
 });
 
