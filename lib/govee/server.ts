@@ -27,7 +27,11 @@ export async function requireMemberUser(): Promise<
     .select("membership_tier, badge, assigned_badges")
     .eq("id", user.id)
     .single();
-  if (error || !isPaidMember(profile)) {
+  if (error) {
+    console.error("[govee] profiles lookup failed in requireMemberUser:", error.message);
+    return { userId: null, error: NextResponse.json({ error: "Something went wrong." }, { status: 500 }) };
+  }
+  if (!isPaidMember(profile)) {
     return { userId: null, error: NextResponse.json({ error: "Membership required" }, { status: 403 }) };
   }
   return { userId: user.id, error: null };
