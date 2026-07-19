@@ -6,7 +6,7 @@
    [open, editing?.id] so nothing survives across opens (the #582
    stale-draft bug class). */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import {
@@ -110,8 +110,13 @@ export function HumidorSheet({
   const [initialSensorSel, setInitialSensorSel] = useState<SensorSelection>("none");
   const [devices, setDevices]     = useState<GoveeDevice[] | null>(null);
   const [devicesLoading, setDevicesLoading] = useState(false);
-  const [devicesAttempted, setDevicesAttempted] = useState(false);
   const [noKey, setNoKey]         = useState(false);
+  /* One device fetch per sheet-open, tracked in a ref: state-in-deps
+     was the bug class here — setting loading state inside the effect
+     re-ran the effect, whose cleanup cancelled the in-flight fetch,
+     leaving a permanent skeleton. The ref never triggers a re-run;
+     the reset effect re-arms it on the next open. */
+  const fetchStartedRef = useRef(false);
   const [draftRanges, setDraftRanges] = useState<ThresholdConfig | null>(null);
   const [deleteOpen, setDeleteOpen]   = useState(false);
   const [destId, setDestId]           = useState<string | null>(null);
@@ -134,7 +139,7 @@ export function HumidorSheet({
     setInitialSensorSel(initial);
     setDevices(null);
     setDevicesLoading(false);
-    setDevicesAttempted(false);
+    fetchStartedRef.current = false;
     setNoKey(false);
     setDraftRanges(null);
     setDeleteOpen(false);
@@ -145,18 +150,24 @@ export function HumidorSheet({
   }, [open, editing?.id]);
 
   /* Lazily load the account's Govee devices for a connected Member,
-     once per open (skipped entirely for free tier / the upsell body). */
+     once per open (skipped entirely for free tier / the upsell body).
+     Deps are open/tier/upsell only — never the state this effect sets,
+     so the effect can't re-run and cancel its own fetch. `stale` only
+     flips when the sheet closes (open -> false runs the cleanup),
+     discarding a fetch that resolves after close; the reopen resets
+     fetchStartedRef and fires a fresh one. */
   useEffect(() => {
-    if (!open || tier === "free" || upsell || devicesAttempted || devicesLoading) return;
-    let cancelled = false;
+    if (!open || tier === "free" || upsell || fetchStartedRef.current) return;
+    fetchStartedRef.current = true;
+    let stale = false;
     setDevicesLoading(true);
     postJson<{ devices: GoveeDevice[] }>("/api/govee/devices", "POST")
       .then(({ devices: fetched }) => {
-        if (cancelled) return;
+        if (stale) return;
         setDevices(fetched);
       })
       .catch((err: Error & { status?: number }) => {
-        if (cancelled) return;
+        if (stale) return;
         if (err.status === 409) {
           setNoKey(true);
         } else {
@@ -164,13 +175,12 @@ export function HumidorSheet({
         }
       })
       .finally(() => {
-        if (cancelled) return;
+        if (stale) return;
         setDevicesLoading(false);
-        setDevicesAttempted(true);
       });
-    return () => { cancelled = true; };
+    return () => { stale = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tier, upsell, devicesAttempted, devicesLoading]);
+  }, [open, tier, upsell, editing?.id]);
 
   /* ── Free tier, create mode: upsell only, no form. ────────────── */
   if (upsell) {
@@ -353,7 +363,7 @@ export function HumidorSheet({
             {noKey ? (
               <div style={card}>
                 <p style={{ fontSize: 13, color: "var(--muted-foreground)" }}>
-                  Connect your Govee account first. <Link href="/account?tab=membership" style={{ color: "var(--gold)" }}>Set it up in Account</Link>.
+                  Connect your Govee account first. <Link href="/account" style={{ color: "var(--gold)" }}>Set it up in Account</Link>.
                 </p>
               </div>
             ) : devicesLoading ? (
@@ -429,29 +439,39 @@ export function HumidorSheet({
                 marginTop: 12, textAlign: "left", background: "var(--background)",
                 border: "1px solid rgba(232,100,44,0.4)", borderRadius: 10, padding: 12,
               }}>
-                <p style={{ ...label, padding: 0, marginBottom: 8 }}>
-                  Move {deleteCount} {deleteCount === 1 ? "cigar" : "cigars"} to
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                  {otherHumidors.map((h) => (
-                    <button
-                      key={h.id}
-                      type="button"
-                      style={optionStyle(effectiveDestId === h.id)}
-                      onClick={() => setDestId(h.id)}
-                    >
-                      <span>
-                        {h.name}
-                        {h.is_default && (
-                          <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-foreground)", marginLeft: 6 }}>
-                            default
+                {otherHumidors.length === 1 ? (
+                  /* One possible destination: no picker, just the
+                     confirm text (approved-mockup behavior). */
+                  <p style={{ fontSize: 13, color: "var(--muted-foreground)", marginBottom: 12 }}>
+                    Its {deleteCount} {deleteCount === 1 ? "cigar moves" : "cigars move"} to {otherHumidors[0].name}.
+                  </p>
+                ) : (
+                  <>
+                    <p style={{ ...label, padding: 0, marginBottom: 8 }}>
+                      Move {deleteCount} {deleteCount === 1 ? "cigar" : "cigars"} to
+                    </p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                      {otherHumidors.map((h) => (
+                        <button
+                          key={h.id}
+                          type="button"
+                          style={optionStyle(effectiveDestId === h.id)}
+                          onClick={() => setDestId(h.id)}
+                        >
+                          <span>
+                            {h.name}
+                            {h.is_default && (
+                              <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted-foreground)", marginLeft: 6 }}>
+                                default
+                              </span>
+                            )}
                           </span>
-                        )}
-                      </span>
-                      {effectiveDestId === h.id && <span style={{ color: "var(--gold)" }}>✓</span>}
-                    </button>
-                  ))}
-                </div>
+                          {effectiveDestId === h.id && <span style={{ color: "var(--gold)" }}>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
                 <button
                   type="button"
                   disabled={busy || !effectiveDestId}
