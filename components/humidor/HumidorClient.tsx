@@ -551,10 +551,9 @@ export function HumidorClient({
   const { humidors, mutate: mutateHumidors } = useHumidors(userId);
   const multi = (humidors?.length ?? 0) >= 2;
 
-  /* Tier — read the same way useGoveeStatus's caller does: profile via
-     SWR, membership derived from it. Default "free" until it loads so
-     HumidorSheet renders its free-tier upsell rather than a flash of
-     the member form. */
+  /* Tier — profile via the shared SWR entry, membership derived from
+     it. Default "free" until it loads so HumidorSheet renders its
+     free-tier upsell rather than a flash of the member form. */
   const { data: profile } = useSWR(
     keyFor.profile(userId),
     () => fetchProfileLite(userId),
