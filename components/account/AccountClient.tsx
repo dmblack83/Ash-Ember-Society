@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { InviteFriendsSection } from "@/components/account/InviteFriendsSection";
+import { HumidorSensorSection } from "@/components/govee/HumidorSensorSection";
 
 /* InstallSheet (360 lines) only mounts when the user taps "Install".
    Conditional render means the chunk fetches lazily. MembershipTab and
@@ -1800,6 +1801,12 @@ export function AccountClient({ userId, email, profile, membership, memberSince,
           />
 
           <NotificationsSection userId={userId} onToast={setToast} />
+
+          <HumidorSensorSection
+            userId={userId}
+            tier={membership.currentTier}
+            onToast={setToast}
+          />
 
           <InviteFriendsSection />
 
