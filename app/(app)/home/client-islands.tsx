@@ -22,6 +22,9 @@ import { SmokingConditions } from "@/components/dashboard/SmokingConditions";
 import { AgingAlerts }       from "@/components/dashboard/AgingAlerts";
 import { Notifications }     from "@/components/dashboard/Notifications";
 import { LocalShops }        from "@/components/dashboard/LocalShops";
+import { DashboardPager }    from "@/components/dashboard/DashboardPager";
+import { HumidorConditions } from "@/components/govee/HumidorConditions";
+import { useGoveeStatus }    from "@/components/govee/useGoveeStatus";
 
 import {
   MastheadSkeleton,
@@ -106,4 +109,32 @@ export function LocalShopsIsland() {
   );
   if (!ready || !session || data === undefined) return null;
   return <LocalShops zip={data?.zip_code?.trim() || null} city={data?.city?.trim() || null} />;
+}
+
+/* Govee humidor sensor card — pager slide. */
+export function GoveeSensorIsland() {
+  const { ready, session } = useAppSession();
+  if (!ready || !session) return null;
+  return <HumidorConditions userId={session.userId} />;
+}
+
+/* Pager wrapper. Composed client-side because the sensor slide only
+   exists when a sensor is connected (a null child would otherwise
+   still occupy a slide slot server-side). Slide order keeps
+   Notifications at initialIndex 1, matching the previous shell. */
+export function DashboardPagerIsland() {
+  const { ready, session } = useAppSession();
+  const userId = ready && session ? session.userId : null;
+  const { status } = useGoveeStatus(userId);
+  const showSensor =
+    status?.connected === true && status.lastTempF !== null && status.lastHumidity !== null;
+
+  return (
+    <DashboardPager initialIndex={1}>
+      <SmokingConditionsIsland />
+      <NotificationsIsland />
+      <AgingIsland />
+      {showSensor ? <GoveeSensorIsland /> : null}
+    </DashboardPager>
+  );
 }

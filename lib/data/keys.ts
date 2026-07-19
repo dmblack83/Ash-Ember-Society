@@ -101,6 +101,11 @@ export const keyFor = {
   /* ── Home aging island (per-user). */
   homeAging:     (userId: string) => ["home-aging", userId] as const,
 
+  /* ── Govee humidor sensor status (per-user; /api/govee/connection).
+   *   Shared by the humidor strip, the home card, and the account
+   *   section — one cache entry, one request. */
+  goveeStatus:   (userId: string) => ["govee-status", userId] as const,
+
   /* ── Home news rail (public — shared across users). */
   newsLatest:    (limit: number) => ["news-latest", limit] as const,
   /* ── Industry News page (public, paginated via useSWRInfinite). */
