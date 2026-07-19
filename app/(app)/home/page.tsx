@@ -1,12 +1,9 @@
 import { TonightsPairing } from "@/components/dashboard/TonightsPairing";
 import { FieldGuide }      from "@/components/dashboard/FieldGuide";
-import { DashboardPager }  from "@/components/dashboard/DashboardPager";
 
 import {
   MastheadIsland,
-  SmokingConditionsIsland,
-  NotificationsIsland,
-  AgingIsland,
+  DashboardPagerIsland,
   LocalShopsIsland,
   NewsClientIsland,
 } from "./client-islands";
@@ -40,12 +37,8 @@ export default function HomePage() {
         {/* 1. Tonight's Pairing — primary CTAs, no data. */}
         <TonightsPairing />
 
-        {/* 2. Dashboard pager: conditions · notifications · aging. */}
-        <DashboardPager initialIndex={1}>
-          <SmokingConditionsIsland />
-          <NotificationsIsland />
-          <AgingIsland />
-        </DashboardPager>
+        {/* 2. Dashboard pager: conditions · notifications · aging · sensor. */}
+        <DashboardPagerIsland />
 
         {/* 4. The Wire (news) — public client island via SWR. */}
         <NewsClientIsland />
