@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, useCallback, useRef, useState } from "react";
+import { Children, useCallback, useEffect, useRef, useState } from "react";
 import { CollapseContext } from "./collapse-context";
 import { wrapIndex, ringOffset } from "@/lib/ui/carousel";
 
@@ -30,6 +30,14 @@ export function DashboardPager({
   const n = slides.length;
   const [active, setActive] = useState(initialIndex);
   const [navTick, setNavTick] = useState(0);
+
+  /* Slide count can change at runtime (the Govee sensor slide appears/
+     disappears with connection state). Reclamp so a removed last slide
+     can't leave `active` pointing past the end. */
+  useEffect(() => {
+    setActive((a) => (a >= n ? wrapIndex(a, n) : a));
+  }, [n]);
+
   const startX = useRef<number | null>(null);
 
   /* eslint-disable react-hooks/preserve-manual-memoization */
