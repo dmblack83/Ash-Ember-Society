@@ -97,10 +97,14 @@ export interface HumidorSheetProps {
   deleteCount?: number;
   onChanged: () => Promise<unknown>;
   onToast: (msg: string) => void;
+  /** Called with the newly created humidor right after createHumidor
+      succeeds (before/independent of sensor assignment outcome). Lets
+      callers auto-filter to the new (empty) humidor. */
+  onCreated?: (humidor: Humidor) => void;
 }
 
 export function HumidorSheet({
-  open, onClose, userId, tier, humidors, editing, deleteCount = 0, onChanged, onToast,
+  open, onClose, userId, tier, humidors, editing, deleteCount = 0, onChanged, onToast, onCreated,
 }: HumidorSheetProps) {
   const isEdit = editing !== null;
 
@@ -264,6 +268,7 @@ export function HumidorSheet({
         try {
           const created = await createHumidor(userId, trimmed, type);
           humidorId = created.id;
+          onCreated?.(created);
         } catch (err) {
           if (err instanceof HumidorLimitReachedError) {
             setUpsell(true);
