@@ -548,6 +548,14 @@ export function HumidorClient({
   const [editingHumidor, setEditingHumidor] = useState<Humidor | null>(null);
   const [toast,          setToast]          = useState<string | null>(null);
   const [showMoveSheet,  setShowMoveSheet]  = useState(false);
+  /* Snapshot of the humidor MoveCigarsSheet targets, taken at open time.
+     Deliberately NOT derived from `selectedHumidor` (which tracks the
+     humidors SWR list): a background revalidate that drops the selected
+     humidor — resume/reconnect, delete from another device — would flip
+     the derived value to null and unmount the sheet mid-open, skipping
+     its exit animation and silently discarding an in-progress selection.
+     Never reset to null on close; only ever replaced by the next open. */
+  const [moveTarget, setMoveTarget] = useState<Humidor | null>(null);
 
   const hasMounted = useRef(false);
 
@@ -847,7 +855,7 @@ export function HumidorClient({
               <button
                 type="button"
                 className="btn btn-primary"
-                onClick={() => setShowMoveSheet(true)}
+                onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
               >
                 Move cigars here
               </button>
@@ -917,12 +925,12 @@ export function HumidorClient({
         onCreated={(h) => setSelected(h.id)}
       />
 
-      {selectedHumidor && (
+      {moveTarget && (
         <MoveCigarsSheet
           open={showMoveSheet}
           onClose={() => setShowMoveSheet(false)}
           userId={userId}
-          targetHumidor={selectedHumidor}
+          targetHumidor={moveTarget}
           onMoved={() => { void revalidateHumidor(userId); }}
           onToast={setToast}
         />
