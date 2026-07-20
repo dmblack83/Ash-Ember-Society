@@ -6,6 +6,7 @@ import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { ensureDefaultHumidor } from "@/lib/data/humidors";
+import { friendlyWriteError } from "@/lib/data/humidor-move";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 
@@ -161,7 +162,7 @@ export function AddToHumidorSheet({
         setShowLimitModal(true);
         return;
       }
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(friendlyWriteError(e));
       return;
     }
 
@@ -187,7 +188,7 @@ export function AddToHumidorSheet({
     setSubmitting(false);
 
     if (updateError) {
-      setError(updateError.message);
+      setError(friendlyWriteError(updateError));
       return;
     }
 

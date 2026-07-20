@@ -6,6 +6,7 @@ import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { AgingTargetSelect } from "@/components/humidor/AgingTargetSelect";
 import { addHumidorItem, HumidorLimitError } from "@/lib/humidor/add-item";
 import { ensureDefaultHumidor } from "@/lib/data/humidors";
+import { useHumidors }      from "@/components/humidor/useHumidors";
 import { BottomSheet }       from "@/components/ui/BottomSheet";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
@@ -24,6 +25,9 @@ export interface AddCigarSheetProps {
   open:    boolean;
   onClose: () => void;
   onAdded: () => void;
+  /* Humidor to preselect in the picker. Pass the currently-filtered
+     humidor id, or null/omit to fall back to the user's default. */
+  defaultHumidorId?: string | null;
 }
 
 /* ------------------------------------------------------------------
@@ -47,7 +51,7 @@ function Caret({ dir }: { dir: "up" | "down" }) {
    AddCigarSheet
    ------------------------------------------------------------------ */
 
-export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
+export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null }: AddCigarSheetProps) {
 
   /* ── Selection state ──────────────────────────────────────── */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
@@ -64,6 +68,14 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
   const [agingStart,   setAgingStart]   = useState(today);
   const [agingTarget,  setAgingTarget]  = useState("");
   const [notes,        setNotes]        = useState("");
+
+  /* ── Humidor picker state ────────────────────────────────────
+     userId is resolved lazily (below) so the sheet can mount before
+     auth settles; useHumidors no-ops until then. Mirrors
+     AddToHumidorSheet's picker exactly. */
+  const [userId,           setUserId]           = useState<string | null>(null);
+  const [pickedHumidorId,  setPickedHumidorId]  = useState<string | null>(null);
+  const { humidors } = useHumidors(userId);
 
   /* ── Submit state ─────────────────────────────────────────── */
   const [submitting,  setSubmitting]  = useState(false);
@@ -88,8 +100,25 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
+    setPickedHumidorId(defaultHumidorId ?? null);
+
+    async function loadUser() {
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) setUserId(user.id);
+    }
+    loadUser();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, defaultHumidorId]);
+
+  /* Fall back to the user's default humidor once the list loads, but
+     only when no defaultHumidorId was supplied and nothing's picked
+     yet. Mirrors AddToHumidorSheet's picker fallback. */
+  useEffect(() => {
+    if (!open || pickedHumidorId || !humidors || humidors.length === 0) return;
+    const fallback = humidors.find((h) => h.is_default) ?? humidors[0];
+    setPickedHumidorId(fallback.id);
+  }, [open, humidors, pickedHumidorId]);
 
   /* ── Scroll caret tracking ────────────────────────────────── */
   function updateCarets() {
@@ -153,7 +182,7 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
 
       const priceCents = priceStr ? Math.round(parseFloat(priceStr) * 100) : null;
       try {
-        const humidorId = (await ensureDefaultHumidor(user.id)).id;
+        const humidorId = pickedHumidorId ?? (await ensureDefaultHumidor(user.id)).id;
         await addHumidorItem(supabase, {
           user_id:           user.id,
           cigar_id:          cigarId,
@@ -352,6 +381,26 @@ export function AddCigarSheet({ open, onClose, onAdded }: AddCigarSheetProps) {
                   style={{ borderTop: "1px solid var(--border)" }}
                 >
                   <h3 className="text-sm font-semibold text-foreground">Humidor Details</h3>
+
+                  {/* Humidor picker — only when the user has 2+ humidors */}
+                  {humidors && humidors.length >= 2 && (
+                    <div>
+                      <label htmlFor="add-cigar-humidor-picker" className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                        Humidor
+                      </label>
+                      <select
+                        id="add-cigar-humidor-picker"
+                        value={pickedHumidorId ?? ""}
+                        onChange={(e) => setPickedHumidorId(e.target.value)}
+                        className="input text-sm"
+                        style={{ minHeight: 48 }}
+                      >
+                        {humidors.map((h) => (
+                          <option key={h.id} value={h.id}>{h.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Quantity stepper */}
                   <div>

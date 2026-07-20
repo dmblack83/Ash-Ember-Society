@@ -905,6 +905,7 @@ export function HumidorClient({
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
         onAdded={() => { refresh(); }}
+        defaultHumidorId={selected === "all" ? null : selected}
       />
 
       <HumidorSheet

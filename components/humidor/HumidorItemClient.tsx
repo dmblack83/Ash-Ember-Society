@@ -15,6 +15,7 @@ import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { keyFor } from "@/lib/data/keys";
 import type { HumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
 import { useHumidors } from "@/components/humidor/useHumidors";
+import { friendlyWriteError } from "@/lib/data/humidor-move";
 import { MoveToHumidorSheet } from "@/components/humidor/MoveToHumidorSheet";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
@@ -220,7 +221,7 @@ function EditSheet({
 
     setSubmitting(false);
     if (updateError) {
-      setError(updateError.message);
+      setError(friendlyWriteError(updateError));
       return;
     }
 

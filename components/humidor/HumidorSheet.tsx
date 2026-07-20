@@ -17,6 +17,7 @@ import {
   type Humidor,
 } from "@/lib/data/humidors";
 import { validateThresholds, DEFAULT_THRESHOLDS, type ThresholdConfig } from "@/lib/govee/thresholds";
+import { friendlyWriteError } from "@/lib/data/humidor-move";
 
 interface GoveeDevice {
   sku: string;
@@ -289,7 +290,7 @@ export function HumidorSheet({
             });
           }
         } catch (err) {
-          onToast((err as Error).message);
+          onToast(friendlyWriteError(err));
         }
       }
 
@@ -297,7 +298,7 @@ export function HumidorSheet({
       onToast(isEdit ? `${trimmed} saved` : `${trimmed} created`);
       onClose();
     } catch (err) {
-      onToast((err as Error).message);
+      onToast(friendlyWriteError(err));
     } finally {
       setBusy(false);
     }
@@ -312,7 +313,7 @@ export function HumidorSheet({
       onToast(`${editing.name} deleted`);
       onClose();
     } catch (err) {
-      onToast((err as Error).message);
+      onToast(friendlyWriteError(err));
     } finally {
       setBusy(false);
     }
@@ -433,6 +434,12 @@ export function HumidorSheet({
         <button type="button" style={buttonStyle} disabled={busy || !name.trim()} onClick={save}>
           {busy ? "Saving..." : isEdit ? "Save Changes" : "Create Humidor"}
         </button>
+
+        {isEdit && editing && editing.is_default && (
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
+            This is your default humidor. It can be renamed but not deleted.
+          </p>
+        )}
 
         {isEdit && editing && !editing.is_default && (
           <div style={{ textAlign: "center" }}>
