@@ -40,6 +40,7 @@ export interface HumidorItemDetail {
   aging_target_date: string | null;
   notes: string | null;
   created_at: string;
+  humidor_id: string | null;
   cigar: CigarDetail;
 }
 
