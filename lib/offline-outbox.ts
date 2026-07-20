@@ -195,13 +195,16 @@ export async function enqueueFetchMutation(args: {
 /** Heuristic: true when an error from fetch() is most likely caused
     by being offline rather than by an HTTP error response. Both
     `navigator.onLine === false` and the canonical TypeError fired
-    by fetch on network failure are treated as offline. */
+    by fetch on network failure are treated as offline. Safari fires
+    `TypeError: Load failed` instead of the "fetch"-flavored message
+    Chromium/Firefox use — matched as the full phrase so unrelated
+    TypeErrors mentioning "load" (module loads etc.) don't count. */
 export function isLikelyOfflineError(err: unknown): boolean {
   if (typeof navigator !== "undefined" && !navigator.onLine) return true;
   if (err instanceof TypeError) {
     const msg = err.message?.toLowerCase() ?? "";
     if (msg.includes("fetch")  || msg.includes("network") ||
-        msg.includes("offline")) return true;
+        msg.includes("offline") || msg.includes("load failed")) return true;
   }
   return false;
 }

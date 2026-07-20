@@ -9,6 +9,7 @@ import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { HumidorSheet } from "@/components/humidor/HumidorSheet";
+import { MoveCigarsSheet } from "@/components/humidor/MoveCigarsSheet";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { humidorsTitle } from "@/lib/humidor/overview";
 import type { Humidor } from "@/lib/data/humidors";
@@ -17,6 +18,7 @@ import { keyFor } from "@/lib/data/keys";
 import { agingDays } from "@/lib/format";
 import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -545,6 +547,15 @@ export function HumidorClient({
   const [sheetOpen,      setSheetOpen]      = useState(false);
   const [editingHumidor, setEditingHumidor] = useState<Humidor | null>(null);
   const [toast,          setToast]          = useState<string | null>(null);
+  const [showMoveSheet,  setShowMoveSheet]  = useState(false);
+  /* Snapshot of the humidor MoveCigarsSheet targets, taken at open time.
+     Deliberately NOT derived from `selectedHumidor` (which tracks the
+     humidors SWR list): a background revalidate that drops the selected
+     humidor — resume/reconnect, delete from another device — would flip
+     the derived value to null and unmount the sheet mid-open, skipping
+     its exit animation and silently discarding an in-progress selection.
+     Never reset to null on close; only ever replaced by the next open. */
+  const [moveTarget, setMoveTarget] = useState<Humidor | null>(null);
 
   const hasMounted = useRef(false);
 
@@ -633,6 +644,15 @@ export function HumidorClient({
   }, 0);
   const hasValue = totalValueCents > 0;
   const selectedHumidorName = selected !== "all" ? nameById.get(selected) : undefined;
+  /* Rename visibility: with exactly one (renamed) humidor, "all" still
+     reads as that humidor's collection, so surface its name even though
+     there's no filter chip selecting it. */
+  const singleHumidorName =
+    humidors?.length === 1 && humidors[0].name !== "My Humidor"
+      ? humidors[0].name
+      : undefined;
+  const countSuffixName = selectedHumidorName ?? singleHumidorName;
+  const selectedHumidor = selected !== "all" ? humidors?.find((h) => h.id === selected) ?? null : null;
 
   return (
     <>
@@ -689,7 +709,7 @@ export function HumidorClient({
               {!loading && visible.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {totalCount} {totalCount === 1 ? "cigar" : "cigars"}
-                  {selectedHumidorName ? ` in ${selectedHumidorName}` : ""}
+                  {countSuffixName ? ` in ${countSuffixName}` : ""}
                   {hasValue && (
                     <>
                       {" · "}Est.{" "}
@@ -827,9 +847,20 @@ export function HumidorClient({
         ) : items.length === 0 ? (
           <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowOptions(true)} />
         ) : visible.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-16">
-            No cigars in this humidor yet.
-          </p>
+          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+            <p className="text-sm text-muted-foreground">
+              No cigars in this humidor yet.
+            </p>
+            {selectedHumidor && items.some((i) => i.humidor_id !== selected) && (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
+              >
+                Move cigars here
+              </button>
+            )}
+          </div>
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayed.map((item) => (
@@ -874,6 +905,7 @@ export function HumidorClient({
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
         onAdded={() => { refresh(); }}
+        defaultHumidorId={selected === "all" ? null : selected}
       />
 
       <HumidorSheet
@@ -891,7 +923,19 @@ export function HumidorClient({
           }
         }}
         onToast={setToast}
+        onCreated={(h) => setSelected(h.id)}
       />
+
+      {moveTarget && (
+        <MoveCigarsSheet
+          open={showMoveSheet}
+          onClose={() => setShowMoveSheet(false)}
+          userId={userId}
+          targetHumidor={moveTarget}
+          onMoved={() => { void revalidateHumidor(userId); }}
+          onToast={setToast}
+        />
+      )}
 
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </>

@@ -17,6 +17,7 @@ import {
   type Humidor,
 } from "@/lib/data/humidors";
 import { validateThresholds, DEFAULT_THRESHOLDS, type ThresholdConfig } from "@/lib/govee/thresholds";
+import { friendlyWriteError } from "@/lib/data/humidor-move";
 
 interface GoveeDevice {
   sku: string;
@@ -97,10 +98,14 @@ export interface HumidorSheetProps {
   deleteCount?: number;
   onChanged: () => Promise<unknown>;
   onToast: (msg: string) => void;
+  /** Called with the newly created humidor right after createHumidor
+      succeeds (before/independent of sensor assignment outcome). Lets
+      callers auto-filter to the new (empty) humidor. */
+  onCreated?: (humidor: Humidor) => void;
 }
 
 export function HumidorSheet({
-  open, onClose, userId, tier, humidors, editing, deleteCount = 0, onChanged, onToast,
+  open, onClose, userId, tier, humidors, editing, deleteCount = 0, onChanged, onToast, onCreated,
 }: HumidorSheetProps) {
   const isEdit = editing !== null;
 
@@ -264,6 +269,7 @@ export function HumidorSheet({
         try {
           const created = await createHumidor(userId, trimmed, type);
           humidorId = created.id;
+          onCreated?.(created);
         } catch (err) {
           if (err instanceof HumidorLimitReachedError) {
             setUpsell(true);
@@ -284,7 +290,7 @@ export function HumidorSheet({
             });
           }
         } catch (err) {
-          onToast((err as Error).message);
+          onToast(friendlyWriteError(err));
         }
       }
 
@@ -292,7 +298,7 @@ export function HumidorSheet({
       onToast(isEdit ? `${trimmed} saved` : `${trimmed} created`);
       onClose();
     } catch (err) {
-      onToast((err as Error).message);
+      onToast(friendlyWriteError(err));
     } finally {
       setBusy(false);
     }
@@ -307,7 +313,7 @@ export function HumidorSheet({
       onToast(`${editing.name} deleted`);
       onClose();
     } catch (err) {
-      onToast((err as Error).message);
+      onToast(friendlyWriteError(err));
     } finally {
       setBusy(false);
     }
@@ -428,6 +434,12 @@ export function HumidorSheet({
         <button type="button" style={buttonStyle} disabled={busy || !name.trim()} onClick={save}>
           {busy ? "Saving..." : isEdit ? "Save Changes" : "Create Humidor"}
         </button>
+
+        {isEdit && editing && editing.is_default && (
+          <p style={{ fontSize: 12, color: "var(--muted-foreground)", textAlign: "center" }}>
+            This is your default humidor. It can be renamed but not deleted.
+          </p>
+        )}
 
         {isEdit && editing && !editing.is_default && (
           <div style={{ textAlign: "center" }}>

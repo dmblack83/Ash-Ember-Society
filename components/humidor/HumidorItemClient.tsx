@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { mutate } from "swr";
 import { createClient } from "@/utils/supabase/client";
 import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
@@ -11,6 +12,11 @@ import { countryName, wrapperDisplay } from "@/lib/country-name";
 import { ratingLabel } from "@/lib/rating";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { keyFor } from "@/lib/data/keys";
+import type { HumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
+import { useHumidors } from "@/components/humidor/useHumidors";
+import { friendlyWriteError } from "@/lib/data/humidor-move";
+import { MoveToHumidorSheet } from "@/components/humidor/MoveToHumidorSheet";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
@@ -215,7 +221,7 @@ function EditSheet({
 
     setSubmitting(false);
     if (updateError) {
-      setError(updateError.message);
+      setError(friendlyWriteError(updateError));
       return;
     }
 
@@ -603,7 +609,16 @@ export function HumidorItemClient({
   const [smokeOpen, setSmokeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [moveOpen, setMoveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  /* Move to humidor — only relevant once the user has 2+ humidors.
+     The current-humidor tag and the "Move to..." action both gate on
+     this same count. */
+  const { humidors } = useHumidors(userId);
+  const hasMultipleHumidors = (humidors?.length ?? 0) >= 2;
+  const currentHumidorName =
+    humidors?.find((h) => h.id === item.humidor_id)?.name ?? "My Humidor";
 
   const c = item.cigar;
   const days = agingDays(item.aging_start_date);
@@ -698,6 +713,23 @@ export function HumidorItemClient({
     router.push("/humidor");
   }
 
+  /* ── Move to humidor ──────────────────────────────────────── */
+
+  function handleMoved(destId: string) {
+    /* Refresh the Humidor list cache (unmounted at this call site, per
+       revalidateHumidor's own contract) and this item bundle's cache
+       key — the latter with an optimistic patch of humidor_id so the
+       tag updates the instant the sheet closes, then a background
+       revalidate confirms it against the server. */
+    void revalidateHumidor(userId);
+    void mutate(
+      keyFor.humidorItemBundle(userId, item.id),
+      (current: HumidorItemBundle | undefined) =>
+        current ? { ...current, item: { ...current.item, humidor_id: destId } } : current,
+      { revalidate: true },
+    );
+  }
+
   /* ── Derived stats ────────────────────────────────────────── */
 
   const timesSmoked = smokeLogs.length;
@@ -754,6 +786,11 @@ export function HumidorItemClient({
           <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
             {c.brand}
           </p>
+          {hasMultipleHumidors && (
+            <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--gold)" }}>
+              {currentHumidorName}
+            </p>
+          )}
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
             {c.series ?? c.format}
           </h1>
@@ -915,6 +952,15 @@ export function HumidorItemClient({
         >
           Edit Details
         </button>
+        {hasMultipleHumidors && (
+          <button
+            type="button"
+            className="btn btn-ghost w-full"
+            onClick={() => setMoveOpen(true)}
+          >
+            Move to...
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-ghost w-full text-sm"
@@ -1075,6 +1121,16 @@ export function HumidorItemClient({
           loading={deleteLoading}
         />
       )}
+
+      <MoveToHumidorSheet
+        open={moveOpen}
+        onClose={() => setMoveOpen(false)}
+        userId={userId}
+        currentHumidorId={item.humidor_id}
+        itemId={item.id}
+        onMoved={handleMoved}
+        onToast={setToast}
+      />
     </div>
   );
 }
