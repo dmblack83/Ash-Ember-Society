@@ -61,6 +61,13 @@ function LoginForm() {
   // Preserve intended destination across login
   const next = searchParams.get("next") ?? "/home";
 
+  /* Failed auth-email links (/auth/confirm, /auth/callback) land here
+     with an error code in the URL. Without this banner the bounce is
+     silent and reads as "the reset link just goes to sign in". */
+  const linkError = searchParams.get("error");
+  const showLinkError =
+    linkError === "auth_confirm_failed" || linkError === "auth_callback_failed";
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -111,6 +118,24 @@ function LoginForm() {
             Sign in to continue to your lounge
           </p>
         </div>
+
+        {showLinkError && (
+          <p
+            role="alert"
+            className="text-sm animate-fade-in mb-5 rounded-lg border px-3 py-2.5"
+            style={{ borderColor: "var(--ember)", color: "var(--foreground)" }}
+          >
+            That link didn&apos;t work or has expired.{" "}
+            <Link
+              href="/forgot-password"
+              className="font-medium underline"
+              style={{ color: "var(--ember)" }}
+            >
+              Request a new one
+            </Link>
+            .
+          </p>
+        )}
 
         {GOOGLE_OAUTH_ENABLED && (
           <>
