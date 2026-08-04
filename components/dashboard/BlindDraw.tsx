@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter }    from "next/navigation";
 import { CigarImage }   from "@/components/ui/CigarImage";
-import { BottomSheet }  from "@/components/ui/BottomSheet";
 import { drawPool, isDrawEligible, pickDraw } from "@/lib/home/blind-draw";
 import type { HumidorItem } from "@/components/humidor/HumidorClient";
 
 /* ------------------------------------------------------------------
-   The Blind Draw — home page card + draw sheet.
+   The Blind Draw — home page card + draw modal.
 
    The card is a fixed-height teaser: eyebrow, one-line hook, Draw
-   button. Tapping Draw opens a BottomSheet so the reel + reveal never
-   shift the page under the card (Dave's call: no layout movement on
-   /home). Inside the sheet: slot-reel of the user's own cigars
-   decelerating onto the pick (mockup direction A), then the reveal
-   with image / brand / series / vitola and two actions.
+   button. Tapping Draw opens a CENTERED MODAL (Dave's call: overlay
+   so the page never shifts; centered rather than a bottom sheet).
+   Modal chrome follows UpgradeLimitModal: fixed backdrop, escape +
+   backdrop-tap dismiss, body scroll lock. Inside: slot-reel of the
+   user's own cigars decelerating onto the pick (mockup direction A),
+   then the reveal with image / brand / series / vitola.
 
    Renders null with fewer than 2 unique in-stock cigars.
    ------------------------------------------------------------------ */
@@ -31,13 +32,47 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
   const router = useRouter();
   const pool   = drawPool(items);
 
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
   const [phase,     setPhase]     = useState<Phase>("reel");
   const [drawn,     setDrawn]     = useState<HumidorItem | null>(null);
+  const [mounted,   setMounted]   = useState(false);
   const reelRef  = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // SSR-safe portal gate: setMounted in an effect is the standard
+  // client-only render pattern (same as PhotoLightbox); lint rule
+  // doesn't model it, disabled per-line.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { setMounted(true); }, []);
   useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+
+  const closeModal = () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setModalOpen(false);
+    setDrawn(null);
+    setPhase("reel");
+  };
+
+  /* Escape dismiss + body scroll lock while the modal is open — same
+     lifecycle as UpgradeLimitModal. */
+  useEffect(() => {
+    if (!modalOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeModal(); };
+    window.addEventListener("keydown", onKey);
+    const scrollY = window.scrollY;
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top      = `-${scrollY}px`;
+    document.body.style.width    = "100%";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+      document.body.style.position = "";
+      document.body.style.top      = "";
+      document.body.style.width    = "";
+      window.scrollTo(0, scrollY);
+    };
+  }, [modalOpen]);
 
   if (!isDrawEligible(pool)) return null;
 
@@ -53,12 +88,12 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
 
     if (reducedMotion()) {
       setPhase("result");
-      setSheetOpen(true);
+      setModalOpen(true);
       return;
     }
 
     setPhase("reel");
-    setSheetOpen(true);
+    setModalOpen(true);
 
     /* Kick the reel on the next frame so the sheet + reel are mounted
        at translateY(0) before the transition target is set. Double rAF:
@@ -74,13 +109,6 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
       reel.style.transform  = `translateY(${-wIdx * ROW_H}px)`;
     }));
     timerRef.current = setTimeout(() => setPhase("result"), REVEAL_MS);
-  }
-
-  function closeSheet() {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    setSheetOpen(false);
-    setDrawn(null);
-    setPhase("reel");
   }
 
   /* Reel sequence: LOOPS passes of the pool, then one more pass whose
@@ -153,22 +181,47 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
         </button>
       </section>
 
-      {/* ── Draw sheet ────────────────────────────────────────────── */}
-      {sheetOpen && drawn && (
-        <BottomSheet
-          open
-          onClose={closeSheet}
-          ariaLabel="The Blind Draw"
-          mobileHeight="62dvh"
-          desktopMaxWidth={480}
-          showHandle
-          header={
-            <div className="px-5" style={{ paddingTop: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
-              <div style={eyebrowStyle}>The Blind Draw</div>
-            </div>
-          }
+      {/* ── Draw modal (centered) ─────────────────────────────────── */}
+      {mounted && modalOpen && drawn && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="The Blind Draw"
+          onClick={closeModal}
+          className="fixed inset-0 z-[100] flex items-center justify-center px-6"
+          style={{ background: "rgba(0,0,0,0.72)" }}
         >
-          <div className="px-5 py-6">
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-2xl"
+            style={{
+              maxWidth:   400,
+              background: "var(--card)",
+              border:     "1px solid var(--border)",
+              boxShadow:  "0 24px 64px rgba(0,0,0,0.5)",
+            }}
+          >
+            <div className="flex items-center justify-between px-5" style={{ paddingTop: 16, paddingBottom: 12, borderBottom: "1px solid var(--border)" }}>
+              <div style={eyebrowStyle}>The Blind Draw</div>
+              <button
+                type="button"
+                onClick={closeModal}
+                aria-label="Close"
+                className="flex items-center justify-center rounded-full"
+                style={{
+                  width: 32, height: 32, flexShrink: 0,
+                  background: "rgba(255,255,255,0.07)",
+                  border: "1px solid var(--border)",
+                  color: "var(--foreground)", cursor: "pointer",
+                  touchAction: "manipulation", WebkitTapHighlightColor: "transparent",
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-6">
             {phase === "reel" ? (
               <div
                 aria-label="Drawing a cigar"
@@ -257,7 +310,7 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
                 <div className="flex flex-col gap-2">
                   <button
                     type="button"
-                    onClick={() => { setSheetOpen(false); router.push(`/humidor/${drawn.id}/burn-report`); }}
+                    onClick={() => { setModalOpen(false); router.push(`/humidor/${drawn.id}/burn-report`); }}
                     className="w-full rounded-xl font-semibold text-sm"
                     style={{
                       height: 48,
@@ -284,8 +337,10 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
                 </div>
               </div>
             )}
+            </div>
           </div>
-        </BottomSheet>
+        </div>,
+        document.body,
       )}
     </>
   );
