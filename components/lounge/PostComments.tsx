@@ -28,9 +28,112 @@ function notifyCommentCreated(commentId: string) {
   }).catch(() => {});
 }
 import { formatDistanceToNow } from "date-fns";
+import Image                   from "next/image";
 import { AvatarFrame }         from "@/components/ui/AvatarFrame";
 import { resolveBadge }        from "@/lib/badge";
 import { log }                 from "@/lib/log";
+import { PhotoLightbox }       from "@/components/ui/PhotoLightbox";
+import { compressImage }       from "@/lib/image-compress";
+import { checkResponse }       from "@/lib/telemetry/fetch-checks";
+
+/* Compress + upload a comment image; returns the public URL.
+   Throws with a user-facing message on failure. Exported for
+   PostDetailClient, which carries its own copy of the comment
+   machinery (pre-existing duplication). */
+export async function uploadCommentImage(file: File): Promise<string> {
+  const upload = await compressImage(file);
+  const fd = new FormData();
+  fd.append("file",   upload);
+  fd.append("folder", "forum-comments");
+  const res = checkResponse(
+    await fetch("/api/upload/image", { method: "POST", body: fd }),
+    { route: "/api/upload/image" },
+  );
+  if (!res.ok) {
+    const { error } = await res.json().catch(() => ({ error: "Photo upload failed." }));
+    throw new Error(error ?? "Photo upload failed.");
+  }
+  const { url } = await res.json();
+  return url as string;
+}
+
+/* Small square preview with a remove X — shared by the comment and
+   reply composers. */
+export function ComposerImagePreview({ preview, onRemove }: { preview: string; onRemove: () => void }) {
+  return (
+    <div className="relative rounded-xl overflow-hidden" style={{ width: 72, height: 72 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={preview} alt="Photo preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <button
+        type="button"
+        onClick={onRemove}
+        className="absolute top-1 right-1 flex items-center justify-center rounded-full"
+        style={{ width: 24, height: 24, background: "rgba(0,0,0,0.6)", border: "none", color: "#fff", cursor: "pointer", touchAction: "manipulation" }}
+        aria-label="Remove photo"
+      >
+        <svg width="10" height="10" viewBox="0 0 14 14" fill="none">
+          <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/* "Add Photo" affordance for the composers — a camera-ish icon button. */
+export function AddPhotoButton({ onPick }: { onPick: (file: File) => void }) {
+  return (
+    <label
+      className="flex items-center gap-1.5 text-xs"
+      style={{ color: "var(--muted-foreground)", cursor: "pointer", touchAction: "manipulation", width: "fit-content" }}
+    >
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onPick(file);
+          e.target.value = "";
+        }}
+        style={{ display: "none" }}
+      />
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
+        <rect x="1.5" y="3.5" width="13" height="10" rx="2" />
+        <circle cx="8" cy="8.5" r="2.5" />
+        <path d="M5.5 3.5L6.5 2h3l1 1.5" />
+      </svg>
+      Add Photo
+    </label>
+  );
+}
+
+/* Comment image rendered in the thread; tap opens the shared viewer. */
+export function CommentImage({ url }: { url: string }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setViewerOpen(true)}
+        className="mt-2 rounded-xl overflow-hidden block"
+        style={{ border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation", maxWidth: 220 }}
+        aria-label="View photo"
+      >
+        <Image
+          src={url}
+          alt=""
+          width={440}
+          height={330}
+          sizes="220px"
+          quality={75}
+          style={{ width: "100%", height: "auto", maxHeight: 180, objectFit: "cover", display: "block", borderRadius: 12 }}
+        />
+      </button>
+      {viewerOpen && (
+        <PhotoLightbox urls={[url]} initialIndex={0} onClose={() => setViewerOpen(false)} />
+      )}
+    </>
+  );
+}
 
 export interface Comment {
   id:                string;
@@ -39,6 +142,7 @@ export interface Comment {
   updated_at:        string;
   user_id:           string;
   parent_comment_id: string | null;
+  image_url?:        string | null;
   profiles: {
     display_name:    string | null;
     avatar_url:      string | null;
@@ -95,8 +199,17 @@ const CommentNode = memo(function CommentNode({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [replyMode,     setReplyMode]     = useState(false);
   const [replyText,     setReplyText]     = useState("");
+  const [replyImage,    setReplyImage]    = useState<File | null>(null);
+  const [replyPreview,  setReplyPreview]  = useState<string | null>(null);
+  const [replyError,    setReplyError]    = useState<string | null>(null);
   const [submitting,    setSubmitting]    = useState(false);
   const isOwn = comment.user_id === userId;
+
+  function clearReplyImage() {
+    if (replyPreview) URL.revokeObjectURL(replyPreview);
+    setReplyImage(null);
+    setReplyPreview(null);
+  }
 
   async function handleSaveEdit() {
     if (!editText.trim()) return;
@@ -115,16 +228,29 @@ const CommentNode = memo(function CommentNode({
   async function handleReply() {
     if (replyText.trim().length < 3 || submitting) return;
     setSubmitting(true);
+    setReplyError(null);
+
+    let image_url: string | null = null;
+    if (replyImage) {
+      try {
+        image_url = await uploadCommentImage(replyImage);
+      } catch (err) {
+        setReplyError(err instanceof Error ? err.message : "Photo upload failed.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const { data, error } = await supabase.from("forum_comments")
-      .insert({ user_id: userId, post_id: postId, content: replyText.trim(), parent_comment_id: comment.id })
-      .select("id, content, created_at, updated_at, user_id, parent_comment_id")
+      .insert({ user_id: userId, post_id: postId, content: replyText.trim(), parent_comment_id: comment.id, image_url })
+      .select("id, content, created_at, updated_at, user_id, parent_comment_id, image_url")
       .single();
-    if (error || !data) { setSubmitting(false); return; }
+    if (error || !data) { setReplyError(error?.message ?? "Failed to reply."); setSubmitting(false); return; }
     notifyCommentCreated(data.id);
     const { data: p } = await supabase.from("public_profiles")
       .select("display_name, avatar_url, badge, membership_tier").eq("id", userId).single();
     onReplyCreated({ ...data, profiles: p ?? null });
-    setReplyText(""); setReplyMode(false); setSubmitting(false);
+    setReplyText(""); clearReplyImage(); setReplyMode(false); setSubmitting(false);
   }
 
   return (
@@ -154,7 +280,10 @@ const CommentNode = memo(function CommentNode({
           </div>
         </div>
       ) : (
-        <p className="text-sm" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>{comment.content}</p>
+        <>
+          <p className="text-sm" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>{comment.content}</p>
+          {comment.image_url && <CommentImage url={comment.image_url} />}
+        </>
       )}
 
       {!editMode && (
@@ -189,6 +318,10 @@ const CommentNode = memo(function CommentNode({
           <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write a reply..." autoFocus
             className="w-full rounded-xl px-3 py-2 text-sm resize-none"
             style={{ minHeight: 72, backgroundColor: "rgba(255,255,255,0.05)", border: "1px solid var(--border)", color: "var(--foreground)", fontSize: 14, outline: "none" }} />
+          {replyPreview
+            ? <ComposerImagePreview preview={replyPreview} onRemove={clearReplyImage} />
+            : <AddPhotoButton onPick={(file) => { setReplyImage(file); setReplyPreview(URL.createObjectURL(file)); }} />}
+          {replyError && <p className="text-xs" style={{ color: "#E8642C" }}>{replyError}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={handleReply}
               onMouseDown={(e) => e.preventDefault()}
@@ -197,7 +330,7 @@ const CommentNode = memo(function CommentNode({
               style={{ background: replyText.trim().length >= 3 ? "var(--gold,#D4A04A)" : "rgba(212,160,74,0.3)", color: "#1A1210", border: "none", cursor: replyText.trim().length >= 3 ? "pointer" : "default", touchAction: "manipulation" }}>
               {submitting ? "Sending..." : "Send Reply"}
             </button>
-            <button type="button" onClick={() => { setReplyMode(false); setReplyText(""); }}
+            <button type="button" onClick={() => { setReplyMode(false); setReplyText(""); clearReplyImage(); }}
               className="text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{ background: "transparent", color: "var(--muted-foreground)", border: "1px solid var(--border)", cursor: "pointer", touchAction: "manipulation" }}>Cancel</button>
           </div>
@@ -216,8 +349,16 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
   const [comments,          setComments]          = useState<Comment[] | null>(null);
   const [commentsLoading,   setCommentsLoading]   = useState(true);
   const [commentText,       setCommentText]       = useState("");
+  const [commentImage,      setCommentImage]      = useState<File | null>(null);
+  const [commentPreview,    setCommentPreview]    = useState<string | null>(null);
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const [commentError,      setCommentError]      = useState<string | null>(null);
+
+  function clearCommentImage() {
+    if (commentPreview) URL.revokeObjectURL(commentPreview);
+    setCommentImage(null);
+    setCommentPreview(null);
+  }
 
   /* Load comments on mount */
   useEffect(() => {
@@ -229,7 +370,7 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
     async function load() {
       const { data, error } = await supabase
         .from("forum_comments")
-        .select("id, content, created_at, updated_at, user_id, parent_comment_id")
+        .select("id, content, created_at, updated_at, user_id, parent_comment_id, image_url")
         .eq("post_id", postId)
         .order("created_at", { ascending: true });
 
@@ -269,10 +410,21 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
     setCommentSubmitting(true);
     setCommentError(null);
 
+    let image_url: string | null = null;
+    if (commentImage) {
+      try {
+        image_url = await uploadCommentImage(commentImage);
+      } catch (err) {
+        setCommentError(err instanceof Error ? err.message : "Photo upload failed.");
+        setCommentSubmitting(false);
+        return;
+      }
+    }
+
     const { data, error } = await supabase
       .from("forum_comments")
-      .insert({ user_id: userId, post_id: postId, content: commentText.trim(), parent_comment_id: null })
-      .select("id, content, created_at, updated_at, user_id, parent_comment_id")
+      .insert({ user_id: userId, post_id: postId, content: commentText.trim(), parent_comment_id: null, image_url })
+      .select("id, content, created_at, updated_at, user_id, parent_comment_id, image_url")
       .single();
 
     setCommentSubmitting(false);
@@ -284,6 +436,7 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
     setComments((prev) => [...(prev ?? []), { ...data, profiles: profileData ?? null }]);
     onCountChange?.(1);
     setCommentText("");
+    clearCommentImage();
   }
 
   function handleDeleteComment(id: string) {
@@ -344,6 +497,11 @@ export function PostComments({ postId, userId, isLocked, onCountChange }: PostCo
                   outline: "none",
                 }}
               />
+              <div className="mt-2">
+                {commentPreview
+                  ? <ComposerImagePreview preview={commentPreview} onRemove={clearCommentImage} />
+                  : <AddPhotoButton onPick={(file) => { setCommentImage(file); setCommentPreview(URL.createObjectURL(file)); }} />}
+              </div>
               {commentError && (
                 <p className="text-xs mt-1" style={{ color: "#E8642C" }}>{commentError}</p>
               )}

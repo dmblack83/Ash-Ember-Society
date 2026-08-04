@@ -3,7 +3,7 @@ import { getServerUser }            from "@/lib/auth/server-user";
 import { createClient }             from "@/utils/supabase/server";
 import { createServiceClientFor }   from "@/utils/supabase/service";
 
-const ALLOWED_FOLDERS = ["forum-posts", "burn-reports"] as const;
+const ALLOWED_FOLDERS = ["forum-posts", "forum-comments", "burn-reports"] as const;
 type Folder = (typeof ALLOWED_FOLDERS)[number];
 
 /**

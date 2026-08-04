@@ -16,6 +16,14 @@ import { useEscapeKey }                        from "@/lib/hooks/use-escape-key"
 import { keyFor }                              from "@/lib/data/keys";
 import { fetchPostComments }                   from "@/lib/data/lounge-fetchers";
 import { AddCigarToWishlistButton }            from "./AddCigarToWishlistButton";
+import { PostImageGrid }                       from "./PostImageGrid";
+import { postImages }                          from "@/lib/lounge/post-images";
+import {
+  uploadCommentImage,
+  ComposerImagePreview,
+  AddPhotoButton,
+  CommentImage,
+} from "./PostComments";
 
 /* ------------------------------------------------------------------ */
 /* Exported type — consumed by the server page                          */
@@ -108,6 +116,7 @@ export interface Post {
   author:      { display_name: string | null; avatar_url: string | null; badge?: string | null; membership_tier?: string | null } | null;
   like_count:  number;
   image_url:   string | null;
+  image_urls?: string[] | null;
 }
 
 export interface Comment {
@@ -117,6 +126,7 @@ export interface Comment {
   updated_at:        string;
   user_id:           string;
   parent_comment_id: string | null;
+  image_url?:        string | null;
   profiles:          { display_name: string | null; avatar_url: string | null; badge?: string | null; membership_tier?: string | null } | null;
 }
 
@@ -277,9 +287,18 @@ const CommentNode = memo(function CommentNode({
   const [confirmDelete,  setConfirmDelete]  = useState(false);
   const [replyMode,      setReplyMode]      = useState(false);
   const [replyText,      setReplyText]      = useState("");
+  const [replyImage,     setReplyImage]     = useState<File | null>(null);
+  const [replyPreview,   setReplyPreview]   = useState<string | null>(null);
+  const [replyError,     setReplyError]     = useState<string | null>(null);
   const [submitting,     setSubmitting]     = useState(false);
 
   const isOwn = comment.user_id === userId;
+
+  function clearReplyImage() {
+    if (replyPreview) URL.revokeObjectURL(replyPreview);
+    setReplyImage(null);
+    setReplyPreview(null);
+  }
 
   async function handleSaveEdit() {
     if (!editText.trim()) return;
@@ -302,6 +321,18 @@ const CommentNode = memo(function CommentNode({
   async function handleReply() {
     if (replyText.trim().length < 3 || submitting) return;
     setSubmitting(true);
+    setReplyError(null);
+
+    let image_url: string | null = null;
+    if (replyImage) {
+      try {
+        image_url = await uploadCommentImage(replyImage);
+      } catch (err) {
+        setReplyError(err instanceof Error ? err.message : "Photo upload failed.");
+        setSubmitting(false);
+        return;
+      }
+    }
 
     const { data, error } = await supabase
       .from("forum_comments")
@@ -310,11 +341,12 @@ const CommentNode = memo(function CommentNode({
         post_id:           postId,
         content:           replyText.trim(),
         parent_comment_id: comment.id,
+        image_url,
       })
-      .select("id, content, created_at, updated_at, user_id, parent_comment_id")
+      .select("id, content, created_at, updated_at, user_id, parent_comment_id, image_url")
       .single();
 
-    if (error || !data) { setSubmitting(false); return; }
+    if (error || !data) { setReplyError(error?.message ?? "Failed to reply."); setSubmitting(false); return; }
 
     const { data: profileData } = await supabase
       .from("public_profiles")
@@ -324,6 +356,7 @@ const CommentNode = memo(function CommentNode({
 
     onReplyCreated({ ...data, profiles: profileData ?? null });
     setReplyText("");
+    clearReplyImage();
     setReplyMode(false);
     setSubmitting(false);
   }
@@ -398,9 +431,12 @@ const CommentNode = memo(function CommentNode({
           </div>
         </div>
       ) : (
-        <p className="text-sm" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
-          {comment.content}
-        </p>
+        <>
+          <p className="text-sm" style={{ color: "var(--foreground)", whiteSpace: "pre-line" }}>
+            {comment.content}
+          </p>
+          {comment.image_url && <CommentImage url={comment.image_url} />}
+        </>
       )}
 
       {/* Action row */}
@@ -493,6 +529,10 @@ const CommentNode = memo(function CommentNode({
               outline:         "none",
             }}
           />
+          {replyPreview
+            ? <ComposerImagePreview preview={replyPreview} onRemove={clearReplyImage} />
+            : <AddPhotoButton onPick={(file) => { setReplyImage(file); setReplyPreview(URL.createObjectURL(file)); }} />}
+          {replyError && <p className="text-xs" style={{ color: "#E8642C" }}>{replyError}</p>}
           <div className="flex gap-2">
             <button
               type="button"
@@ -512,7 +552,7 @@ const CommentNode = memo(function CommentNode({
             </button>
             <button
               type="button"
-              onClick={() => { setReplyMode(false); setReplyText(""); }}
+              onClick={() => { setReplyMode(false); setReplyText(""); clearReplyImage(); }}
               className="text-xs font-semibold px-3 py-1.5 rounded-full"
               style={{
                 background:  "transparent",
@@ -578,8 +618,16 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   );
 
   const [commentText,     setCommentText]     = useState("");
+  const [commentImage,    setCommentImage]    = useState<File | null>(null);
+  const [commentPreview,  setCommentPreview]  = useState<string | null>(null);
   const [submitting,      setSubmitting]      = useState(false);
   const [commentError,    setCommentError]    = useState<string | null>(null);
+
+  function clearCommentImage() {
+    if (commentPreview) URL.revokeObjectURL(commentPreview);
+    setCommentImage(null);
+    setCommentPreview(null);
+  }
   const [showDeletePost,  setShowDeletePost]  = useState(false);
   const [deletingPost,    setDeletingPost]    = useState(false);
   const [mounted,         setMounted]         = useState(false);
@@ -590,9 +638,8 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   /* Inline post-image lightbox via the shared PhotoLightbox so
      close UX (centred [Close] button) matches every other photo
      viewer in the app. */
-  const postImageLightbox = usePhotoLightbox(
-    post.image_url ? [post.image_url] : []
-  );
+  const postImageUrls     = postImages(post.image_url, post.image_urls);
+  const postImageLightbox = usePhotoLightbox(postImageUrls);
 
   // SSR-safe portal/window guard: setMounted in an effect is the
   // standard pattern for "client-only render gate". Lint rule
@@ -658,10 +705,21 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     setSubmitting(true);
     setCommentError(null);
 
+    let image_url: string | null = null;
+    if (commentImage) {
+      try {
+        image_url = await uploadCommentImage(commentImage);
+      } catch (err) {
+        setCommentError(err instanceof Error ? err.message : "Photo upload failed.");
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const { data, error } = await supabase
       .from("forum_comments")
-      .insert({ user_id: userId, post_id: post.id, content: commentText.trim(), parent_comment_id: null })
-      .select("id, content, created_at, updated_at, user_id, parent_comment_id")
+      .insert({ user_id: userId, post_id: post.id, content: commentText.trim(), parent_comment_id: null, image_url })
+      .select("id, content, created_at, updated_at, user_id, parent_comment_id, image_url")
       .single();
 
     setSubmitting(false);
@@ -674,6 +732,7 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
     );
     invalidateCategoryFeed();
     setCommentText("");
+    clearCommentImage();
   }
 
   /* ---- Handlers passed to CommentNode ----------------------------- */
@@ -846,28 +905,10 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
                 {post.content}
               </p>
 
-              {post.image_url && (
-                <button
-                  type="button"
-                  onClick={() => post.image_url && postImageLightbox.open(post.image_url)}
-                  className="mt-4 rounded-xl overflow-hidden block relative"
-                  style={{
-                    width: "100%", height: 260,
-                    border: "none", padding: 0, cursor: "pointer",
-                    touchAction: "manipulation",
-                  }}
-                  aria-label="View image"
-                >
-                  <Image
-                    src={post.image_url}
-                    alt=""
-                    fill
-                    sizes="(max-width: 768px) 100vw, 600px"
-                    quality={78}
-                    style={{ objectFit: "cover", display: "block" }}
-                  />
-                </button>
-              )}
+              <PostImageGrid
+                urls={postImageUrls}
+                onOpen={(i) => postImageLightbox.open(postImageUrls[i])}
+              />
             </>
           )}
 
@@ -914,6 +955,11 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
                   outline:         "none",
                 }}
               />
+              <div className="mt-2">
+                {commentPreview
+                  ? <ComposerImagePreview preview={commentPreview} onRemove={clearCommentImage} />
+                  : <AddPhotoButton onPick={(file) => { setCommentImage(file); setCommentPreview(URL.createObjectURL(file)); }} />}
+              </div>
               {commentError && (
                 <p className="text-xs mt-1" style={{ color: "#E8642C" }}>{commentError}</p>
               )}

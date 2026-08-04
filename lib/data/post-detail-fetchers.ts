@@ -47,7 +47,7 @@ export async function fetchPostDetailBundle(
       .select(`
         id, title, content, created_at, updated_at,
         is_system, is_locked, user_id, category_id,
-        image_url, smoke_log_id,
+        image_url, image_urls, smoke_log_id,
         forum_post_likes(count),
         forum_categories(name, slug)
       `)
@@ -188,7 +188,8 @@ export async function fetchPostDetailBundle(
         }
       : null,
     like_count:  likeCount,
-    image_url:   (raw.image_url as string | null) ?? null,
+    image_url:   (raw.image_url  as string | null)   ?? null,
+    image_urls:  (raw.image_urls as string[] | null) ?? null,
   };
 
   const comments: Comment[] = commentRows.map((c) => ({

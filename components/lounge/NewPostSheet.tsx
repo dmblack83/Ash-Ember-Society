@@ -6,6 +6,8 @@ import { useRouter }                             from "next/navigation";
 import { createClient }                          from "@/utils/supabase/client";
 import { checkResponse }                         from "@/lib/telemetry/fetch-checks";
 import { BottomSheet }                           from "@/components/ui/BottomSheet";
+import { compressImage }                         from "@/lib/image-compress";
+import { MAX_POST_IMAGES }                       from "@/lib/lounge/post-images";
 
 /* ------------------------------------------------------------------ */
 
@@ -42,8 +44,9 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
   const [feedbackType,   setFeedbackType]   = useState<FeedbackType>("Feature Request");
   const [title,          setTitle]          = useState("");
   const [content,        setContent]        = useState("");
-  const [imageFile,      setImageFile]      = useState<File | null>(null);
-  const [imagePreview,   setImagePreview]   = useState<string | null>(null);
+  /* Up to MAX_POST_IMAGES files; previews are parallel object URLs. */
+  const [imageFiles,     setImageFiles]     = useState<File[]>([]);
+  const [imagePreviews,  setImagePreviews]  = useState<string[]>([]);
   const [uploading,      setUploading]      = useState(false);
   const [submitting,     setSubmitting]     = useState(false);
   const [error,          setError]          = useState<string | null>(null);
@@ -52,16 +55,20 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
   const supabase = useMemo(() => createClient(), []);
 
   function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    setImagePreview(URL.createObjectURL(file));
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+    const room  = MAX_POST_IMAGES - imageFiles.length;
+    const added = picked.slice(0, room);
+    setImageFiles((prev) => [...prev, ...added]);
+    setImagePreviews((prev) => [...prev, ...added.map((f) => URL.createObjectURL(f))]);
+    /* Reset so re-picking the same file fires onChange again. */
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  function removeImage() {
-    setImageFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  function removeImage(index: number) {
+    URL.revokeObjectURL(imagePreviews[index]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   }
 
   /* Portal target needs document; body scroll lock + escape are
@@ -77,23 +84,33 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
     setSubmitting(true);
     setError(null);
 
-    // Upload image if selected (standard posts only)
-    let image_url: string | null = null;
-    if (!isFeedback && imageFile) {
+    // Upload images if selected (standard posts only). Compress
+    // client-side first — raw iPhone shots exceed Vercel's 4.5 MB
+    // body cap and die mid-upload on iOS PWA.
+    let image_urls: string[] = [];
+    if (!isFeedback && imageFiles.length > 0) {
       setUploading(true);
-      const fd = new FormData();
-      fd.append("file",   imageFile);
-      fd.append("folder", "forum-posts");
-      const res = checkResponse(
-        await fetch("/api/upload/image", { method: "POST", body: fd }),
-        { route: "/api/upload/image" },
-      );
-      if (res.ok) {
-        const { url } = await res.json();
-        image_url = url;
-      } else {
-        const { error } = await res.json().catch(() => ({ error: "Upload failed." }));
-        setError(error ?? "Upload failed.");
+      try {
+        image_urls = await Promise.all(
+          imageFiles.map(async (file) => {
+            const upload = await compressImage(file);
+            const fd = new FormData();
+            fd.append("file",   upload);
+            fd.append("folder", "forum-posts");
+            const res = checkResponse(
+              await fetch("/api/upload/image", { method: "POST", body: fd }),
+              { route: "/api/upload/image" },
+            );
+            if (!res.ok) {
+              const { error } = await res.json().catch(() => ({ error: "Upload failed." }));
+              throw new Error(error ?? "Upload failed.");
+            }
+            const { url } = await res.json();
+            return url as string;
+          }),
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload failed.");
         setUploading(false);
         setSubmitting(false);
         return;
@@ -109,7 +126,12 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
       title:       finalTitle,
       content:     content.trim(),
     };
-    if (image_url) payload.image_url = image_url;
+    if (image_urls.length > 0) {
+      payload.image_urls = image_urls;
+      /* Legacy single-image column stays in sync with the first image
+         so stale clients (older cached bundles) keep rendering one. */
+      payload.image_url  = image_urls[0];
+    }
 
     const { data, error: err } = await supabase
       .from("forum_posts")
@@ -352,39 +374,46 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
                   className="text-xs font-semibold uppercase tracking-wide block mb-1.5"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  Photo (optional)
+                  Photos (optional, up to {MAX_POST_IMAGES})
                 </label>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/*"
+                  multiple
                   onChange={handleImageSelect}
                   style={{ display: "none" }}
                 />
-                {imagePreview ? (
-                  <div className="relative rounded-xl overflow-hidden" style={{ height: 160 }}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imagePreview} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 flex items-center justify-center rounded-full"
-                      style={{
-                        width:      28,
-                        height:     28,
-                        background: "rgba(0,0,0,0.6)",
-                        border:     "none",
-                        color:      "#fff",
-                        cursor:     "pointer",
-                      }}
-                      aria-label="Remove image"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
-                        <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                      </svg>
-                    </button>
+                {imagePreviews.length > 0 && (
+                  <div className="flex gap-2 mb-2">
+                    {imagePreviews.map((preview, i) => (
+                      <div key={preview} className="relative rounded-xl overflow-hidden" style={{ width: 96, height: 96 }}>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={preview} alt={`Photo ${i + 1} preview`} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(i)}
+                          className="absolute top-1.5 right-1.5 flex items-center justify-center rounded-full"
+                          style={{
+                            width:      26,
+                            height:     26,
+                            background: "rgba(0,0,0,0.6)",
+                            border:     "none",
+                            color:      "#fff",
+                            cursor:     "pointer",
+                            touchAction: "manipulation",
+                          }}
+                          aria-label={`Remove photo ${i + 1}`}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+                            <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ) : (
+                )}
+                {imageFiles.length < MAX_POST_IMAGES && (
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
@@ -401,7 +430,7 @@ export function NewPostSheet({ categories, userId, initialCategoryId, onCreated,
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true">
                       <path d="M8 3v10M3 8h10" />
                     </svg>
-                    Add Photo
+                    {imageFiles.length === 0 ? "Add Photos" : "Add Another"}
                   </button>
                 )}
               </div>
