@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { mutate } from "swr";
@@ -166,17 +166,28 @@ function EditSheet({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* Reset fields when reopened */
+  /* Reset fields when REOPENED — and only then.
+   *
+   * `item` must NOT be a dependency: the parent recreates it as a new
+   * object on every render ({ ...initialItem, ...itemFields }), so any
+   * background re-render while the sheet is open (humidor SWR
+   * revalidate, a toast timer) re-fired this effect and silently wiped
+   * whatever the user had typed back to the saved values. That is the
+   * "my notes disappeared while editing" bug. Latest item values are
+   * read through a ref at open time instead. */
+  const itemRef = useRef(item);
+  useEffect(() => { itemRef.current = item; });
   useEffect(() => {
     if (!isOpen) return;
-    setPurchaseDate(item.purchase_date ?? "");
-    setPriceDollars(item.price_paid_cents != null ? (item.price_paid_cents / 100).toFixed(2) : "");
-    setSource(item.source ?? "");
-    setAgingStartDate(item.aging_start_date   ?? "");
-    setAgingTargetDate(item.aging_target_date ?? "");
-    setNotes(item.notes ?? "");
+    const it = itemRef.current;
+    setPurchaseDate(it.purchase_date ?? "");
+    setPriceDollars(it.price_paid_cents != null ? (it.price_paid_cents / 100).toFixed(2) : "");
+    setSource(it.source ?? "");
+    setAgingStartDate(it.aging_start_date   ?? "");
+    setAgingTargetDate(it.aging_target_date ?? "");
+    setNotes(it.notes ?? "");
     setError(null);
-  }, [isOpen, item]);
+  }, [isOpen]);
 
   /* Lock body scroll while open (iOS-safe: position:fixed approach) */
   useEffect(() => {
@@ -606,6 +617,9 @@ export function HumidorItemClient({
   /* UI state */
   const [qtyLoading, setQtyLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [notesEditing, setNotesEditing] = useState(false);
+  const [notesDraft,   setNotesDraft]   = useState("");
+  const [notesSaving,  setNotesSaving]  = useState(false);
   const [smokeOpen, setSmokeOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -682,6 +696,30 @@ export function HumidorItemClient({
     if (quantity > 0) {
       await updateQuantity(quantity - 1);
     }
+  }
+
+  /* ── Inline notes save ────────────────────────────────────── */
+
+  async function handleNotesSave() {
+    if (notesSaving) return;
+    setNotesSaving(true);
+
+    const nextNotes = notesDraft.trim() || null;
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("humidor_items")
+      .update({ notes: nextNotes })
+      .eq("id", item.id);
+
+    setNotesSaving(false);
+    if (error) {
+      setToast(friendlyWriteError(error));
+      return;
+    }
+    setItemFields((prev) => ({ ...prev, notes: nextNotes }));
+    setNotesEditing(false);
+    setToast("Notes saved.");
+    void revalidateHumidor(userId);
   }
 
   /* ── Edit saved ───────────────────────────────────────────── */
@@ -921,13 +959,76 @@ export function HumidorItemClient({
           )}
         </dl>
 
-        {/* Notes */}
-        {item.notes && (
-          <div className="space-y-1">
+        {/* Notes — always visible, editable in place. Previously this
+            section rendered only when notes were non-empty, so items
+            without notes had no visible way to see or add them. */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
             <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">Notes</p>
-            <p className="text-sm text-foreground leading-relaxed">{item.notes}</p>
+            {!notesEditing && (
+              <button
+                type="button"
+                onClick={() => { setNotesDraft(item.notes ?? ""); setNotesEditing(true); }}
+                className="text-xs font-medium"
+                style={{ color: "var(--gold, #D4A04A)", background: "none", border: "none", cursor: "pointer", touchAction: "manipulation", padding: "4px 0" }}
+              >
+                {item.notes ? "Edit" : "Add notes"}
+              </button>
+            )}
           </div>
-        )}
+
+          {notesEditing ? (
+            <div className="space-y-2">
+              <textarea
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                maxLength={1000}
+                autoFocus
+                placeholder="Any notes about this cigar…"
+                className="w-full rounded-xl px-3 py-2 text-sm resize-none"
+                style={{
+                  minHeight: 88,
+                  backgroundColor: "rgba(255,255,255,0.05)",
+                  border: "1px solid var(--border)",
+                  color: "var(--foreground)",
+                  fontSize: 16, /* prevents iOS zoom */
+                  outline: "none",
+                }}
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleNotesSave}
+                  disabled={notesSaving}
+                  className="text-xs font-semibold px-4 py-2 rounded-full"
+                  style={{
+                    background: "var(--gold, #D4A04A)", color: "#1A1210", border: "none",
+                    cursor: notesSaving ? "default" : "pointer", touchAction: "manipulation",
+                  }}
+                >
+                  {notesSaving ? "Saving..." : "Save Notes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNotesEditing(false)}
+                  className="text-xs font-semibold px-4 py-2 rounded-full"
+                  style={{
+                    background: "transparent", color: "var(--muted-foreground)",
+                    border: "1px solid var(--border)", cursor: "pointer", touchAction: "manipulation",
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : item.notes ? (
+            <p className="text-sm text-foreground leading-relaxed" style={{ whiteSpace: "pre-line" }}>{item.notes}</p>
+          ) : (
+            <p className="text-sm" style={{ color: "var(--muted-foreground)", fontStyle: "italic" }}>
+              No notes yet.
+            </p>
+          )}
+        </div>
       </section>
 
       {/* ── Actions ──────────────────────────────────────────────── */}
