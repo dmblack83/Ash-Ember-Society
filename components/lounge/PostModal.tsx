@@ -11,6 +11,8 @@ import { resolveBadge }                         from "@/lib/badge";
 import { VerdictCard }                          from "@/components/humidor/VerdictCard";
 import { unwrapBurnReport }                     from "./PostDetailClient";
 import { getBurnReportThirdsTaggedBatch }       from "@/lib/data/burn-report-thirds-batch";
+import { PhotoLightbox }                        from "@/components/ui/PhotoLightbox";
+import { postImages }                           from "@/lib/lounge/post-images";
 
 /* ------------------------------------------------------------------ */
 /* Constants                                                            */
@@ -35,6 +37,7 @@ interface PostData {
   author:     { display_name: string | null; avatar_url: string | null; badge: string | null; membership_tier: string | null } | null;
   like_count: number;
   image_url:  string | null;
+  image_urls: string[] | null;
 }
 
 interface Comment {
@@ -387,7 +390,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
   const [commentError,     setCommentError]     = useState<string | null>(null);
   const [showDeletePost,   setShowDeletePost]   = useState(false);
   const [deletingPost,     setDeletingPost]     = useState(false);
-  const [lightboxOpen,     setLightboxOpen]     = useState(false);
+  const [lightboxIndex,    setLightboxIndex]    = useState<number | null>(null);
   const [wishlistAdded,    setWishlistAdded]    = useState(false);
   const [addingWishlist,   setAddingWishlist]   = useState(false);
   const [modalToast,       setModalToast]       = useState<string | null>(null);
@@ -431,7 +434,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
       const [postRes, commentsRes, likeRes, votesRes] = await Promise.all([
         supabase
           .from("forum_posts")
-          .select("id, title, content, created_at, is_system, is_locked, user_id, image_url, smoke_log_id, forum_post_likes(count), forum_categories(name, slug)")
+          .select("id, title, content, created_at, is_system, is_locked, user_id, image_url, image_urls, smoke_log_id, forum_post_likes(count), forum_categories(name, slug)")
           .eq("id", postId)
           .single(),
         supabase
@@ -556,7 +559,8 @@ export function PostModal({ postId, userId, onClose }: Props) {
         category:   raw.forum_categories as { name: string; slug: string },
         author:     raw.user_id ? { display_name: nameMap[raw.user_id]?.display_name ?? null, avatar_url: nameMap[raw.user_id]?.avatar_url ?? null, badge: nameMap[raw.user_id]?.badge ?? null, membership_tier: nameMap[raw.user_id]?.membership_tier ?? null } : null,
         like_count: likeCountVal,
-        image_url:  raw.image_url ?? null,
+        image_url:  raw.image_url  ?? null,
+        image_urls: raw.image_urls ?? null,
       });
       setLikeCount(likeCountVal);
       setLiked((likeRes.count ?? 0) > 0);
@@ -872,34 +876,39 @@ export function PostModal({ postId, userId, onClose }: Props) {
                     {post.content}
                   </p>
 
-                  {/* Image thumbnail */}
-                  {post.image_url && (
-                    <button
-                      type="button"
-                      onClick={() => setLightboxOpen(true)}
-                      className="mt-4 rounded-xl overflow-hidden"
-                      style={{
-                        display:     "block",
-                        width:       80,
-                        height:      80,
-                        border:      "1px solid var(--border)",
-                        padding:     0,
-                        cursor:      "pointer",
-                        touchAction: "manipulation",
-                        flexShrink:  0,
-                      }}
-                      aria-label="View attached image"
-                    >
-                      <Image
-                        src={post.image_url}
-                        alt=""
-                        width={80}
-                        height={80}
-                        sizes="80px"
-                        quality={75}
-                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      />
-                    </button>
+                  {/* Image thumbnails — up to 3, tap opens the shared lightbox */}
+                  {postImages(post.image_url, post.image_urls).length > 0 && (
+                    <div className="mt-4 flex gap-2">
+                      {postImages(post.image_url, post.image_urls).map((url, i) => (
+                        <button
+                          key={url + i}
+                          type="button"
+                          onClick={() => setLightboxIndex(i)}
+                          className="rounded-xl overflow-hidden"
+                          style={{
+                            display:     "block",
+                            width:       80,
+                            height:      80,
+                            border:      "1px solid var(--border)",
+                            padding:     0,
+                            cursor:      "pointer",
+                            touchAction: "manipulation",
+                            flexShrink:  0,
+                          }}
+                          aria-label={`View attached image ${i + 1}`}
+                        >
+                          <Image
+                            src={url}
+                            alt=""
+                            width={80}
+                            height={80}
+                            sizes="80px"
+                            quality={75}
+                            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                          />
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </>
               )}
@@ -1176,35 +1185,14 @@ export function PostModal({ postId, userId, onClose }: Props) {
           document.body
         )}
 
-      {/* ---- Image lightbox ----------------------------------------- */}
-      {lightboxOpen && post?.image_url &&
-        createPortal(
-          <>
-            <div onClick={() => setLightboxOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 10990, backgroundColor: "rgba(0,0,0,0.92)" }} />
-            <div style={{ position: "fixed", inset: 0, zIndex: 10991, padding: 16 }}>
-              <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                <Image
-                  src={post.image_url}
-                  alt=""
-                  fill
-                  sizes="100vw"
-                  quality={85}
-                  style={{ objectFit: "contain", borderRadius: 8 }}
-                />
-              </div>
-              <button type="button" onClick={() => setLightboxOpen(false)} aria-label="Close"
-                style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%",
-                  background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", cursor: "pointer",
-                  display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                  <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-          </>,
-          document.body
-        )}
+      {/* ---- Image lightbox — shared PhotoLightbox (multi-image) ---- */}
+      {lightboxIndex !== null && post && (
+        <PhotoLightbox
+          urls={postImages(post.image_url, post.image_urls)}
+          initialIndex={lightboxIndex}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>,
     document.body
   );

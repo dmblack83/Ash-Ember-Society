@@ -15,6 +15,8 @@ import { tapHaptic }                           from "@/lib/haptics";
 import { useEscapeKey }                        from "@/lib/hooks/use-escape-key";
 import { AddCigarToWishlistButton }            from "./AddCigarToWishlistButton";
 import { PostComments }                        from "./PostComments";
+import { PostImageGrid }                       from "./PostImageGrid";
+import { postImages }                          from "@/lib/lounge/post-images";
 import { unwrapBurnReport }                    from "./PostDetailClient";
 import type { SmokeLogData }                   from "./PostDetailClient";
 
@@ -40,6 +42,7 @@ export interface PostItem {
   like_count:    number;
   comment_count: number;
   image_url:     string | null;
+  image_urls?:   string[] | null;
   is_locked:     boolean;
   is_system:     boolean;
   smoke_log:     SmokeLogData | null;
@@ -330,9 +333,8 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
      [Close] button placement matches every other photo viewer in
      the app. Single-image case keeps the chrome minimal (no prev/
      next/counter). */
-  const postImageLightbox = usePhotoLightbox(
-    post.image_url ? [post.image_url] : []
-  );
+  const postImageUrls     = postImages(post.image_url, post.image_urls);
+  const postImageLightbox = usePhotoLightbox(postImageUrls);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -557,26 +559,10 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
               {post.content}
             </p>
 
-            {post.image_url && (
-              /* Whole image scaled to the card width (no crop). The
-                 1200x900 props only reserve a pre-load aspect ratio;
-                 height:auto takes the real ratio once loaded. Tap
-                 opens the lightbox at full size. */
-              <button type="button" onClick={() => post.image_url && postImageLightbox.open(post.image_url)}
-                className="mt-3 rounded-xl overflow-hidden block"
-                style={{ width: "100%", border: "none", padding: 0, cursor: "pointer", touchAction: "manipulation" }}
-                aria-label="View image">
-                <Image
-                  src={post.image_url}
-                  alt=""
-                  width={1200}
-                  height={900}
-                  sizes="(max-width: 768px) 100vw, 600px"
-                  quality={78}
-                  style={{ width: "100%", height: "auto", display: "block" }}
-                />
-              </button>
-            )}
+            <PostImageGrid
+              urls={postImageUrls}
+              onOpen={(i) => postImageLightbox.open(postImageUrls[i])}
+            />
           </>
         )}
 

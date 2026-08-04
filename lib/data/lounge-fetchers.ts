@@ -74,7 +74,7 @@ interface FetchLoungeFeedArgs {
 }
 
 const POST_SELECT =
-  "id, title, content, created_at, user_id, category_id, image_url, is_locked, is_system, smoke_log_id, status, " +
+  "id, title, content, created_at, user_id, category_id, image_url, image_urls, is_locked, is_system, smoke_log_id, status, " +
   "forum_post_likes(count), forum_comments(count)";
 
 type RawPost = {
@@ -85,6 +85,7 @@ type RawPost = {
   user_id:           string | null;
   category_id:       string | null;
   image_url:         string | null;
+  image_urls:        string[] | null;
   is_locked:         boolean;
   is_system:         boolean;
   smoke_log_id:      string | null;
@@ -265,7 +266,8 @@ async function enrichPostBatch(
       author:        p.user_id ? (nameMap[p.user_id] ?? null) : null,
       like_count:    p.forum_post_likes[0]?.count ?? 0,
       comment_count: p.forum_comments[0]?.count   ?? 0,
-      image_url:     p.image_url ?? null,
+      image_url:     p.image_url  ?? null,
+      image_urls:    p.image_urls ?? null,
       is_locked:     p.is_locked,
       is_system:     p.is_system,
       smoke_log:     p.smoke_log_id ? (smokeLogMap[p.smoke_log_id] ?? null) : null,
@@ -547,7 +549,7 @@ export async function fetchPostComments(postId: string): Promise<Comment[]> {
   const { data, error } = await supabase
     .from("forum_comments")
     .select(
-      "id, content, created_at, updated_at, user_id, parent_comment_id, " +
+      "id, content, created_at, updated_at, user_id, parent_comment_id, image_url, " +
       "profiles:public_profiles!forum_comments_user_id_fkey(display_name, avatar_url, badge, membership_tier)"
     )
     .eq("post_id", postId)
