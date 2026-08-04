@@ -12,9 +12,10 @@ import useSWR from "swr";
 
 import { useAppSession } from "@/components/system/app-session";
 import { keyFor }        from "@/lib/data/keys";
-import { fetchProfileLite } from "@/lib/data/profile-client";
-import { fetchAgingItems }  from "@/lib/data/aging-client";
-import { fetchLatestNews }  from "@/lib/data/news-client";
+import { fetchProfileLite }  from "@/lib/data/profile-client";
+import { fetchAgingItems }   from "@/lib/data/aging-client";
+import { fetchLatestNews }   from "@/lib/data/news-client";
+import { fetchHumidorItems } from "@/lib/data/humidor-fetchers";
 
 import { Masthead }          from "@/components/dashboard/Masthead";
 import { News }              from "@/components/dashboard/News";
@@ -23,6 +24,7 @@ import { AgingAlerts }       from "@/components/dashboard/AgingAlerts";
 import { Notifications }     from "@/components/dashboard/Notifications";
 import { LocalShops }        from "@/components/dashboard/LocalShops";
 import { DashboardPager }    from "@/components/dashboard/DashboardPager";
+import { BlindDraw }         from "@/components/dashboard/BlindDraw";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { useHumidors }       from "@/components/humidor/useHumidors";
 
@@ -116,6 +118,21 @@ export function GoveeSensorIsland() {
   const { ready, session } = useAppSession();
   if (!ready || !session) return null;
   return <HumidorConditions userId={session.userId} />;
+}
+
+/* The Blind Draw — random-cigar card below the pager. No skeleton:
+   the card renders only for users with 2+ unique in-stock cigars, so
+   reserving space for everyone would leave most users a permanent gap.
+   It appears when the (SWR-cached, shared with /humidor) items land. */
+export function BlindDrawIsland() {
+  const { ready, session } = useAppSession();
+  const userId = session?.userId ?? null;
+  const { data } = useSWR(
+    userId ? keyFor.humidorItems(userId) : null,
+    () => fetchHumidorItems(userId as string),
+  );
+  if (!ready || !session || !data) return null;
+  return <BlindDraw items={data} />;
 }
 
 /* Pager wrapper. Composed client-side because the sensor slide only

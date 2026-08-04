@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cigar Roulette — Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --background: #15110b;
+    --card:       #241C17;
+    --secondary:  #3D2E23;
+    --foreground: #F5E6D3;
+    --muted:      #A69080;
+    --gold:       #D4A04A;
+    --primary:    #C17817;
+    --ember:      #E8642C;
+    --line:       rgba(245,230,211,0.08);
+    --line-strong:rgba(245,230,211,0.16);
+    --serif: "Cormorant Garamond", Georgia, serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    background:#0c0a07; color:var(--foreground);
+    font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display:flex; flex-direction:column; align-items:center; padding:24px 12px 80px;
+  }
+  h1 { font-family:var(--serif); font-size:22px; margin-bottom:4px; }
+  .sub { color:var(--muted); font-size:12px; margin-bottom:18px; }
+
+  /* Variant tabs */
+  .tabs { display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap; justify-content:center; }
+  .tabs button {
+    font-family:var(--mono); font-size:10px; letter-spacing:.18em; text-transform:uppercase;
+    padding:9px 14px; border-radius:999px; border:1px solid var(--line-strong);
+    background:transparent; color:var(--muted); cursor:pointer;
+  }
+  .tabs button.active { border-color:var(--gold); color:var(--gold); background:rgba(212,160,74,.1); }
+
+  /* Phone frame */
+  .phone {
+    width:390px; max-width:100%; background:var(--background);
+    border:1px solid var(--line-strong); border-radius:28px; padding:18px 14px 26px;
+    box-shadow:0 30px 80px rgba(0,0,0,.6);
+  }
+  .context { opacity:.38; pointer-events:none; user-select:none; }
+  .ctx-card {
+    border:1px solid var(--line); border-radius:6px; background:var(--card);
+    padding:12px 14px; margin-bottom:10px;
+  }
+  .eyebrow {
+    font-family:var(--mono); font-size:10px; letter-spacing:.28em; text-transform:uppercase;
+    color:var(--muted); display:flex; align-items:center; gap:10px; margin-bottom:8px;
+  }
+  .eyebrow::after { content:""; flex:1; height:1px; background:var(--line); }
+  .ctx-dots { display:flex; gap:5px; justify-content:center; margin-top:10px; }
+  .ctx-dots span { width:5px; height:5px; border-radius:50%; background:var(--line-strong); }
+  .ctx-dots span:first-child { background:var(--gold); }
+
+  /* ============ THE ROULETTE CARD ============ */
+  .roulette {
+    border:1px solid var(--line); border-radius:6px; background:var(--card);
+    padding:14px 14px 16px; margin:10px 0; position:relative; overflow:hidden;
+  }
+  .roulette::before {
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(ellipse at top right, rgba(232,100,44,.12), transparent 65%);
+  }
+  .tease {
+    font-family:var(--serif); font-weight:600; line-height:1.15; margin-bottom:12px;
+    white-space:nowrap; font-size:clamp(14px, 4.6vw, 17.5px);
+  }
+  .phone .tease { font-size:16.5px; }
+  .tease em { color:var(--gold); font-style:italic; }
+  .tease-sub { font-size:12px; color:var(--muted); margin-bottom:14px; }
+  .cta {
+    width:100%; height:48px; border:none; border-radius:12px; cursor:pointer;
+    background:linear-gradient(135deg, #D4A04A, #C17817); color:#1A1210;
+    font-weight:700; font-size:13px; letter-spacing:.02em;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .stage { display:none; position:relative; }
+  .result { display:none; text-align:center; position:relative; }
+
+  /* Cigar chip (used in reels/cards) */
+  .cigar-chip {
+    display:flex; align-items:center; gap:10px; padding:10px 12px;
+  }
+  .band {
+    width:44px; height:44px; border-radius:10px; flex-shrink:0;
+    position:relative; overflow:hidden;
+  }
+  .band::after {
+    content:""; position:absolute; left:0; right:0; top:50%; height:12px; transform:translateY(-50%);
+    background:linear-gradient(180deg, rgba(212,160,74,.95), rgba(193,120,23,.9));
+  }
+  .chip-brand { font-family:var(--mono); font-size:9px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); }
+  .chip-name  { font-family:var(--serif); font-size:16px; font-weight:600; }
+
+  /* ---------- A: SLOT REEL ---------- */
+  .slot-window {
+    height:64px; overflow:hidden; border-radius:12px; border:1px solid var(--line-strong);
+    background:var(--secondary); position:relative; margin-bottom:12px;
+  }
+  .slot-window::before, .slot-window::after {
+    content:""; position:absolute; left:0; right:0; height:16px; z-index:2; pointer-events:none;
+  }
+  .slot-window::before { top:0; background:linear-gradient(180deg, var(--secondary), transparent); }
+  .slot-window::after  { bottom:0; background:linear-gradient(0deg, var(--secondary), transparent); }
+  .slot-reel { will-change:transform; }
+  .slot-reel .cigar-chip { height:64px; }
+  .slot-ticks {
+    position:absolute; top:50%; transform:translateY(-50%); right:8px; z-index:3;
+    color:var(--ember); font-size:14px;
+  }
+
+  /* ---------- B: WHEEL ---------- */
+  .wheel-wrap { display:flex; justify-content:center; padding:6px 0 14px; position:relative; }
+  .wheel {
+    width:210px; height:210px; border-radius:50%;
+    border:3px solid rgba(212,160,74,.55);
+    box-shadow:0 0 0 6px rgba(0,0,0,.25), inset 0 0 30px rgba(0,0,0,.5);
+    will-change:transform; position:relative;
+  }
+  .wheel-hub {
+    position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    width:56px; height:56px; border-radius:50%; background:var(--card);
+    border:2px solid rgba(212,160,74,.55); z-index:2;
+    display:flex; align-items:center; justify-content:center; font-size:22px;
+  }
+  .pointer {
+    position:absolute; top:-4px; left:50%; transform:translateX(-50%); z-index:3;
+    width:0; height:0; border-left:9px solid transparent; border-right:9px solid transparent;
+    border-top:16px solid var(--ember);
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.5));
+  }
+
+  /* ---------- C: DECK SHUFFLE ---------- */
+  .deck-wrap { height:150px; position:relative; margin-bottom:10px; perspective:800px; }
+  .deck-card {
+    position:absolute; top:10px; left:50%; width:96px; height:128px; margin-left:-48px;
+    border-radius:12px; border:1px solid var(--line-strong);
+    background:
+      radial-gradient(circle at 50% 42%, rgba(212,160,74,.28), transparent 55%),
+      var(--secondary);
+    display:flex; align-items:center; justify-content:center;
+    backface-visibility:hidden; will-change:transform;
+    box-shadow:0 8px 20px rgba(0,0,0,.45);
+    font-size:24px;
+  }
+  .deck-card .face {
+    position:absolute; inset:0; border-radius:12px; background:var(--card);
+    border:1px solid rgba(212,160,74,.5);
+    transform:rotateY(180deg); backface-visibility:hidden;
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:8px;
+    text-align:center;
+  }
+
+  /* Result reveal */
+  .result .band { width:64px; height:64px; margin:0 auto 10px; border-radius:14px; }
+  .result-brand { font-family:var(--mono); font-size:10px; letter-spacing:.26em; text-transform:uppercase; color:var(--muted); }
+  .result-name  { font-family:var(--serif); font-size:26px; font-weight:700; line-height:1.1; margin:2px 0 2px; }
+  .result-meta  { font-size:12px; color:var(--muted); margin-bottom:14px; }
+  .result-actions { display:flex; flex-direction:column; gap:8px; }
+  .ghost {
+    height:40px; border-radius:12px; background:transparent; color:var(--muted);
+    border:1px solid var(--line-strong); font-size:12px; font-weight:600; cursor:pointer;
+  }
+  @keyframes popIn {
+    0% { transform:scale(.7); opacity:0; }
+    60% { transform:scale(1.06); opacity:1; }
+    100% { transform:scale(1); }
+  }
+  .result.show { display:block; animation:popIn .45s cubic-bezier(.2,1.4,.4,1); }
+  @keyframes emberPulse {
+    0%,100% { box-shadow:0 0 0 0 rgba(232,100,44,0); }
+    50%     { box-shadow:0 0 24px 2px rgba(232,100,44,.35); }
+  }
+  .result .band.lit { animation:emberPulse 1.6s ease-in-out infinite; }
+
+  .note { font-size:11px; color:var(--muted); text-align:center; margin-top:16px; max-width:390px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<h1>Cigar Roulette</h1>
+<p class="sub">Three animation directions. Tap the CTA in each to run it.</p>
+
+<div class="tabs">
+  <button class="active" data-v="slot">A · Slot Reel</button>
+  <button data-v="wheel">B · Roulette Wheel</button>
+  <button data-v="deck">C · Deck Shuffle</button>
+</div>
+
+<div class="phone">
+  <!-- dimmed context: masthead + notifications carousel -->
+  <div class="context">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:14px;">
+      <div style="font-family:var(--serif); font-size:20px; font-weight:700;">Good evening, Dave</div>
+      <div style="font-family:var(--mono); font-size:10px; letter-spacing:.2em; color:var(--muted);">68% · 70°F</div>
+    </div>
+    <div class="ctx-card">
+      <div class="eyebrow">Notifications</div>
+      <div style="font-size:13px;">Two cigars hit their aging window this week.</div>
+      <div class="ctx-dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <!-- THE CARD -->
+  <div class="roulette" id="card">
+    <div class="eyebrow">The Blind Draw</div>
+
+    <div id="idle">
+      <div class="tease">Can&rsquo;t decide? <em>Let fate choose your next burn.</em></div>
+      <button class="cta" id="go">Draw</button>
+    </div>
+
+    <!-- A: slot reel -->
+    <div class="stage" id="stage-slot">
+      <div class="slot-window">
+        <div class="slot-ticks">&#9664;</div>
+        <div class="slot-reel" id="reel"></div>
+      </div>
+    </div>
+
+    <!-- B: wheel -->
+    <div class="stage" id="stage-wheel">
+      <div class="wheel-wrap">
+        <div style="position:relative;">
+          <div class="pointer"></div>
+          <div class="wheel" id="wheel"></div>
+          <div class="wheel-hub">&#128684;</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- C: deck -->
+    <div class="stage" id="stage-deck">
+      <div class="deck-wrap" id="deck"></div>
+    </div>
+
+    <!-- result -->
+    <div class="result" id="result">
+      <div class="band lit" id="result-band"></div>
+      <div class="result-brand" id="result-brand"></div>
+      <div class="result-name" id="result-name"></div>
+      <div class="result-meta" id="result-meta"></div>
+      <div class="result-actions">
+        <button class="cta">&#128293;&nbsp; Light It Up</button>
+        <button class="ghost" id="again">Draw again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- dimmed context below -->
+  <div class="context">
+    <div class="ctx-card">
+      <div class="eyebrow">Tonight&rsquo;s Pairing</div>
+      <div style="font-size:13px;">A maduro with a rye old fashioned.</div>
+    </div>
+  </div>
+</div>
+
+<p class="note">
+  Sample humidor of 8 cigars baked in. Wrapper shade drives each band color.
+  Result card: ember-glow pulse on the band, spring pop-in, and two actions
+  (Light It Up &rarr; log the smoke; Tempt fate again &rarr; respin).
+</p>
+
+<script>
+const CIGARS = [
+  { brand:"Padr&oacute;n", name:"1964 Anniversary",  meta:"Maduro &middot; Toro &middot; aged 14 mo", c:"#4a2c1a" },
+  { brand:"Oliva",         name:"Serie V Melanio",   meta:"Sumatra &middot; Figurado &middot; aged 8 mo", c:"#6b4423" },
+  { brand:"Arturo Fuente", name:"Hemingway",         meta:"Cameroon &middot; Perfecto &middot; aged 22 mo", c:"#8a5a2e" },
+  { brand:"My Father",     name:"Le Bijou 1922",     meta:"Habano Oscuro &middot; Torpedo", c:"#3a2214" },
+  { brand:"Drew Estate",   name:"Liga Privada No. 9",meta:"Connecticut Broadleaf &middot; Robusto", c:"#2e1c10" },
+  { brand:"Romeo y Julieta", name:"1875",            meta:"Indonesian &middot; Churchill", c:"#9a6b3a" },
+  { brand:"Ashton",        name:"VSG",               meta:"Ecuador Sun Grown &middot; Belicoso", c:"#5c3a20" },
+  { brand:"Perdomo",       name:"20th Anniversary",  meta:"Connecticut &middot; Epicure", c:"#b08050" },
+];
+let variant = "slot", spinning = false, winner = null;
+
+const $ = (id) => document.getElementById(id);
+const idle = $("idle"), result = $("result");
+const stages = { slot: $("stage-slot"), wheel: $("stage-wheel"), deck: $("stage-deck") };
+
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  if (spinning) return;
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
+  variant = b.dataset.v;
+  reset();
+});
+
+function bandDiv(c, cls) {
+  return `<div class="band ${cls||""}" style="background:linear-gradient(160deg, ${c}, #1a120a)"></div>`;
+}
+function reset() {
+  spinning = false; winner = null;
+  idle.style.display = "block";
+  result.classList.remove("show"); result.style.display = "none";
+  Object.values(stages).forEach(s => s.style.display = "none");
+}
+$("again").onclick = reset;
+$("go").onclick = () => {
+  winner = CIGARS[Math.floor(Math.random() * CIGARS.length)];
+  idle.style.display = "none";
+  spinning = true;
+  ({ slot: runSlot, wheel: runWheel, deck: runDeck })[variant]();
+};
+
+function showResult(delay) {
+  setTimeout(() => {
+    Object.values(stages).forEach(s => s.style.display = "none");
+    $("result-band").style.background = `linear-gradient(160deg, ${winner.c}, #1a120a)`;
+    $("result-brand").innerHTML = winner.brand;
+    $("result-name").innerHTML  = winner.name;
+    $("result-meta").innerHTML  = winner.meta;
+    result.style.display = "block";
+    void result.offsetWidth;
+    result.classList.add("show");
+    spinning = false;
+    if (navigator.vibrate) navigator.vibrate(20);
+  }, delay);
+}
+
+/* A: slot reel — 4 loops of the list then decelerate onto the winner */
+function runSlot() {
+  stages.slot.style.display = "block";
+  const reel = $("reel");
+  const H = 64, LOOPS = 4;
+  const seq = [];
+  for (let i = 0; i < LOOPS; i++) seq.push(...CIGARS);
+  const wIdx = seq.length; seq.push(winner, CIGARS[0], CIGARS[1]);
+  reel.innerHTML = seq.map(c => `
+    <div class="cigar-chip">${bandDiv(c.c)}
+      <div><div class="chip-brand">${c.brand}</div><div class="chip-name">${c.name}</div></div>
+    </div>`).join("");
+  reel.style.transition = "none";
+  reel.style.transform = "translateY(0)";
+  void reel.offsetWidth;
+  reel.style.transition = "transform 2.8s cubic-bezier(.12,.65,.15,1)";
+  reel.style.transform = `translateY(${-wIdx * H}px)`;
+  showResult(3150);
+}
+
+/* B: wheel — conic segments, 5 revolutions + land on winner's slice */
+function runWheel() {
+  stages.wheel.style.display = "block";
+  const wheel = $("wheel");
+  const n = CIGARS.length, seg = 360 / n;
+  const stops = CIGARS.map((c, i) => `${c.c} ${i * seg}deg ${(i + 1) * seg}deg`).join(",");
+  wheel.style.background = `conic-gradient(${stops})`;
+  const wIdx = CIGARS.indexOf(winner);
+  const target = 360 * 5 + (360 - (wIdx * seg + seg / 2));
+  wheel.style.transition = "none";
+  wheel.style.transform = "rotate(0deg)";
+  void wheel.offsetWidth;
+  wheel.style.transition = "transform 3.4s cubic-bezier(.1,.6,.1,1)";
+  wheel.style.transform = `rotate(${target}deg)`;
+  showResult(3750);
+}
+
+/* C: deck — cards scatter-shuffle, then top card flips to the winner */
+function runDeck() {
+  stages.deck.style.display = "block";
+  const deck = $("deck");
+  deck.innerHTML = "";
+  const N = 6, cards = [];
+  for (let i = 0; i < N; i++) {
+    const el = document.createElement("div");
+    el.className = "deck-card";
+    el.innerHTML = `&#128684;<div class="face">${bandDiv(winner.c)}
+      <div class="chip-brand">${winner.brand}</div>
+      <div class="chip-name" style="font-size:14px;">${winner.name}</div></div>`;
+    el.style.transform = `translateX(${(i - N/2) * 2}px) rotate(${(i - N/2) * 1.5}deg)`;
+    deck.appendChild(el); cards.push(el);
+  }
+  let t = 0;
+  const shuffle = setInterval(() => {
+    t++;
+    cards.forEach((el) => {
+      const dx = (Math.random() - .5) * 130, dy = (Math.random() - .5) * 26, r = (Math.random() - .5) * 40;
+      el.style.transition = "transform .22s ease-in-out";
+      el.style.transform = `translate(${dx}px, ${dy}px) rotate(${r}deg)`;
+    });
+    if (t >= 6) {
+      clearInterval(shuffle);
+      cards.forEach((el, i) => {
+        el.style.transition = "transform .3s ease-in-out";
+        el.style.transform = `translateX(${(i - N/2) * 2}px) rotate(${(i - N/2) * 1.5}deg)`;
+      });
+      const top = cards[N - 1];
+      setTimeout(() => {
+        top.style.transition = "transform .6s cubic-bezier(.3,1.2,.4,1)";
+        top.style.transform = "rotateY(180deg) scale(1.15) translateY(-4px)";
+      }, 380);
+    }
+  }, 240);
+  showResult(6 * 240 + 1500);
+}
+</script>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { FieldGuide }      from "@/components/dashboard/FieldGuide";
 import {
   MastheadIsland,
   DashboardPagerIsland,
+  BlindDrawIsland,
   LocalShopsIsland,
   NewsClientIsland,
 } from "./client-islands";
@@ -39,6 +40,9 @@ export default function HomePage() {
 
         {/* 2. Dashboard pager: conditions · notifications · aging · sensor. */}
         <DashboardPagerIsland />
+
+        {/* 3. The Blind Draw — random-cigar card; hidden under 2 unique cigars. */}
+        <BlindDrawIsland />
 
         {/* 4. The Wire (news) — public client island via SWR. */}
         <NewsClientIsland />
