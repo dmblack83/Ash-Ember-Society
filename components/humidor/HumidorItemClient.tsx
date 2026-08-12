@@ -11,6 +11,8 @@ import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { QuickLogModal, type SmokeLogDraft } from "@/components/humidor/QuickLogModal";
+import { LastStickPrompt } from "@/components/humidor/LastStickPrompt";
+import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { keyFor } from "@/lib/data/keys";
 import type { HumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
@@ -420,6 +422,12 @@ export function HumidorItemClient({
   const [moveOpen, setMoveOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
+  /* "Last stick" prompt — shown after a quick log drops the entry to
+     zero. `busy` disables the prompt's buttons while the wishlist
+     write is in flight. */
+  const [lastStickOpen, setLastStickOpen] = useState(false);
+  const [lastStickBusy, setLastStickBusy] = useState(false);
+
   /* Move to humidor — only relevant once the user has 2+ humidors.
      The current-humidor tag and the "Move to..." action both gate on
      this same count. */
@@ -429,6 +437,7 @@ export function HumidorItemClient({
     humidors?.find((h) => h.id === item.humidor_id)?.name ?? "My Humidor";
 
   const c = item.cigar;
+  const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
   const days = agingDays(item.aging_start_date);
   const agingProgress = Math.min(days / 180, 1) * 100;
 
@@ -486,10 +495,42 @@ export function HumidorItemClient({
       setToast("Smoke logged!");
     }
 
-    /* Decrement quantity (optimistic) */
+    /* Decrement quantity (optimistic). Use the computed next value for
+       the "did we just hit 0" check rather than re-reading `quantity`
+       state after the await — that read would close over the render
+       this handler was created in, not the post-update value. */
     if (quantity > 0) {
-      await updateQuantity(quantity - 1);
+      const nextQuantity = quantity - 1;
+      await updateQuantity(nextQuantity);
+      if (nextQuantity <= 0) {
+        setLastStickOpen(true);
+      }
     }
+  }
+
+  /* ── Last stick prompt ────────────────────────────────────── */
+
+  function handleLastStickKeep() {
+    setLastStickOpen(false);
+  }
+
+  async function handleLastStickWishlist() {
+    if (lastStickBusy) return;
+    setLastStickBusy(true);
+    try {
+      const result = await addCigarToWishlist(userId, item.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+      setLastStickOpen(false);
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    } finally {
+      setLastStickBusy(false);
+    }
+  }
+
+  function handleLastStickRemove() {
+    setLastStickOpen(false);
+    void handleDelete();
   }
 
   /* ── Inline notes save ────────────────────────────────────── */
@@ -607,7 +648,7 @@ export function HumidorItemClient({
           </div>
           <CigarPhotoSubmitButton
             cigarId={item.cigar_id}
-            cigarName={[c.brand, c.series ?? c.format].filter(Boolean).join(" ")}
+            cigarName={cigarLabel}
             hasPending={hasPending}
             hasApproved={hasApproved}
           />
@@ -1007,6 +1048,16 @@ export function HumidorItemClient({
         isOpen={smokeOpen}
         onClose={() => setSmokeOpen(false)}
         onSmoked={handleSmoked}
+      />
+
+      <LastStickPrompt
+        open={lastStickOpen}
+        cigarLabel={cigarLabel}
+        humidorName={currentHumidorName}
+        busy={lastStickBusy}
+        onWishlist={handleLastStickWishlist}
+        onKeep={handleLastStickKeep}
+        onRemove={handleLastStickRemove}
       />
 
       {deleteOpen && (
