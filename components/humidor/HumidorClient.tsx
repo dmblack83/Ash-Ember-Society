@@ -20,6 +20,7 @@ import { agingState } from "@/lib/humidor/aging-state";
 import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { matchesQuery } from "@/lib/humidor/list-filter";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -519,6 +520,7 @@ export function HumidorClient({
      anyone who explicitly picked grid keeps grid. */
   const [view,         setView]         = useState<ViewMode>("list");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
+  const [query,        setQuery]        = useState("");
   const [showOptions,  setShowOptions]  = useState(false);
   const [showScanner,  setShowScanner]  = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -610,10 +612,12 @@ export function HumidorClient({
     return m;
   }, [items]);
 
-  /* Derived — filtered by selected humidor, then sorted */
+  /* Derived — filtered by selected humidor, then by search query, then sorted */
   const visible = useMemo(
-    () => (selected === "all" ? items : items.filter((i) => i.humidor_id === selected)),
-    [items, selected],
+    () =>
+      (selected === "all" ? items : items.filter((i) => i.humidor_id === selected))
+        .filter((i) => matchesQuery(i, query)),
+    [items, selected, query],
   );
   const displayed = useMemo(() => sortItems(visible, sort), [visible, sort]);
 
@@ -782,25 +786,61 @@ export function HumidorClient({
           />
         </div>
 
-        {/* Row 3: Sort + View toggle (only when there is/may be content) */}
+        {/* Row 3: Search + Sort + View toggle (only when there is/may be content) */}
         {(loading || items.length > 0) && (
-          <div className="flex items-center gap-3" style={{ marginBottom: 12 }}>
-            {/* Sort */}
-            <select
-              className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              aria-label="Sort by"
-            >
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                <option key={key} value={key}>
-                  {SORT_LABELS[key]}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
+            {/* Search */}
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search your humidor"
+                aria-label="Search your humidor"
+                className="input py-2 pl-9 text-sm w-full"
+                style={{ fontSize: 16 }}
+              />
+            </div>
 
-            {/* View toggle pushed to the right */}
-            <div className="ml-auto flex items-center gap-2">
+            {/* Sort — icon button with an invisible native select overlay,
+                keeping the platform sort menu (and its accessibility) for free. */}
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                aria-hidden="true"
+                tabIndex={-1}
+                className="btn btn-secondary w-9 h-9 p-0 flex items-center justify-center"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 4h10M4 7h6M6 10h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </button>
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                aria-label="Sort by"
+              >
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                  <option key={key} value={key}>
+                    {SORT_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-shrink-0">
               <ViewToggle view={view} onChange={setView} />
             </div>
           </div>
@@ -830,20 +870,26 @@ export function HumidorClient({
         ) : items.length === 0 ? (
           <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowOptions(true)} />
         ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              No cigars in this humidor yet.
+          query.trim() !== "" ? (
+            <p className="text-sm text-muted-foreground text-center py-16">
+              No cigars match &quot;{query}&quot;.
             </p>
-            {selectedHumidor && items.some((i) => i.humidor_id !== selected) && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
-              >
-                Move cigars here
-              </button>
-            )}
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                No cigars in this humidor yet.
+              </p>
+              {selectedHumidor && items.some((i) => i.humidor_id !== selected) && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
+                >
+                  Move cigars here
+                </button>
+              )}
+            </div>
+          )
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayed.map((item) => (
