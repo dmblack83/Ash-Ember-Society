@@ -4,12 +4,16 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { HumidorSheet } from "@/components/humidor/HumidorSheet";
 import { MoveCigarsSheet } from "@/components/humidor/MoveCigarsSheet";
+import { SwipeableRow } from "@/components/humidor/SwipeableRow";
+import { QuickLogModal, type SmokeLogDraft } from "@/components/humidor/QuickLogModal";
+import { LastStickPrompt } from "@/components/humidor/LastStickPrompt";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { humidorsTitle } from "@/lib/humidor/overview";
 import type { Humidor } from "@/lib/data/humidors";
@@ -21,6 +25,8 @@ import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { matchesQuery } from "@/lib/humidor/list-filter";
+import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
+import { createClient } from "@/utils/supabase/client";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -513,6 +519,58 @@ export function HumidorClient({
   const refresh = () =>
     Promise.all([mutateItems(), mutateHasWishlist()]);
 
+  /* Quick-log submit — mirrors the detail page's handleSmoked, list-side.
+     Runs in place from the swiped row rather than navigating to the item
+     detail page. When the log drops quantity to 0, opens LastStickPrompt. */
+  async function handleQuickLogged(draft: SmokeLogDraft) {
+    const target = quickLogItem;
+    setQuickLogItem(null);
+    if (!target) return;
+    const supabase = createClient();
+    const { error: logError } = await supabase.from("smoke_logs").insert({
+      user_id: userId, cigar_id: target.cigar_id, humidor_item_id: target.id,
+      smoked_at: draft.smoked_at, overall_rating: draft.overall_rating, review_text: draft.review_text,
+    });
+    if (logError) { setToast("Failed to log smoke."); return; }
+    const nextQty = Math.max(0, target.quantity - 1);
+    const { error: qtyError } = await supabase
+      .from("humidor_items").update({ quantity: nextQty }).eq("id", target.id);
+    if (qtyError) { setToast("Smoke logged, but count not updated."); return; }
+    setToast("Smoke logged!");
+    await refresh();
+    if (nextQty === 0) setLastStick(target);
+  }
+
+  function handleLastStickKeep() {
+    setLastStick(null);
+  }
+
+  async function handleLastStickWishlist() {
+    if (!lastStick || wishlistBusy) return;
+    setWishlistBusy(true);
+    try {
+      const result = await addCigarToWishlist(userId, lastStick.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+      setLastStick(null);
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    } finally {
+      setWishlistBusy(false);
+    }
+  }
+
+  async function handleLastStickRemove() {
+    if (!lastStick || wishlistBusy) return;
+    const target = lastStick;
+    setWishlistBusy(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("humidor_items").delete().eq("id", target.id);
+    setWishlistBusy(false);
+    if (error) { setToast("Failed to remove cigar."); return; }
+    setLastStick(null);
+    await refresh();
+  }
+
   const error = itemsError ? "Failed to load your humidor. Please try again." : null;
   /* List is the default for visitors with no saved preference — it's
      denser per row, surfaces aging inline, and matches the route-
@@ -543,6 +601,14 @@ export function HumidorClient({
      Never reset to null on close; only ever replaced by the next open. */
   const [moveTarget, setMoveTarget] = useState<Humidor | null>(null);
 
+  /* Swipe-to-log state — quick log modal target, last-stick prompt
+     target (set when a quick log drops quantity to 0), and the
+     last-stick prompt's busy flag for its wishlist action. */
+  const [quickLogItem, setQuickLogItem] = useState<HumidorItem | null>(null);
+  const [lastStick,    setLastStick]    = useState<HumidorItem | null>(null);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
+
+  const router = useRouter();
   const hasMounted = useRef(false);
 
   const { humidors, mutate: mutateHumidors } = useHumidors(userId);
@@ -577,13 +643,10 @@ export function HumidorClient({
    * Reading localStorage via lazy useState init would cause a hydration
    * mismatch (server renders "list", client may rehydrate as "grid"
    * for a returning user who picked grid before). Standard pattern:
-   * render SSR-safe default, then sync preference after mount. The
-   * react-hooks/set-state-in-effect rule doesn't model this case —
-   * disabled per-line with rationale.
+   * render SSR-safe default, then sync preference after mount.
    */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
     if (new URLSearchParams(window.location.search).get("add") === "true") {
@@ -906,11 +969,16 @@ export function HumidorClient({
         ) : (
           <div className="flex flex-col gap-2">
             {displayed.map((item) => (
-              <ListRow
+              <SwipeableRow
                 key={item.id}
-                item={item}
-                tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
-              />
+                onQuickLog={() => setQuickLogItem(item)}
+                onBurnReport={() => router.push(`/humidor/${item.id}/burn-report`)}
+              >
+                <ListRow
+                  item={item}
+                  tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
+                />
+              </SwipeableRow>
             ))}
           </div>
         )}
@@ -968,6 +1036,28 @@ export function HumidorClient({
           onToast={setToast}
         />
       )}
+
+      <QuickLogModal
+        isOpen={quickLogItem != null}
+        onClose={() => setQuickLogItem(null)}
+        onSmoked={handleQuickLogged}
+      />
+
+      <LastStickPrompt
+        open={lastStick != null}
+        cigarLabel={
+          lastStick
+            ? [lastStick.cigar.brand, lastStick.cigar.series ?? lastStick.cigar.format]
+                .filter(Boolean)
+                .join(" ")
+            : ""
+        }
+        humidorName={lastStick ? nameById.get(lastStick.humidor_id ?? "") ?? "your humidor" : "your humidor"}
+        busy={wishlistBusy}
+        onWishlist={handleLastStickWishlist}
+        onKeep={handleLastStickKeep}
+        onRemove={handleLastStickRemove}
+      />
 
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </>
