@@ -18,6 +18,7 @@ import {
 import { trackReliability } from "@/lib/telemetry/reliability";
 import { tapHaptic, successHaptic } from "@/lib/haptics";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
 import { enqueueFetchMutation, isLikelyOfflineError } from "@/lib/offline-outbox";
 import { compressImage } from "@/lib/image-compress";
 import { todayLocalYmd } from "@/lib/format";
@@ -1277,6 +1278,8 @@ function SuccessScreen({
   reviewText,
   smokeLogId,
   onRemoveFromHumidor,
+  onAddToWishlist,
+  wishlistState,
 }: {
   overallRating:       number;
   quantityAfter:       number;
@@ -1286,6 +1289,8 @@ function SuccessScreen({
   reviewText:          string;
   smokeLogId:          string | null;
   onRemoveFromHumidor: () => void;
+  onAddToWishlist:     () => void;
+  wishlistState:       "idle" | "busy" | "done" | "error";
 }) {
   const router   = useRouter();
   const color    = ratingColor(overallRating);
@@ -1348,10 +1353,19 @@ function SuccessScreen({
           className="w-full max-w-sm rounded-xl p-4 mb-8 text-center space-y-3"
           style={{ backgroundColor: "var(--secondary)", border: "1px solid var(--border)" }}
         >
-          <p className="text-sm text-foreground font-medium">
-            You&apos;re out of this cigar.
-          </p>
-          <p className="text-xs text-muted-foreground">Remove it from your humidor or leave it at 0.</p>
+          <p className="text-sm text-foreground font-medium">That was your last one.</p>
+          <button
+            type="button"
+            onClick={onAddToWishlist}
+            disabled={wishlistState === "busy" || wishlistState === "done"}
+            className="btn btn-primary text-sm w-full"
+          >
+            {wishlistState === "done" ? "On your wishlist" : wishlistState === "busy" ? "Adding..." : "Add to Wishlist for a re-buy"}
+          </button>
+          {wishlistState === "error" && (
+            <p className="text-xs" style={{ color: "#C44536" }}>Couldn&apos;t add to wishlist. Tap to try again.</p>
+          )}
+          <p className="text-xs text-muted-foreground">Or keep it at 0 for your records.</p>
           <button
             type="button"
             onClick={onRemoveFromHumidor}
@@ -1443,6 +1457,7 @@ export function BurnReport({
   const [success, setSuccess] = useState(false);
   const [quantityAfter, setQuantityAfter] = useState(0);
   const [smokeLogId, setSmokeLogId] = useState<string | null>(null);
+  const [wishlistState, setWishlistState] = useState<"idle" | "busy" | "done" | "error">("idle");
 
   /* Draft persistence — see lib/burn-report-draft.ts for rationale.
      `draftReady` flips true after the restore attempt completes; the
@@ -2027,6 +2042,24 @@ export function BurnReport({
     router.push("/humidor");
   }
 
+  /* Add to wishlist after 0-qty — "exists" still means it's on the
+     wishlist, so it maps to "done" same as "added". No toast surface
+     reaches this branch (the success screen early-returns before the
+     wizard's own Toast JSX), so failure is surfaced inline: state
+     goes to "error", the finish screen renders a retry hint under
+     the button, and tapping again (allowed from "error") clears it
+     by re-entering "busy". */
+  async function handleAddToWishlist() {
+    if (wishlistState === "busy" || wishlistState === "done") return;
+    setWishlistState("busy");
+    try {
+      await addCigarToWishlist(userId, item.cigar_id);
+      setWishlistState("done");
+    } catch {
+      setWishlistState("error");
+    }
+  }
+
   /* ── Success screen ─────────────────────────────────────────────── */
   if (success) {
     return (
@@ -2039,6 +2072,8 @@ export function BurnReport({
         reviewText={form.review_text}
         smokeLogId={smokeLogId}
         onRemoveFromHumidor={handleRemoveFromHumidor}
+        onAddToWishlist={handleAddToWishlist}
+        wishlistState={wishlistState}
       />
     );
   }

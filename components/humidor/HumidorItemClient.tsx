@@ -9,19 +9,23 @@ import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
-import { ratingLabel } from "@/lib/rating";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
+import { QuickLogModal, type SmokeLogDraft } from "@/components/humidor/QuickLogModal";
+import { LastStickPrompt } from "@/components/humidor/LastStickPrompt";
+import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { keyFor } from "@/lib/data/keys";
 import type { HumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { friendlyWriteError } from "@/lib/data/humidor-move";
 import { MoveToHumidorSheet } from "@/components/humidor/MoveToHumidorSheet";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
 import { agingDays, todayLocalYmd } from "@/lib/format";
+import { agingState, formatShortDate } from "@/lib/humidor/aging-state";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -34,6 +38,10 @@ function formatDate(iso: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+function trimNum(n: number): string {
+  return String(parseFloat(n.toFixed(2)));
 }
 
 /* ------------------------------------------------------------------
@@ -72,6 +80,35 @@ function Chip({ label, value }: { label: string; value: string }) {
       </span>
       <span className="text-sm text-foreground font-medium">{value}</span>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Overflow menu row
+   ------------------------------------------------------------------ */
+
+function MenuRow({
+  label,
+  onClick,
+  danger = false,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left py-3.5 px-5 text-sm border-b border-border/40 last:border-0"
+      style={
+        danger
+          ? { color: "#C44536", borderTop: "1px solid var(--border)", marginTop: 4 }
+          : undefined
+      }
+    >
+      {label}
+    </button>
   );
 }
 
@@ -373,212 +410,6 @@ function EditSheet({
 }
 
 /* ------------------------------------------------------------------
-   Smoke One modal
-   ------------------------------------------------------------------ */
-
-function SmokeModal({
-  isOpen,
-  onClose,
-  onSmoked,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onSmoked: (log: SmokeLog) => void;
-}) {
-  /* Escape-key dismissal — listener only attached while open. */
-  useEscapeKey(isOpen, onClose);
-
-  const today = todayLocalYmd();
-  const [smokedAt, setSmokedAt] = useState(today);
-  /* 1-100, same scale + default as the burn report wizard. Quick logs
-     stored 1-10 until 2026-07 (existing rows migrated x10). */
-  const [rating, setRating] = useState<number>(75);
-  const [reviewText, setReviewText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    setSmokedAt(today);
-    setRating(75);
-    setReviewText("");
-    setError(null);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
-
-  /* Lock body scroll while open (iOS-safe: position:fixed approach) */
-  useEffect(() => {
-    if (!isOpen) return;
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [isOpen]);
-
-  if (!isOpen) return null;
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    setError(null);
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Not authenticated.");
-      setSubmitting(false);
-      return;
-    }
-
-    // We need the cigar_id — passed via onSmoked callback shape
-    // The modal doesn't have it directly; parent handles the insert
-    onSmoked({
-      id: "", // placeholder — parent will fill after insert
-      smoked_at: smokedAt,
-      overall_rating: rating,
-      review_text: reviewText.trim() || null,
-      content_video_id: null,
-      content_video: null,
-    });
-  }
-
-  return (
-    <>
-      <div
-        aria-hidden="true"
-        className="fixed inset-0 z-40"
-        style={{ backgroundColor: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}
-        onClick={onClose}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
-      >
-        <div className="card w-full sm:max-w-md sm:mx-4 rounded-t-2xl sm:rounded-2xl animate-slide-up overflow-x-hidden">
-          <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 rounded-full bg-muted" />
-          </div>
-          <div className="px-5 pb-10 pt-4 sm:pt-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 style={{ fontFamily: "var(--font-serif)" }}>Log a Smoke</h2>
-              <button type="button" onClick={onClose} className="btn btn-ghost p-2 -mr-2" aria-label="Close">
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                  <path d="M3 3L13 13M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-1.5">
-                <label htmlFor="smoke-date" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                  Date Smoked
-                </label>
-                <input
-                  id="smoke-date"
-                  type="date"
-                  className="input"
-                  value={smokedAt}
-                  max={today}
-                  onChange={(e) => setSmokedAt(e.target.value)}
-                />
-              </div>
-              <div className="space-y-3">
-                <p className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                  Overall Rating
-                </p>
-                {/* Same 1-100 slider treatment as the burn report
-                    wizard: big italic numeral + grade word + gold-fill
-                    track, so one rating scale reads identically
-                    everywhere. */}
-                <div className="text-center" style={{ paddingBottom: 4 }}>
-                  <p
-                    style={{
-                      fontFamily:    "var(--font-serif)",
-                      fontStyle:     "italic",
-                      fontWeight:    500,
-                      fontSize:      56,
-                      lineHeight:    0.9,
-                      letterSpacing: "-0.02em",
-                      color:         "var(--gold)",
-                      margin:        0,
-                    }}
-                  >
-                    {rating}
-                    <span
-                      style={{
-                        fontSize:      16,
-                        fontStyle:     "normal",
-                        letterSpacing: 0,
-                        color:         "var(--muted-foreground)",
-                        marginLeft:    6,
-                      }}
-                    >
-                      / 100
-                    </span>
-                  </p>
-                  <p
-                    style={{
-                      fontFamily: "var(--font-serif)",
-                      fontStyle:  "italic",
-                      fontSize:   15,
-                      fontWeight: 500,
-                      color:      "var(--paper-mute)",
-                      margin:     "4px 0 0",
-                    }}
-                  >
-                    {ratingLabel(rating)}
-                  </p>
-                </div>
-                <div style={{ paddingLeft: 4, paddingRight: 4 }}>
-                  <input
-                    type="range"
-                    min={1}
-                    max={100}
-                    value={rating}
-                    onChange={(e) => setRating(parseInt(e.target.value))}
-                    className="burn-report-slider"
-                    aria-label="Overall rating, 1 to 100"
-                    style={{
-                      ["--p" as string]: `${rating}%`,
-                      width: "100%",
-                    }}
-                  />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <label htmlFor="smoke-review" className="text-[11px] uppercase tracking-widest text-muted-foreground font-medium">
-                  Notes <span className="normal-case tracking-normal font-normal">(optional)</span>
-                </label>
-                <textarea
-                  id="smoke-review"
-                  className="input resize-none"
-                  placeholder="Tasting notes, occasion, pairing…"
-                  rows={3}
-                  value={reviewText}
-                  onChange={(e) => setReviewText(e.target.value)}
-                />
-              </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
-                {submitting ? "Logging…" : "Log Smoke"}
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* ------------------------------------------------------------------
    Main client component
    ------------------------------------------------------------------ */
 
@@ -624,7 +455,14 @@ export function HumidorItemClient({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+
+  /* "Last stick" prompt — shown after a quick log drops the entry to
+     zero. `busy` disables the prompt's buttons while the wishlist
+     write is in flight. */
+  const [lastStickOpen, setLastStickOpen] = useState(false);
+  const [lastStickBusy, setLastStickBusy] = useState(false);
 
   /* Move to humidor — only relevant once the user has 2+ humidors.
      The current-humidor tag and the "Move to..." action both gate on
@@ -635,13 +473,25 @@ export function HumidorItemClient({
     humidors?.find((h) => h.id === item.humidor_id)?.name ?? "My Humidor";
 
   const c = item.cigar;
+  const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
   const days = agingDays(item.aging_start_date);
-  const agingProgress = Math.min(days / 180, 1) * 100;
+  const aging = agingState(item.aging_start_date, item.aging_target_date);
+  // progress: target-aware when set, legacy 180d fallback otherwise
+  const startMs  = item.aging_start_date ? Date.parse(item.aging_start_date) : null;
+  const targetMs = item.aging_target_date ? Date.parse(item.aging_target_date) : null;
+  const progress =
+    startMs != null && targetMs != null && targetMs > startMs
+      ? Math.min(1, (Date.now() - startMs) / (targetMs - startMs)) * 100
+      : Math.min(days / 180, 1) * 100;
 
   /* ── Quantity stepper ─────────────────────────────────────── */
 
-  async function updateQuantity(next: number) {
-    if (next < 0 || qtyLoading) return;
+  /* Returns true only when the Supabase write succeeded — false on the
+     early-return no-op and on error. Callers that trigger follow-up UI
+     (the last-stick prompt) gate on this so a failed, reverted write
+     can't open a prompt describing a zero the DB never reached. */
+  async function updateQuantity(next: number): Promise<boolean> {
+    if (next < 0 || qtyLoading) return false;
     const prev = quantity;
     setQuantity(next);
     setQtyLoading(true);
@@ -656,16 +506,17 @@ export function HumidorItemClient({
     if (error) {
       setQuantity(prev);
       setToast("Failed to update quantity.");
-      return;
+      return false;
     }
     /* Re-pull the Humidor list cache so the new quantity shows when the
        user navigates back (the list uses revalidateOnMount:false). */
     void revalidateHumidor(userId);
+    return true;
   }
 
   /* ── Smoke One ────────────────────────────────────────────── */
 
-  async function handleSmoked(draft: SmokeLog) {
+  async function handleSmoked(draft: SmokeLogDraft) {
     setSmokeOpen(false);
 
     const supabase = createClient();
@@ -692,10 +543,42 @@ export function HumidorItemClient({
       setToast("Smoke logged!");
     }
 
-    /* Decrement quantity (optimistic) */
+    /* Decrement quantity (optimistic). Use the computed next value for
+       the "did we just hit 0" check rather than re-reading `quantity`
+       state after the await — that read would close over the render
+       this handler was created in, not the post-update value. */
     if (quantity > 0) {
-      await updateQuantity(quantity - 1);
+      const nextQuantity = quantity - 1;
+      const updated = await updateQuantity(nextQuantity);
+      if (updated && nextQuantity <= 0) {
+        setLastStickOpen(true);
+      }
     }
+  }
+
+  /* ── Last stick prompt ────────────────────────────────────── */
+
+  function handleLastStickKeep() {
+    setLastStickOpen(false);
+  }
+
+  async function handleLastStickWishlist() {
+    if (lastStickBusy) return;
+    setLastStickBusy(true);
+    try {
+      const result = await addCigarToWishlist(userId, item.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+      setLastStickOpen(false);
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    } finally {
+      setLastStickBusy(false);
+    }
+  }
+
+  function handleLastStickRemove() {
+    setLastStickOpen(false);
+    void handleDelete();
   }
 
   /* ── Inline notes save ────────────────────────────────────── */
@@ -768,6 +651,18 @@ export function HumidorItemClient({
     );
   }
 
+  /* ── Overflow menu: add to wishlist ──────────────────────────── */
+
+  async function handleAddToWishlist() {
+    setMenuOpen(false);
+    try {
+      const result = await addCigarToWishlist(userId, item.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    }
+  }
+
   /* ── Derived stats ────────────────────────────────────────── */
 
   const timesSmoked = smokeLogs.length;
@@ -784,16 +679,28 @@ export function HumidorItemClient({
       {/* Toasts */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
-      {/* Back */}
-      <Link
-        href="/humidor"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Back to humidor
-      </Link>
+      {/* Back + overflow menu */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/humidor"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to humidor
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="More actions"
+          className="btn btn-ghost p-2 -mr-2 text-muted-foreground"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="13" cy="8" r="1.5" />
+          </svg>
+        </button>
+      </div>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
@@ -813,7 +720,7 @@ export function HumidorItemClient({
           </div>
           <CigarPhotoSubmitButton
             cigarId={item.cigar_id}
-            cigarName={[c.brand, c.series ?? c.format].filter(Boolean).join(" ")}
+            cigarName={cigarLabel}
             hasPending={hasPending}
             hasApproved={hasApproved}
           />
@@ -832,12 +739,20 @@ export function HumidorItemClient({
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
             {c.series ?? c.format}
           </h1>
-          {c.format && (
-            <p className="text-sm text-muted-foreground">{c.format}</p>
-          )}
 
           {/* Wrapper / binder / filler chips */}
           <div className="flex flex-wrap gap-2 mt-2">
+            {(c.format || (c.length_inches != null && c.ring_gauge != null)) && (
+              <Chip
+                label="Vitola"
+                value={[
+                  c.format,
+                  c.length_inches != null && c.ring_gauge != null
+                    ? `${trimNum(c.length_inches)}″ × ${c.ring_gauge}`
+                    : null,
+                ].filter(Boolean).join(" · ")}
+              />
+            )}
             {c.wrapper && <Chip label="Wrapper" value={wrapperDisplay(c.wrapper)} />}
             {c.binder_country && <Chip label="Binder" value={countryName(c.binder_country)} />}
             {c.filler_countries && c.filler_countries.length > 0 && (
@@ -916,24 +831,70 @@ export function HumidorItemClient({
               </p>
               <p
                 className="text-sm font-medium"
-                style={{ color: days >= 180 ? "var(--accent)" : days >= 90 ? "var(--primary)" : "var(--muted-foreground)" }}
+                style={{
+                  color:
+                    aging.kind === "ready"
+                      ? "var(--accent)"
+                      : item.aging_target_date
+                        ? "var(--primary)"
+                        : days >= 180
+                          ? "var(--accent)"
+                          : days >= 90
+                            ? "var(--primary)"
+                            : "var(--muted-foreground)",
+                }}
               >
-                {days >= 180 ? `${days} days — Well rested ✦` : `${days} days`}
+                {aging.kind === "ready"
+                  ? `${days} days ✦`
+                  : item.aging_target_date
+                    ? `${days} days`
+                    : days >= 180
+                      ? `${days} days · well rested ✦`
+                      : `${days} days`}
               </p>
             </div>
             <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--muted)" }}>
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
-                  width: `${agingProgress}%`,
-                  backgroundColor: days >= 180 ? "var(--accent)" : "var(--primary)",
+                  width: `${progress}%`,
+                  backgroundColor:
+                    aging.kind === "ready"
+                      ? "var(--accent)"
+                      : item.aging_target_date
+                        ? "var(--primary)"
+                        : days >= 180
+                          ? "var(--accent)"
+                          : "var(--primary)",
                 }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>{formatDate(item.aging_start_date)}</span>
-              <span>180d target</span>
+              <span>
+                {item.aging_target_date
+                  ? aging.kind === "ready"
+                    ? `${formatShortDate(item.aging_target_date)} · target met`
+                    : `${formatShortDate(item.aging_target_date)} · your target`
+                  : "180d target"}
+              </span>
             </div>
+            {aging.kind === "ready" && (
+              <div
+                className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg"
+                style={{ background: "rgba(212,160,74,0.09)", border: "1px solid rgba(212,160,74,0.35)" }}
+              >
+                <span style={{ color: "var(--accent)" }}>{"✦"}</span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Ready to smoke</p>
+                  {item.aging_target_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Rested past your {formatShortDate(item.aging_target_date)} target
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1046,30 +1007,6 @@ export function HumidorItemClient({
         >
           Quick Smoke Log
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary w-full"
-          onClick={() => setEditOpen(true)}
-        >
-          Edit Details
-        </button>
-        {hasMultipleHumidors && (
-          <button
-            type="button"
-            className="btn btn-ghost w-full"
-            onClick={() => setMoveOpen(true)}
-          >
-            Move to...
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn btn-ghost w-full text-sm"
-          style={{ color: "#C44536" }}
-          onClick={() => setDeleteOpen(true)}
-        >
-          Remove from Humidor
-        </button>
       </div>
 
       <Divider className="my-6" />
@@ -1084,8 +1021,12 @@ export function HumidorItemClient({
             value={avgPersonalRating ?? "—"}
             sub={avgPersonalRating ? "/ 100" : undefined}
           />
-          {c.ring_gauge != null && (
-            <StatCard label="Ring Gauge" value={String(c.ring_gauge)} />
+          {item.price_paid_cents != null && quantity > 0 && (
+            <StatCard
+              label="On Hand"
+              value={`$${Math.round((quantity * item.price_paid_cents) / 100)}`}
+              sub={`${quantity} × $${(item.price_paid_cents / 100).toFixed(2)}`}
+            />
           )}
         </div>
       </section>
@@ -1202,6 +1143,23 @@ export function HumidorItemClient({
       </section>
 
       {/* ── Overlays ─────────────────────────────────────────────── */}
+      <BottomSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        ariaLabel="Cigar actions"
+        mobileHeight="auto"
+        desktopHeight="auto"
+      >
+        <div className="flex flex-col py-1">
+          <MenuRow label="Edit Details" onClick={() => { setMenuOpen(false); setEditOpen(true); }} />
+          {hasMultipleHumidors && (
+            <MenuRow label="Move to another humidor" onClick={() => { setMenuOpen(false); setMoveOpen(true); }} />
+          )}
+          <MenuRow label="Add to Wishlist" onClick={handleAddToWishlist} />
+          <MenuRow label="Remove from Humidor" danger onClick={() => { setMenuOpen(false); setDeleteOpen(true); }} />
+        </div>
+      </BottomSheet>
+
       <EditSheet
         item={initialItem}
         isOpen={editOpen}
@@ -1209,10 +1167,20 @@ export function HumidorItemClient({
         onSaved={handleSaved}
       />
 
-      <SmokeModal
+      <QuickLogModal
         isOpen={smokeOpen}
         onClose={() => setSmokeOpen(false)}
         onSmoked={handleSmoked}
+      />
+
+      <LastStickPrompt
+        open={lastStickOpen}
+        cigarLabel={cigarLabel}
+        humidorName={currentHumidorName}
+        busy={lastStickBusy}
+        onWishlist={handleLastStickWishlist}
+        onKeep={handleLastStickKeep}
+        onRemove={handleLastStickRemove}
       />
 
       {deleteOpen && (
