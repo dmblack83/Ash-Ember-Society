@@ -814,15 +814,17 @@ export function HumidorClient({
             </div>
 
             {/* Sort — icon button with an invisible native select overlay,
-                keeping the platform sort menu (and its accessibility) for free. */}
-            <div className="relative flex-shrink-0">
+                keeping the platform sort menu (and its accessibility) for free.
+                `.sort-control` (globals.css) repaints the select's focus ring
+                and the button's hover/active states on the wrapper. */}
+            <div className="sort-control relative flex-shrink-0">
               <button
                 type="button"
                 aria-hidden="true"
                 tabIndex={-1}
                 className="btn btn-secondary w-9 h-9 p-0 flex items-center justify-center"
               >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                   <path d="M2 4h10M4 7h6M6 10h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
                 </svg>
               </button>
