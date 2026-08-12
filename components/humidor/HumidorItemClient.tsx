@@ -24,6 +24,7 @@ import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitBut
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { useEscapeKey }            from "@/lib/hooks/use-escape-key";
 import { agingDays, todayLocalYmd } from "@/lib/format";
+import { agingState, formatShortDate } from "@/lib/humidor/aging-state";
 
 /* ------------------------------------------------------------------
    Design-system helpers
@@ -443,7 +444,14 @@ export function HumidorItemClient({
   const c = item.cigar;
   const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
   const days = agingDays(item.aging_start_date);
-  const agingProgress = Math.min(days / 180, 1) * 100;
+  const aging = agingState(item.aging_start_date, item.aging_target_date);
+  // progress: target-aware when set, legacy 180d fallback otherwise
+  const startMs  = item.aging_start_date ? Date.parse(item.aging_start_date) : null;
+  const targetMs = item.aging_target_date ? Date.parse(item.aging_target_date) : null;
+  const progress =
+    startMs != null && targetMs != null && targetMs > startMs
+      ? Math.min(1, (Date.now() - startMs) / (targetMs - startMs)) * 100
+      : Math.min(days / 180, 1) * 100;
 
   /* ── Quantity stepper ─────────────────────────────────────── */
 
@@ -768,24 +776,60 @@ export function HumidorItemClient({
               </p>
               <p
                 className="text-sm font-medium"
-                style={{ color: days >= 180 ? "var(--accent)" : days >= 90 ? "var(--primary)" : "var(--muted-foreground)" }}
+                style={{
+                  color:
+                    aging.kind === "ready"
+                      ? "var(--accent)"
+                      : item.aging_target_date
+                        ? "var(--primary)"
+                        : "var(--muted-foreground)",
+                }}
               >
-                {days >= 180 ? `${days} days — Well rested ✦` : `${days} days`}
+                {aging.kind === "ready" ? `${days} days ✦` : `${days} days`}
               </p>
             </div>
             <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--muted)" }}>
               <div
                 className="h-full rounded-full transition-all duration-700"
                 style={{
-                  width: `${agingProgress}%`,
-                  backgroundColor: days >= 180 ? "var(--accent)" : "var(--primary)",
+                  width: `${progress}%`,
+                  backgroundColor:
+                    aging.kind === "ready"
+                      ? "var(--accent)"
+                      : item.aging_target_date
+                        ? "var(--primary)"
+                        : days >= 180
+                          ? "var(--accent)"
+                          : "var(--primary)",
                 }}
               />
             </div>
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>{formatDate(item.aging_start_date)}</span>
-              <span>180d target</span>
+              <span>
+                {item.aging_target_date
+                  ? aging.kind === "ready"
+                    ? `${formatShortDate(item.aging_target_date)} · target met`
+                    : `${formatShortDate(item.aging_target_date)} · your target`
+                  : "180d target"}
+              </span>
             </div>
+            {aging.kind === "ready" && (
+              <div
+                className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg"
+                style={{ background: "rgba(212,160,74,0.09)", border: "1px solid rgba(212,160,74,0.35)" }}
+              >
+                <span style={{ color: "var(--accent)" }}>{"✦"}</span>
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>Ready to smoke</p>
+                  {item.aging_target_date && (
+                    <p className="text-xs text-muted-foreground">
+                      Rested past your {formatShortDate(item.aging_target_date)} target
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
