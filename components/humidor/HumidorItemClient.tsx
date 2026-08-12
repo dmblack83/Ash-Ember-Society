@@ -443,8 +443,12 @@ export function HumidorItemClient({
 
   /* ── Quantity stepper ─────────────────────────────────────── */
 
-  async function updateQuantity(next: number) {
-    if (next < 0 || qtyLoading) return;
+  /* Returns true only when the Supabase write succeeded — false on the
+     early-return no-op and on error. Callers that trigger follow-up UI
+     (the last-stick prompt) gate on this so a failed, reverted write
+     can't open a prompt describing a zero the DB never reached. */
+  async function updateQuantity(next: number): Promise<boolean> {
+    if (next < 0 || qtyLoading) return false;
     const prev = quantity;
     setQuantity(next);
     setQtyLoading(true);
@@ -459,11 +463,12 @@ export function HumidorItemClient({
     if (error) {
       setQuantity(prev);
       setToast("Failed to update quantity.");
-      return;
+      return false;
     }
     /* Re-pull the Humidor list cache so the new quantity shows when the
        user navigates back (the list uses revalidateOnMount:false). */
     void revalidateHumidor(userId);
+    return true;
   }
 
   /* ── Smoke One ────────────────────────────────────────────── */
@@ -501,8 +506,8 @@ export function HumidorItemClient({
        this handler was created in, not the post-update value. */
     if (quantity > 0) {
       const nextQuantity = quantity - 1;
-      await updateQuantity(nextQuantity);
-      if (nextQuantity <= 0) {
+      const updated = await updateQuantity(nextQuantity);
+      if (updated && nextQuantity <= 0) {
         setLastStickOpen(true);
       }
     }
