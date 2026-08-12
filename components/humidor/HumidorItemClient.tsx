@@ -38,6 +38,10 @@ function formatDate(iso: string): string {
   });
 }
 
+function trimNum(n: number): string {
+  return String(parseFloat(n.toFixed(2)));
+}
+
 /* ------------------------------------------------------------------
    Sub-components
    ------------------------------------------------------------------ */
@@ -672,12 +676,20 @@ export function HumidorItemClient({
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
             {c.series ?? c.format}
           </h1>
-          {c.format && (
-            <p className="text-sm text-muted-foreground">{c.format}</p>
-          )}
 
           {/* Wrapper / binder / filler chips */}
           <div className="flex flex-wrap gap-2 mt-2">
+            {(c.format || (c.length_inches != null && c.ring_gauge != null)) && (
+              <Chip
+                label="Vitola"
+                value={[
+                  c.format,
+                  c.length_inches != null && c.ring_gauge != null
+                    ? `${trimNum(c.length_inches)}″ × ${c.ring_gauge}`
+                    : null,
+                ].filter(Boolean).join(" · ")}
+              />
+            )}
             {c.wrapper && <Chip label="Wrapper" value={wrapperDisplay(c.wrapper)} />}
             {c.binder_country && <Chip label="Binder" value={countryName(c.binder_country)} />}
             {c.filler_countries && c.filler_countries.length > 0 && (
@@ -924,8 +936,12 @@ export function HumidorItemClient({
             value={avgPersonalRating ?? "—"}
             sub={avgPersonalRating ? "/ 100" : undefined}
           />
-          {c.ring_gauge != null && (
-            <StatCard label="Ring Gauge" value={String(c.ring_gauge)} />
+          {item.price_paid_cents != null && quantity > 0 && (
+            <StatCard
+              label="On Hand"
+              value={`$${Math.round((quantity * item.price_paid_cents) / 100)}`}
+              sub={`${quantity} × $${(item.price_paid_cents / 100).toFixed(2)}`}
+            />
           )}
         </div>
       </section>
