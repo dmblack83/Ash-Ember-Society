@@ -33,15 +33,12 @@ export function QuickLogModal({
      stored 1-10 until 2026-07 (existing rows migrated x10). */
   const [rating, setRating] = useState<number>(75);
   const [reviewText, setReviewText] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
     setSmokedAt(today);
     setRating(75);
     setReviewText("");
-    setError(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
@@ -64,10 +61,8 @@ export function QuickLogModal({
 
   if (!isOpen) return null;
 
-  async function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
-    setError(null);
 
     onSmoked({
       smoked_at: smokedAt,
@@ -192,9 +187,8 @@ export function QuickLogModal({
                   onChange={(e) => setReviewText(e.target.value)}
                 />
               </div>
-              {error && <p className="text-sm text-destructive">{error}</p>}
-              <button type="submit" className="btn btn-primary w-full" disabled={submitting}>
-                {submitting ? "Logging…" : "Log Smoke"}
+              <button type="submit" className="btn btn-primary w-full">
+                Log Smoke
               </button>
             </form>
           </div>
