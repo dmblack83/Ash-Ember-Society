@@ -291,6 +291,17 @@ select {
   outline-offset: 2px;
 }
 
+/* Compressed sort control (humidor toolbar): the real <select> is an
+   opacity-0 overlay, so its focus ring and the decorative button's
+   hover/active states never paint. Mirror them onto the wrapper. */
+.sort-control:focus-within {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+  border-radius: calc(var(--radius) + 4px); /* matches .btn */
+}
+.sort-control:hover  .btn-secondary { filter: brightness(1.18); }
+.sort-control:active .btn-secondary { filter: brightness(0.95); }
+
 /* -------------------------------------------------------------------
    CUSTOM UTILITIES
    Available as Tailwind classes: glass, glow-ember, glow-gold,

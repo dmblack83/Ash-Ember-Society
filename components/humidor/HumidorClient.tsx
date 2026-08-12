@@ -4,21 +4,29 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import useSWR from "swr";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IntentLink } from "@/components/ui/IntentLink";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { HumidorSheet } from "@/components/humidor/HumidorSheet";
 import { MoveCigarsSheet } from "@/components/humidor/MoveCigarsSheet";
+import { SwipeableRow } from "@/components/humidor/SwipeableRow";
+import { QuickLogModal, type SmokeLogDraft } from "@/components/humidor/QuickLogModal";
+import { LastStickPrompt } from "@/components/humidor/LastStickPrompt";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { humidorsTitle } from "@/lib/humidor/overview";
 import type { Humidor } from "@/lib/data/humidors";
 import { Toast } from "@/components/ui/toast";
 import { keyFor } from "@/lib/data/keys";
 import { agingDays } from "@/lib/format";
+import { agingState } from "@/lib/humidor/aging-state";
 import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { matchesQuery } from "@/lib/humidor/list-filter";
+import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
+import { createClient } from "@/utils/supabase/client";
 import {
   fetchHumidorItems,
   fetchHasWishlistItems,
@@ -62,6 +70,7 @@ export interface HumidorItem {
   purchase_date: string | null;
   price_paid_cents: number | null;
   aging_start_date: string | null;
+  aging_target_date: string | null;
   notes: string | null;
   created_at: string;
   cigar: Cigar;
@@ -75,7 +84,8 @@ type SortOption =
   | "brand_asc"
   | "brand_desc"
   | "aging_longest"
-  | "price_highest";
+  | "price_highest"
+  | "ready_first";
 
 /* ------------------------------------------------------------------
    Constants
@@ -89,10 +99,11 @@ const EMPTY_ITEMS: HumidorItem[] = [];
 const SORT_LABELS: Record<SortOption, string> = {
   date_newest:   "Date Added (newest)",
   date_oldest:   "Date Added (oldest)",
-  brand_asc:     "Brand A–Z",
-  brand_desc:    "Brand Z–A",
+  brand_asc:     "Brand A-Z",
+  brand_desc:    "Brand Z-A",
   aging_longest: "Aging (longest)",
   price_highest: "Price (highest)",
+  ready_first:   "Ready first",
 };
 
 /* Humidor filter chips — mirrors HumidorSheet's chipStyle. */
@@ -140,6 +151,15 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
       return arr.sort(
         (a, b) => (b.price_paid_cents ?? 0) - (a.price_paid_cents ?? 0)
       );
+    case "ready_first": {
+      const rank = (i: HumidorItem) => {
+        const k = agingState(i.aging_start_date, i.aging_target_date).kind;
+        return k === "ready" ? 0 : k === "almost" ? 1 : k === "aging" ? 2 : 3;
+      };
+      return arr.sort((a, b) =>
+        rank(a) - rank(b) ||
+        agingDays(b.aging_start_date) - agingDays(a.aging_start_date));
+    }
   }
 }
 
@@ -147,42 +167,15 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
    Aging indicator
    ------------------------------------------------------------------ */
 
-function AgingBadge({ days }: { days: number }) {
-  if (days === 0) return null;
-
-  if (days < 30) {
-    return (
-      <span className="text-[11px] text-muted-foreground">
-        Aging: {days}d
-      </span>
-    );
+function AgingBadge({ item }: { item: HumidorItem }) {
+  const s = agingState(item.aging_start_date, item.aging_target_date);
+  switch (s.kind) {
+    case "none":  return null;
+    case "plain": return <span className="text-[11px] text-muted-foreground">Aging {s.days}d</span>;
+    case "aging": return <span className="text-[11px] text-muted-foreground">Aging {s.days}d {"·"} ready {s.readyLabel}</span>;
+    case "almost": return <span className="text-[11px] font-medium" style={{ color: "var(--primary)" }}>Almost there {"·"} {s.daysToTarget}d to go</span>;
+    case "ready": return <span className="text-[11px] font-medium" style={{ color: "var(--accent)" }}>{"✦"} Ready to smoke</span>;
   }
-  if (days < 90) {
-    return (
-      <span
-        className="text-[11px] px-1.5 py-0.5 rounded font-medium"
-        style={{ backgroundColor: "var(--secondary)", color: "var(--foreground)" }}
-      >
-        Aging: {days}d
-      </span>
-    );
-  }
-  if (days < 180) {
-    return (
-      <span className="text-[11px] font-medium" style={{ color: "var(--primary)" }}>
-        Aging: {days}d
-      </span>
-    );
-  }
-  return (
-    <span
-      className="text-[11px] font-medium"
-      style={{ color: "var(--accent)" }}
-      title="Well rested"
-    >
-      Aging: {days}d ✦
-    </span>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -191,7 +184,6 @@ function AgingBadge({ days }: { days: number }) {
 
 function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
 
   return (
@@ -258,7 +250,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           )}
 
           <div className="flex items-center justify-between mt-auto pt-1.5 flex-wrap gap-1">
-            <AgingBadge days={days} />
+            <AgingBadge item={item} />
             {c.wrapper && (
               <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
                 {c.wrapper}
@@ -277,7 +269,6 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
 
 function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
 
   return (
@@ -305,8 +296,9 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
         {/* Brand + name + aging.
             Aging lives inside the text column (not as a separate row
             item) so it's visible on every viewport width, including
-            narrow mobile. AgingBadge returns null when days === 0,
-            so cigars without an aging start show nothing extra. */}
+            narrow mobile. AgingBadge self-hides (returns null) for the
+            "none" state, so cigars without an aging start show nothing
+            extra. */}
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {c.brand}
@@ -325,11 +317,9 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           {c.format && (
             <p className="text-xs text-muted-foreground">{c.format}</p>
           )}
-          {days > 0 && (
-            <div className="mt-0.5">
-              <AgingBadge days={days} />
-            </div>
-          )}
+          <div className="mt-0.5">
+            <AgingBadge item={item} />
+          </div>
         </div>
 
         {/* Quantity */}
@@ -337,7 +327,8 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
           style={{
             backgroundColor: "var(--secondary)",
-            color: "var(--foreground)",
+            color: item.quantity === 1 ? "var(--ember, #E8642C)" : "var(--foreground)",
+            border: item.quantity === 1 ? "1px solid rgba(232,100,44,0.45)" : "1px solid transparent",
           }}
         >
           ×{item.quantity}
@@ -528,6 +519,60 @@ export function HumidorClient({
   const refresh = () =>
     Promise.all([mutateItems(), mutateHasWishlist()]);
 
+  /* Quick-log submit — mirrors the detail page's handleSmoked, list-side.
+     Runs in place from the swiped row rather than navigating to the item
+     detail page. When the log drops quantity to 0, opens LastStickPrompt. */
+  async function handleQuickLogged(draft: SmokeLogDraft) {
+    const target = quickLogItem;
+    setQuickLogItem(null);
+    if (!target) return;
+    const supabase = createClient();
+    const { error: logError } = await supabase.from("smoke_logs").insert({
+      user_id: userId, cigar_id: target.cigar_id, humidor_item_id: target.id,
+      smoked_at: draft.smoked_at, overall_rating: draft.overall_rating, review_text: draft.review_text,
+    });
+    if (logError) { setToast("Failed to log smoke."); return; }
+    if (target.quantity > 0) {
+      const nextQty = Math.max(0, target.quantity - 1);
+      const { error: qtyError } = await supabase
+        .from("humidor_items").update({ quantity: nextQty }).eq("id", target.id);
+      if (qtyError) { setToast("Smoke logged, but count not updated."); return; }
+      if (nextQty === 0) setLastStick(target);
+    }
+    setToast("Smoke logged!");
+    await refresh();
+  }
+
+  function handleLastStickKeep() {
+    setLastStick(null);
+  }
+
+  async function handleLastStickWishlist() {
+    if (!lastStick || wishlistBusy) return;
+    setWishlistBusy(true);
+    try {
+      const result = await addCigarToWishlist(userId, lastStick.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+      setLastStick(null);
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    } finally {
+      setWishlistBusy(false);
+    }
+  }
+
+  async function handleLastStickRemove() {
+    if (!lastStick || wishlistBusy) return;
+    const target = lastStick;
+    setWishlistBusy(true);
+    const supabase = createClient();
+    const { error } = await supabase.from("humidor_items").delete().eq("id", target.id);
+    setWishlistBusy(false);
+    if (error) { setToast("Failed to remove cigar."); return; }
+    setLastStick(null);
+    await refresh();
+  }
+
   const error = itemsError ? "Failed to load your humidor. Please try again." : null;
   /* List is the default for visitors with no saved preference — it's
      denser per row, surfaces aging inline, and matches the route-
@@ -536,6 +581,7 @@ export function HumidorClient({
      anyone who explicitly picked grid keeps grid. */
   const [view,         setView]         = useState<ViewMode>("list");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
+  const [query,        setQuery]        = useState("");
   const [showOptions,  setShowOptions]  = useState(false);
   const [showScanner,  setShowScanner]  = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
@@ -557,6 +603,14 @@ export function HumidorClient({
      Never reset to null on close; only ever replaced by the next open. */
   const [moveTarget, setMoveTarget] = useState<Humidor | null>(null);
 
+  /* Swipe-to-log state — quick log modal target, last-stick prompt
+     target (set when a quick log drops quantity to 0), and the
+     last-stick prompt's busy flag for its wishlist action. */
+  const [quickLogItem, setQuickLogItem] = useState<HumidorItem | null>(null);
+  const [lastStick,    setLastStick]    = useState<HumidorItem | null>(null);
+  const [wishlistBusy, setWishlistBusy] = useState(false);
+
+  const router = useRouter();
   const hasMounted = useRef(false);
 
   const { humidors, mutate: mutateHumidors } = useHumidors(userId);
@@ -591,13 +645,10 @@ export function HumidorClient({
    * Reading localStorage via lazy useState init would cause a hydration
    * mismatch (server renders "list", client may rehydrate as "grid"
    * for a returning user who picked grid before). Standard pattern:
-   * render SSR-safe default, then sync preference after mount. The
-   * react-hooks/set-state-in-effect rule doesn't model this case —
-   * disabled per-line with rationale.
+   * render SSR-safe default, then sync preference after mount.
    */
   useEffect(() => {
     const saved = localStorage.getItem("humidor_view") as ViewMode | null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "list" || saved === "grid") setView(saved);
     hasMounted.current = true;
     if (new URLSearchParams(window.location.search).get("add") === "true") {
@@ -627,10 +678,12 @@ export function HumidorClient({
     return m;
   }, [items]);
 
-  /* Derived — filtered by selected humidor, then sorted */
+  /* Derived — filtered by selected humidor, then by search query, then sorted */
   const visible = useMemo(
-    () => (selected === "all" ? items : items.filter((i) => i.humidor_id === selected)),
-    [items, selected],
+    () =>
+      (selected === "all" ? items : items.filter((i) => i.humidor_id === selected))
+        .filter((i) => matchesQuery(i, query)),
+    [items, selected, query],
   );
   const displayed = useMemo(() => sortItems(visible, sort), [visible, sort]);
 
@@ -799,25 +852,63 @@ export function HumidorClient({
           />
         </div>
 
-        {/* Row 3: Sort + View toggle (only when there is/may be content) */}
+        {/* Row 3: Search + Sort + View toggle (only when there is/may be content) */}
         {(loading || items.length > 0) && (
-          <div className="flex items-center gap-3" style={{ marginBottom: 12 }}>
-            {/* Sort */}
-            <select
-              className="input py-2 text-sm flex-1 sm:flex-none sm:w-52"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortOption)}
-              aria-label="Sort by"
-            >
-              {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
-                <option key={key} value={key}>
-                  {SORT_LABELS[key]}
-                </option>
-              ))}
-            </select>
+          <div className="flex items-center gap-2" style={{ marginBottom: 12 }}>
+            {/* Search */}
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none"
+                width="14"
+                height="14"
+                viewBox="0 0 14 14"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+                <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search your humidor"
+                aria-label="Search your humidor"
+                className="input py-2 pl-9 text-sm w-full"
+                style={{ fontSize: 16 }}
+              />
+            </div>
 
-            {/* View toggle pushed to the right */}
-            <div className="ml-auto flex items-center gap-2">
+            {/* Sort — icon button with an invisible native select overlay,
+                keeping the platform sort menu (and its accessibility) for free.
+                `.sort-control` (globals.css) repaints the select's focus ring
+                and the button's hover/active states on the wrapper. */}
+            <div className="sort-control relative flex-shrink-0">
+              <button
+                type="button"
+                aria-hidden="true"
+                tabIndex={-1}
+                className="btn btn-secondary w-9 h-9 p-0 flex items-center justify-center"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M2 4h10M4 7h6M6 10h2" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+              </button>
+              <select
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortOption)}
+                aria-label="Sort by"
+              >
+                {(Object.keys(SORT_LABELS) as SortOption[]).map((key) => (
+                  <option key={key} value={key}>
+                    {SORT_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex-shrink-0">
               <ViewToggle view={view} onChange={setView} />
             </div>
           </div>
@@ -847,20 +938,26 @@ export function HumidorClient({
         ) : items.length === 0 ? (
           <EmptyState hasWishlist={hasWishlist} onAdd={() => setShowOptions(true)} />
         ) : visible.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              No cigars in this humidor yet.
+          query.trim() !== "" ? (
+            <p className="text-sm text-muted-foreground text-center py-16">
+              No cigars match &quot;{query}&quot;.
             </p>
-            {selectedHumidor && items.some((i) => i.humidor_id !== selected) && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
-              >
-                Move cigars here
-              </button>
-            )}
-          </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                No cigars in this humidor yet.
+              </p>
+              {selectedHumidor && items.some((i) => i.humidor_id !== selected) && (
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={() => { setMoveTarget(selectedHumidor); setShowMoveSheet(true); }}
+                >
+                  Move cigars here
+                </button>
+              )}
+            </div>
+          )
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayed.map((item) => (
@@ -874,11 +971,16 @@ export function HumidorClient({
         ) : (
           <div className="flex flex-col gap-2">
             {displayed.map((item) => (
-              <ListRow
+              <SwipeableRow
                 key={item.id}
-                item={item}
-                tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
-              />
+                onQuickLog={() => setQuickLogItem(item)}
+                onBurnReport={() => router.push(`/humidor/${item.id}/burn-report`)}
+              >
+                <ListRow
+                  item={item}
+                  tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
+                />
+              </SwipeableRow>
             ))}
           </div>
         )}
@@ -936,6 +1038,28 @@ export function HumidorClient({
           onToast={setToast}
         />
       )}
+
+      <QuickLogModal
+        isOpen={quickLogItem != null}
+        onClose={() => setQuickLogItem(null)}
+        onSmoked={handleQuickLogged}
+      />
+
+      <LastStickPrompt
+        open={lastStick != null}
+        cigarLabel={
+          lastStick
+            ? [lastStick.cigar.brand, lastStick.cigar.series ?? lastStick.cigar.format]
+                .filter(Boolean)
+                .join(" ")
+            : ""
+        }
+        humidorName={lastStick ? nameById.get(lastStick.humidor_id ?? "") ?? "your humidor" : "your humidor"}
+        busy={wishlistBusy}
+        onWishlist={handleLastStickWishlist}
+        onKeep={handleLastStickKeep}
+        onRemove={handleLastStickRemove}
+      />
 
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
     </>
