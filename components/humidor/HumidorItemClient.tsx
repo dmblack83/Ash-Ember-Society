@@ -19,6 +19,7 @@ import type { HumidorItemBundle } from "@/lib/data/humidor-item-fetchers";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { friendlyWriteError } from "@/lib/data/humidor-move";
 import { MoveToHumidorSheet } from "@/components/humidor/MoveToHumidorSheet";
+import { BottomSheet } from "@/components/ui/BottomSheet";
 import { AgingTargetSelect }       from "@/components/humidor/AgingTargetSelect";
 import { CigarPhotoSubmitButton }  from "@/components/cigars/CigarPhotoSubmitButton";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
@@ -79,6 +80,35 @@ function Chip({ label, value }: { label: string; value: string }) {
       </span>
       <span className="text-sm text-foreground font-medium">{value}</span>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------
+   Overflow menu row
+   ------------------------------------------------------------------ */
+
+function MenuRow({
+  label,
+  onClick,
+  danger = false,
+}: {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left py-3.5 px-5 text-sm border-b border-border/40 last:border-0"
+      style={
+        danger
+          ? { color: "#C44536", borderTop: "1px solid var(--border)", marginTop: 4 }
+          : undefined
+      }
+    >
+      {label}
+    </button>
   );
 }
 
@@ -425,6 +455,7 @@ export function HumidorItemClient({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [moveOpen, setMoveOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   /* "Last stick" prompt — shown after a quick log drops the entry to
@@ -620,6 +651,18 @@ export function HumidorItemClient({
     );
   }
 
+  /* ── Overflow menu: add to wishlist ──────────────────────────── */
+
+  async function handleAddToWishlist() {
+    setMenuOpen(false);
+    try {
+      const result = await addCigarToWishlist(userId, item.cigar_id);
+      setToast(result === "added" ? "Added to your wishlist." : "Already on your wishlist.");
+    } catch {
+      setToast("Couldn't add to wishlist.");
+    }
+  }
+
   /* ── Derived stats ────────────────────────────────────────── */
 
   const timesSmoked = smokeLogs.length;
@@ -636,16 +679,28 @@ export function HumidorItemClient({
       {/* Toasts */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
 
-      {/* Back */}
-      <Link
-        href="/humidor"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
-      >
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-          <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-        Back to humidor
-      </Link>
+      {/* Back + overflow menu */}
+      <div className="flex items-center justify-between">
+        <Link
+          href="/humidor"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to humidor
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(true)}
+          aria-label="More actions"
+          className="btn btn-ghost p-2 -mr-2 text-muted-foreground"
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.5" /><circle cx="8" cy="8" r="1.5" /><circle cx="13" cy="8" r="1.5" />
+          </svg>
+        </button>
+      </div>
 
       {/* ── Hero ─────────────────────────────────────────────────── */}
       <section className="flex flex-col sm:flex-row gap-6 sm:gap-8 items-start animate-fade-in">
@@ -942,30 +997,6 @@ export function HumidorItemClient({
         >
           Quick Smoke Log
         </button>
-        <button
-          type="button"
-          className="btn btn-secondary w-full"
-          onClick={() => setEditOpen(true)}
-        >
-          Edit Details
-        </button>
-        {hasMultipleHumidors && (
-          <button
-            type="button"
-            className="btn btn-ghost w-full"
-            onClick={() => setMoveOpen(true)}
-          >
-            Move to...
-          </button>
-        )}
-        <button
-          type="button"
-          className="btn btn-ghost w-full text-sm"
-          style={{ color: "#C44536" }}
-          onClick={() => setDeleteOpen(true)}
-        >
-          Remove from Humidor
-        </button>
       </div>
 
       <Divider className="my-6" />
@@ -1102,6 +1133,23 @@ export function HumidorItemClient({
       </section>
 
       {/* ── Overlays ─────────────────────────────────────────────── */}
+      <BottomSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        ariaLabel="Cigar actions"
+        mobileHeight="auto"
+        desktopHeight="auto"
+      >
+        <div className="flex flex-col py-1">
+          <MenuRow label="Edit Details" onClick={() => { setMenuOpen(false); setEditOpen(true); }} />
+          {hasMultipleHumidors && (
+            <MenuRow label="Move to another humidor" onClick={() => { setMenuOpen(false); setMoveOpen(true); }} />
+          )}
+          <MenuRow label="Add to Wishlist" onClick={handleAddToWishlist} />
+          <MenuRow label="Remove from Humidor" danger onClick={() => { setMenuOpen(false); setDeleteOpen(true); }} />
+        </div>
+      </BottomSheet>
+
       <EditSheet
         item={initialItem}
         isOpen={editOpen}
