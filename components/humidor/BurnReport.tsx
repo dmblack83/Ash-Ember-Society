@@ -1290,7 +1290,7 @@ function SuccessScreen({
   smokeLogId:          string | null;
   onRemoveFromHumidor: () => void;
   onAddToWishlist:     () => void;
-  wishlistState:       "idle" | "busy" | "done";
+  wishlistState:       "idle" | "busy" | "done" | "error";
 }) {
   const router   = useRouter();
   const color    = ratingColor(overallRating);
@@ -1357,11 +1357,14 @@ function SuccessScreen({
           <button
             type="button"
             onClick={onAddToWishlist}
-            disabled={wishlistState !== "idle"}
+            disabled={wishlistState === "busy" || wishlistState === "done"}
             className="btn btn-primary text-sm w-full"
           >
             {wishlistState === "done" ? "On your wishlist" : wishlistState === "busy" ? "Adding..." : "Add to Wishlist for a re-buy"}
           </button>
+          {wishlistState === "error" && (
+            <p className="text-xs" style={{ color: "#C44536" }}>Couldn&apos;t add to wishlist. Tap to try again.</p>
+          )}
           <p className="text-xs text-muted-foreground">Or keep it at 0 for your records.</p>
           <button
             type="button"
@@ -1454,7 +1457,7 @@ export function BurnReport({
   const [success, setSuccess] = useState(false);
   const [quantityAfter, setQuantityAfter] = useState(0);
   const [smokeLogId, setSmokeLogId] = useState<string | null>(null);
-  const [wishlistState, setWishlistState] = useState<"idle" | "busy" | "done">("idle");
+  const [wishlistState, setWishlistState] = useState<"idle" | "busy" | "done" | "error">("idle");
 
   /* Draft persistence — see lib/burn-report-draft.ts for rationale.
      `draftReady` flips true after the restore attempt completes; the
@@ -2042,16 +2045,18 @@ export function BurnReport({
   /* Add to wishlist after 0-qty — "exists" still means it's on the
      wishlist, so it maps to "done" same as "added". No toast surface
      reaches this branch (the success screen early-returns before the
-     wizard's own Toast JSX), so a failure just resets the button back
-     to its idle label rather than showing an error message. */
+     wizard's own Toast JSX), so failure is surfaced inline: state
+     goes to "error", the finish screen renders a retry hint under
+     the button, and tapping again (allowed from "error") clears it
+     by re-entering "busy". */
   async function handleAddToWishlist() {
-    if (wishlistState !== "idle") return;
+    if (wishlistState === "busy" || wishlistState === "done") return;
     setWishlistState("busy");
     try {
       await addCigarToWishlist(userId, item.cigar_id);
       setWishlistState("done");
     } catch {
-      setWishlistState("idle");
+      setWishlistState("error");
     }
   }
 
