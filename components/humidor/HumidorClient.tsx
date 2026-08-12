@@ -16,6 +16,7 @@ import type { Humidor } from "@/lib/data/humidors";
 import { Toast } from "@/components/ui/toast";
 import { keyFor } from "@/lib/data/keys";
 import { agingDays } from "@/lib/format";
+import { agingState } from "@/lib/humidor/aging-state";
 import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
@@ -62,6 +63,7 @@ export interface HumidorItem {
   purchase_date: string | null;
   price_paid_cents: number | null;
   aging_start_date: string | null;
+  aging_target_date: string | null;
   notes: string | null;
   created_at: string;
   cigar: Cigar;
@@ -147,42 +149,15 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
    Aging indicator
    ------------------------------------------------------------------ */
 
-function AgingBadge({ days }: { days: number }) {
-  if (days === 0) return null;
-
-  if (days < 30) {
-    return (
-      <span className="text-[11px] text-muted-foreground">
-        Aging: {days}d
-      </span>
-    );
+function AgingBadge({ item }: { item: HumidorItem }) {
+  const s = agingState(item.aging_start_date, item.aging_target_date);
+  switch (s.kind) {
+    case "none":  return null;
+    case "plain": return <span className="text-[11px] text-muted-foreground">Aging {s.days}d</span>;
+    case "aging": return <span className="text-[11px] text-muted-foreground">Aging {s.days}d {"·"} ready {s.readyLabel}</span>;
+    case "almost": return <span className="text-[11px] font-medium" style={{ color: "var(--primary)" }}>Almost there {"·"} {s.daysToTarget}d to go</span>;
+    case "ready": return <span className="text-[11px] font-medium" style={{ color: "var(--accent)" }}>{"✦"} Ready to smoke</span>;
   }
-  if (days < 90) {
-    return (
-      <span
-        className="text-[11px] px-1.5 py-0.5 rounded font-medium"
-        style={{ backgroundColor: "var(--secondary)", color: "var(--foreground)" }}
-      >
-        Aging: {days}d
-      </span>
-    );
-  }
-  if (days < 180) {
-    return (
-      <span className="text-[11px] font-medium" style={{ color: "var(--primary)" }}>
-        Aging: {days}d
-      </span>
-    );
-  }
-  return (
-    <span
-      className="text-[11px] font-medium"
-      style={{ color: "var(--accent)" }}
-      title="Well rested"
-    >
-      Aging: {days}d ✦
-    </span>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -191,7 +166,6 @@ function AgingBadge({ days }: { days: number }) {
 
 function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
 
   return (
@@ -258,7 +232,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           )}
 
           <div className="flex items-center justify-between mt-auto pt-1.5 flex-wrap gap-1">
-            <AgingBadge days={days} />
+            <AgingBadge item={item} />
             {c.wrapper && (
               <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">
                 {c.wrapper}
@@ -277,7 +251,6 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
 
 function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const days = agingDays(item.aging_start_date);
   const displayName = c.series ?? c.format;
 
   return (
@@ -305,8 +278,9 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
         {/* Brand + name + aging.
             Aging lives inside the text column (not as a separate row
             item) so it's visible on every viewport width, including
-            narrow mobile. AgingBadge returns null when days === 0,
-            so cigars without an aging start show nothing extra. */}
+            narrow mobile. AgingBadge self-hides (returns null) for the
+            "none" state, so cigars without an aging start show nothing
+            extra. */}
         <div className="flex-1 min-w-0">
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {c.brand}
@@ -325,11 +299,9 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           {c.format && (
             <p className="text-xs text-muted-foreground">{c.format}</p>
           )}
-          {days > 0 && (
-            <div className="mt-0.5">
-              <AgingBadge days={days} />
-            </div>
-          )}
+          <div className="mt-0.5">
+            <AgingBadge item={item} />
+          </div>
         </div>
 
         {/* Quantity */}
