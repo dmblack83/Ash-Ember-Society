@@ -321,7 +321,8 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
           style={{
             backgroundColor: "var(--secondary)",
-            color: "var(--foreground)",
+            color: item.quantity === 1 ? "var(--ember, #E8642C)" : "var(--foreground)",
+            border: item.quantity === 1 ? "1px solid rgba(232,100,44,0.45)" : "1px solid transparent",
           }}
         >
           ×{item.quantity}
