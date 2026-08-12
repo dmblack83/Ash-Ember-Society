@@ -77,7 +77,8 @@ type SortOption =
   | "brand_asc"
   | "brand_desc"
   | "aging_longest"
-  | "price_highest";
+  | "price_highest"
+  | "ready_first";
 
 /* ------------------------------------------------------------------
    Constants
@@ -91,10 +92,11 @@ const EMPTY_ITEMS: HumidorItem[] = [];
 const SORT_LABELS: Record<SortOption, string> = {
   date_newest:   "Date Added (newest)",
   date_oldest:   "Date Added (oldest)",
-  brand_asc:     "Brand A–Z",
-  brand_desc:    "Brand Z–A",
+  brand_asc:     "Brand A-Z",
+  brand_desc:    "Brand Z-A",
   aging_longest: "Aging (longest)",
   price_highest: "Price (highest)",
+  ready_first:   "Ready first",
 };
 
 /* Humidor filter chips — mirrors HumidorSheet's chipStyle. */
@@ -142,6 +144,15 @@ function sortItems(items: HumidorItem[], sort: SortOption): HumidorItem[] {
       return arr.sort(
         (a, b) => (b.price_paid_cents ?? 0) - (a.price_paid_cents ?? 0)
       );
+    case "ready_first": {
+      const rank = (i: HumidorItem) => {
+        const k = agingState(i.aging_start_date, i.aging_target_date).kind;
+        return k === "ready" ? 0 : k === "almost" ? 1 : k === "aging" ? 2 : 3;
+      };
+      return arr.sort((a, b) =>
+        rank(a) - rank(b) ||
+        agingDays(b.aging_start_date) - agingDays(a.aging_start_date));
+    }
   }
 }
 
