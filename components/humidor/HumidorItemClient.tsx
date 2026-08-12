@@ -837,10 +837,20 @@ export function HumidorItemClient({
                       ? "var(--accent)"
                       : item.aging_target_date
                         ? "var(--primary)"
-                        : "var(--muted-foreground)",
+                        : days >= 180
+                          ? "var(--accent)"
+                          : days >= 90
+                            ? "var(--primary)"
+                            : "var(--muted-foreground)",
                 }}
               >
-                {aging.kind === "ready" ? `${days} days ✦` : `${days} days`}
+                {aging.kind === "ready"
+                  ? `${days} days ✦`
+                  : item.aging_target_date
+                    ? `${days} days`
+                    : days >= 180
+                      ? `${days} days · well rested ✦`
+                      : `${days} days`}
               </p>
             </div>
             <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: "var(--muted)" }}>
