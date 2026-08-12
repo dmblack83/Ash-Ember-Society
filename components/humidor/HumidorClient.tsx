@@ -532,13 +532,15 @@ export function HumidorClient({
       smoked_at: draft.smoked_at, overall_rating: draft.overall_rating, review_text: draft.review_text,
     });
     if (logError) { setToast("Failed to log smoke."); return; }
-    const nextQty = Math.max(0, target.quantity - 1);
-    const { error: qtyError } = await supabase
-      .from("humidor_items").update({ quantity: nextQty }).eq("id", target.id);
-    if (qtyError) { setToast("Smoke logged, but count not updated."); return; }
+    if (target.quantity > 0) {
+      const nextQty = Math.max(0, target.quantity - 1);
+      const { error: qtyError } = await supabase
+        .from("humidor_items").update({ quantity: nextQty }).eq("id", target.id);
+      if (qtyError) { setToast("Smoke logged, but count not updated."); return; }
+      if (nextQty === 0) setLastStick(target);
+    }
     setToast("Smoke logged!");
     await refresh();
-    if (nextQty === 0) setLastStick(target);
   }
 
   function handleLastStickKeep() {
