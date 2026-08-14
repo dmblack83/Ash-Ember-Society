@@ -101,6 +101,9 @@ export const keyFor = {
   /* ── Home aging island (per-user). */
   homeAging:     (userId: string) => ["home-aging", userId] as const,
 
+  /* ── Home Last Burn island (per-user). */
+  lastBurn:      (userId: string) => ["last-burn", userId] as const,
+
   /* ── Govee account key status (per-user; /api/govee/connection).
    *   Key management only — per-humidor sensor assignment lives on
    *   the humidors table and is read via `humidors` below. */
