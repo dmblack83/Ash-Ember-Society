@@ -13,7 +13,7 @@ import { onThisDayCandidates } from "@/lib/home/last-burn";
 
 export interface LastBurnLog {
   id: string;
-  smoked_at: string;
+  smoked_at: string;              // normalized to YYYY-MM-DD (see toLog)
   overall_rating: number | null;
   draw_rating: number | null;
   burn_rating: number | null;
@@ -98,7 +98,10 @@ export async function fetchLastBurn(userId: string): Promise<LastBurnBundle> {
   const toLog = (r: Raw | undefined): LastBurnLog | null => {
     if (!r) return null;
     return {
-      id: r.id, smoked_at: r.smoked_at,
+      /* smoked_at is timestamptz storing midnight-UTC date-only values;
+         PostgREST returns the full ISO string, the lib/home/last-burn
+         helpers expect plain YYYY-MM-DD, so slice at the boundary. */
+      id: r.id, smoked_at: r.smoked_at.slice(0, 10),
       overall_rating: r.overall_rating, draw_rating: r.draw_rating,
       burn_rating: r.burn_rating, construction_rating: r.construction_rating,
       smoke_duration_minutes: r.smoke_duration_minutes,
