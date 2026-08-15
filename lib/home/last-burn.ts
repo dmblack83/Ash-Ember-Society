@@ -1,7 +1,10 @@
 /*
- * Pure helpers for the home-page Last Burn card. smoked_at is a
- * YYYY-MM-DD date column; comparisons use LOCAL day boundaries
- * (the user's "yesterday" is their wall-clock yesterday).
+ * Pure helpers for the home-page Last Burn card. These helpers expect
+ * plain YYYY-MM-DD strings; smoked_at is actually a timestamptz column
+ * storing midnight-UTC values, and lib/data/last-burn-client.ts
+ * normalizes it to YYYY-MM-DD before it reaches here. Comparisons use
+ * LOCAL day boundaries (the user's "yesterday" is their wall-clock
+ * yesterday).
  */
 
 const WEEK_FLOOR = 14;

@@ -10,6 +10,7 @@
 import { createClient } from "@/utils/supabase/client";
 import { fetchFlavorTags } from "@/lib/data/flavor-tags-client";
 import { onThisDayCandidates } from "@/lib/home/last-burn";
+import { todayLocalYmd } from "@/lib/format";
 
 export interface LastBurnLog {
   id: string;
@@ -30,6 +31,7 @@ export interface LastBurnLog {
 export interface LastBurnBundle {
   latest: LastBurnLog | null;
   onThisDay: LastBurnLog | null;  // oldest past-year match for today, else null
+  readyCount: number;             // in-stock items whose aging target has arrived, unwindowed
 }
 
 const SELECT = `
@@ -59,7 +61,7 @@ function one<T>(v: T | T[] | null): T | null {
 
 export async function fetchLastBurn(userId: string): Promise<LastBurnBundle> {
   const supabase = createClient();
-  const [latestRes, otdRes] = await Promise.all([
+  const [latestRes, otdRes, readyRes] = await Promise.all([
     supabase.from("smoke_logs").select(SELECT)
       .eq("user_id", userId)
       .order("smoked_at", { ascending: false })
@@ -70,9 +72,15 @@ export async function fetchLastBurn(userId: string): Promise<LastBurnBundle> {
       .in("smoked_at", onThisDayCandidates())
       .order("smoked_at", { ascending: true })
       .limit(1),
+    supabase.from("humidor_items").select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_wishlist", false)
+      .gt("quantity", 0)
+      .lte("aging_target_date", todayLocalYmd()),
   ]);
   if (latestRes.error) throw new Error(latestRes.error.message);
   if (otdRes.error) throw new Error(otdRes.error.message);
+  if (readyRes.error) throw new Error(readyRes.error.message);
 
   const rows = [
     (latestRes.data ?? [])[0] as Raw | undefined,
@@ -115,5 +123,5 @@ export async function fetchLastBurn(userId: string): Promise<LastBurnBundle> {
     };
   };
 
-  return { latest: toLog(rows[0]), onThisDay: toLog(rows[1]) };
+  return { latest: toLog(rows[0]), onThisDay: toLog(rows[1]), readyCount: readyRes.count ?? 0 };
 }

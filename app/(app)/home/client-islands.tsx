@@ -38,14 +38,6 @@ import {
   NewsSkeleton,
 } from "./_skeletons";
 
-/* Days between today (00:00 local) and a YYYY-MM-DD date string. */
-function daysUntilLocal(dateStr: string): number {
-  const today  = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(dateStr + "T00:00:00");
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
-}
-
 /* Masthead — greeting + admin link. */
 export function MastheadIsland() {
   const { ready, session } = useAppSession();
@@ -154,13 +146,8 @@ export function LastBurnIsland() {
     userId ? keyFor.lastBurn(userId) : null,
     () => fetchLastBurn(userId as string),
   );
-  const { data: aging } = useSWR(
-    userId ? keyFor.homeAging(userId) : null,
-    () => fetchAgingItems(userId as string),
-  );
   if (!ready || !session || !data) return null;
-  const readyCount = (aging ?? []).filter((i) => daysUntilLocal(i.aging_target_date) <= 0).length;
-  return <LastBurn bundle={data} readyCount={readyCount} />;
+  return <LastBurn bundle={data} readyCount={data.readyCount} />;
 }
 
 /* Pager wrapper. Composed client-side because the sensor slide only
