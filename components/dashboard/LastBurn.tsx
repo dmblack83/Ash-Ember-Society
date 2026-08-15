@@ -63,7 +63,7 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
 
   const log: LastBurnLog = bundle.onThisDay ?? bundle.latest;
   const isOtd = bundle.onThisDay != null;
-  const showBridge = isOtd && bundle.onThisDay!.id !== bundle.latest.id;
+  const showBridge = bundle.onThisDay != null && bundle.onThisDay.id !== bundle.latest.id;
 
   const name = log.cigar.series ?? log.cigar.format ?? "";
   const score = log.overall_rating;
@@ -217,14 +217,11 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
       {showBridge ? (
         <div
           style={{
-            marginTop:   12,
-            paddingTop:  11,
-            borderTop:   "1px solid var(--line-soft)",
-            minHeight:   24,
-            display:     "flex",
-            alignItems:  "center",
-            fontSize:    10.5,
-            color:       "var(--paper-dim)",
+            marginTop:  10,
+            display:    "flex",
+            alignItems: "center",
+            fontSize:   10.5,
+            color:      "var(--paper-dim)",
           }}
         >
           Your last burn was {relativeBurnTime(bundle.latest.smoked_at)}
