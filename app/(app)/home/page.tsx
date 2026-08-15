@@ -4,6 +4,7 @@ import { FieldGuide }      from "@/components/dashboard/FieldGuide";
 import {
   MastheadIsland,
   DashboardPagerIsland,
+  LastBurnIsland,
   BlindDrawIsland,
   LocalShopsIsland,
   NewsClientIsland,
@@ -41,16 +42,19 @@ export default function HomePage() {
         {/* 2. Dashboard pager: conditions · notifications · aging · sensor. */}
         <DashboardPagerIsland />
 
-        {/* 3. The Blind Draw — random-cigar card; hidden under 2 unique cigars. */}
+        {/* 3. The Last Burn — latest log / On This Day; hidden with no logs. */}
+        <LastBurnIsland />
+
+        {/* 4. The Blind Draw — random-cigar card; hidden under 2 unique cigars. */}
         <BlindDrawIsland />
 
-        {/* 4. The Wire (news) — public client island via SWR. */}
+        {/* 5. The Wire (news) — public client island via SWR. */}
         <NewsClientIsland />
 
-        {/* 5. Field Guide — self-fetching client; in static shell. */}
+        {/* 6. Field Guide — self-fetching client; in static shell. */}
         <FieldGuide />
 
-        {/* 6. Local Shops — client island (reads profile ZIP). */}
+        {/* 7. Local Shops — client island (reads profile ZIP). */}
         <LocalShopsIsland />
 
       </div>

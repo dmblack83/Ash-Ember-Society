@@ -16,6 +16,7 @@ import { fetchProfileLite }  from "@/lib/data/profile-client";
 import { fetchAgingItems }   from "@/lib/data/aging-client";
 import { fetchLatestNews }   from "@/lib/data/news-client";
 import { fetchHumidorItems } from "@/lib/data/humidor-fetchers";
+import { fetchLastBurn }     from "@/lib/data/last-burn-client";
 
 import { Masthead }          from "@/components/dashboard/Masthead";
 import { News }              from "@/components/dashboard/News";
@@ -25,6 +26,7 @@ import { Notifications }     from "@/components/dashboard/Notifications";
 import { LocalShops }        from "@/components/dashboard/LocalShops";
 import { DashboardPager }    from "@/components/dashboard/DashboardPager";
 import { BlindDraw }         from "@/components/dashboard/BlindDraw";
+import { LastBurn }          from "@/components/dashboard/LastBurn";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
 import { useHumidors }       from "@/components/humidor/useHumidors";
 
@@ -133,6 +135,19 @@ export function BlindDrawIsland() {
   );
   if (!ready || !session || !data) return null;
   return <BlindDraw items={data} />;
+}
+
+/* The Last Burn — most recent smoke log / On This Day. No skeleton:
+   absent until the first log exists (same convention as Blind Draw). */
+export function LastBurnIsland() {
+  const { ready, session } = useAppSession();
+  const userId = session?.userId ?? null;
+  const { data } = useSWR(
+    userId ? keyFor.lastBurn(userId) : null,
+    () => fetchLastBurn(userId as string),
+  );
+  if (!ready || !session || !data) return null;
+  return <LastBurn bundle={data} readyCount={data.readyCount} />;
 }
 
 /* Pager wrapper. Composed client-side because the sensor slide only
