@@ -85,7 +85,7 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
 
   return (
     <section
-      aria-label={`Last burn: ${name}`}
+      aria-label={`${isOtd ? "On this day" : "Last burn"}: ${name || "cigar"}`}
       onClick={() => router.push(target)}
       className="animate-fade-in"
       style={{
@@ -229,7 +229,16 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
           <IntentLink
             href={bundle.latest.humidor_item_id ? `/humidor/${bundle.latest.humidor_item_id}` : "/humidor/burn-reports"}
             onClick={(e) => e.stopPropagation()}
-            style={{ color: "var(--gold)", textDecoration: "none", marginLeft: 4 }}
+            style={{
+              color:          "var(--gold)",
+              textDecoration: "none",
+              /* Visible position unchanged (was marginLeft: 4, no padding):
+                 padding grows the hit area, the equal-and-opposite negative
+                 margin keeps the margin box (and layout) identical, with the
+                 left value offset by the original 4px gap. */
+              padding:        "14px 12px",
+              margin:         "-14px -12px -14px -8px",
+            }}
           >
             see it &rsaquo;
           </IntentLink>
@@ -248,27 +257,39 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
           }}
         >
           {log.video ? (
+            /* Chip visuals live on the inner span; the anchor carries only
+               an invisible padding/negative-margin hit area (44px target)
+               so the visible chip's size and position stay unchanged. */
             <a
               href={`https://www.youtube.com/watch?v=${log.video.youtube_video_id}`}
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
               style={{
-                display:       "inline-flex",
-                alignItems:    "center",
-                gap:           5,
-                fontFamily:    "var(--font-mono)",
-                fontSize:      8.5,
-                letterSpacing: "0.08em",
-                color:         "#FF4444",
-                border:        "1px solid rgba(255,0,0,.35)",
-                borderRadius:  999,
-                padding:       "3px 8px",
+                display:        "inline-flex",
+                alignItems:     "center",
+                padding:        "14px 12px",
+                margin:         "-14px -12px",
                 textDecoration: "none",
-                whiteSpace:    "nowrap",
               }}
             >
-              &#9658; Watch review
+              <span
+                style={{
+                  display:       "inline-flex",
+                  alignItems:    "center",
+                  gap:           5,
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      8.5,
+                  letterSpacing: "0.08em",
+                  color:         "#FF4444",
+                  border:        "1px solid rgba(255,0,0,.35)",
+                  borderRadius:  999,
+                  padding:       "3px 8px",
+                  whiteSpace:    "nowrap",
+                }}
+              >
+                &#9658; Watch review
+              </span>
             </a>
           ) : isNudgeDue ? (
             <span
@@ -318,6 +339,11 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
               whiteSpace:    "nowrap",
               flexShrink:    0,
               textDecoration: "none",
+              /* 44px hit area without shifting the visible box: padding
+                 grows it, the equal negative margin keeps the margin box
+                 (and space-between positioning) identical to before. */
+              padding:        "14px 12px",
+              margin:         "-14px -12px",
             }}
           >
             Burn history &rsaquo;
