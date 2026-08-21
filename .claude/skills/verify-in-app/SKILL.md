@@ -41,6 +41,30 @@ The test account is a dedicated fixture user (historically
 update it — never create an account or guess credentials. When Dave supplies
 new credentials, they are approved for this script's env vars only.
 
+## Interaction probes: verify the probe before trusting a failure
+
+Custom Playwright scripts (swipes, taps, modals) extend this harness. When
+such a probe FAILS or contradicts unit-verified logic, verify the probe
+before diagnosing the app: log the matched element's identity (href, text,
+bounding box) and confirm it is the intended target. A failing test of the
+app and a failing test OF THE TEST look identical from the outside.
+
+Known repo gotcha: `a[href^="/humidor/"]` matches the bottom-tab Wishlist
+link before any list row. Select humidor list rows via
+`div[style*="translateX"] a[href^="/humidor/"]`.
+
+Seed the fixture account deliberately to exercise the states under test
+(aging stages, ratings, quantities) and leave the seeds in place — they are
+shared verification fixtures.
+
+## Server-rendered image endpoints
+
+Routes that render images server-side (share images, OG cards) are not
+covered by the page-screenshot loop. Verify them by fetching the endpoint
+directly (status 200, content-type image/*, non-trivial byte length) and
+saving the bytes into the shots directory for eyeballing alongside the
+page screenshots.
+
 ## Honesty rule
 
 If this script cannot run (no credentials, network), say exactly that in the
