@@ -674,7 +674,7 @@ export function HumidorItemClient({
   /* ── Render ───────────────────────────────────────────────── */
 
   return (
-    <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className="max-w-3xl lg:max-w-[960px] mx-auto px-4 sm:px-6 py-8 space-y-8">
 
       {/* Toasts */}
       {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
@@ -781,6 +781,13 @@ export function HumidorItemClient({
       </section>
 
       <Divider className="my-6" />
+
+      {/* Desktop pairs Your Entry (left) with Stats + Smoke History
+          (right) — 2026-08-23 desktop UX spec item 06. The wrapper divs
+          preserve the mobile stacking order exactly. */}
+      <div className="space-y-8 lg:space-y-0 lg:grid lg:grid-cols-2 lg:gap-10 lg:items-start">
+
+      <div className="space-y-8">
 
       {/* ── Item details ─────────────────────────────────────────── */}
       <section className="space-y-6 animate-slide-up">
@@ -993,7 +1000,7 @@ export function HumidorItemClient({
       </section>
 
       {/* ── Actions ──────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col lg:flex-row gap-3">
         <Link
           href={`/humidor/${item.id}/burn-report`}
           className="btn btn-primary w-full text-center"
@@ -1009,7 +1016,11 @@ export function HumidorItemClient({
         </button>
       </div>
 
-      <Divider className="my-6" />
+      </div>
+
+      <div className="space-y-8">
+
+      <Divider className="my-6 lg:hidden" />
 
       {/* ── Stats ────────────────────────────────────────────────── */}
       <section className="space-y-4 animate-slide-up">
@@ -1141,6 +1152,10 @@ export function HumidorItemClient({
           </div>
         )}
       </section>
+
+      </div>
+
+      </div>
 
       {/* ── Overlays ─────────────────────────────────────────────── */}
       <BottomSheet

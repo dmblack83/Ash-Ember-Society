@@ -25,6 +25,7 @@ function NewsCard({ item }: { item: NewsItem }) {
       href={item.link}
       target="_blank"
       rel="noopener noreferrer"
+      className="hover-gold"
       style={{
         display:         "block",
         backgroundColor: "var(--card)",
@@ -35,7 +36,9 @@ function NewsCard({ item }: { item: NewsItem }) {
       }}
     >
       {item.image_url && (
-        <div style={{ position: "relative", width: "100%", aspectRatio: "16/10", backgroundColor: "var(--secondary)" }}>
+        /* lg caps the cover height so one story doesn't fill the whole
+           desktop viewport; below lg the 16/10 ratio is unchanged. */
+        <div className="lg:max-h-[280px]" style={{ position: "relative", width: "100%", aspectRatio: "16/10", backgroundColor: "var(--secondary)" }}>
           <Image
             src={item.image_url}
             alt={item.title}

@@ -570,6 +570,14 @@ select {
     .card-interactive:active { transform: none; }
   }
 
+  /* Hover affordance for clickable surfaces styled with inline borders
+     (e.g. news cards): border warms toward gold on hover-capable
+     devices. !important is required to override the inline border. */
+  @media (hover: hover) {
+    .hover-gold { transition: border-color 180ms ease; }
+    .hover-gold:hover { border-color: rgba(212, 160, 74, 0.45) !important; }
+  }
+
   /* Premium card: stronger brass border + soft gold halo as the
      product-tier marker. Heavy drop shadow removed to stay in line
      with the rest of the surface system; the gold halo is the
