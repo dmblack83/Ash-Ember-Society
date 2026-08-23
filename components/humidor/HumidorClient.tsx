@@ -267,14 +267,34 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
    List row
    ------------------------------------------------------------------ */
 
-function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
+function ListRow({
+  item,
+  tagName,
+  onQuickLog,
+  onBurnReport,
+}: {
+  item: HumidorItem;
+  tagName?: string;
+  onQuickLog?: () => void;
+  onBurnReport?: () => void;
+}) {
   const c = item.cigar;
   const displayName = c.series ?? c.format;
+
+  /* Desktop equivalents of the swipe actions. Swipe is touch-only, so
+     without these a mouse user has no list-level path to Quick Log /
+     Burn Report. Revealed on hover (Tailwind v4 hover: is gated to
+     hover-capable pointers) and on keyboard focus-within, lg+ only. */
+  const rowAction = (fn?: () => void) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn?.();
+  };
 
   return (
     <IntentLink
       href={`/humidor/${item.id}`}
-      className="block"
+      className="block group"
       /* See GridCard for rationale. List rows are denser and fixed-
          height, so the reserved intrinsic size is much smaller. */
       style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
@@ -315,16 +335,56 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
             </p>
           )}
           {c.format && (
-            <p className="text-xs text-muted-foreground">{c.format}</p>
+            <p className="text-xs text-muted-foreground">
+              {c.format}
+              {/* Hover state hides the chip/tag on the right — keep the
+                  facts readable in the meta line while the buttons show. */}
+              <span className="hidden lg:group-hover:inline lg:group-focus-within:inline">
+                {c.wrapper ? ` · ${c.wrapper}` : ""} · ×{item.quantity}
+              </span>
+            </p>
           )}
           <div className="mt-0.5">
             <AgingBadge item={item} />
           </div>
         </div>
 
+        {/* Desktop quick actions — replace the swipe gestures on hover/focus. */}
+        {(onQuickLog || onBurnReport) && (
+          <div className="hidden lg:group-hover:flex lg:group-focus-within:flex items-center gap-2 flex-shrink-0">
+            {onQuickLog && (
+              <button
+                type="button"
+                onClick={rowAction(onQuickLog)}
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors"
+                style={{
+                  borderColor: "var(--border)",
+                  color: "var(--foreground)",
+                  backgroundColor: "var(--background)",
+                }}
+              >
+                Quick Log
+              </button>
+            )}
+            {onBurnReport && (
+              <button
+                type="button"
+                onClick={rowAction(onBurnReport)}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: "var(--primary)",
+                  color: "var(--primary-foreground, #241505)",
+                }}
+              >
+                Burn Report
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Quantity */}
         <span
-          className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+          className="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0 lg:group-hover:hidden lg:group-focus-within:hidden"
           style={{
             backgroundColor: "var(--secondary)",
             color: item.quantity === 1 ? "var(--ember, #E8642C)" : "var(--foreground)",
@@ -336,7 +396,7 @@ function ListRow({ item, tagName }: { item: HumidorItem; tagName?: string }) {
 
         {/* Wrapper (hidden on mobile) */}
         {c.wrapper && (
-          <span className="flex-shrink-0 text-[10px] font-medium hidden md:block text-muted-foreground">
+          <span className="flex-shrink-0 text-[10px] font-medium hidden md:block lg:group-hover:hidden lg:group-focus-within:hidden text-muted-foreground">
             {c.wrapper}
           </span>
         )}
@@ -582,7 +642,24 @@ export function HumidorClient({
   const [view,         setView]         = useState<ViewMode>("list");
   const [sort,         setSort]         = useState<SortOption>("date_newest");
   const [query,        setQuery]        = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [showOptions,  setShowOptions]  = useState(false);
+
+  /* "/" focuses search (desktop keyboard affordance). Ignored while
+     typing anywhere else that accepts text, and when a modifier is
+     held (browser quick-find etc. stay reachable via cmd/ctrl). */
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (!searchRef.current) return;
+      e.preventDefault();
+      searchRef.current.focus();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
   const [showScanner,  setShowScanner]  = useState(false);
   const [showAddSheet, setShowAddSheet] = useState(false);
 
@@ -723,7 +800,7 @@ export function HumidorClient({
           paddingTop: "env(safe-area-inset-top)",
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
 
           {/* Row 1: Tab navigation */}
           <div className="flex border-b border-border/50">
@@ -837,7 +914,7 @@ export function HumidorClient({
       <div style={{ height: headerHeight }} aria-hidden="true" />
 
       {/* ── Content ─────────────────────────────────────────────── */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-4">
         <div className="empty:hidden" style={{ marginBottom: 12 }}>
           <HumidorConditions
             userId={userId}
@@ -869,14 +946,27 @@ export function HumidorClient({
                 <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
               <input
+                ref={searchRef}
                 type="search"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search your humidor"
                 aria-label="Search your humidor"
-                className="input py-2 pl-9 text-sm w-full"
+                className="input py-2 pl-9 lg:pr-9 text-sm w-full"
                 style={{ fontSize: 16 }}
               />
+              <kbd
+                className="hidden lg:block absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] px-1.5 py-0.5 rounded border"
+                style={{
+                  fontFamily: "var(--font-mono)",
+                  color: "var(--muted-foreground)",
+                  borderColor: "var(--border)",
+                  backgroundColor: "var(--background)",
+                }}
+                aria-hidden="true"
+              >
+                /
+              </kbd>
             </div>
 
             {/* Sort — icon button with an invisible native select overlay,
@@ -979,6 +1069,8 @@ export function HumidorClient({
                 <ListRow
                   item={item}
                   tagName={multi && selected === "all" ? nameById.get(item.humidor_id ?? "") : undefined}
+                  onQuickLog={() => setQuickLogItem(item)}
+                  onBurnReport={() => router.push(`/humidor/${item.id}/burn-report`)}
                 />
               </SwipeableRow>
             ))}
