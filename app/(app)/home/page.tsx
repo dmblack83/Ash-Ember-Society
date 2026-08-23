@@ -34,28 +34,40 @@ export default function HomePage() {
       {/* 0. Masthead (full-width greeting + admin link) — client island. */}
       <MastheadIsland />
 
-      <div className="px-4 sm:px-6 pt-6 pb-6 flex flex-col gap-6 max-w-2xl mx-auto">
+      {/* Desktop (lg+) flows the same sections into two centered columns —
+          personal column left, ambient column right (2026-08-23 desktop UX
+          spec, item 02). Pure CSS: the two wrapper divs preserve the mobile
+          stacking order exactly, and the pager keeps all its slides. */}
+      <div className="px-4 sm:px-6 pt-6 pb-6 max-w-2xl lg:max-w-5xl mx-auto lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:gap-6 lg:items-start">
 
-        {/* 1. Tonight's Pairing — primary CTAs, no data. */}
-        <TonightsPairing />
+        <div className="flex flex-col gap-6">
 
-        {/* 2. Dashboard pager: conditions · notifications · aging · sensor. */}
-        <DashboardPagerIsland />
+          {/* 1. Tonight's Pairing — primary CTAs, no data. */}
+          <TonightsPairing />
 
-        {/* 3. The Last Burn — latest log / On This Day; hidden with no logs. */}
-        <LastBurnIsland />
+          {/* 2. Dashboard pager: conditions · notifications · aging · sensor. */}
+          <DashboardPagerIsland />
 
-        {/* 4. The Blind Draw — random-cigar card; hidden under 2 unique cigars. */}
-        <BlindDrawIsland />
+          {/* 3. The Last Burn — latest log / On This Day; hidden with no logs. */}
+          <LastBurnIsland />
 
-        {/* 5. The Wire (news) — public client island via SWR. */}
-        <NewsClientIsland />
+          {/* 4. The Blind Draw — random-cigar card; hidden under 2 unique cigars. */}
+          <BlindDrawIsland />
 
-        {/* 6. Field Guide — self-fetching client; in static shell. */}
-        <FieldGuide />
+        </div>
 
-        {/* 7. Local Shops — client island (reads profile ZIP). */}
-        <LocalShopsIsland />
+        <div className="flex flex-col gap-6 mt-6 lg:mt-0">
+
+          {/* 5. The Wire (news) — public client island via SWR. */}
+          <NewsClientIsland />
+
+          {/* 6. Field Guide — self-fetching client; in static shell. */}
+          <FieldGuide />
+
+          {/* 7. Local Shops — client island (reads profile ZIP). */}
+          <LocalShopsIsland />
+
+        </div>
 
       </div>
     </PullToRefresh>
