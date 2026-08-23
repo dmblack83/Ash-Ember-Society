@@ -47,7 +47,9 @@ export function Masthead({ displayName, isAdmin = false }: Props) {
       }}
       aria-label="Welcome"
     >
-    <div className="px-4 sm:px-6 max-w-2xl mx-auto" style={{ position: "relative" }}>
+    {/* lg:max-w-5xl matches the two-column dashboard grid below the
+        masthead so the greeting spans the full desktop composition. */}
+    <div className="px-4 sm:px-6 max-w-2xl lg:max-w-5xl mx-auto" style={{ position: "relative" }}>
       {/* Top hairline rule (gold @ 50% opacity) */}
       <div
         aria-hidden="true"
