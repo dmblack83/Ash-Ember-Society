@@ -1,8 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import useSWR from "swr";
+import { keyFor } from "@/lib/data/keys";
+import { fetchLastBurn } from "@/lib/data/last-burn-client";
+import { fetchNotificationSummary } from "@/lib/data/notifications";
+import { fetchProfileLite } from "@/lib/data/profile-client";
+import { getMembershipTier } from "@/lib/membership";
+import { useAppSession } from "@/components/system/app-session";
 import { ResumeHandler } from "@/components/system/ResumeHandler";
 import { ConnectionProbe } from "@/components/system/ConnectionProbe";
 import { ResumeReconnect } from "@/components/system/ResumeReconnect";
@@ -190,8 +197,52 @@ function BottomNav() {
    for thumb reach, which doesn't apply on a side rail.
    ------------------------------------------------------------------ */
 
+/* Fetch-gate for the rail extras: the rail is CSS-hidden below lg, but
+   hooks would still run — matchMedia gating keeps mobile from paying
+   for desktop-only data. SWR keys match the home islands' keys, so at
+   lg these reads are usually warm-cache dedupes, not extra requests. */
+function useIsDesktop() {
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  return isDesktop;
+}
+
 function SideRailNav() {
   const pathname = usePathname();
+  const router   = useRouter();
+
+  const { ready, session } = useAppSession();
+  const isDesktop = useIsDesktop();
+  const userId = isDesktop && ready && session ? session.userId : null;
+
+  /* Aging-ready count — same key + fetcher as the home Last Burn island. */
+  const { data: lastBurn } = useSWR(
+    userId ? keyFor.lastBurn(userId) : null,
+    () => fetchLastBurn(userId!),
+  );
+  const readyCount = lastBurn?.readyCount ?? 0;
+
+  /* Lounge activity — same signal as the home Notifications card. */
+  const { data: notifRows } = useSWR(
+    userId ? keyFor.notifications(userId) : null,
+    () => fetchNotificationSummary(),
+  );
+  const hasLoungeActivity = (notifRows ?? []).some((r) => r.unseen_count > 0);
+
+  /* Identity chip — profile lite (display name + tier). */
+  const { data: profile } = useSWR(
+    userId ? keyFor.profile(userId) : null,
+    () => fetchProfileLite(userId!),
+  );
+  const displayName = profile?.display_name ?? profile?.first_name ?? null;
+  const tierLabel =
+    profile ? (getMembershipTier(profile) === "member" ? "Member" : "Free tier") : null;
 
   /* Inline reorder rather than a second const array — one
      source of truth for nav items. */
@@ -231,6 +282,12 @@ function SideRailNav() {
       <div className="flex flex-col gap-1 px-3">
         {railItems.map(({ href, label, match, icon }) => {
           const active = match(pathname);
+
+          /* Contextual signal per item — aging-ready count on Humidor,
+             unread-activity dot on Lounge. Both render nothing at zero. */
+          const showReady    = href === "/humidor" && readyCount > 0;
+          const showActivity = href === "/lounge" && hasLoungeActivity;
+
           return (
             <Link
               key={href}
@@ -247,10 +304,99 @@ function SideRailNav() {
             >
               {icon}
               <span className="text-sm font-medium">{label}</span>
+              {showReady && (
+                <span
+                  className="ml-auto text-[10px] px-2 py-0.5 rounded-full"
+                  style={{
+                    fontFamily:      "var(--font-mono)",
+                    backgroundColor: "rgba(212,160,74,0.16)",
+                    color:           "var(--gold, #D4A04A)",
+                  }}
+                >
+                  {readyCount} ready
+                </span>
+              )}
+              {showActivity && (
+                <span
+                  className="ml-auto w-[7px] h-[7px] rounded-full"
+                  style={{ backgroundColor: "var(--ember, #E8642C)" }}
+                  aria-label="New lounge activity"
+                />
+              )}
             </Link>
           );
         })}
       </div>
+
+      <div className="flex-1" />
+
+      {/* Quick actions — same destinations as the home Tonight card. */}
+      {userId && (
+        <div
+          className="flex flex-col gap-1.5 mx-3 mb-3 pt-3"
+          style={{ borderTop: "1px solid var(--border)" }}
+        >
+          <button
+            type="button"
+            onClick={() => router.push("/humidor")}
+            className="text-left text-[13px] font-semibold px-3 py-2 rounded-lg"
+            style={{
+              background: "linear-gradient(180deg, #e1c787 0%, #b89549 100%)",
+              color:      "#1a1208",
+            }}
+          >
+            + Burn Report
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/humidor?add=true")}
+            className="text-left text-[13px] font-medium px-3 py-2 rounded-lg"
+            style={{
+              border: "1px solid var(--border)",
+              color:  "var(--foreground)",
+              background: "transparent",
+            }}
+          >
+            + Add Cigar
+          </button>
+        </div>
+      )}
+
+      {/* Identity chip — avatar initial + display name, links to /account. */}
+      {userId && displayName && (
+        <Link
+          href="/account"
+          className="flex items-center gap-2.5 mx-3 px-2.5 py-2 rounded-xl transition-colors"
+          style={{
+            backgroundColor: "var(--card)",
+            border:          "1px solid var(--border)",
+            textDecoration:  "none",
+          }}
+        >
+          <span
+            className="flex items-center justify-center w-7 h-7 rounded-full flex-shrink-0"
+            style={{
+              fontFamily: "var(--font-serif)",
+              fontSize:   14,
+              color:      "var(--gold, #D4A04A)",
+              background: "linear-gradient(135deg, #3a2b18, #5a4020)",
+            }}
+            aria-hidden="true"
+          >
+            {displayName.charAt(0).toUpperCase()}
+          </span>
+          <span className="min-w-0">
+            <span className="block text-xs font-semibold truncate" style={{ color: "var(--foreground)" }}>
+              {displayName}
+            </span>
+            {tierLabel && (
+              <span className="block text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                {tierLabel}
+              </span>
+            )}
+          </span>
+        </Link>
+      )}
     </nav>
   );
 }
