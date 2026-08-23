@@ -305,7 +305,7 @@ export function LoungeFeedClient({
         }}
       >
         {/* Row 1 — title + New Post */}
-        <div className="flex items-center px-4 md:max-w-[50%] md:mx-auto" style={{ height: TITLE_H, gap: 12 }}>
+        <div className="flex items-center px-4 md:max-w-[600px] md:mx-auto" style={{ height: TITLE_H, gap: 12 }}>
           <h1 className="font-serif text-xl font-semibold flex-1" style={{ color: "var(--foreground)" }}>
             The Lounge
           </h1>
@@ -331,7 +331,7 @@ export function LoungeFeedClient({
         <div
           role="tablist"
           aria-label="Category filter"
-          className="flex items-center gap-2 px-4 md:max-w-[50%] md:mx-auto"
+          className="flex items-center gap-2 px-4 md:max-w-[600px] md:mx-auto"
           style={{ height: CHIPS_H, overflowX: "auto", scrollbarWidth: "none" }}
         >
           {CHIPS.map((c) => {
@@ -364,7 +364,7 @@ export function LoungeFeedClient({
 
         {/* Row 3 — contextual secondary slot + refresh */}
         <div
-          className="flex items-center px-4 md:max-w-[50%] md:mx-auto"
+          className="flex items-center px-4 md:max-w-[600px] md:mx-auto"
           style={{ height: SECONDARY_H, gap: 22, justifyContent: "space-between" }}
         >
           <div role="tablist" aria-label="Feed view" className="flex items-center" style={{ gap: 22 }}>
@@ -399,7 +399,7 @@ export function LoungeFeedClient({
 
       {/* Feed */}
       <div style={{ paddingTop: HEADER_H }}>
-        <div className="px-4 pt-3 flex flex-col gap-3 pb-4 w-full md:max-w-[50%] md:mx-auto">
+        <div className="px-4 pt-3 flex flex-col gap-3 pb-4 w-full md:max-w-[600px] md:mx-auto">
           {visiblePinnedPosts.map((post) => (
             <PinnedPostCard
               key={post.id}

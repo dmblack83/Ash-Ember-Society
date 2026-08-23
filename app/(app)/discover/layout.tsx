@@ -34,14 +34,17 @@ export default function DiscoverLayout({ children }: { children: React.ReactNode
           borderBottom:    "1px solid var(--border)",
         }}
       >
-        <div className="flex max-w-2xl mx-auto">
+        {/* lg clusters the tabs (shrink-to-fit, centered) instead of
+            stretching each across a third of the column — desktop UX
+            spec item 07. Below lg the flex-1 spread is unchanged. */}
+        <div className="flex max-w-2xl mx-auto lg:justify-center">
           {TABS.map(({ href, label, match }) => {
             const active = match(pathname);
             return (
               <Link
                 key={href}
                 href={href}
-                className="flex-1 text-center py-3 text-sm font-medium transition-colors duration-150"
+                className="flex-1 lg:flex-none lg:px-8 text-center py-3 text-sm font-medium transition-colors duration-150"
                 style={{
                   color:        active ? "var(--primary)" : "var(--muted-foreground)",
                   borderBottom: active ? "2px solid var(--primary)" : "2px solid transparent",

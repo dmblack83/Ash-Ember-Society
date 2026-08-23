@@ -257,6 +257,22 @@ interface DiscoverCigarsClientProps {
 export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientProps) {
   const [query,      setQuery]      = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  /* "/" focuses search (desktop keyboard affordance) — same behavior
+     as the humidor list. Modifier chords and in-input typing ignored. */
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "/" || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)) return;
+      if (!searchRef.current) return;
+      e.preventDefault();
+      searchRef.current.focus();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   // View mode -- default grid, persisted to localStorage
   const [view, setView] = useState<ViewMode>("grid");
@@ -440,12 +456,25 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
               stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
           <input
+            ref={searchRef}
             type="search"
-            className="input pl-9"
+            className="input pl-9 lg:pr-9"
             placeholder="Search brand, series, wrapper..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <kbd
+            className="hidden lg:block absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-[10px] px-1.5 py-0.5 rounded border"
+            style={{
+              fontFamily: "var(--font-mono)",
+              color: "var(--muted-foreground)",
+              borderColor: "var(--border)",
+              backgroundColor: "var(--background)",
+            }}
+            aria-hidden="true"
+          >
+            /
+          </kbd>
         </div>
 
         {/* Section label */}

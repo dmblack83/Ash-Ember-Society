@@ -760,7 +760,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
         }}
       >
         {/* Inner constrained to card width */}
-        <div className="relative flex items-center w-full px-4 md:max-w-[50%]">
+        <div className="relative flex items-center w-full px-4 md:max-w-[600px]">
           {/* Back */}
           <button
             type="button"
@@ -841,7 +841,7 @@ export function PostModal({ postId, userId, onClose }: Props) {
           style={{ paddingBottom: "calc(16px + env(safe-area-inset-bottom))", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
         >
           {/* Content constrained to match category cards on tablet+ */}
-          <div className="w-full md:max-w-[50%] md:mx-auto">
+          <div className="w-full md:max-w-[600px] md:mx-auto">
 
             {/* Post content */}
             <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>

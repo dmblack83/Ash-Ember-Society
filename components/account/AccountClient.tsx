@@ -689,7 +689,7 @@ function ProfileCard({
 
       {!editing && (
         <p style={{ fontSize: 11, color: "var(--muted-foreground)", marginTop: 12 }}>
-          Tap pencil to edit display name
+          Edit your display name with the pencil
         </p>
       )}
     </div>
