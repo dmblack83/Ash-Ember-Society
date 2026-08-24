@@ -10,6 +10,7 @@ import { useHumidors }      from "@/components/humidor/useHumidors";
 import { BottomSheet }       from "@/components/ui/BottomSheet";
 import { UpgradeLimitModal } from "@/components/membership/UpgradeLimitModal";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
+import { loadCigarDraft, saveCigarDraft, clearCigarDraft } from "@/lib/cigars/cigar-draft";
 import {
   type CigarDetails,
   EMPTY_CIGAR_DETAILS,
@@ -52,6 +53,14 @@ function Caret({ dir }: { dir: "up" | "down" }) {
    ------------------------------------------------------------------ */
 
 export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null }: AddCigarSheetProps) {
+
+  /* Explicit close = user abandoning the entry — discard the draft so
+     it doesn't resurface on the next open. (Eviction/reload never
+     calls this, which is exactly why the draft survives it.) */
+  const handleClose = () => {
+    clearCigarDraft("humidor");
+    onClose();
+  };
 
   /* ── Selection state ──────────────────────────────────────── */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
@@ -102,6 +111,16 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     setSubmitError(null);
     setPickedHumidorId(defaultHumidorId ?? null);
 
+    /* Restore an in-flight manual draft. Covers the iOS PWA relaunch
+       after the Look up button (or any app switch) evicted the page —
+       the draft mirrors to localStorage as the user types, so reopening
+       lands them back in manual mode with their fields intact. */
+    const draft = loadCigarDraft("humidor");
+    if (draft) {
+      setIsManual(true);
+      setManual(draft);
+    }
+
     async function loadUser() {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
@@ -110,6 +129,13 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     loadUser();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, defaultHumidorId]);
+
+  /* Mirror the manual draft to localStorage as the user types.
+     saveCigarDraft self-clears when every field is empty. */
+  useEffect(() => {
+    if (!open || !isManual) return;
+    saveCigarDraft("humidor", manual);
+  }, [open, isManual, manual]);
 
   /* Fall back to the user's default humidor once the list loads, but
      only when no defaultHumidorId was supplied and nothing's picked
@@ -218,6 +244,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
           .insert(cigarDetailsToSuggestionRow(manual, user.id));
       }
 
+      clearCigarDraft("humidor");
       onAdded();
       onClose();
     } catch (err) {
@@ -245,7 +272,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
             Add Cigar
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex items-center justify-center rounded-xl text-muted-foreground transition-colors"
             style={{ width: 40, height: 40 }}
             aria-label="Close"
@@ -607,7 +634,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     <>
       <BottomSheet
         open={open}
-        onClose={onClose}
+        onClose={handleClose}
         ariaLabel="Add cigar to humidor"
         header={headerSlot}
         bodyOverlay={caretOverlay}
