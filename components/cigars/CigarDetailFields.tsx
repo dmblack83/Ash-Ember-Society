@@ -8,7 +8,7 @@ import {
   LENGTHS,
   RING_GAUGES,
 } from "@/lib/cigar-taxonomy";
-import { type CigarDetails, toggleFiller } from "@/lib/cigars/cigar-details";
+import { type CigarDetails, toggleFiller, buildCigarLookupUrl } from "@/lib/cigars/cigar-details";
 
 /* ------------------------------------------------------------------
    CigarDetailFields
@@ -32,13 +32,39 @@ export function CigarDetailFields({ value, onChange }: Props) {
   const set = <K extends keyof CigarDetails>(key: K, v: CigarDetails[K]) =>
     onChange({ ...value, [key]: v });
 
+  const lookupUrl = buildCigarLookupUrl(value);
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {/* Brand */}
       <div className="col-span-2">
-        <label className={labelCls} style={labelStyle}>
-          Brand <span style={{ color: "var(--destructive)" }}>*</span>
-        </label>
+        <div className="flex items-center justify-between">
+          <label className={labelCls} style={labelStyle}>
+            Brand <span style={{ color: "var(--destructive)" }}>*</span>
+          </label>
+          {/* Look up — opens a Google search built from the filled
+              fields (brand required) so the user can find the specs
+              they're missing. 2026-08-23 cigar-lookup spec. */}
+          <button
+            type="button"
+            disabled={!lookupUrl}
+            onClick={() => { if (lookupUrl) window.open(lookupUrl, "_blank", "noopener"); }}
+            className="inline-flex items-center gap-1.5 text-xs font-medium mb-1.5 px-2 py-1 rounded-md border transition-colors"
+            style={{
+              borderColor: "var(--border)",
+              color:       lookupUrl ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+              opacity:     lookupUrl ? 1 : 0.5,
+              cursor:      lookupUrl ? "pointer" : "default",
+            }}
+            aria-label="Look up this cigar on Google"
+          >
+            Look up
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <path d="M4.5 2H2.5A1.5 1.5 0 0 0 1 3.5v6A1.5 1.5 0 0 0 2.5 11h6A1.5 1.5 0 0 0 10 9.5V7.5M7 1h4v4M11 1L5.5 6.5"
+                stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
         <input
           type="text"
           value={value.brand}

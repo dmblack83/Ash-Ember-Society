@@ -125,6 +125,28 @@ export interface CurrentCigarFields {
   filler_countries:  string[] | null;
 }
 
+/* Google web-search URL for the "Look up" button in CigarDetailFields.
+   Brand is required (null without it — callers disable the button).
+   Countries are excluded: they add noise to spec searches, not signal.
+   The trailing "cigar" term disambiguates short brand names. */
+export function buildCigarLookupUrl(d: CigarDetails): string | null {
+  if (!d.brand.trim()) return null;
+  const length = d.lengthInches.trim();
+  const gauge  = d.ringGauge.trim();
+  const terms = [
+    d.brand,
+    d.series,
+    d.format,
+    length && gauge ? `${length}x${gauge}` : "",
+    d.shade,
+    d.wrapper,
+    "cigar",
+  ]
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return `https://www.google.com/search?q=${encodeURIComponent(terms.join(" "))}`;
+}
+
 /* Prefill form state from a catalog row (edit sheet). */
 export function cigarDetailsFromCurrent(c: CurrentCigarFields): CigarDetails {
   return {
