@@ -9,6 +9,7 @@ import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { keyFor } from "@/lib/data/keys";
 import { fetchWishlistItems } from "@/lib/data/humidor-fetchers";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
+import { loadCigarDraft, saveCigarDraft, clearCigarDraft } from "@/lib/cigars/cigar-draft";
 import {
   type CigarDetails,
   EMPTY_CIGAR_DETAILS,
@@ -65,8 +66,15 @@ function AddWishlistSheet({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  /* Explicit close = abandoning the entry — discard the draft.
+     Eviction/reload never calls this, so the draft survives it. */
+  const handleClose = () => {
+    clearCigarDraft("wishlist");
+    onClose();
+  };
+
   /* Escape-key dismissal. */
-  useEscapeKey(open, onClose);
+  useEscapeKey(open, handleClose);
 
   /* Selection state */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
@@ -117,7 +125,22 @@ function AddWishlistSheet({
     setManual(EMPTY_CIGAR_DETAILS);
     setSubmitToCatalog(true);
     setNotes(""); setSubmitError(null);
+
+    /* Restore an in-flight manual draft (iOS PWA relaunch after the
+       Look up button or any app switch evicted the page). */
+    const draft = loadCigarDraft("wishlist");
+    if (draft) {
+      setIsManual(true);
+      setManual(draft);
+    }
   }, [open]);
+
+  /* Mirror the manual draft to localStorage as the user types.
+     saveCigarDraft self-clears when every field is empty. */
+  useEffect(() => {
+    if (!open || !isManual) return;
+    saveCigarDraft("wishlist", manual);
+  }, [open, isManual, manual]);
 
   /* Scroll caret tracking */
   function updateCarets() {
@@ -191,6 +214,7 @@ function AddWishlistSheet({
           .insert(cigarDetailsToSuggestionRow(manual, user.id));
       }
 
+      clearCigarDraft("wishlist");
       onAdded();
       onClose();
     } catch (err) {
@@ -217,7 +241,7 @@ function AddWishlistSheet({
             ? "opacity 300ms ease"
             : "opacity 300ms ease, visibility 0ms 300ms",
         }}
-        onClick={onClose}
+        onClick={handleClose}
         aria-hidden="true"
       />
 
@@ -279,7 +303,7 @@ function AddWishlistSheet({
             Add to Wishlist
           </h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex items-center justify-center rounded-xl text-muted-foreground transition-colors"
             style={{ width: 40, height: 40 }}
             aria-label="Close"
@@ -808,6 +832,13 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     const saved = localStorage.getItem("wishlist-view") as ViewMode | null;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (saved === "list" || saved === "grid") setView(saved);
+    /* A live manual-entry draft means the page reloaded out from under
+       an in-progress add (iOS PWA eviction after Look up / app switch).
+       Reopen the sheet; its open effect restores the draft fields. */
+    if (loadCigarDraft("wishlist")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setShowAdd(true);
+    }
   }, []);
 
   useEffect(() => {

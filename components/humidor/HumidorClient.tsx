@@ -25,6 +25,7 @@ import { fetchProfileLite } from "@/lib/data/profile-client";
 import { getMembershipTier } from "@/lib/membership";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { matchesQuery } from "@/lib/humidor/list-filter";
+import { loadCigarDraft } from "@/lib/cigars/cigar-draft";
 import { addCigarToWishlist } from "@/lib/humidor/wishlist-add";
 import { createClient } from "@/utils/supabase/client";
 import {
@@ -730,6 +731,13 @@ export function HumidorClient({
     hasMounted.current = true;
     if (new URLSearchParams(window.location.search).get("add") === "true") {
       setShowOptions(true);
+      return;
+    }
+    /* A live manual-entry draft means the page reloaded out from under
+       an in-progress add (iOS PWA eviction after Look up / app switch).
+       Reopen the sheet; its open effect restores the draft fields. */
+    if (loadCigarDraft("humidor")) {
+      setShowAddSheet(true);
     }
   }, []);
 
