@@ -23,9 +23,12 @@ import {
 
 export const DRAFT_TTL_MS = 60 * 60 * 1000; // 1 hour
 
-export type CigarDraftSurface = "humidor" | "wishlist";
+export type CigarDraftSurface = "humidor" | "wishlist" | "suggest-edit";
 
-const keyFor = (surface: CigarDraftSurface) => `ae:cigar-draft:${surface}`;
+/* suggest-edit drafts are per-cigar (ctx = cigar id) so a draft for one
+   cigar never restores onto another's edit sheet. */
+const keyFor = (surface: CigarDraftSurface, ctx?: string) =>
+  ctx ? `ae:cigar-draft:${surface}:${ctx}` : `ae:cigar-draft:${surface}`;
 
 function hasContent(d: CigarDetails): boolean {
   return (
@@ -64,27 +67,27 @@ export function parseCigarDraft(json: string | null, now: number): CigarDetails 
 
 /* ── localStorage wrappers (browser only; safe in private mode) ──── */
 
-export function saveCigarDraft(surface: CigarDraftSurface, d: CigarDetails): void {
+export function saveCigarDraft(surface: CigarDraftSurface, d: CigarDetails, ctx?: string): void {
   try {
     const json = serializeCigarDraft(d, Date.now());
-    if (json === null) localStorage.removeItem(keyFor(surface));
-    else localStorage.setItem(keyFor(surface), json);
+    if (json === null) localStorage.removeItem(keyFor(surface, ctx));
+    else localStorage.setItem(keyFor(surface, ctx), json);
   } catch {
     /* storage unavailable — feature degrades to pre-draft behavior */
   }
 }
 
-export function loadCigarDraft(surface: CigarDraftSurface): CigarDetails | null {
+export function loadCigarDraft(surface: CigarDraftSurface, ctx?: string): CigarDetails | null {
   try {
-    return parseCigarDraft(localStorage.getItem(keyFor(surface)), Date.now());
+    return parseCigarDraft(localStorage.getItem(keyFor(surface, ctx)), Date.now());
   } catch {
     return null;
   }
 }
 
-export function clearCigarDraft(surface: CigarDraftSurface): void {
+export function clearCigarDraft(surface: CigarDraftSurface, ctx?: string): void {
   try {
-    localStorage.removeItem(keyFor(surface));
+    localStorage.removeItem(keyFor(surface, ctx));
   } catch {
     /* ignore */
   }

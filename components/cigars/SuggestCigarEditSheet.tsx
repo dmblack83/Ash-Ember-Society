@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
@@ -11,6 +11,7 @@ import {
   diffCigarFields,
   cigarDetailsFromCurrent,
 } from "@/lib/cigars/cigar-details";
+import { loadCigarDraft, saveCigarDraft, clearCigarDraft } from "@/lib/cigars/cigar-draft";
 
 /* ------------------------------------------------------------------
    SuggestCigarEditSheet
@@ -36,12 +37,35 @@ interface Props {
 }
 
 export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
-  useEscapeKey(true, onClose);
+  /* Explicit close = abandoning the edit — discard the draft. An iOS
+     PWA eviction (e.g. the Look up button opening Safari) never calls
+     this, which is why the draft survives the round-trip. */
+  const handleClose = () => {
+    clearCigarDraft("suggest-edit", cigar.id);
+    onClose();
+  };
 
-  const [form,        setForm]       = useState<CigarDetails>(() => cigarDetailsFromCurrent(cigar));
+  useEscapeKey(true, handleClose);
+
+  /* Restore an in-flight draft for THIS cigar; otherwise prefill from
+     the catalog row as before. */
+  const [form,        setForm]       = useState<CigarDetails>(
+    () => loadCigarDraft("suggest-edit", cigar.id) ?? cigarDetailsFromCurrent(cigar),
+  );
   const [submitting,  setSubmitting] = useState(false);
   const [error,       setError]      = useState<string | null>(null);
   const [submitted,   setSubmitted]  = useState(false);
+
+  /* Mirror the draft to localStorage as the user edits — but only when
+     the form actually differs from the catalog prefill. A pristine
+     sheet saves nothing (and clears any stale draft), so merely opening
+     and navigating away never triggers the auto-reopen. */
+  useEffect(() => {
+    const pristine =
+      JSON.stringify(form) === JSON.stringify(cigarDetailsFromCurrent(cigar));
+    if (pristine) clearCigarDraft("suggest-edit", cigar.id);
+    else saveCigarDraft("suggest-edit", form, cigar.id);
+  }, [form, cigar]);
 
   async function handleSubmit() {
     if (submitting) return;
@@ -69,6 +93,7 @@ export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
     setSubmitting(false);
 
     if (res.ok) {
+      clearCigarDraft("suggest-edit", cigar.id);
       setSubmitted(true);
     } else {
       const body = await res.json().catch(() => ({}));
@@ -80,7 +105,7 @@ export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
+        onClick={handleClose}
         style={{
           position:        "fixed",
           inset:           0,
@@ -136,7 +161,7 @@ export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-8 py-2.5 rounded-xl text-sm font-semibold mt-2"
               style={{ background: "var(--gold,#D4A04A)", color: "#1A1210", border: "none", cursor: "pointer" }}
             >
@@ -160,7 +185,7 @@ export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
               </div>
               <button
                 type="button"
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close"
                 style={{
                   flexShrink:     0,
@@ -194,7 +219,7 @@ export function SuggestCigarEditSheet({ cigar, onClose }: Props) {
               <div className="flex gap-3 mt-2">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex-1 py-3 rounded-xl text-sm font-semibold"
                   style={{
                     background: "transparent",

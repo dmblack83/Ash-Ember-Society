@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
 import Image from "next/image";
+import { parseNewsRestore, serializeNewsRestore } from "@/lib/discover/news-restore";
+
+const NEWS_RESTORE_KEY = "ae:news-restore";
 import { useRefreshSignal } from "@/lib/hooks/use-refresh-signal";
 import { formatDistanceToNow } from "date-fns";
 import type { NewsItem } from "@/lib/data/news";
@@ -129,6 +133,55 @@ export function NewsList() {
      only refetches this feed's first page; the bound mutate refreshes
      every loaded page. */
   useRefreshSignal(() => mutateNews());
+
+  /* ── Scroll restoration after an external-link round-trip ────────
+     Tapping an article opens Safari; iOS can evict the PWA page, and
+     the relaunch used to land at the top with pagination reset. Persist
+     { y, size } while scrolling; on a FRESH document load (mount within
+     5s of document start — client-side tab navs skip this) re-grow the
+     page count, then scroll back once the pages have rendered. */
+  const restoreRef = useRef<{ y: number; size: number } | null>(null);
+
+  useEffect(() => {
+    if (performance.now() > 5000) return; // client-side nav, not a (re)load
+    let saved: ReturnType<typeof parseNewsRestore> = null;
+    try {
+      saved = parseNewsRestore(localStorage.getItem(NEWS_RESTORE_KEY), Date.now());
+    } catch { /* storage unavailable */ }
+    if (!saved) return;
+    restoreRef.current = saved;
+    if (saved.size > 1) void setSize(saved.size);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const r = restoreRef.current;
+    if (!r || (data?.length ?? 0) < r.size) return;
+    restoreRef.current = null;
+    /* rAF lets the freshly grown list paint before the jump. */
+    requestAnimationFrame(() => window.scrollTo(0, r.y));
+  }, [data]);
+
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        try {
+          localStorage.setItem(
+            NEWS_RESTORE_KEY,
+            serializeNewsRestore({ y: window.scrollY, size }, Date.now()),
+          );
+        } catch { /* storage unavailable */ }
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, [size]);
 
   const items = (data ?? []).flat();
   const lastPage = data?.[data.length - 1];
