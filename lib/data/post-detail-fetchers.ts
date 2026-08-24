@@ -49,7 +49,8 @@ export async function fetchPostDetailBundle(
         is_system, is_locked, user_id, category_id,
         image_url, image_urls, smoke_log_id,
         forum_post_likes(count),
-        forum_categories(name, slug)
+        forum_categories(name, slug),
+        member_announcement_members(position, user_id, display_name, avatar_url)
       `)
       .eq("id", postId)
       .maybeSingle(),
@@ -190,6 +191,10 @@ export async function fetchPostDetailBundle(
     like_count:  likeCount,
     image_url:   (raw.image_url  as string | null)   ?? null,
     image_urls:  (raw.image_urls as string[] | null) ?? null,
+    roster:      ((raw.member_announcement_members as
+                    { position: number; user_id: string; display_name: string; avatar_url: string | null }[] | null) ?? [])
+                   .slice()
+                   .sort((a, b) => a.position - b.position),
   };
 
   const comments: Comment[] = commentRows.map((c) => ({

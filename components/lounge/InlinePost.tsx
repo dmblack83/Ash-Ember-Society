@@ -50,6 +50,15 @@ export interface PostItem {
   downvotes:     number;
   user_vote:     0 | 1 | -1;
   status:        "open" | "closed";
+  /* Weekly new-member digest roster. Non-empty = this post renders the
+     digest chrome (gold system card, stacked avatars, member list on
+     detail). Ordinary posts carry an empty array. */
+  roster?:       Array<{
+    position:     number;
+    user_id:      string;
+    display_name: string;
+    avatar_url:   string | null;
+  }>;
 }
 
 interface Props {
@@ -445,11 +454,50 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
 
   /* ---- Render ------------------------------------------------------ */
 
+  /* Weekly new-member digest: non-empty roster switches the card to the
+     system chrome (gold border, stacked avatars, no author row). Likes,
+     comments, and detail navigation are the standard mechanics. */
+  const isDigest = (post.roster?.length ?? 0) > 0;
+  const rosterShown = (post.roster ?? []).slice(0, 4);
+  const rosterOverflow = (post.roster?.length ?? 0) - rosterShown.length;
+
   return (
-    <div style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 14 }}>
+    <div
+      style={
+        isDigest
+          ? {
+              background: "linear-gradient(160deg, var(--card) 0%, #2b2114 100%)",
+              border: "1px solid rgba(212,160,74,0.35)",
+              borderRadius: 14,
+            }
+          : { backgroundColor: "var(--card)", border: "1px solid var(--border)", borderRadius: 14 }
+      }
+    >
       <div className="px-4 pt-4 pb-3">
 
+        {/* Digest header — replaces the author row. */}
+        {isDigest && (
+          <div
+            className="flex items-center gap-2 mb-3"
+            style={{
+              fontFamily:    "var(--font-mono)",
+              fontSize:      10,
+              letterSpacing: "0.22em",
+              textTransform: "uppercase",
+              color:         "var(--gold, #D4A04A)",
+            }}
+          >
+            <span aria-hidden="true">✦</span>
+            <span>{post.title}</span>
+            <span aria-hidden="true" style={{ flex: 1, height: 1, background: "rgba(212,160,74,0.2)" }} />
+            <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.1em" }}>
+              {relativeTime(post.created_at)}
+            </span>
+          </div>
+        )}
+
         {/* Author row */}
+        {!isDigest && (
         <div className="flex items-center gap-2 mb-3">
           <Avatar name={post.author?.display_name} avatarUrl={post.author?.avatar_url} size={32}
             badge={post.author?.badge} tier={post.author?.membership_tier} />
@@ -521,12 +569,48 @@ export function InlinePost({ post, initialLiked, userId, isFeedback, isFounder =
             )}
           </div>
         </div>
+        )}
 
         {/* Title + body
+            - Digest posts: stacked avatars + count-led serif line, tap → detail
             - Burn-report posts: BurnReportCard (fullscreen modal on tap)
             - Default: title (links to detail page) + full pre-line body
               + optional image */}
-        {post.smoke_log ? (
+        {isDigest ? (
+          <Link
+            href={`/lounge/${post.id}`}
+            prefetch={false}
+            style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none", color: "inherit" }}
+          >
+            <span style={{ display: "flex", flexShrink: 0 }} aria-hidden="true">
+              {rosterShown.map((m, i) => (
+                <span key={m.user_id} style={{ marginLeft: i === 0 ? 0 : -9, display: "inline-flex" }}>
+                  <Avatar name={m.display_name} avatarUrl={m.avatar_url} size={34} />
+                </span>
+              ))}
+              {rosterOverflow > 0 && (
+                <span
+                  className="inline-flex items-center justify-center"
+                  style={{
+                    width: 34, height: 34, borderRadius: "50%", marginLeft: -9,
+                    background: "var(--secondary)",
+                    border: "1.5px solid rgba(212,160,74,0.4)",
+                    fontFamily: "var(--font-mono)", fontSize: 10,
+                    color: "var(--gold, #D4A04A)",
+                  }}
+                >
+                  +{rosterOverflow}
+                </span>
+              )}
+            </span>
+            <span
+              className="font-serif"
+              style={{ fontStyle: "italic", fontSize: 17, lineHeight: 1.25, color: "var(--foreground)" }}
+            >
+              {post.content}
+            </span>
+          </Link>
+        ) : post.smoke_log ? (
           <>
             <h2 className="font-serif font-semibold text-base leading-snug mb-2" style={{ color: "var(--foreground)" }}>
               {post.title}
