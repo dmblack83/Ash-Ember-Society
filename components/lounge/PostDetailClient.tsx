@@ -117,6 +117,13 @@ export interface Post {
   like_count:  number;
   image_url:   string | null;
   image_urls?: string[] | null;
+  /* Weekly new-member digest roster; non-empty = digest chrome. */
+  roster?:     Array<{
+    position:     number;
+    user_id:      string;
+    display_name: string;
+    avatar_url:   string | null;
+  }>;
 }
 
 export interface Comment {
@@ -641,6 +648,10 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
   const postImageUrls     = postImages(post.image_url, post.image_urls);
   const postImageLightbox = usePhotoLightbox(postImageUrls);
 
+  /* Weekly new-member digest — non-empty roster switches the post
+     header to the system card (mockup section 05). */
+  const isDigest = (post.roster?.length ?? 0) > 0;
+
   // SSR-safe portal/window guard: setMounted in an effect is the
   // standard pattern for "client-only render gate". Lint rule
   // doesn't model it, disabled per-line.
@@ -874,6 +885,55 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
       <div className="flex-1 overflow-y-auto">
         {/* Post */}
         <div className="px-4 pt-5 pb-4" style={{ borderBottom: "1px solid var(--border)" }}>
+          {isDigest ? (
+            /* Weekly new-member digest: system card with the full roster
+               inside it (mockup section 05). No author row; the action
+               bar and comment thread below are the standard mechanics. */
+            <div
+              style={{
+                background:   "linear-gradient(160deg, var(--card) 0%, #2b2114 100%)",
+                border:       "1px solid rgba(212,160,74,0.35)",
+                borderRadius: 14,
+                padding:      "14px 16px",
+              }}
+            >
+              <div
+                className="flex items-center gap-2"
+                style={{
+                  fontFamily:    "var(--font-mono)",
+                  fontSize:      10,
+                  letterSpacing: "0.22em",
+                  textTransform: "uppercase",
+                  color:         "var(--gold, #D4A04A)",
+                  marginBottom:  10,
+                }}
+              >
+                <span aria-hidden="true">✦</span>
+                <span>{post.title}</span>
+                <span aria-hidden="true" style={{ flex: 1, height: 1, background: "rgba(212,160,74,0.2)" }} />
+                <span style={{ color: "var(--muted-foreground)", letterSpacing: "0.1em" }}>
+                  {relativeTime(post.created_at)}
+                </span>
+              </div>
+              <p className="font-serif" style={{ fontStyle: "italic", fontSize: 18, lineHeight: 1.25, color: "var(--foreground)" }}>
+                {post.content}
+              </p>
+              <div
+                className="flex flex-col gap-2.5"
+                style={{ borderTop: "1px solid rgba(212,160,74,0.18)", marginTop: 12, paddingTop: 12 }}
+              >
+                {(post.roster ?? []).map((m) => (
+                  <div key={m.user_id} className="flex items-center gap-2.5">
+                    <Avatar name={m.display_name} avatarUrl={m.avatar_url} size={28} />
+                    <span className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                      {m.display_name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+          <>
           <h1 className="font-serif font-semibold text-xl leading-snug mb-3" style={{ color: "var(--foreground)" }}>
             {post.title}
           </h1>
@@ -895,9 +955,11 @@ export function PostDetailClient({ post, comments: initialComments, hasLiked, us
               </p>
             </div>
           </div>
+          </>
+          )}
 
           {/* Body: burn report card OR text content + optional image */}
-          {smokeLog ? (
+          {isDigest ? null : smokeLog ? (
             <BurnReportCard log={smokeLog} postAuthorId={post.user_id} viewerId={userId} />
           ) : (
             <>

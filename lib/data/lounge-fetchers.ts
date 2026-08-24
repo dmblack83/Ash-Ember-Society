@@ -75,7 +75,18 @@ interface FetchLoungeFeedArgs {
 
 const POST_SELECT =
   "id, title, content, created_at, user_id, category_id, image_url, image_urls, is_locked, is_system, smoke_log_id, status, " +
-  "forum_post_likes(count), forum_comments(count)";
+  "forum_post_likes(count), forum_comments(count), " +
+  /* Weekly new-member digest roster (empty for ordinary posts). A
+     non-empty roster is what marks a post as a digest — see
+     lib/lounge/member-digest.ts. */
+  "member_announcement_members(position, user_id, display_name, avatar_url)";
+
+type RawRosterRow = {
+  position:     number;
+  user_id:      string;
+  display_name: string;
+  avatar_url:   string | null;
+};
 
 type RawPost = {
   id:                string;
@@ -92,6 +103,7 @@ type RawPost = {
   status:            string | null;
   forum_post_likes:  { count: number }[];
   forum_comments:    { count: number }[];
+  member_announcement_members: RawRosterRow[] | null;
 };
 
 type RawSmokeLog = Record<string, unknown> & {
@@ -275,6 +287,9 @@ async function enrichPostBatch(
       downvotes:     v.downvotes,
       user_vote:     v.userVote,
       status:        (p.status === "closed" ? "closed" : "open") as "open" | "closed",
+      roster:        (p.member_announcement_members ?? [])
+                       .slice()
+                       .sort((a, b) => a.position - b.position),
     };
   });
 
