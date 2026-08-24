@@ -7,6 +7,7 @@ import {
   cigarDetailsToSuggestionRow,
   diffCigarFields,
   cigarDetailsFromCurrent,
+  buildCigarLookupUrl,
   type CigarDetails,
 } from "@/lib/cigars/cigar-details";
 
@@ -145,5 +146,49 @@ describe("cigarDetailsFromCurrent", () => {
       binderCountry:   "",
       fillerCountries: ["Nicaragua"],
     });
+  });
+});
+
+describe("buildCigarLookupUrl", () => {
+  const base = "https://www.google.com/search?q=";
+  const q = (url: string | null) =>
+    decodeURIComponent((url ?? "").slice(base.length)).replaceAll("+", " ");
+
+  it("returns null when brand is blank", () => {
+    expect(buildCigarLookupUrl(EMPTY_CIGAR_DETAILS)).toBeNull();
+    expect(buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "   " })).toBeNull();
+  });
+
+  it("builds brand-only query with the trailing cigar term", () => {
+    const url = buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "Oliva" });
+    expect(url).not.toBeNull();
+    expect(url!.startsWith(base)).toBe(true);
+    expect(q(url)).toBe("Oliva cigar");
+  });
+
+  it("includes series after brand", () => {
+    const url = buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "Oliva", series: "Serie V Maduro" });
+    expect(q(url)).toBe("Oliva Serie V Maduro cigar");
+  });
+
+  it("composes the full field set, excludes countries, joins length x gauge", () => {
+    const url = buildCigarLookupUrl(filled);
+    expect(q(url)).toBe("Padron 1964 Robusto 5x50 Maduro Habano cigar");
+  });
+
+  it("omits the dimension term when only one of length/gauge is present", () => {
+    const url = buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "Oliva", lengthInches: "6" });
+    expect(q(url)).toBe("Oliva cigar");
+  });
+
+  it("trims whitespace from every term", () => {
+    const url = buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "  Oliva  ", series: " Serie V " });
+    expect(q(url)).toBe("Oliva Serie V cigar");
+  });
+
+  it("percent-encodes diacritics safely", () => {
+    const url = buildCigarLookupUrl({ ...EMPTY_CIGAR_DETAILS, brand: "Oliva", wrapper: "San Andrés" });
+    expect(url).toContain("San");
+    expect(q(url)).toBe("Oliva San Andrés cigar");
   });
 });
