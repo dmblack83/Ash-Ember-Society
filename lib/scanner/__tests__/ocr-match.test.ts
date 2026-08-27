@@ -37,6 +37,11 @@ describe("selectQueryWords", () => {
     expect(selectQueryWords("Padron 1964 Anniversary")).toContain("1964");
   });
 
+  it("keeps up to 16 words by default", () => {
+    const text = Array.from({ length: 20 }, (_, i) => `word${String(i).padStart(2, "0")}`).join(" ");
+    expect(selectQueryWords(text)).toHaveLength(16);
+  });
+
   it("returns empty for empty or all-noise text", () => {
     expect(selectQueryWords("")).toEqual([]);
     expect(selectQueryWords("the and for est")).toEqual([]);
@@ -83,12 +88,51 @@ describe("scoreCandidates", () => {
     expect(out).toEqual([]);
   });
 
-  it("caps results at five", () => {
+  it("returns every candidate above the threshold, uncapped", () => {
     const rows = Array.from({ length: 12 }, (_, i) =>
       row("Cohiba", `Linea ${i}`, "Robusto")
     );
     const out = scoreCandidates(["cohiba"], "cohiba", rows);
-    expect(out).toHaveLength(5);
+    expect(out).toHaveLength(12);
+  });
+
+  it("ranks the variant whose name words appear on the band first", () => {
+    // Regression: Arturo Fuente Double Chateau Maduro was never surfaced
+    // because every Fuente shares the same brand score and variant words
+    // barely moved the ranking.
+    const rows = [
+      row("Arturo Fuente", "Chateau Fuente", "Robusto"),
+      row("Arturo Fuente", "Chateau Fuente", "King T Tubos (Churchill)"),
+      row("Arturo Fuente", "Chateau Fuente", "Double Chateau Fuente Maduro"),
+      row("Arturo Fuente", "Hemingway", "Short Story"),
+    ];
+    const out = scoreCandidates(
+      ["arturo", "fuente", "chateau", "double", "maduro", "gran", "reserva"],
+      "arturo fuente gran reserva double chateau fuente maduro",
+      rows
+    );
+    expect(out[0].format).toBe("Double Chateau Fuente Maduro");
+  });
+
+  it("ranks simpler variants first when their extra words are absent", () => {
+    const rows = [
+      row("Arturo Fuente", "Chateau Fuente", "Double Chateau Fuente Maduro"),
+      row("Arturo Fuente", "Chateau Fuente", "Robusto"),
+    ];
+    const out = scoreCandidates(
+      ["arturo", "fuente", "chateau"],
+      "arturo fuente chateau fuente",
+      rows
+    );
+    expect(out[0].format).toBe("Robusto");
+  });
+
+  it("keeps a solid brand match despite a long unmatched catalog name", () => {
+    const rows = [
+      row("Cohiba", "Edicion Limitada Gran Reserva Especial", "Doble Corona"),
+    ];
+    const out = scoreCandidates(["cohiba"], "cohiba", rows);
+    expect(out).toHaveLength(1);
   });
 
   it("strips internal score fields from results", () => {

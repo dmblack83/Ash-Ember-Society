@@ -25,7 +25,7 @@ export function foldText(text: string): string {
  * Longer words are kept first — they are far less likely to be OCR noise
  * or to flood the query with generic matches.
  */
-export function selectQueryWords(ocrText: string, max = 8): string[] {
+export function selectQueryWords(ocrText: string, max = 16): string[] {
   const seen = new Set<string>();
   const words = foldText(ocrText)
     .replace(/[^\w\s]/g, " ")
@@ -50,12 +50,15 @@ interface CandidateFields {
 }
 
 const SCORE_THRESHOLD = 2;
-const MAX_RESULTS = 5;
 
 /**
  * Scores catalog rows against the OCR words.
- * Brand hits weigh 3x, series/format hits 2x, exact brand word +3,
- * and a full multi-word brand appearing verbatim in the OCR text +5.
+ * Brand hits weigh 3x, exact brand word +3, and a full multi-word brand
+ * appearing verbatim in the OCR text +5. Series/format is scored by
+ * coverage of the candidate's own name words: within one brand family
+ * every row shares the brand score, so the variant words ("double",
+ * "maduro") are what separate the right cigar from its siblings —
+ * each found on the band adds 2, each absent subtracts 1.
  */
 export function scoreCandidates<T extends CandidateFields>(
   words: string[],
@@ -67,14 +70,8 @@ export function scoreCandidates<T extends CandidateFields>(
   return rows
     .map((cigar) => {
       const brand = foldText(cigar.brand ?? "");
-      const seriesFormat = foldText(
-        `${cigar.series ?? ""} ${cigar.format ?? ""}`
-      );
 
       const brandHits = words.filter((w) => brand.includes(w)).length;
-      const seriesFormatHits = words.filter((w) =>
-        seriesFormat.includes(w)
-      ).length;
       const brandExact = words.some((w) => brand === w) ? 3 : 0;
       // Multi-word brands only — single-word brands are already counted
       // by brandHits/brandExact, and re-counting them here lets a partial
@@ -84,13 +81,31 @@ export function scoreCandidates<T extends CandidateFields>(
           ? 5
           : 0;
 
+      // Brand words are excluded so series like "Chateau Fuente" don't
+      // re-earn credit for "fuente".
+      const brandWords = new Set(brand.split(/\s+/));
+      const nameWords = new Set(
+        foldText(`${cigar.series ?? ""} ${cigar.format ?? ""}`)
+          .replace(/[^\w\s]/g, " ")
+          .split(/\s+/)
+          .filter((w) => w.length >= 3 && !brandWords.has(w))
+      );
+      let found = 0;
+      let missing = 0;
+      for (const w of nameWords) {
+        if (foldedOcr.includes(w)) found += 1;
+        else missing += 1;
+      }
+      // Cap the miss penalty so a long catalog name can't sink a solid
+      // brand match below the threshold on a brand-only band.
+      const coverage = found * 2 - Math.min(missing, 3);
+
       return {
         cigar,
-        score: brandHits * 3 + seriesFormatHits * 2 + brandExact + phraseBonus,
+        score: brandHits * 3 + brandExact + phraseBonus + coverage,
       };
     })
     .filter((c) => c.score >= SCORE_THRESHOLD)
     .sort((a, b) => b.score - a.score)
-    .slice(0, MAX_RESULTS)
     .map(({ cigar }) => cigar);
 }
