@@ -127,6 +127,14 @@ describe("scoreCandidates", () => {
     expect(out[0].format).toBe("Robusto");
   });
 
+  it("keeps a solid brand match despite a long unmatched catalog name", () => {
+    const rows = [
+      row("Cohiba", "Edicion Limitada Gran Reserva Especial", "Doble Corona"),
+    ];
+    const out = scoreCandidates(["cohiba"], "cohiba", rows);
+    expect(out).toHaveLength(1);
+  });
+
   it("strips internal score fields from results", () => {
     const out = scoreCandidates(["cohiba"], "cohiba", [
       row("Cohiba", null, null),

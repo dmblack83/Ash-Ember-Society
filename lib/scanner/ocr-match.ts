@@ -90,10 +90,15 @@ export function scoreCandidates<T extends CandidateFields>(
           .split(/\s+/)
           .filter((w) => w.length >= 3 && !brandWords.has(w))
       );
-      let coverage = 0;
+      let found = 0;
+      let missing = 0;
       for (const w of nameWords) {
-        coverage += foldedOcr.includes(w) ? 2 : -1;
+        if (foldedOcr.includes(w)) found += 1;
+        else missing += 1;
       }
+      // Cap the miss penalty so a long catalog name can't sink a solid
+      // brand match below the threshold on a brand-only band.
+      const coverage = found * 2 - Math.min(missing, 3);
 
       return {
         cigar,
