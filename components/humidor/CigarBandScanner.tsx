@@ -67,7 +67,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
     )
     .or(orFilter)
     .order("usage_count", { ascending: false })
-    .limit(50);
+    .limit(200);
 
   if (!data?.length) return [];
 
