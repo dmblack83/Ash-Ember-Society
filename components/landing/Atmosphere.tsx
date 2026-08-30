@@ -16,6 +16,7 @@ interface Wisp {
 
 const MAX_WISPS = 26;
 const SPAWN_P = 0.06;
+const SPAWN_BLOOM_MIN = 0.3;
 const WISP_ALPHA = 0.035;
 
 export function Atmosphere() {
@@ -108,7 +109,7 @@ export function Atmosphere() {
     };
 
     const drawSmoke = () => {
-      if (bloom > 0.3 && wisps.length < MAX_WISPS && Math.random() < SPAWN_P) spawnWisp();
+      if (bloom > SPAWN_BLOOM_MIN && wisps.length < MAX_WISPS && Math.random() < SPAWN_P) spawnWisp();
       ctx.globalCompositeOperation = "screen";
       for (let i = wisps.length - 1; i >= 0; i--) {
         const w = wisps[i];
@@ -135,10 +136,17 @@ export function Atmosphere() {
     const draw = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       bloom = bloomLevel(pageProgress(window.scrollY, max));
-      // Idle skip: nothing on screen changes when there's no smoke and the
-      // bloom level hasn't moved since the last paint, so skip the redraw
-      // (rAF keeps rescheduling so scroll changes are still picked up).
-      const skip = wisps.length === 0 && bloom === lastPaintedBloom && !needsPaint;
+      // Idle skip: only when there's no smoke, no smoke CAN spawn (bloom at
+      // or below the spawn threshold), and bloom hasn't moved since the last
+      // paint. Spawning lives inside the paint path, so skipping while bloom
+      // is above the threshold would deadlock smoke permanently once the
+      // pool empties; hero/finale keep painting + spawning continuously.
+      // (rAF keeps rescheduling so scroll changes are still picked up.)
+      const skip =
+        wisps.length === 0 &&
+        bloom <= SPAWN_BLOOM_MIN &&
+        bloom === lastPaintedBloom &&
+        !needsPaint;
       if (!skip) {
         ctx.fillStyle = "#0e0a06";
         ctx.fillRect(0, 0, W, H);
