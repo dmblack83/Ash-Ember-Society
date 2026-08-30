@@ -28,21 +28,25 @@ export function Atmosphere() {
 
     let W = 0;
     let H = 0;
+    let dpr = 1;
     let t = 0;
     let raf = 0;
-    const resize = () => {
-      W = cv.width = window.innerWidth * devicePixelRatio;
-      H = cv.height = window.innerHeight * devicePixelRatio;
-    };
-    window.addEventListener("resize", resize);
-    resize();
-
+    let lastPaintedBloom = -1;
+    let needsPaint = true;
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const resize = () => {
+      dpr = Math.min(devicePixelRatio, 2);
+      W = cv.width = window.innerWidth * dpr;
+      H = cv.height = window.innerHeight * dpr;
+      needsPaint = true;
+      if (reduceMotion) paintStaticFrame();
+    };
+
     const folds = Array.from({ length: 6 }, (_, i) => ({
       x: 0.12 + 0.15 * i,
       hue: i % 2 ? "212,160,74" : "232,100,44",
     }));
-    let bloom = 1;
+    let bloom = reduceMotion ? 0.6 : 1;
     const wisps: Wisp[] = [];
 
     const spawnWisp = () => {
@@ -51,7 +55,7 @@ export function Atmosphere() {
         x: W * (0.42 + 0.16 * Math.random()),
         y: H * (1 + 0.04 * Math.random()),
         r: (26 + 40 * Math.random()) * s,
-        vy: (0.35 + 0.55 * Math.random()) * s * devicePixelRatio,
+        vy: (0.35 + 0.55 * Math.random()) * s * dpr,
         sway: Math.random() * Math.PI * 2,
         swayAmp: (14 + 22 * Math.random()) * s,
         life: 0,
@@ -96,6 +100,13 @@ export function Atmosphere() {
       ctx.globalCompositeOperation = "source-over";
     };
 
+    const paintStaticFrame = () => {
+      ctx.fillStyle = "#0e0a06";
+      ctx.fillRect(0, 0, W, H);
+      drawWarmth();
+      drawShaftsAndBloom();
+    };
+
     const drawSmoke = () => {
       if (bloom > 0.3 && wisps.length < MAX_WISPS && Math.random() < SPAWN_P) spawnWisp();
       ctx.globalCompositeOperation = "screen";
@@ -124,22 +135,27 @@ export function Atmosphere() {
     const draw = () => {
       const max = document.documentElement.scrollHeight - window.innerHeight;
       bloom = bloomLevel(pageProgress(window.scrollY, max));
-      ctx.fillStyle = "#0e0a06";
-      ctx.fillRect(0, 0, W, H);
-      drawWarmth();
-      drawShaftsAndBloom();
-      drawSmoke();
-      t += 16;
+      // Idle skip: nothing on screen changes when there's no smoke and the
+      // bloom level hasn't moved since the last paint, so skip the redraw
+      // (rAF keeps rescheduling so scroll changes are still picked up).
+      const skip = wisps.length === 0 && bloom === lastPaintedBloom && !needsPaint;
+      if (!skip) {
+        ctx.fillStyle = "#0e0a06";
+        ctx.fillRect(0, 0, W, H);
+        drawWarmth();
+        drawShaftsAndBloom();
+        drawSmoke();
+        t += 16;
+        lastPaintedBloom = bloom;
+        needsPaint = false;
+      }
       raf = requestAnimationFrame(draw);
     };
 
-    if (reduceMotion) {
-      bloom = 0.6;
-      ctx.fillStyle = "#0e0a06";
-      ctx.fillRect(0, 0, W, H);
-      drawWarmth();
-      drawShaftsAndBloom();
-    } else {
+    window.addEventListener("resize", resize);
+    resize();
+
+    if (!reduceMotion) {
       raf = requestAnimationFrame(draw);
     }
 

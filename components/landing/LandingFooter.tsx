@@ -5,7 +5,7 @@ export function LandingFooter() {
         <a className="wordmark" href="#top">
           Ash <em>&</em> Ember
         </a>
-        <nav className="foot-links">
+        <nav className="foot-links" aria-label="Site">
           <a href="#top">The Society</a>
           <a href="/signup">Membership</a>
           <a href="/discover/cigar-news">Journal</a>
@@ -15,7 +15,7 @@ export function LandingFooter() {
       </div>
       <div className="foot-legal">
         <span>© MMXXVI The Ash &amp; Ember Society. All rights reserved.</span>
-        <nav>
+        <nav aria-label="Legal">
           <a href="/privacy">Privacy Policy</a>
           <a href="/terms">Terms of Service</a>
           {/* TODO(dave): confirm mailto vs. a real contact route before merge */}
