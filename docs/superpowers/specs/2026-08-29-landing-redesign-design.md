@@ -12,6 +12,11 @@ Replace the current landing page (`app/(marketing)/page.tsx` + `components/landi
 
 Out of scope: any change to app-shell routes, auth, nav prefetch behavior of the app, or the Membership/pricing model. Landing is a marketing surface only.
 
+### Routing behavior (hard requirement)
+- The root URL (www.ashember.vip / `/`) ALWAYS renders the landing page. It must never redirect to `/home`, including for authenticated users. (Today it does redirect; the build must find and remove that redirect, likely in middleware/proxy or the marketing page itself.)
+- The PWA is unaffected: its start_url remains `/home`.
+- Desktop users enter the app via the Sign In button. Signup and login flows remain exactly as they are today (including any post-login redirect they already do).
+
 ## 2. Direction (chosen and rejected)
 
 Chosen: **hybrid of "Editorial Ritual" (journal masthead, chapter structure, oversized Cormorant, plate captions) and "Dark Glass Gallery" (frosted product cards, 1px gradient edges, mono micro-labels)**, over a warm animated atmosphere.
@@ -74,7 +79,9 @@ Three staggered glass post cards, label "THE LOUNGE", attribution "MEMBER" (gene
 Ember bloom returns full strength. H2 "Your seat at the table *awaits.*" Sub "Join free with up to twenty cigars on the house. Members keep an unlimited humidor count." CTA "Join the Society" + "No card required."
 
 ### 07 Footer
-Wordmark | The Society · Membership · Journal · Sign In | "Smoke slowly. MMXXVI." Legal row: "© MMXXVI The Ash & Ember Society. All rights reserved." + Privacy Policy · Terms of Service · Contact. (Privacy/TOS pages must exist before launch; already on the go-live checklist.)
+Wordmark | The Society · Membership · Journal · Sign In | "Smoke slowly. MMXXVI." Legal row: "© MMXXVI The Ash & Ember Society. All rights reserved." + Privacy Policy · Terms of Service · Contact · Instagram.
+- Privacy Policy and Terms of Service link to the SAME legal content the app already uses (resolve the exact routes during build; if the content only lives inside the Account page's Legal tab, expose it at standalone routes and point both the app and landing at them).
+- Instagram: https://www.instagram.com/ash_and_ember_society (opens in new tab, `rel="noopener"`).
 
 ## 4. Visual system
 
@@ -130,6 +137,7 @@ Fixed right (right 20px, vertical center), desktop ≥900px only, `aria-hidden`.
 - Burn rail tracks full page height correctly (pins included), ember ends at the band, smoke rises from ash tip.
 - Breakpoints 320 / 375 / 768 / 1024 / 1440 / 1920: no overflow, no clipped pinned content, buttons never wrap, masthead fits at 320.
 - Reduced-motion and JS-disabled render complete readable pages.
+- Root URL renders the landing page for BOTH signed-out and signed-in users (no `/home` redirect); PWA still launches at `/home`.
 - `verify-in-app` run on the landing route (console clean, no 5xx); `check:shells`, `check:bundle`, unit tests, type check green.
 - Real-device pass on Dave's phone before merge (iOS Safari).
 
@@ -137,5 +145,4 @@ Fixed right (right 20px, vertical center), desktop ≥900px only, `aria-hidden`.
 
 - Sign In / Join link targets: wire to existing `/login` and `/signup`.
 - "Journal" footer link target: points at `/discover/cigar-news` for now.
-- Privacy Policy / Terms / Contact pages: required for launch (go-live checklist), stub links acceptable in the PR behind visible "coming soon" only if launch is not imminent.
 - Catalog count copy says "9K+" (aspirational; catalog currently 4,221). Dave's call, revisit before launch if needed.
