@@ -2,6 +2,11 @@
 
 import { Masthead } from "./Masthead";
 import { Hero } from "./Hero";
+import { BrandBand } from "./BrandBand";
+import { Manifesto } from "./Manifesto";
+import { ChapterCollection } from "./ChapterCollection";
+import { ChapterRecord } from "./ChapterRecord";
+import { ChapterCompany } from "./ChapterCompany";
 import { Finale } from "./Finale";
 import { LandingFooter } from "./LandingFooter";
 import "./landing.css";
@@ -18,6 +23,13 @@ export default function LandingPage() {
       <Masthead />
       <main>
         <Hero />
+        <div data-manifesto-scene>
+          <BrandBand />
+          <Manifesto />
+        </div>
+        <ChapterCollection />
+        <ChapterRecord />
+        <ChapterCompany />
         <Finale />
       </main>
       <LandingFooter />
