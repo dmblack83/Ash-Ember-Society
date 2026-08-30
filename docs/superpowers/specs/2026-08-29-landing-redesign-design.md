@@ -13,9 +13,10 @@ Replace the current landing page (`app/(marketing)/page.tsx` + `components/landi
 Out of scope: any change to app-shell routes, auth, nav prefetch behavior of the app, or the Membership/pricing model. Landing is a marketing surface only.
 
 ### Routing behavior (hard requirement)
-- The root URL (www.ashember.vip / `/`) ALWAYS renders the landing page. It must never redirect to `/home`, including for authenticated users. (Today it does redirect; the build must find and remove that redirect, likely in middleware/proxy or the marketing page itself.)
+- Signed-OUT visitors to the root URL (www.ashember.vip / `/`) see the landing page.
+- Signed-IN users hitting the root URL go to the app view (`/home`), exactly as today. Do not change the existing authenticated redirect.
 - The PWA is unaffected: its start_url remains `/home`.
-- Desktop users enter the app via the Sign In button. Signup and login flows remain exactly as they are today (including any post-login redirect they already do).
+- Signup and login flows remain exactly as they are today (including any post-login redirect they already do).
 
 ## 2. Direction (chosen and rejected)
 
@@ -137,7 +138,7 @@ Fixed right (right 20px, vertical center), desktop ≥900px only, `aria-hidden`.
 - Burn rail tracks full page height correctly (pins included), ember ends at the band, smoke rises from ash tip.
 - Breakpoints 320 / 375 / 768 / 1024 / 1440 / 1920: no overflow, no clipped pinned content, buttons never wrap, masthead fits at 320.
 - Reduced-motion and JS-disabled render complete readable pages.
-- Root URL renders the landing page for BOTH signed-out and signed-in users (no `/home` redirect); PWA still launches at `/home`.
+- Root URL: signed-out visitors get the landing page; signed-in users land in the app (`/home`); PWA still launches at `/home`.
 - `verify-in-app` run on the landing route (console clean, no 5xx); `check:shells`, `check:bundle`, unit tests, type check green.
 - Real-device pass on Dave's phone before merge (iOS Safari).
 
