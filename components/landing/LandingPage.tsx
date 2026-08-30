@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Preloader } from "./Preloader";
 import { Atmosphere } from "./Atmosphere";
 import { Masthead } from "./Masthead";
@@ -18,8 +19,31 @@ import "./landing.css";
    complete and readable with no JS; Task 6 adds the dynamically-imported
    GSAP/Lenis choreography on top as pure enhancement. */
 export default function LandingPage() {
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const scope = rootRef.current;
+    if (!scope) return;
+    let cleanup: (() => void) | undefined;
+    let cancelled = false;
+    import("./motion")
+      .then(({ initLandingMotion }) => initLandingMotion(scope))
+      .then((fn) => {
+        if (cancelled) fn();
+        else cleanup = fn;
+      })
+      .catch(() => {
+        // chunk load failure: static page stands on its own
+        scope.querySelector("[data-preloader]")?.remove();
+      });
+    return () => {
+      cancelled = true;
+      cleanup?.();
+    };
+  }, []);
+
   return (
-    <div className="ae-landing">
+    <div className="ae-landing" ref={rootRef}>
       <Preloader />
       <Atmosphere />
       <div className="vignette" aria-hidden="true" />
