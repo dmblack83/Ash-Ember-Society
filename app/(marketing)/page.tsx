@@ -5,12 +5,13 @@ import LandingPage from "@/components/landing/LandingPage";
 export const runtime = "edge";
 
 export const metadata = {
-  title: "Ash & Ember Society",
+  title: "Ash & Ember Society · A Society Journal of Smoke & Patience",
   description:
-    "Track your humidor, log every smoke, discover cigars and local shops, and join a community of serious enthusiasts. Built for those who take their cigar experience seriously.",
+    "An exclusive digital sanctuary for the modern aficionado. Track your collection, refine your palate, and connect with a society of discerning enthusiasts.",
   openGraph: {
     title: "Ash & Ember Society",
-    description: "An exclusive digital sanctuary for the modern aficionado.",
+    description:
+      "An exclusive digital sanctuary for the modern aficionado. Track your collection, refine your palate, and connect with a society of discerning enthusiasts.",
     /* All metadata URLs use the www canonical host. Bare-host links
        drift the PWA out of its manifest scope on iOS resume and
        trigger an in-app browser fallback. */
@@ -29,7 +30,8 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Ash & Ember Society",
-    description: "An exclusive digital sanctuary for the modern aficionado.",
+    description:
+      "An exclusive digital sanctuary for the modern aficionado. Track your collection, refine your palate, and connect with a society of discerning enthusiasts.",
     images: ["https://www.ashember.vip/og-image.png"],
   },
 };
