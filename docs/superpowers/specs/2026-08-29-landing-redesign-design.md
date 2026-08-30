@@ -126,7 +126,7 @@ Fixed right (right 20px, vertical center), desktop ≥900px only, `aria-hidden`.
 ## 8. Implementation notes (Next.js)
 
 - Route: `app/(marketing)/page.tsx` stays a server component shell; new `components/landing/` client components (suggest: `LandingPage.tsx` orchestrator + `Atmosphere.tsx` canvas + `BurnRail.tsx` + per-section components + `landing.css`). Delete the old framer-motion sections; framer-motion is NOT used here (GSAP owns this page).
-- Marketing route is outside the app shell; it must remain statically prerendered (`○`). No server data. `npm run check:shells` must stay green.
+- Marketing route is outside the app shell. The route stays dynamic (`ƒ`) because §1's server-side signed-in redirect is a hard requirement; the landing itself fetches no data. `npm run check:shells` must stay green.
 - Textures/noise as inline SVG data URIs (CSP-safe, zero requests). Fonts: reuse existing self-hosted Cormorant; ensure hero weights preloaded on this route.
 - Dynamic-import the GSAP/Lenis bundle so `/login`, `/signup`, and app routes pay nothing.
 - Budgets (from house perf rules): landing JS < 150KB gz (GSAP+ScrollTrigger+Lenis ≈ 60KB gz + page code), CSS < 30KB, LCP < 2.5s, CLS < 0.1. `npm run analyze` + `check:bundle` before PR.
