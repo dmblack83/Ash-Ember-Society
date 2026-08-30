@@ -1,6 +1,9 @@
 "use client";
 
+import { Preloader } from "./Preloader";
+import { Atmosphere } from "./Atmosphere";
 import { Masthead } from "./Masthead";
+import { BurnRail } from "./BurnRail";
 import { Hero } from "./Hero";
 import { BrandBand } from "./BrandBand";
 import { Manifesto } from "./Manifesto";
@@ -17,10 +20,12 @@ import "./landing.css";
 export default function LandingPage() {
   return (
     <div className="ae-landing">
-      {/* z0 atmosphere canvas + z1 vignette arrive in Task 5 */}
+      <Preloader />
+      <Atmosphere />
       <div className="vignette" aria-hidden="true" />
       <div className="tex-layer" aria-hidden="true" />
       <Masthead />
+      <BurnRail />
       <main>
         <Hero />
         <div data-manifesto-scene>
