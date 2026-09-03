@@ -50,7 +50,7 @@
 .ae-landing .masthead .in { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
   max-width: 1680px; margin: 0 auto;
   padding: 20px var(--page-pad); border-bottom: 1px solid transparent; transition: all .4s; }
-.ae-landing .masthead.scrolled .in { background: rgba(14,10,6,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+.ae-landing .masthead.scrolled .in { background: rgba(14,10,6,.82); backdrop-filter: blur(16px);
   border-bottom-color: var(--line); padding-top: 14px; padding-bottom: 14px; }
 .ae-landing .wordmark { font-family: var(--serif); font-size: 21px; font-weight: 600; letter-spacing: .05em; color: var(--cream); text-decoration: none; }
 .ae-landing .wordmark em { font-style: italic; color: var(--gold); }
@@ -203,7 +203,7 @@
 .ae-landing .gcard { padding: 1px; border-radius: 18px;
   background: linear-gradient(150deg, rgba(245,230,211,.16), rgba(245,230,211,.03) 45%, rgba(212,160,74,.12));
   box-shadow: 0 24px 60px rgba(0,0,0,.5); }
-.ae-landing .gcard-in { border-radius: 17px; background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 18px; }
+.ae-landing .gcard-in { border-radius: 17px; background: var(--glass); backdrop-filter: blur(20px); padding: 18px; }
 .ae-landing .g-label { font-family: var(--mono); font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: var(--mute);
   margin-bottom: 12px; display: flex; justify-content: space-between; }
 .ae-landing .g-label i { font-style: normal; color: var(--gold-deep); }
