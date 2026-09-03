@@ -62,6 +62,24 @@ export async function initLandingMotion(scope: HTMLElement): Promise<Cleanup> {
 
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  const ctx = gsap.context(() => {}, scope);
+
+  // Hero start states are applied before the preloader plays, so its
+  // slide-up never reveals a fully-rendered hero that then re-animates.
+  const heroPrepare = () => {
+    const headline = scope.querySelector<HTMLElement>("[data-hero-headline]");
+    if (reduceMotion || !headline) return;
+    headline.querySelectorAll<HTMLElement>(".line").forEach(splitWords);
+    ctx.add(() => {
+      gsap.set("[data-hero-kicker]", { autoAlpha: 0, y: 16 });
+      gsap.set(headline.querySelectorAll(".split-word"), { yPercent: 135, filter: "blur(6px)" });
+      gsap.set("[data-hero-deck]", { autoAlpha: 0, y: 22 });
+      gsap.set("[data-hero-ctas]", { autoAlpha: 0, y: 22 });
+      gsap.set("[data-hero-cue]", { autoAlpha: 0 });
+    });
+  };
+  heroPrepare();
+
   // ---- Lenis ----
   let lenis: InstanceType<typeof LenisCtor> | null = null;
   let lenisTick: ((t: number) => void) | null = null;
@@ -94,21 +112,18 @@ export async function initLandingMotion(scope: HTMLElement): Promise<Cleanup> {
     });
   };
 
-  const ctx = gsap.context(() => {}, scope);
-
   const boot = () => ctx.add(() => {
     // -- hero entrance + parallax out --
     const headline = scope.querySelector<HTMLElement>("[data-hero-headline]");
     if (!reduceMotion && headline) {
       headline.querySelectorAll<HTMLElement>(".line").forEach(splitWords);
       gsap.timeline({ defaults: { ease: "power4.out" } })
-        .fromTo("[data-hero-kicker]", { autoAlpha: 0, y: 16 }, { autoAlpha: 1, y: 0, duration: 0.8 })
-        .fromTo(headline.querySelectorAll(".split-word"),
-          { yPercent: 135, filter: "blur(6px)" },
+        .to("[data-hero-kicker]", { autoAlpha: 1, y: 0, duration: 0.8 })
+        .to(headline.querySelectorAll(".split-word"),
           { yPercent: 0, filter: "blur(0px)", duration: 1.1, stagger: 0.07 }, "-=0.5")
-        .fromTo("[data-hero-deck]", { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.9 }, "-=0.6")
-        .fromTo("[data-hero-ctas]", { autoAlpha: 0, y: 22 }, { autoAlpha: 1, y: 0, duration: 0.9 }, "-=0.7")
-        .fromTo("[data-hero-cue]", { autoAlpha: 0 }, { autoAlpha: 1, duration: 0.8 }, "-=0.4");
+        .to("[data-hero-deck]", { autoAlpha: 1, y: 0, duration: 0.9 }, "-=0.6")
+        .to("[data-hero-ctas]", { autoAlpha: 1, y: 0, duration: 0.9 }, "-=0.7")
+        .to("[data-hero-cue]", { autoAlpha: 1, duration: 0.8 }, "-=0.4");
       gsap.to(".hero > *", {
         y: -60, autoAlpha: 0.25, ease: "none",
         scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: 1 },
@@ -122,17 +137,13 @@ export async function initLandingMotion(scope: HTMLElement): Promise<Cleanup> {
       band.setAttribute("data-loop", "");
     }
 
-    // -- manifesto: pinned word scrub --
-    const paras = gsap.utils.toArray<HTMLElement>("[data-scrub-words]");
-    paras.forEach(splitWords);
+    // -- manifesto: shaded at rest, whole text fades in on scroll (no pin) --
     if (!reduceMotion) {
-      const words: Element[] = [];
-      paras.forEach((p) => words.push(...p.querySelectorAll(".split-word")));
-      gsap.fromTo(words, { opacity: 0.13 }, {
-        opacity: 1, stagger: 0.6, ease: "none",
+      gsap.fromTo("[data-scrub-words]", { opacity: 0.13 }, {
+        opacity: 1, ease: "none",
         scrollTrigger: {
-          trigger: "[data-manifesto-scene]", start: "top 56px", end: "+=160%",
-          scrub: 0.8, pin: true, anticipatePin: 1,
+          trigger: "[data-manifesto]", start: "top 75%", end: "top 30%",
+          scrub: 0.8,
         },
       });
     }
@@ -187,6 +198,34 @@ export async function initLandingMotion(scope: HTMLElement): Promise<Cleanup> {
         .to(cards[0], { scale: 0.94, y: -84, autoAlpha: 0.5, ease: "none", duration: 0.22 }, 0.72)
         .to(cards[1], { scale: 0.97, y: -46, autoAlpha: 0.8, ease: "none", duration: 0.22 }, 0.72)
         .to(cards[2], { y: 0, ease: "none", duration: 0.24 }, 0.72);
+    }
+
+    // -- CH4: laptop lands first, phones slide out from behind it --
+    const deviceRow = scope.querySelector<HTMLElement>("[data-device-row]");
+    if (deviceRow) {
+      const laptop = deviceRow.querySelector<HTMLElement>(".dev-laptop");
+      const phones = [
+        deviceRow.querySelector<HTMLElement>(".dev-iphone"),
+        deviceRow.querySelector<HTMLElement>(".dev-android"),
+      ].filter((p): p is HTMLElement => p !== null);
+      if (reduceMotion || innerWidth < 900 || !laptop) {
+        gsap.set([laptop, ...phones].filter(Boolean), { autoAlpha: 1 });
+      } else {
+        const center = (el: HTMLElement) => {
+          const r = el.getBoundingClientRect();
+          return r.left + r.width / 2;
+        };
+        const lc = center(laptop);
+        const offsets = phones.map((p) => lc - center(p));
+        gsap.set(laptop, { autoAlpha: 0, y: 70 });
+        phones.forEach((p, i) => gsap.set(p, { autoAlpha: 0, x: offsets[i], scale: 0.9 }));
+        gsap.timeline({
+          scrollTrigger: { trigger: deviceRow, start: "top 80%", end: "top 18%", scrub: 1 },
+        })
+          .to(laptop, { autoAlpha: 1, y: 0, ease: "none", duration: 0.3 })
+          .to(phones, { autoAlpha: 1, ease: "none", duration: 0.1 }, 0.3)
+          .to(phones, { x: 0, scale: 1, ease: "none", duration: 0.55 }, 0.34);
+      }
     }
 
     // -- footer reveal --
