@@ -42,8 +42,8 @@ export function ChapterDevices() {
                 <img
                   src="/landing/device-laptop.webp"
                   alt=""
-                  width={3024}
-                  height={1890}
+                  width={1600}
+                  height={1000}
                   loading="lazy"
                   decoding="async"
                 />
