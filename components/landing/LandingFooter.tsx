@@ -5,12 +5,6 @@ export function LandingFooter() {
         <a className="wordmark" href="#top">
           Ash <em>&</em> Ember
         </a>
-        <nav className="foot-links" aria-label="Site">
-          <a href="#top">The Society</a>
-          <a href="/signup">Membership</a>
-          <a href="/discover/cigar-news">Journal</a>
-          <a href="/login">Sign In</a>
-        </nav>
         <div className="foot-note">Smoke slowly. MMXXVI.</div>
       </div>
       <div className="foot-legal">

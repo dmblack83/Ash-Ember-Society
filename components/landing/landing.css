@@ -50,7 +50,7 @@
 .ae-landing .masthead .in { display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
   max-width: 1680px; margin: 0 auto;
   padding: 20px var(--page-pad); border-bottom: 1px solid transparent; transition: all .4s; }
-.ae-landing .masthead.scrolled .in { background: rgba(14,10,6,.82); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+.ae-landing .masthead.scrolled .in { background: rgba(14,10,6,.82); backdrop-filter: blur(16px);
   border-bottom-color: var(--line); padding-top: 14px; padding-bottom: 14px; }
 .ae-landing .wordmark { font-family: var(--serif); font-size: 21px; font-weight: 600; letter-spacing: .05em; color: var(--cream); text-decoration: none; }
 .ae-landing .wordmark em { font-style: italic; color: var(--gold); }
@@ -179,7 +179,7 @@
   vertical-align: middle; margin: 0 24px; }
 @keyframes ae-marq { to { transform: translateX(-50%); } }
 
-/* ---------- manifesto (pinned with the band; scroll-scrubbed word reveal) ---------- */
+/* ---------- manifesto (shaded at rest; whole text fades in on scroll) ---------- */
 .ae-landing [data-manifesto-scene] { min-height: 100svh; display: flex; flex-direction: column; }
 .ae-landing .manifesto { position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column; justify-content: center;
   padding: 8vh var(--page-pad); max-width: 1100px; margin: 0 auto; width: 100%; }
@@ -203,7 +203,7 @@
 .ae-landing .gcard { padding: 1px; border-radius: 18px;
   background: linear-gradient(150deg, rgba(245,230,211,.16), rgba(245,230,211,.03) 45%, rgba(212,160,74,.12));
   box-shadow: 0 24px 60px rgba(0,0,0,.5); }
-.ae-landing .gcard-in { border-radius: 17px; background: var(--glass); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); padding: 18px; }
+.ae-landing .gcard-in { border-radius: 17px; background: var(--glass); backdrop-filter: blur(20px); padding: 18px; }
 .ae-landing .g-label { font-family: var(--mono); font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: var(--mute);
   margin-bottom: 12px; display: flex; justify-content: space-between; }
 .ae-landing .g-label i { font-style: normal; color: var(--gold-deep); }
@@ -238,6 +238,9 @@
   border: 1px solid rgba(232,100,44,.4); border-radius: 99px; padding: 3px 7px; flex: none; }
 .ae-landing .badge.gold { color: var(--gold); border-color: rgba(212,160,74,.4); }
 .ae-landing .sat { position: absolute; z-index: 3; width: min(240px,58%); }
+/* CH1 visual cards are fully solid, like the burn cards, so overlapping
+   content never bleeds through */
+.ae-landing .sat .gcard-in { background: #16100b; }
 .ae-landing .sat-env { top: 10%; right: 0; }
 .ae-landing .sat-age { bottom: 6%; left: 0; }
 .ae-landing .env-row { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid rgba(61,46,35,.6); }
@@ -282,6 +285,59 @@
 .ae-landing .fig-cap { grid-column: 1 / -1; margin-top: 22px; font-family: var(--mono); font-size: 10px; letter-spacing: .22em;
   text-transform: uppercase; color: var(--mute); text-align: center; }
 
+/* ---------- CH.04 every device (real app captures in device shells) ---------- */
+.ae-landing .device-row { max-width: 1280px; margin: 0 auto; padding: 4vh var(--page-pad) 12vh; display: flex;
+  align-items: flex-end; justify-content: center; gap: clamp(22px,3.4vw,56px); }
+.ae-landing .device { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 16px; position: relative; }
+/* phones slide out from BEHIND the laptop on scroll */
+.ae-landing .dev-laptop { z-index: 2; }
+.ae-landing .dev-iphone, .ae-landing .dev-android { z-index: 1; }
+.ae-landing .device figcaption { display: flex; flex-direction: column; align-items: center; gap: 6px;
+  font-family: var(--mono); letter-spacing: .24em; text-transform: uppercase; text-align: center; }
+.ae-landing .device figcaption b { font-weight: 600; font-size: 10.5px; color: var(--cream); text-transform: none; }
+.ae-landing .device figcaption span { font-size: 8.5px; color: var(--dim); }
+
+.ae-landing .dev-screen { position: relative; width: 100%; height: 100%; border-radius: 28px; overflow: hidden; background: #15110b; }
+.ae-landing .dev-screen img { width: 100%; height: 100%; object-fit: cover; object-position: top center; display: block; }
+/* browser captures have no status-bar inset; nudge the app below the
+   island / punch hole like a real standalone PWA would sit */
+.ae-landing .if-shell .dev-screen img { height: calc(100% - 26px); margin-top: 26px; }
+.ae-landing .an-shell .dev-screen img { height: calc(100% - 22px); margin-top: 22px; }
+
+/* iPhone: titanium edge, dynamic island, side buttons */
+.ae-landing .if-shell { position: relative; width: 218px; aspect-ratio: 390/844; border-radius: 34px; padding: 6px;
+  background: linear-gradient(160deg,#4a4034,#1c1610 30%,#100b06 70%,#2e2419);
+  box-shadow: 0 0 0 1px #060402, inset 0 0 3px rgba(255,235,200,.25), 0 34px 80px rgba(0,0,0,.6), 0 0 60px rgba(232,100,44,.06); }
+.ae-landing .if-shell::before { content: ""; position: absolute; right: -2px; top: 26%; width: 2.5px; height: 46px;
+  border-radius: 2px; background: #3a3126; }
+.ae-landing .if-shell::after { content: ""; position: absolute; left: -2px; top: 20%; width: 2.5px; height: 26px;
+  border-radius: 2px; background: #3a3126; box-shadow: 0 36px 0 #3a3126; }
+.ae-landing .if-island { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); width: 64px; height: 16px;
+  border-radius: 10px; background: #050302; z-index: 3; }
+
+/* Android: uniform bezel, centered punch hole, squarer corners */
+.ae-landing .an-shell { position: relative; width: 218px; aspect-ratio: 412/915; border-radius: 26px; padding: 6px;
+  background: linear-gradient(160deg,#3c352c,#15100a 40%,#0d0906);
+  box-shadow: 0 0 0 1px #060402, inset 0 0 3px rgba(255,235,200,.2), 0 34px 80px rgba(0,0,0,.6), 0 0 60px rgba(232,100,44,.06); }
+.ae-landing .an-shell .dev-screen { border-radius: 20px; }
+.ae-landing .an-punch { position: absolute; top: 9px; left: 50%; transform: translateX(-50%); width: 9px; height: 9px;
+  border-radius: 99px; background: #020101; box-shadow: 0 0 0 2px rgba(0,0,0,.55); z-index: 3; }
+
+/* MacBook: slim bezel + notch, aluminum base with thumb notch */
+.ae-landing .dev-laptop { flex: none; }
+.ae-landing .mb-shell { display: flex; flex-direction: column; align-items: center; width: min(590px,46vw); }
+.ae-landing .mb-screen { position: relative; width: 88%; aspect-ratio: 1512/945; border-radius: 12px 12px 0 0; padding: 7px 7px 9px;
+  background: linear-gradient(180deg,#332b22,#0d0906); border: 1px solid #060402;
+  box-shadow: inset 0 0 2px rgba(255,235,200,.2), 0 30px 80px rgba(0,0,0,.6), 0 0 80px rgba(232,100,44,.05); }
+.ae-landing .mb-screen .dev-screen { border-radius: 6px; }
+.ae-landing .mb-notch { position: absolute; top: 7px; left: 50%; transform: translateX(-50%); width: 64px; height: 8px;
+  background: #060402; border-radius: 0 0 5px 5px; z-index: 3; }
+.ae-landing .mb-base { width: 100%; height: 12px; border-radius: 1px 1px 10px 10px; position: relative;
+  background: linear-gradient(180deg,#4a4034,#241c12 45%,#0c0805); border-top: 1px solid #5a4f3f;
+  box-shadow: 0 16px 40px rgba(0,0,0,.55); }
+.ae-landing .mb-base::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 86px; height: 5px; border-radius: 0 0 7px 7px; background: #0d0906; }
+
 /* ---------- finale ---------- */
 .ae-landing .finale { position: relative; z-index: 10; min-height: 88svh; display: flex; flex-direction: column; align-items: center;
   justify-content: center; text-align: center; padding: 14vh var(--page-pad); overflow: hidden; }
@@ -292,15 +348,13 @@
 .ae-landing .finale h2 em { font-style: italic; color: var(--gold); }
 .ae-landing .finale .sub { margin-top: 22px; font-size: 15.5px; color: var(--mute); max-width: 46ch; line-height: 1.8; }
 .ae-landing .finale .cta-row { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 42px; flex-wrap: wrap; }
+.ae-landing .finale .pwa-note { margin-top: 26px; font-family: var(--mono); font-size: 10px; letter-spacing: .24em;
+  text-transform: uppercase; color: var(--dim); }
 
 /* ---------- footer ---------- */
 .ae-landing footer { position: relative; z-index: 10; border-top: 1px solid var(--line); background: rgba(11,8,5,.7); }
 .ae-landing .foot-in { max-width: 1280px; margin: 0 auto; padding: 34px var(--page-pad); display: flex;
   justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 14px; }
-.ae-landing .foot-links { display: flex; gap: 14px 24px; font-family: var(--mono); font-size: 10px; letter-spacing: .16em;
-  text-transform: uppercase; flex-wrap: wrap; }
-.ae-landing .foot-links a { white-space: nowrap; }
-.ae-landing .foot-links a { color: var(--dim); text-decoration: none; } .ae-landing .foot-links a:hover { color: var(--cream); }
 .ae-landing .foot-note { font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--dim); }
 .ae-landing .foot-legal { border-top: 1px solid rgba(61,46,35,.6); }
 .ae-landing .foot-legal, .ae-landing .foot-legal nav { display: flex; align-items: baseline; gap: 22px; }
@@ -310,6 +364,9 @@
 
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
+  .ae-landing .device-row { flex-direction: column; align-items: center; gap: 34px; }
+  .ae-landing .mb-shell { width: min(520px,88vw); }
+  .ae-landing .dev-laptop { order: -1; }
   .ae-landing .mast-mid { display: none; }
   .ae-landing .burn-rail { display: none; }
   .ae-landing .hero-foot { flex-direction: column; align-items: flex-start; }

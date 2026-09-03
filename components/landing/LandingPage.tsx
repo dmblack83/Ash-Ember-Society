@@ -11,6 +11,7 @@ import { Manifesto } from "./Manifesto";
 import { ChapterCollection } from "./ChapterCollection";
 import { ChapterRecord } from "./ChapterRecord";
 import { ChapterCompany } from "./ChapterCompany";
+import { ChapterDevices } from "./ChapterDevices";
 import { Finale } from "./Finale";
 import { LandingFooter } from "./LandingFooter";
 import "./landing.css";
@@ -70,6 +71,7 @@ export default function LandingPage() {
         <ChapterCollection />
         <ChapterRecord />
         <ChapterCompany />
+        <ChapterDevices />
         <Finale />
       </main>
       <LandingFooter />

@@ -7,8 +7,8 @@ export function ChapterCompany() {
         </div>
         <h2 data-reveal-item>A lounge with no velvet rope.</h2>
         <p className="ch-deck" data-reveal-item>
-          One feed, every member. Trade burn reports, argue about wrappers, and welcome the new
-          Society members.
+          One feed, every member. Trade burn reports, discuss your favorite wrappers, and welcome
+          the new Society members.
         </p>
       </div>
 
@@ -17,8 +17,8 @@ export function ChapterCompany() {
           <div className="gcard-in">
             <div className="g-label">THE LOUNGE</div>
             <p className="l-post">
-              &quot;Eight months on the &apos;64 and it finally opened up. Worth every week of
-              waiting.&quot;
+              &quot;8 months of aging on the &apos;64 and I finally lit it up. Worth every min of
+              the wait!&quot;
             </p>
             <div className="l-meta">
               <span className="avatar" /> MEMBER
@@ -42,7 +42,7 @@ export function ChapterCompany() {
             <div className="g-label">THE LOUNGE</div>
             <p className="l-post">
               &quot;First burn report in the books. Went with a Hemingway Short Story on the
-              advice of this feed. You people were right.&quot;
+              advice of this feed. You guys were right.&quot;
             </p>
             <div className="l-meta">
               <span className="avatar a3" /> MEMBER

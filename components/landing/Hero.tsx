@@ -6,8 +6,8 @@ export function Hero() {
       </div>
       <h1 data-hero-headline>
         <span className="line l1">The slow art</span>
-        <span className="line l2">of keeping</span>
-        <span className="line l3">good company.</span>
+        <span className="line l2">of honoring</span>
+        <span className="line l3">the ritual of the leaf.</span>
       </h1>
       <div className="hero-foot">
         <p className="hero-deck" data-hero-deck>

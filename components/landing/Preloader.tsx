@@ -13,9 +13,12 @@ export function Preloader() {
         <div className="tag">A Society Journal of Smoke &amp; Patience</div>
       </div>
       <script dangerouslySetInnerHTML={{ __html: HIDE_IF_SEEN }} />
-      <noscript>
-        <style>{`[data-preloader]{display:none}`}</style>
-      </noscript>
+      {/* React SSR escapes noscript children as text, so the style must be
+          injected as raw HTML or it never becomes a real <style> element.
+          !important is required: [data-preloader] (1 attribute selector)
+          otherwise loses the cascade to .ae-landing .preloader{display:flex}
+          (2 class selectors) in landing.css. */}
+      <noscript dangerouslySetInnerHTML={{ __html: "<style>[data-preloader]{display:none!important}</style>" }} />
     </>
   );
 }
