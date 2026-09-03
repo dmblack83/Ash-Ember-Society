@@ -13,6 +13,9 @@ export function Finale() {
         </a>
         <span className="cta-note">No card required.</span>
       </div>
+      <div className="pwa-note" data-reveal-item>
+        A progressive web app. Works on any device: laptop, iOS, and Android.
+      </div>
     </section>
   );
 }
