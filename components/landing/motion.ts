@@ -205,7 +205,14 @@ export async function initLandingMotion(scope: HTMLElement): Promise<Cleanup> {
      measured against final glyph metrics. */
   await Promise.all([playPreloader(), document.fonts.ready]);
   boot();
-  const onLoad = () => ScrollTrigger.refresh();
+  /* The pin spacers created in boot() add ~5 viewport-heights to the page
+     AFTER Lenis measured it; Lenis 1.3 clamps wheel scroll to its cached
+     limit, freezing scroll mid-CH1 until it re-measures. */
+  lenis?.resize();
+  const onLoad = () => {
+    ScrollTrigger.refresh();
+    lenis?.resize();
+  };
   addEventListener("load", onLoad);
 
   return () => {
