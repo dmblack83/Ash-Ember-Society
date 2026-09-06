@@ -95,6 +95,7 @@ export const FORMATS: string[] = [
   "Toro",
   "Corona Gorda",
   "Double Corona",
+  "Gordo",
   "Double Gordo",
   "Panetela",
   "Lancero",
