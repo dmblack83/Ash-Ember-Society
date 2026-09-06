@@ -268,6 +268,10 @@ export function DiscoverCigarsClient() {
      shows that brand's cigars. Typing a search clears the selection
      so clearing the search always returns to the brand index. */
   const [brandSel, setBrandSel] = useState<string | null>(null);
+  /* Brand index pagination — top 20 first, Load more reveals the rest
+     (the full list arrives in one small RPC payload; slicing is
+     display-only). */
+  const [brandsShown, setBrandsShown] = useState(PAGE_SIZE);
 
   // View mode -- default grid, persisted to localStorage
   const [view, setView] = useState<ViewMode>("grid");
@@ -514,7 +518,7 @@ export function DiscoverCigarsClient() {
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
-              {(brands ?? []).map((b, i) => (
+              {(brands ?? []).slice(0, brandsShown).map((b, i) => (
                 <button
                   key={b.brand}
                   type="button"
@@ -540,6 +544,17 @@ export function DiscoverCigarsClient() {
                   <span className="text-muted-foreground" aria-hidden="true">›</span>
                 </button>
               ))}
+              {(brands?.length ?? 0) > brandsShown && (
+                <div className="lg:col-span-2 flex justify-center pt-2 pb-4">
+                  <button
+                    type="button"
+                    className="btn btn-secondary min-w-[120px]"
+                    onClick={() => setBrandsShown((n) => n + PAGE_SIZE)}
+                  >
+                    Load more
+                  </button>
+                </div>
+              )}
             </div>
           )
         ) : loading ? (
