@@ -111,11 +111,30 @@
      below the breakpoint, full rail width above. */
   --side-rail-width:   240px;
   --app-content-left:  0px;
+
+  /* Mobile top-bar tokens.
+
+     `--mobile-topbar-h` is the top bar's full height including the
+     notch inset (the bar owns safe-area padding on mobile).
+
+     `--page-top-offset` is the offset every authenticated fixed page
+     header (and the layout's <main>) should respect so content sits
+     below the top bar on mobile. Zero at lg+ where the bar is hidden.
+
+     `--page-header-safe-pad` is the safe-area padding fixed page
+     headers apply themselves: zero on mobile (the top bar already
+     consumed the inset), env() at lg+ where headers reach the
+     viewport top again. */
+  --mobile-topbar-h:      calc(52px + env(safe-area-inset-top));
+  --page-top-offset:      var(--mobile-topbar-h);
+  --page-header-safe-pad: 0px;
 }
 
 @media (min-width: 1024px) {
   :root {
-    --app-content-left: var(--side-rail-width);
+    --app-content-left:     var(--side-rail-width);
+    --page-top-offset:      0px;
+    --page-header-safe-pad: env(safe-area-inset-top);
   }
 }
 

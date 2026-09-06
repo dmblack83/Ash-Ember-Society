@@ -15,7 +15,7 @@ export function LoungeShellSkeleton() {
       {/* Stacked header placeholder: title + chips + secondary rows */}
       <div
         style={{
-          position: "fixed", top: 0, left: "var(--app-content-left)", right: 0,
+          position: "fixed", top: "var(--page-top-offset)", left: "var(--app-content-left)", right: 0,
           zIndex: 40, height: 148, backgroundColor: "rgba(26,18,16,0.97)",
           borderBottom: "1px solid var(--border)",
         }}

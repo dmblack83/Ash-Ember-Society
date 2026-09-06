@@ -294,7 +294,7 @@ export function LoungeFeedClient({
       <div
         style={{
           position:             "fixed",
-          top:                  0,
+          top:                  "var(--page-top-offset)",
           left:                 "var(--app-content-left)",
           right:                0,
           zIndex:               40,

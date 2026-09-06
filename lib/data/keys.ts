@@ -92,6 +92,10 @@ export const keyFor = {
   /* Per-user "is this cigar on my wishlist" flag for the detail page. */
   cigarWishlisted: (userId: string, cigarId: string) =>
     ["cigar-wishlisted", userId, cigarId] as const,
+  /* Per-user "do I have a pending edit suggestion" flag for the
+     catalog detail page's Suggest an Edit button. */
+  cigarPendingEdit: (userId: string, cigarId: string) =>
+    ["cigar-pending-edit", userId, cigarId] as const,
 
   /* ── Home notifications card (per-user). Keyed by userId so
    *   switching account on the same browser produces a fresh cache,

@@ -97,6 +97,22 @@ export async function fetchCigarDetail(id: string): Promise<CigarDetailRow | nul
 
 /* Per-user wishlist flag for the cigar detail page. Pairs with
    keyFor.cigarWishlisted(userId, cigarId). */
+/* Pending edit-suggestion flag for the catalog detail page. RLS on
+   cigar_edit_suggestions scopes the read to the caller's own rows, so
+   no user filter is needed beyond auth. */
+export async function fetchCigarPendingEdit(cigarId: string): Promise<boolean> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("cigar_edit_suggestions")
+    .select("status")
+    .eq("cigar_id", cigarId)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return !!data;
+}
+
 export async function fetchCigarWishlisted(userId: string, cigarId: string): Promise<boolean> {
   const supabase = createClient();
   const { data, error } = await supabase
