@@ -12,11 +12,12 @@ export function WishlistShellSkeleton() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       {/* Fixed-header skeleton (back row + title row) */}
       <div
-        className="fixed top-0 left-0 right-0 z-30 animate-pulse"
+        className="fixed left-0 right-0 z-30 animate-pulse"
         style={{
+          top:          "var(--page-top-offset)",
           background:   "var(--background)",
           borderBottom: "1px solid var(--border)",
-          paddingTop:   "env(safe-area-inset-top)",
+          paddingTop:   "var(--page-header-safe-pad)",
         }}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6">

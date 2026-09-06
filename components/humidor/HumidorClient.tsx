@@ -799,13 +799,13 @@ export function HumidorClient({
         ref={headerRef}
         style={{
           position: "fixed",
-          top: 0,
+          top: "var(--page-top-offset)",
           left: "var(--app-content-left)",
           right: 0,
           zIndex: 30,
           backgroundColor: "var(--background)",
           borderBottom: "1px solid var(--border)",
-          paddingTop: "env(safe-area-inset-top)",
+          paddingTop: "var(--page-header-safe-pad)",
         }}
       >
         <div className="max-w-3xl mx-auto px-4 sm:px-6">

@@ -14,8 +14,9 @@ export function AccountShellSkeleton() {
     <div className="min-h-screen" style={{ background: "var(--background)" }}>
       {/* Sticky header — same 56px bar the real page renders */}
       <div
-        className="sticky top-0 z-30"
+        className="sticky z-30"
         style={{
+          top:                  "var(--page-top-offset)",
           backgroundColor:      "rgba(26,18,16,0.97)",
           backdropFilter:       "blur(12px)",
           WebkitBackdropFilter: "blur(12px)",

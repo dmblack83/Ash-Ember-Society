@@ -59,6 +59,8 @@ Bottom nav bar (mobile-first, 44px touch targets, safe-area-inset-bottom aware):
 
 Active tab uses `--ember` color indicator. Toast messages appear ABOVE the nav bar.
 
+**Mobile top bar + side sheet (2026-09-06):** a slim global top bar (hamburger + wordmark, mobile only) opens a left side sheet (`components/nav/MobileNav.tsx`) repeating the 5 tabs plus secondary destinations: Catalog Search (`/discover/cigars`, un-orphaned) and Admin (`/admin`, link shown only to `is_admin`; page enforces server-side). Desktop side rail carries the same two additions. Fixed page headers offset below the bar via `--page-top-offset` / `--page-header-safe-pad` in `globals.css` — new fixed headers must use these vars, not `top: 0` / raw safe-area padding. Nav item definitions live in `components/nav/nav-items.tsx` (shared by bottom nav, rail, sheet). The catalog detail page (`/discover/cigars/[id]`) now includes the Suggest an Edit button (same component as humidor items).
+
 ---
 
 ## Database Tables (Supabase)

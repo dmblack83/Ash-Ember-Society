@@ -7,12 +7,16 @@
  */
 
 import Link from "next/link";
+import useSWR from "swr";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
+import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import { lengthLabelForInches } from "@/lib/cigar-taxonomy";
-import type { CigarDetailRow } from "@/lib/data/cigar-fetchers";
+import { keyFor } from "@/lib/data/keys";
+import { fetchCigarPendingEdit, type CigarDetailRow } from "@/lib/data/cigar-fetchers";
+import { useAppSession } from "@/components/system/app-session";
 
 function DetailRow({ label, value }: { label: string; value: string }) {
   return (
@@ -31,6 +35,15 @@ interface Props {
 }
 
 export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
+  /* Pending edit-suggestion flag — per-user (RLS-scoped), fetched
+     lazily; the button renders optimistically while it loads. */
+  const { ready, session } = useAppSession();
+  const userId = ready && session ? session.userId : null;
+  const { data: hasPendingEdit = false } = useSWR(
+    userId ? keyFor.cigarPendingEdit(userId, c.id) : null,
+    () => fetchCigarPendingEdit(c.id),
+  );
+
   /* Build details list — omit null/undefined fields */
   const details: { label: string; value: string }[] = [
     c.shade          ? { label: "Shade",            value: c.shade }                                            : null,
@@ -134,6 +147,27 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
       {/* ── Actions (mobile only — desktop shown inline in hero) ─── */}
       <section className="sm:hidden">
         <CigarActions cigarId={c.id} initialIsWishlisted={initialIsWishlisted} />
+      </section>
+
+      {/* ── Suggest an edit — reuses the humidor item page's button +
+             sheet; RLS-scoped pending flag decides button vs note. ── */}
+      <section className="sm:max-w-xs">
+        <CigarEditSuggestButton
+          cigar={{
+            id:               c.id,
+            brand:            c.brand,
+            series:           c.series,
+            format:           c.format,
+            ring_gauge:       c.ring_gauge,
+            length_inches:    c.length_inches,
+            shade:            c.shade,
+            wrapper:          c.wrapper,
+            wrapper_country:  c.wrapper_country,
+            binder_country:   c.binder_country,
+            filler_countries: c.filler_countries,
+          }}
+          hasPending={hasPendingEdit}
+        />
       </section>
 
       <Divider className="my-6" />

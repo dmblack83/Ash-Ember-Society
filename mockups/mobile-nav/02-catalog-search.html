@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Catalog Search Experience</title>
+<style>
+  :root {
+    --background: #15110b; --foreground: #F5E6D3; --card: #241C17;
+    --secondary: #3D2E23; --border: rgba(212,160,74,0.15);
+    --gold: #D4A04A; --ember: #E8642C; --muted: #A69080;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0806; color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px; gap: 20px; min-height: 100vh;
+  }
+  h1.pagetitle { font-family: var(--serif); font-size: 22px; font-weight: 600; }
+  .note { max-width: 600px; color: #8a7a6d; font-size: 13px; line-height: 1.6; text-align: center; }
+  .note b { color: #c9b8a8; }
+
+  .phone {
+    width: 375px; height: 720px; background: var(--background);
+    border-radius: 40px; border: 6px solid #2a221c; overflow: hidden;
+    position: relative; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 52px; z-index: 30;
+    display: flex; align-items: center; padding: 0 8px;
+    background: rgba(26,18,16,0.95); border-bottom: 1px solid var(--border);
+  }
+  .hamburger { width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; background: none; border: none; }
+  .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--foreground); border-radius: 2px; }
+  .topbar .wordmark { position: absolute; left: 50%; transform: translateX(-50%); font-family: var(--serif); font-size: 18px; font-weight: 600; letter-spacing: 0.04em; }
+
+  .bottomnav {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 76px; z-index: 30;
+    display: flex; align-items: flex-start; padding-top: 10px;
+    background: rgba(26,18,16,0.97); border-top: 1px solid var(--border);
+  }
+  .bottomnav div { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+  .bottomnav div.active { color: var(--ember); }
+  .bottomnav .dot { width: 22px; height: 22px; border-radius: 6px; background: var(--secondary); margin: 0 auto 4px; }
+  .bottomnav div.active .dot { background: rgba(232,100,44,0.35); }
+
+  .screen { position: absolute; inset: 52px 0 76px 0; overflow-y: auto; padding: 18px 16px 24px; display: none; }
+  .screen.visible { display: block; }
+
+  /* ── Browse screen ── */
+  .browse-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+  .browse-head h2 { font-family: var(--serif); font-size: 24px; font-weight: 600; }
+  .browse-head p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .viewtoggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .viewtoggle span { padding: 6px 9px; font-size: 11px; color: var(--muted); }
+  .viewtoggle span.on { background: var(--secondary); color: var(--gold); }
+
+  .search { position: relative; margin-bottom: 16px; }
+  .search svg { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); }
+  .search input {
+    width: 100%; padding: 12px 12px 12px 36px; font-size: 16px;
+    background: var(--card); color: var(--foreground);
+    border: 1px solid var(--border); border-radius: 10px; outline: none;
+  }
+  .search input:focus { border-color: rgba(212,160,74,0.45); }
+
+  .seclabel { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .gcard {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden; cursor: pointer;
+  }
+  .gcard .img {
+    height: 86px; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #2e2218, #1d1610);
+  }
+  .gcard .img .stick { width: 70%; height: 14px; border-radius: 7px; background: linear-gradient(90deg, #5a3d26, #7a5636 55%, #4a3320); position: relative; }
+  .gcard .img .stick::after { content: ""; position: absolute; left: 38%; top: -2px; bottom: -2px; width: 13px; border-radius: 3px; background: linear-gradient(180deg, #d8b46a, #a77f3e); }
+  .gcard .body { padding: 10px 12px 12px; }
+  .gcard .brand { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .gcard .name { font-family: var(--serif); font-size: 14px; margin: 2px 0 1px; line-height: 1.25; }
+  .gcard .fmt { font-size: 11px; color: var(--muted); }
+  .gcard .actions { display: flex; gap: 6px; margin-top: 9px; }
+  .gcard .actions .add {
+    flex: 1; text-align: center; font-size: 11px; font-weight: 600; padding: 6px 0;
+    border-radius: 7px; background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208;
+  }
+  .gcard .actions .wish {
+    width: 30px; display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--border); border-radius: 7px; color: var(--muted); font-size: 13px;
+  }
+  .empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; display: none; }
+
+  /* ── Detail screen ── */
+  .back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 14px; cursor: pointer; }
+  .hero-img {
+    height: 170px; border-radius: 14px; margin-bottom: 14px;
+    background: linear-gradient(135deg, #2e2218, #1d1610);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .hero-img .stick { width: 62%; height: 22px; border-radius: 11px; background: linear-gradient(90deg, #5a3d26, #7a5636 55%, #4a3320); position: relative; }
+  .hero-img .stick::after { content: ""; position: absolute; left: 38%; top: -3px; bottom: -3px; width: 20px; border-radius: 4px; background: linear-gradient(180deg, #d8b46a, #a77f3e); }
+  .d-brand { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .d-name { font-family: var(--serif); font-size: 25px; font-weight: 600; margin: 3px 0 1px; }
+  .d-fmt { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .divider { height: 1px; background: var(--border); margin: 18px 0; }
+  .d-sec { font-family: var(--serif); font-size: 17px; margin-bottom: 12px; }
+  .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; }
+  .dl .lab { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .dl .val { font-size: 14px; }
+  .cta-col { display: flex; flex-direction: column; gap: 9px; }
+  .btn-gold { text-align: center; font-size: 14px; font-weight: 600; padding: 13px 0; border-radius: 11px; background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; }
+  .btn-line { text-align: center; font-size: 14px; font-weight: 500; padding: 12px 0; border-radius: 11px; border: 1px solid var(--border); color: var(--foreground); }
+  .btn-ghost { text-align: center; font-size: 13px; padding: 10px 0; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .reviews { background: var(--card); border: 1px solid var(--border); border-radius: 14px; text-align: center; padding: 26px 16px; }
+  .reviews p { font-size: 13px; color: var(--muted); }
+  .flag { display: inline-block; font-size: 9px; letter-spacing: 0.08em; padding: 2px 8px; border-radius: 99px; border: 1px solid rgba(232,100,44,0.4); color: var(--ember); margin-left: 8px; vertical-align: middle; }
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">Catalog Search Experience</h1>
+  <div class="phone">
+    <div class="topbar">
+      <button class="hamburger"><span></span><span></span><span></span></button>
+      <span class="wordmark">Ash &amp; Ember</span>
+    </div>
+
+    <!-- Browse -->
+    <div class="screen visible" id="browse">
+      <div class="browse-head">
+        <div>
+          <h2>Discover Cigars</h2>
+          <p>Browse our curated catalog of premium cigars</p>
+        </div>
+        <div class="viewtoggle"><span class="on">Grid</span><span>List</span></div>
+      </div>
+      <div class="search">
+        <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+          <circle cx="6.5" cy="6.5" r="5" stroke="#A69080" stroke-width="1.5"/>
+          <line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#A69080" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input type="search" id="q" placeholder="Search brand, series, wrapper...">
+      </div>
+      <p class="seclabel" id="seclabel">Popular Cigars</p>
+      <div class="grid" id="grid"></div>
+      <div class="empty" id="empty">
+        <p style="font-size:15px;color:var(--foreground);font-weight:500;">No cigars found</p>
+        <p style="margin-top:4px;">Try a different search</p>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="screen" id="detail">
+      <span class="back" id="back">‹ Back to cigars</span>
+      <div class="hero-img"><div class="stick"></div></div>
+      <p class="d-brand" id="d-brand">PADRÓN</p>
+      <h2 class="d-name" id="d-name">1964 Anniversary</h2>
+      <p class="d-fmt" id="d-fmt">Torpedo</p>
+
+      <div class="divider"></div>
+      <h3 class="d-sec">Details</h3>
+      <div class="dl" id="d-details"></div>
+
+      <div class="divider"></div>
+      <div class="cta-col">
+        <div class="btn-gold">Add to Humidor</div>
+        <div class="btn-line">♡ Add to Wishlist</div>
+        <div class="btn-ghost">Suggest an edit<span class="flag">NEW HERE</span></div>
+      </div>
+
+      <div class="divider"></div>
+      <h3 class="d-sec">Reviews</h3>
+      <div class="reviews"><p>No reviews yet. Be the first.</p></div>
+      <div style="height:16px"></div>
+    </div>
+
+    <div class="bottomnav">
+      <div><div class="dot"></div>Humidor</div>
+      <div><div class="dot"></div>Lounge</div>
+      <div><div class="dot"></div>Home</div>
+      <div class="active"><div class="dot"></div>Discover</div>
+      <div><div class="dot"></div>Account</div>
+    </div>
+  </div>
+
+  <p class="note">
+    This is the <b>existing</b> catalog page, re-linked through the new nav — not a redesign.
+    Type in the search box to filter (try "maduro" or "fuente"), tap any card for the detail view.
+    Detail = existing page plus one addition: <b>Suggest an edit</b> (the "NEW HERE" tag is
+    annotation only — today that button exists only on humidor items). Add to Humidor opens the
+    existing add sheet; the heart wishlists directly from the card.
+  </p>
+
+<script>
+  const CIGARS = [
+    { brand: "Padrón", name: "1964 Anniversary", fmt: "Torpedo", wrapper: "Maduro", shade: "Maduro", origin: "Nicaragua", ring: "52", len: '6"' },
+    { brand: "Arturo Fuente", name: "Hemingway", fmt: "Perfecto", wrapper: "Cameroon", shade: "Colorado", origin: "Dominican Republic", ring: "48", len: '5 1/2"' },
+    { brand: "Oliva", name: "Serie V Melanio", fmt: "Figurado", wrapper: "Sumatra", shade: "Colorado Maduro", origin: "Ecuador", ring: "52", len: '6 1/2"' },
+    { brand: "Romeo y Julieta", name: "1875", fmt: "Churchill", wrapper: "Habano", shade: "Colorado Claro", origin: "Dominican Republic", ring: "50", len: '7"' },
+    { brand: "My Father", name: "Le Bijou 1922", fmt: "Toro", wrapper: "Habano", shade: "Oscuro / Double Maduro", origin: "Nicaragua", ring: "52", len: '6"' },
+    { brand: "Drew Estate", name: "Liga Privada No. 9", fmt: "Robusto", wrapper: "Connecticut Broadleaf", shade: "Maduro", origin: "Nicaragua", ring: "52", len: '5 1/4"' },
+  ];
+
+  const grid = document.getElementById('grid');
+  const empty = document.getElementById('empty');
+  const seclabel = document.getElementById('seclabel');
+
+  function render(list, isSearch) {
+    grid.innerHTML = "";
+    list.forEach((c, i) => {
+      const el = document.createElement('div');
+      el.className = 'gcard';
+      el.innerHTML = `
+        <div class="img"><div class="stick"></div></div>
+        <div class="body">
+          <div class="brand">${c.brand.toUpperCase()}</div>
+          <div class="name">${c.name}</div>
+          <div class="fmt">${c.fmt} · ${c.wrapper}</div>
+          <div class="actions"><div class="add">+ Humidor</div><div class="wish">♡</div></div>
+        </div>`;
+      el.addEventListener('click', () => showDetail(c));
+      grid.appendChild(el);
+    });
+    grid.style.display = list.length ? 'grid' : 'none';
+    empty.style.display = list.length ? 'none' : 'block';
+    seclabel.style.display = list.length ? 'block' : 'none';
+    seclabel.textContent = isSearch ? `${list.length} result${list.length !== 1 ? 's' : ''}` : 'Popular Cigars';
+  }
+
+  document.getElementById('q').addEventListener('input', (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return render(CIGARS, false);
+    render(CIGARS.filter(c =>
+      (c.brand + ' ' + c.name + ' ' + c.wrapper + ' ' + c.shade + ' ' + c.fmt).toLowerCase().includes(q)
+    ), true);
+  });
+
+  function showDetail(c) {
+    document.getElementById('d-brand').textContent = c.brand.toUpperCase();
+    document.getElementById('d-name').textContent = c.name;
+    document.getElementById('d-fmt').textContent = c.fmt;
+    document.getElementById('d-details').innerHTML = [
+      ['Wrapper', c.wrapper], ['Shade', c.shade], ['Origin', c.origin],
+      ['Format', c.fmt], ['Ring Gauge', c.ring], ['Length', c.len],
+    ].map(([l, v]) => `<div><div class="lab">${l}</div><div class="val">${v}</div></div>`).join('');
+    document.getElementById('browse').classList.remove('visible');
+    document.getElementById('detail').classList.add('visible');
+    document.getElementById('detail').scrollTop = 0;
+  }
+  document.getElementById('back').addEventListener('click', () => {
+    document.getElementById('detail').classList.remove('visible');
+    document.getElementById('browse').classList.add('visible');
+  });
+
+  render(CIGARS, false);
+</script>
+</body>
+</html>

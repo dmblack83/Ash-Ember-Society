@@ -21,69 +21,16 @@ import { A2HSBanner } from "@/components/system/A2HSBanner";
 import { ServiceWorkerUpdateNotice } from "@/components/system/ServiceWorkerUpdateNotice";
 import { StaleBuildNotice } from "@/components/system/StaleBuildNotice";
 import { AppSessionProvider } from "@/components/system/app-session";
+import { MobileNav } from "@/components/nav/MobileNav";
+import { NAV_ITEMS, CATALOG_ITEM, ADMIN_ITEM } from "@/components/nav/nav-items";
 
 /* ------------------------------------------------------------------
    Bottom navigation — visible on all authenticated app pages.
    Page-level tab navs (Humidor | Wishlist | Stats) sit above this.
    ------------------------------------------------------------------ */
 
-/* Icons use stroke="currentColor"; the parent <Link> sets `color`
-   based on active state. For active-only fill accents (lounge bubble,
-   home roof) we render with `fill="currentFill"`-equivalent classes
-   driven by a `data-active` attribute on the icon's <svg>. */
-const HUMIDOR_ICON = (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <rect x="5" y="3" width="14" height="18" rx="1.5" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-    <line x1="12" y1="3.5" x2="12" y2="20.5" stroke="currentColor" strokeWidth="1.7" />
-    <line x1="9.6" y1="10.6" x2="9.6" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <line x1="14.4" y1="10.6" x2="14.4" y2="13" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <line x1="6.5" y1="21" x2="6.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <line x1="17.5" y1="21" x2="17.5" y2="22.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-  </svg>
-);
-
-const LOUNGE_ICON = (
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path d="M20 9V6.5A2.5 2.5 0 0 0 17.5 4h-11A2.5 2.5 0 0 0 4 6.5V9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M2.5 11A1.5 1.5 0 0 1 4 12.5V15h16v-2.5A1.5 1.5 0 0 1 21.5 11 1.5 1.5 0 0 1 23 12.5V17a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-4.5A1.5 1.5 0 0 1 2.5 11Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-    <path d="M5 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-    <path d="M19 18v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-  </svg>
-);
-
-const HOME_ICON = (
-  <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true" className="bottom-nav-fill-on-active">
-    <path
-      d="M3 12L13 3L23 12V22a1 1 0 01-1 1H16v-6h-6v6H4a1 1 0 01-1-1V12z"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
-const DISCOVER_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M14.5 7.5l-2.8 5.6-5.6 2.8 2.8-5.6 5.6-2.8z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-    <circle cx="11" cy="11" r="1.2" fill="currentColor" />
-  </svg>
-);
-
-const ACCOUNT_ICON = (
-  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-    <circle cx="11" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.6" />
-    <path d="M3 19c0-4 3.6-7 8-7s8 3 8 7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-  </svg>
-);
-
-const NAV_ITEMS = [
-  { href: "/humidor",           label: "Humidor",  center: false, match: (p: string) => p.startsWith("/humidor"),  icon: HUMIDOR_ICON },
-  { href: "/lounge",            label: "Lounge",   center: false, match: (p: string) => p.startsWith("/lounge"),   icon: LOUNGE_ICON },
-  { href: "/home",              label: "Home",     center: true,  match: (p: string) => p === "/home",             icon: HOME_ICON },
-  { href: "/discover/cigar-news", label: "Discover", center: false, match: (p: string) => p.startsWith("/discover"), icon: DISCOVER_ICON },
-  { href: "/account",           label: "Account",  center: false, match: (p: string) => p.startsWith("/account"),  icon: ACCOUNT_ICON },
-];
+/* Icons + item definitions live in components/nav/nav-items.tsx —
+   shared with the mobile side sheet. */
 
 function BottomNav() {
   const pathname = usePathname();
@@ -281,7 +228,9 @@ function SideRailNav() {
 
       <div className="flex flex-col gap-1 px-3">
         {railItems.map(({ href, label, match, icon }) => {
-          const active = match(pathname);
+          /* Catalog pages live under /discover/* but have their own rail
+             entry below — don't double-light the Discover tab for them. */
+          const active = match(pathname) && !CATALOG_ITEM.match(pathname);
 
           /* Contextual signal per item — aging-ready count on Humidor,
              unread-activity dot on Lounge. Both render nothing at zero. */
@@ -326,6 +275,42 @@ function SideRailNav() {
             </Link>
           );
         })}
+
+        {/* Secondary destinations — no bottom-nav slot; rail + sheet only. */}
+        <div className="mt-2 pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <Link
+            href={CATALOG_ITEM.href}
+            prefetch={false}
+            data-active={CATALOG_ITEM.match(pathname) || undefined}
+            className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
+            style={{
+              color:           CATALOG_ITEM.match(pathname) ? "var(--gold, #D4A04A)" : "var(--muted-foreground)",
+              backgroundColor: CATALOG_ITEM.match(pathname) ? "rgba(212,160,74,0.08)" : "transparent",
+              textDecoration:  "none",
+            }}
+            aria-current={CATALOG_ITEM.match(pathname) ? "page" : undefined}
+          >
+            {CATALOG_ITEM.icon}
+            <span className="text-sm font-medium">{CATALOG_ITEM.label}</span>
+          </Link>
+          {profile?.is_admin === true && (
+            <Link
+              href={ADMIN_ITEM.href}
+              prefetch={false}
+              data-active={ADMIN_ITEM.match(pathname) || undefined}
+              className="flex items-center gap-3 px-3 py-3 rounded-lg transition-colors"
+              style={{
+                color:           ADMIN_ITEM.match(pathname) ? "var(--ember, #E8642C)" : "var(--muted-foreground)",
+                backgroundColor: ADMIN_ITEM.match(pathname) ? "rgba(232,100,44,0.08)" : "transparent",
+                textDecoration:  "none",
+              }}
+              aria-current={ADMIN_ITEM.match(pathname) ? "page" : undefined}
+            >
+              {ADMIN_ITEM.icon}
+              <span className="text-sm font-medium">{ADMIN_ITEM.label}</span>
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="flex-1" />
@@ -441,11 +426,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         style={{
           touchAction: "pan-y",
           marginLeft: hideNav ? 0 : "var(--app-content-left)",
+          /* Clears the mobile top bar; the CSS var is 0 at lg+. */
+          paddingTop: hideNav ? 0 : "var(--page-top-offset)",
         }}
       >
         {children}
       </main>
       {!hideNav && <A2HSBanner />}
+      {!hideNav && <MobileNav />}
       {!hideNav && <BottomNav />}
       {!hideNav && <SideRailNav />}
     </AppSessionProvider>

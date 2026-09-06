@@ -1,17 +1,13 @@
 import { DiscoverCigarsClient } from "@/components/cigars/DiscoverCigarsClient";
 import { PullToRefresh }        from "@/components/ui/PullToRefresh";
-import type { CatalogResult }   from "@/components/cigar-search";
-import { getPopularCigars }     from "@/lib/data/cigar-catalog";
 
-// Public catalog -- cache for 60 s, revalidate in background
-export const runtime    = "edge";
-export const revalidate = 60;
-
-export default async function DiscoverCigarsPage() {
-  const initialResults: CatalogResult[] = await getPopularCigars(20);
+/* Static shell — the brand index and all search results load
+   client-side with the user's session (anon catalog reads return
+   zero rows by design, so a server fetch here would seed nothing). */
+export default function DiscoverCigarsPage() {
   return (
     <PullToRefresh>
-      <DiscoverCigarsClient initialResults={initialResults} />
+      <DiscoverCigarsClient />
     </PullToRefresh>
   );
 }
