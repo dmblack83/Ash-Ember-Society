@@ -12,6 +12,7 @@ import { keyFor } from "@/lib/data/keys";
 import useSWR from "swr";
 import { IntentLink } from "@/components/ui/IntentLink";
 import { fetchCigarPage, fetchCatalogBrands } from "@/lib/data/cigar-fetchers";
+import { parseCatalogRestore, serializeCatalogRestore } from "@/lib/cigars/catalog-restore";
 import type { CigarPage, CatalogBrand } from "@/lib/data/cigar-fetchers";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
@@ -33,6 +34,7 @@ import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
 const PAGE_SIZE = 20;
 const LS_KEY    = "discover-cigars-view";
+const RESTORE_KEY = "ae:catalog-restore";
 
 /* ------------------------------------------------------------------
    Action button icons
@@ -70,16 +72,19 @@ function CatalogGridCard({
   cigar,
   onAddHumidor,
   onAddWishlist,
+  onCardNav,
   wishlistPending,
 }: {
   cigar:           CatalogResult;
   onAddHumidor:    (c: CatalogResult) => void;
   onAddWishlist:   (c: CatalogResult) => void;
+  onCardNav:       () => void;
   wishlistPending: boolean;
 }) {
   return (
     <IntentLink
       href={`/discover/cigars/${cigar.id}`}
+      onClick={onCardNav}
       className="card flex flex-col gap-2 h-full p-0 overflow-hidden cursor-pointer"
       style={{ textDecoration: "none", color: "inherit" }}
     >
@@ -161,11 +166,13 @@ function CatalogListRow({
   cigar,
   onAddHumidor,
   onAddWishlist,
+  onCardNav,
   wishlistPending,
 }: {
   cigar:           CatalogResult;
   onAddHumidor:    (c: CatalogResult) => void;
   onAddWishlist:   (c: CatalogResult) => void;
+  onCardNav:       () => void;
   wishlistPending: boolean;
 }) {
   const meta = [
@@ -179,6 +186,7 @@ function CatalogListRow({
   return (
     <IntentLink
       href={`/discover/cigars/${cigar.id}`}
+      onClick={onCardNav}
       className="card flex items-center gap-3 p-3 cursor-pointer"
       style={{ textDecoration: "none", color: "inherit" }}
     >
@@ -288,7 +296,7 @@ export function DiscoverCigarsClient() {
   /* Restore view preference */
   useEffect(() => {
     const saved = localStorage.getItem(LS_KEY) as ViewMode | null;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     if (saved === "grid" || saved === "list") setView(saved);
     viewMounted.current = true;
   }, []);
@@ -298,6 +306,30 @@ export function DiscoverCigarsClient() {
     if (!viewMounted.current) return;
     localStorage.setItem(LS_KEY, view);
   }, [view]);
+
+  /* ── Back-from-detail restore ─────────────────────────────────
+     Tapping a card saves { query, brand, brandsShown, size, y } (see
+     saveListState below); the next mount takes it once and rebuilds
+     the exact list — no fresh brands landing. TTL + take-once live in
+     lib/cigars/catalog-restore.ts. */
+  const restoreRef = useRef<{ y: number; size: number } | null>(null);
+
+  useEffect(() => {
+    let saved: ReturnType<typeof parseCatalogRestore> = null;
+    try {
+      saved = parseCatalogRestore(sessionStorage.getItem(RESTORE_KEY), Date.now());
+      sessionStorage.removeItem(RESTORE_KEY);
+    } catch { /* storage unavailable */ }
+    if (!saved) return;
+     
+    setQuery(saved.query);
+    setDebouncedQ(saved.query.trim());
+    setBrandSel(saved.brand);
+    setBrandsShown(saved.brandsShown);
+     
+    restoreRef.current = { y: saved.y, size: saved.size };
+   
+  }, []);
 
   /* 300 ms debounce on query — drives the SWR cache key. */
   useEffect(() => {
@@ -357,6 +389,38 @@ export function DiscoverCigarsClient() {
     showBrandIndex ? keyFor.catalogBrands : null,
     fetchCatalogBrands,
   );
+
+  /* Restore step 2: re-grow the page count, then jump back once the
+     restored rows (or the brand index) have rendered. */
+  useEffect(() => {
+    const r = restoreRef.current;
+    if (!r) return;
+    if (r.size > 1 && size < r.size) {
+      void setSize(r.size);
+      return;
+    }
+    const contentReady = showBrandIndex
+      ? (brands?.length ?? 0) > 0
+      : (data?.length ?? 0) >= r.size;
+    if (!contentReady) return;
+    restoreRef.current = null;
+    /* rAF lets the freshly grown list paint before the jump. */
+    requestAnimationFrame(() => window.scrollTo(0, r.y));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, brands, size, showBrandIndex]);
+
+  /* Save-on-navigate — called from every card's IntentLink onClick. */
+  function saveListState() {
+    try {
+      sessionStorage.setItem(
+        RESTORE_KEY,
+        serializeCatalogRestore(
+          { query, brand: brandSel, brandsShown, size, y: window.scrollY },
+          Date.now(),
+        ),
+      );
+    } catch { /* storage unavailable */ }
+  }
 
   /* Global refresh (pull-to-refresh, resume) needs the BOUND mutate —
      revalidateFirstPage:false means a global SWR broadcast refetches
@@ -599,6 +663,7 @@ export function DiscoverCigarsClient() {
                     cigar={c}
                     onAddHumidor={handleAddHumidor}
                     onAddWishlist={handleAddWishlist}
+                    onCardNav={saveListState}
                     wishlistPending={wishlistPending.has(c.id)}
                   />
                 ))}
@@ -611,6 +676,7 @@ export function DiscoverCigarsClient() {
                     cigar={c}
                     onAddHumidor={handleAddHumidor}
                     onAddWishlist={handleAddWishlist}
+                    onCardNav={saveListState}
                     wishlistPending={wishlistPending.has(c.id)}
                   />
                 ))}
