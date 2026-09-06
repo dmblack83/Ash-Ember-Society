@@ -87,8 +87,10 @@ export const keyFor = {
    *   queries get separate cache trees. Empty query is a valid value
    *   (treated as "popular cigars" sort). */
   cigar:        (cigarId: string) => ["cigar", cigarId] as const,
-  cigarSearch:  (query: string, page: number) =>
-    ["cigar-search", query, page] as const,
+  cigarSearch:  (query: string, page: number, brand = "") =>
+    ["cigar-search", query, brand, page] as const,
+  /* Brand index for the catalog landing (popularity-ranked). */
+  catalogBrands: ["catalog-brands"] as const,
   /* Per-user "is this cigar on my wishlist" flag for the detail page. */
   cigarWishlisted: (userId: string, cigarId: string) =>
     ["cigar-wishlisted", userId, cigarId] as const,

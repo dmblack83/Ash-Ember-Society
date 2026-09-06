@@ -9,8 +9,10 @@ import { CigarImage } from "@/components/ui/CigarImage";
 import { createClient } from "@/utils/supabase/client";
 import { CatalogResult } from "@/components/cigar-search";
 import { keyFor } from "@/lib/data/keys";
-import { fetchCigarPage } from "@/lib/data/cigar-fetchers";
-import type { CigarPage } from "@/lib/data/cigar-fetchers";
+import useSWR from "swr";
+import { IntentLink } from "@/components/ui/IntentLink";
+import { fetchCigarPage, fetchCatalogBrands } from "@/lib/data/cigar-fetchers";
+import type { CigarPage, CatalogBrand } from "@/lib/data/cigar-fetchers";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
    so its chunk fetches in parallel with the main bundle. */
@@ -76,7 +78,11 @@ function CatalogGridCard({
   wishlistPending: boolean;
 }) {
   return (
-    <div className="card flex flex-col gap-2 h-full p-0 overflow-hidden">
+    <IntentLink
+      href={`/discover/cigars/${cigar.id}`}
+      className="card flex flex-col gap-2 h-full p-0 overflow-hidden cursor-pointer"
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
       {/* Cigar image */}
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
         <CigarImage
@@ -114,7 +120,7 @@ function CatalogGridCard({
       <div className="px-3 pb-3 flex items-center gap-2 mt-auto pt-1">
         <button
           type="button"
-          onClick={() => onAddHumidor(cigar)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddHumidor(cigar); }}
           className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150"
           style={{
             backgroundColor: "var(--secondary)",
@@ -128,7 +134,7 @@ function CatalogGridCard({
         </button>
         <button
           type="button"
-          onClick={() => onAddWishlist(cigar)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddWishlist(cigar); }}
           disabled={wishlistPending}
           className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
           style={{
@@ -143,7 +149,7 @@ function CatalogGridCard({
           <WishlistIcon />
         </button>
       </div>
-    </div>
+    </IntentLink>
   );
 }
 
@@ -171,7 +177,11 @@ function CatalogListRow({
     .join(" · ");
 
   return (
-    <div className="card flex items-center gap-3 p-3">
+    <IntentLink
+      href={`/discover/cigars/${cigar.id}`}
+      className="card flex items-center gap-3 p-3 cursor-pointer"
+      style={{ textDecoration: "none", color: "inherit" }}
+    >
       {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
         <CigarImage
@@ -209,7 +219,7 @@ function CatalogListRow({
       <div className="flex items-center gap-1.5 flex-shrink-0">
         <button
           type="button"
-          onClick={() => onAddHumidor(cigar)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddHumidor(cigar); }}
           className="flex items-center justify-center rounded-lg transition-colors duration-150"
           style={{
             backgroundColor: "var(--secondary)",
@@ -223,7 +233,7 @@ function CatalogListRow({
         </button>
         <button
           type="button"
-          onClick={() => onAddWishlist(cigar)}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddWishlist(cigar); }}
           disabled={wishlistPending}
           className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
           style={{
@@ -237,7 +247,7 @@ function CatalogListRow({
           <WishlistIcon />
         </button>
       </div>
-    </div>
+    </IntentLink>
   );
 }
 
@@ -250,13 +260,14 @@ function CatalogListRow({
    When user clears: restores initialResults immediately, no fetch.
    ------------------------------------------------------------------ */
 
-interface DiscoverCigarsClientProps {
-  initialResults: CatalogResult[];
-}
-
-export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientProps) {
+export function DiscoverCigarsClient() {
   const [query,      setQuery]      = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
+
+  /* Brand drill-down — landing shows the brand index; selecting one
+     shows that brand's cigars. Typing a search clears the selection
+     so clearing the search always returns to the brand index. */
+  const [brandSel, setBrandSel] = useState<string | null>(null);
 
   // View mode -- default grid, persisted to localStorage
   const [view, setView] = useState<ViewMode>("grid");
@@ -303,10 +314,10 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
    * dedupingInterval (set globally in SWRProvider) covers warm-cache
    * navigation (e.g. /discover/cigars → /home → /discover/cigars).
    */
-  const seedPage: CigarPage = {
-    results: initialResults,
-    hasMore: initialResults.length === PAGE_SIZE,
-  };
+  /* Cigar pages exist for a search or a brand drill-down; the plain
+     landing (no query, no brand) renders the brand index instead, so
+     the key is null there and no cigar fetch happens. */
+  const showBrandIndex = debouncedQ === "" && brandSel === null;
 
   const {
     data,
@@ -319,21 +330,28 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
   } = useSWRInfinite<CigarPage>(
     (pageIndex, prev) => {
       if (prev && !prev.hasMore) return null;
-      return keyFor.cigarSearch(debouncedQ, pageIndex);
+      if (showBrandIndex) return null;
+      return keyFor.cigarSearch(debouncedQ, pageIndex, brandSel ?? "");
     },
-    ([, q, pageIndex]) =>
+    ([, q, brand, pageIndex]) =>
       fetchCigarPage({
         query:     q as string,
+        brand:     (brand as string) || undefined,
         pageIndex: pageIndex as number,
         pageSize:  PAGE_SIZE,
       }),
-    {
-      // fallbackData only matches the empty-query key. SWR ignores it
-      // for any other key — exactly the behaviour we want.
-      fallbackData:        debouncedQ === "" ? [seedPage] : undefined,
-      revalidateOnMount:   false,
-      revalidateFirstPage: false,
-    },
+    { revalidateFirstPage: false },
+  );
+
+  /* Brand index — fetched only while the landing shows it. */
+  const {
+    data:  brands,
+    error: brandsError,
+    isLoading: brandsLoading,
+    mutate: mutateBrands,
+  } = useSWR<CatalogBrand[]>(
+    showBrandIndex ? keyFor.catalogBrands : null,
+    fetchCatalogBrands,
   );
 
   /* Global refresh (pull-to-refresh, resume) needs the BOUND mutate —
@@ -347,7 +365,6 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
   const hasMore     = data?.[data.length - 1]?.hasMore ?? false;
   const loading     = isLoading;
   const loadingMore = isValidating && !isLoading && size > 1;
-  const isPopular   = debouncedQ === "";
   const error       = fetchError ? "Failed to load cigars. Please try again." : null;
 
   /* ── Action handlers ──────────────────────────────────────────── */
@@ -421,9 +438,9 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-1">
-            <h1 style={{ fontFamily: "var(--font-serif)" }}>Discover Cigars</h1>
+            <h1 style={{ fontFamily: "var(--font-serif)" }}>Cigar Catalog</h1>
             <p className="text-sm text-muted-foreground">
-              Browse our curated catalog of premium cigars
+              Search the catalog or browse by brand
             </p>
           </div>
           <ViewToggle view={view} onChange={setView} />
@@ -444,19 +461,88 @@ export function DiscoverCigarsClient({ initialResults }: DiscoverCigarsClientPro
             className="input pl-9"
             placeholder="Search brand, series, wrapper..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (e.target.value.trim() !== "") setBrandSel(null);
+            }}
           />
         </div>
 
-        {/* Section label */}
-        {!loading && cigars.length > 0 && (
-          <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
-            {isPopular ? "Popular Cigars" : `${cigars.length} result${cigars.length !== 1 ? "s" : ""}`}
-          </p>
+        {/* Brand crumb — back to the brand index from a drill-down */}
+        {brandSel !== null && debouncedQ === "" && (
+          <button
+            type="button"
+            onClick={() => setBrandSel(null)}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors duration-150"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M9 11L5 7L9 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            All brands
+          </button>
         )}
 
-        {/* Results */}
-        {loading ? (
+        {/* Section label */}
+        {showBrandIndex ? (
+          !brandsLoading && (brands?.length ?? 0) > 0 && (
+            <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
+              Popular Brands
+            </p>
+          )
+        ) : (
+          !loading && cigars.length > 0 && (
+            <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
+              {brandSel !== null && debouncedQ === ""
+                ? `${brandSel} · ${cigars.length}${hasMore ? "+" : ""} cigar${cigars.length !== 1 ? "s" : ""}`
+                : `${cigars.length} result${cigars.length !== 1 ? "s" : ""}`}
+            </p>
+          )
+        )}
+
+        {/* Brand index (landing) */}
+        {showBrandIndex ? (
+          brandsLoading ? (
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 8 }).map((_, i) => <SkeletonListRow key={i} />)}
+            </div>
+          ) : brandsError ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
+              <p className="text-sm text-destructive">Failed to load brands. Please try again.</p>
+              <button type="button" className="btn btn-secondary" onClick={() => mutateBrands()}>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5">
+              {(brands ?? []).map((b, i) => (
+                <button
+                  key={b.brand}
+                  type="button"
+                  onClick={() => { setBrandSel(b.brand); window.scrollTo({ top: 0 }); }}
+                  className="card flex items-center gap-3 p-3.5 text-left transition-colors duration-150 hover:border-[rgba(212,160,74,0.4)]"
+                  style={{ cursor: "pointer" }}
+                >
+                  <span
+                    className="w-6 flex-shrink-0 text-center"
+                    style={{ fontFamily: "var(--font-serif)", fontSize: 15, color: "var(--gold, #D4A04A)", opacity: 0.85 }}
+                    aria-hidden="true"
+                  >
+                    {i + 1}
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block font-semibold truncate" style={{ fontFamily: "var(--font-serif)", fontSize: 16, color: "var(--foreground)" }}>
+                      {b.brand}
+                    </span>
+                    <span className="block text-[11px] text-muted-foreground mt-0.5">
+                      {b.cigar_count} cigar{b.cigar_count !== 1 ? "s" : ""}
+                    </span>
+                  </span>
+                  <span className="text-muted-foreground" aria-hidden="true">›</span>
+                </button>
+              ))}
+            </div>
+          )
+        ) : loading ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {Array.from({ length: 8 }).map((_, i) => <SkeletonGridCard key={i} />)}
