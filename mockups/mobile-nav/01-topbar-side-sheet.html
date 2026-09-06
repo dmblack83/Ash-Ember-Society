@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mobile Nav — Top Bar + Side Sheet</title>
+<style>
+  :root {
+    --background: #15110b;
+    --foreground: #F5E6D3;
+    --card: #241C17;
+    --secondary: #3D2E23;
+    --border: rgba(212,160,74,0.15);
+    --gold: #D4A04A;
+    --ember: #E8642C;
+    --muted: #A69080;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0806;
+    color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px; gap: 20px; min-height: 100vh;
+  }
+  h1 { font-family: var(--serif); font-size: 22px; font-weight: 600; }
+  .controls { display: flex; gap: 10px; }
+  .controls button {
+    background: var(--card); color: var(--muted); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  .controls button.on { color: var(--gold); border-color: var(--gold); }
+
+  /* Phone frame */
+  .phone {
+    width: 375px; height: 720px; background: var(--background);
+    border-radius: 40px; border: 6px solid #2a221c; overflow: hidden;
+    position: relative; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+
+  /* ── Top bar (the new piece) ── */
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 52px; z-index: 30;
+    display: flex; align-items: center; padding: 0 8px;
+    background: rgba(26,18,16,0.95);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .hamburger {
+    width: 44px; height: 44px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 5px;
+    background: none; border: none; cursor: pointer;
+  }
+  .hamburger span { display: block; width: 20px; height: 1.5px; background: var(--foreground); border-radius: 2px; }
+  .topbar .wordmark {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    font-family: var(--serif); font-size: 18px; font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  /* Page content stand-in */
+  .page { position: absolute; inset: 52px 0 84px 0; overflow: hidden; padding: 18px 16px; }
+  .page h2 { font-family: var(--serif); font-size: 26px; margin-bottom: 4px; }
+  .page .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .ghost-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; height: 92px; margin-bottom: 12px; opacity: 0.55; }
+
+  /* Bottom nav stand-in (unchanged, 5 tabs) */
+  .bottomnav {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 84px; z-index: 30;
+    display: flex; align-items: flex-start; padding-top: 10px;
+    background: rgba(26,18,16,0.97); border-top: 1px solid var(--border);
+  }
+  .bottomnav div { flex: 1; text-align: center; font-size: 10px; color: var(--muted); }
+  .bottomnav div.active { color: var(--ember); }
+  .bottomnav .dot { width: 22px; height: 22px; border-radius: 6px; background: var(--secondary); margin: 0 auto 4px; }
+  .bottomnav div.active .dot { background: rgba(232,100,44,0.35); }
+
+  /* ── Side sheet ── */
+  .scrim {
+    position: absolute; inset: 0; z-index: 40; background: rgba(0,0,0,0.55);
+    opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
+  }
+  .sheet {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 300px; z-index: 50;
+    background: #1a1210; border-right: 1px solid var(--border);
+    transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.32,0.72,0,1);
+    display: flex; flex-direction: column; padding: 20px 0;
+  }
+  .phone.open .scrim { opacity: 1; pointer-events: auto; }
+  .phone.open .sheet { transform: translateX(0); }
+
+  .sheet .brand-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 16px 20px 24px;
+    border-bottom: 1px solid var(--border); margin-bottom: 12px;
+  }
+  .sheet .brand {
+    font-family: var(--serif); font-size: 20px; font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .sheet .close {
+    width: 40px; height: 40px; border: none; background: none; cursor: pointer;
+    color: var(--muted); font-size: 20px; line-height: 1;
+    display: flex; align-items: center; justify-content: center; border-radius: 10px;
+  }
+  .sheet .close:active { background: rgba(212,160,74,0.1); color: var(--gold); }
+  .sheet a {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 24px; color: var(--muted); text-decoration: none;
+    font-size: 15px; font-weight: 500;
+  }
+  .sheet a.active { color: var(--gold); background: rgba(212,160,74,0.08); }
+  .sheet a .icon { width: 22px; height: 22px; border-radius: 6px; background: var(--secondary); flex-shrink: 0; }
+  .sheet a.active .icon { background: rgba(212,160,74,0.3); }
+
+  .sheet .section-label {
+    font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: rgba(166,144,128,0.6); padding: 18px 24px 6px;
+  }
+  .sheet .admin-row { color: var(--ember); }
+  .sheet .admin-row .icon { background: rgba(232,100,44,0.2); }
+  .sheet .admin-row .badge {
+    margin-left: auto; font-size: 9px; letter-spacing: 0.08em;
+    padding: 2px 8px; border-radius: 99px;
+    border: 1px solid rgba(232,100,44,0.4); color: var(--ember);
+  }
+  .sheet .footer {
+    margin-top: auto; padding: 16px 24px 8px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .sheet .footer .avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: linear-gradient(135deg, #3a2b18, #5a4020);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--serif); color: var(--gold); font-size: 16px;
+  }
+  .sheet .footer .name { font-size: 13px; font-weight: 600; }
+  .sheet .footer .tier { font-size: 10px; color: var(--muted); }
+
+  .note { max-width: 560px; color: #8a7a6d; font-size: 13px; line-height: 1.6; text-align: center; }
+  .note b { color: #c9b8a8; }
+</style>
+</head>
+<body>
+  <h1>Mobile Nav — Top Bar + Side Sheet</h1>
+  <div class="controls">
+    <button id="adminToggle" class="on">Admin visible (you)</button>
+    <button id="openBtn">Open / close sheet</button>
+  </div>
+
+  <div class="phone open" id="phone">
+    <!-- Top bar -->
+    <div class="topbar">
+      <button class="hamburger" id="hb" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <span class="wordmark">Ash &amp; Ember</span>
+    </div>
+
+    <!-- Page content stand-in -->
+    <div class="page">
+      <h2>Home</h2>
+      <div class="sub">Good evening, Dave</div>
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+      <div class="ghost-card"></div>
+    </div>
+
+    <!-- Bottom nav (unchanged) -->
+    <div class="bottomnav">
+      <div><div class="dot"></div>Humidor</div>
+      <div><div class="dot"></div>Lounge</div>
+      <div class="active"><div class="dot"></div>Home</div>
+      <div><div class="dot"></div>Discover</div>
+      <div><div class="dot"></div>Account</div>
+    </div>
+
+    <!-- Side sheet -->
+    <div class="scrim" id="scrim"></div>
+    <nav class="sheet">
+      <div class="brand-row">
+        <div class="brand">Ash &amp; Ember</div>
+        <button class="close" id="closeBtn" aria-label="Close menu">&#10005;</button>
+      </div>
+      <a href="#" class="active"><span class="icon"></span>Home</a>
+      <a href="#"><span class="icon"></span>Humidor</a>
+      <a href="#"><span class="icon"></span>Lounge</a>
+      <a href="#"><span class="icon"></span>Discover</a>
+      <a href="#"><span class="icon"></span>Account</a>
+
+      <div class="section-label">Explore</div>
+      <a href="#"><span class="icon"></span>Catalog Search</a>
+
+      <div class="section-label" id="adminLabel">Manage</div>
+      <a href="#" class="admin-row" id="adminRow">
+        <span class="icon"></span>Admin
+        <span class="badge">ONLY YOU</span>
+      </a>
+
+      <div class="footer">
+        <div class="avatar">D</div>
+        <div>
+          <div class="name">Dave</div>
+          <div class="tier">Member</div>
+        </div>
+      </div>
+    </nav>
+  </div>
+
+  <p class="note">
+    Tap the <b>hamburger</b> or scrim to open/close. The <b>top bar</b> is new chrome (52px, glass blur,
+    mobile only — desktop keeps the side rail, no top bar). Bottom nav is <b>unchanged</b>.
+    The sheet repeats the 5 tabs, adds <b>Catalog Search</b>, and shows <b>Admin</b> only when
+    your account has the admin flag — toggle it above to preview what everyone else sees.
+  </p>
+
+<script>
+  const phone = document.getElementById('phone');
+  const toggle = () => phone.classList.toggle('open');
+  document.getElementById('hb').addEventListener('click', toggle);
+  document.getElementById('scrim').addEventListener('click', toggle);
+  document.getElementById('closeBtn').addEventListener('click', toggle);
+  document.getElementById('openBtn').addEventListener('click', toggle);
+
+  const adminToggle = document.getElementById('adminToggle');
+  adminToggle.addEventListener('click', () => {
+    const on = adminToggle.classList.toggle('on');
+    adminToggle.textContent = on ? 'Admin visible (you)' : 'Admin hidden (members)';
+    document.getElementById('adminRow').style.display = on ? 'flex' : 'none';
+    document.getElementById('adminLabel').style.display = on ? 'block' : 'none';
+  });
+</script>
+</body>
+</html>
