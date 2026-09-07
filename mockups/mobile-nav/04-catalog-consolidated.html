@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consolidated Catalog — One Entry per Cigar, Vitola Select</title>
+<style>
+  :root {
+    --background: #15110b; --foreground: #F5E6D3; --card: #241C17;
+    --secondary: #3D2E23; --border: rgba(212,160,74,0.15);
+    --gold: #D4A04A; --ember: #E8642C; --muted: #A69080;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0806; color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px 48px; gap: 20px; min-height: 100vh;
+  }
+  h1.pagetitle { font-family: var(--serif); font-size: 22px; font-weight: 600; }
+  .note { max-width: 620px; color: #8a7a6d; font-size: 13px; line-height: 1.6; text-align: center; }
+  .note b { color: #c9b8a8; }
+
+  .phone {
+    width: 375px; height: 720px; background: var(--background);
+    border-radius: 40px; border: 6px solid #2a221c; overflow: hidden;
+    position: relative; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+  .topbar {
+    position: absolute; top: 0; left: 0; right: 0; height: 52px; z-index: 30;
+    display: flex; align-items: center; padding: 0 8px;
+    background: rgba(26,18,16,0.95); border-bottom: 1px solid var(--border);
+  }
+  .hb { width: 44px; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .hb span { display: block; width: 20px; height: 1.5px; background: var(--foreground); border-radius: 2px; }
+  .wm { position: absolute; left: 50%; transform: translateX(-50%); font-family: var(--serif); font-size: 18px; font-weight: 600; letter-spacing: 0.04em; }
+  .screen { position: absolute; inset: 52px 0 0 0; overflow-y: auto; padding: 16px 16px 28px; display: none; }
+  .screen.visible { display: block; }
+
+  h2 { font-family: var(--serif); font-size: 23px; margin-bottom: 2px; }
+  .sub { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+  .seclabel { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 14px 0 10px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .gcard { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; cursor: pointer; }
+  .gcard:hover { border-color: rgba(212,160,74,0.4); }
+  .gcard .img { height: 80px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #2e2218, #1d1610); position: relative; }
+  .gcard .stick { width: 70%; height: 13px; border-radius: 7px; background: linear-gradient(90deg, #5a3d26, #7a5636 55%, #4a3320); position: relative; }
+  .gcard .stick::after { content: ""; position: absolute; left: 38%; top: -2px; bottom: -2px; width: 12px; border-radius: 3px; background: linear-gradient(180deg, #d8b46a, #a77f3e); }
+  .gcard .body { padding: 10px 12px 12px; }
+  .gcard .brand { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .gcard .name { font-family: var(--serif); font-size: 14px; margin: 2px 0 2px; }
+  .gcard .meta { font-size: 11px; color: var(--muted); }
+  .vchip {
+    display: inline-block; margin-top: 7px; font-size: 10px; font-weight: 600;
+    padding: 3px 9px; border-radius: 99px;
+    background: rgba(212,160,74,0.12); color: var(--gold);
+  }
+
+  /* Detail */
+  .back { display: inline-flex; gap: 6px; font-size: 13px; color: var(--muted); margin-bottom: 12px; cursor: pointer; }
+  .hero-img { height: 150px; border-radius: 14px; margin-bottom: 14px; background: linear-gradient(135deg, #2e2218, #1d1610); display: flex; align-items: center; justify-content: center; }
+  .hero-img .stick { width: 62%; height: 20px; border-radius: 10px; background: linear-gradient(90deg, #5a3d26, #7a5636 55%, #4a3320); position: relative; }
+  .hero-img .stick::after { content: ""; position: absolute; left: 38%; top: -3px; bottom: -3px; width: 18px; border-radius: 4px; background: linear-gradient(180deg, #d8b46a, #a77f3e); }
+  .d-brand { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .d-name { font-family: var(--serif); font-size: 24px; font-weight: 600; margin: 3px 0 12px; }
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  .d-sec { font-family: var(--serif); font-size: 16px; margin-bottom: 10px; }
+  .dl { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-bottom: 4px; }
+  .dl .lab { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+  .dl .val { font-size: 13px; }
+
+  /* Vitola selector */
+  .vitola {
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    margin-bottom: 8px; cursor: pointer;
+  }
+  .vitola.sel { border-color: var(--gold); background: rgba(212,160,74,0.07); }
+  .vitola .radio { width: 17px; height: 17px; border-radius: 50%; border: 1.5px solid var(--muted); flex-shrink: 0; position: relative; }
+  .vitola.sel .radio { border-color: var(--gold); }
+  .vitola.sel .radio::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--gold); }
+  .vitola .vname { flex: 1; font-size: 14px; font-weight: 500; }
+  .vitola .vdims { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .cta-col { display: flex; flex-direction: column; gap: 9px; margin-top: 14px; }
+  .btn-gold { text-align: center; font-size: 14px; font-weight: 600; padding: 13px 0; border-radius: 11px; background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; cursor: pointer; }
+  .btn-line { text-align: center; font-size: 14px; font-weight: 500; padding: 12px 0; border-radius: 11px; border: 1px solid var(--border); color: var(--foreground); cursor: pointer; }
+  .cta-hint { text-align: center; font-size: 11px; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">Consolidated Catalog — Vitola Select</h1>
+  <div class="phone">
+    <div class="topbar"><div class="hb"><span></span><span></span><span></span></div><span class="wm">Ash &amp; Ember</span></div>
+
+    <!-- Browse (grouped) -->
+    <div class="screen visible" id="browse">
+      <h2>Cigar Catalog</h2>
+      <p class="sub">Search the catalog or browse by brand</p>
+      <p class="seclabel">Arturo Fuente · 20 cigars</p>
+      <div class="grid" id="grid"></div>
+    </div>
+
+    <!-- Detail (grouped, vitola selector) -->
+    <div class="screen" id="detail">
+      <span class="back" id="back">‹ Back to cigars</span>
+      <div class="hero-img"><div class="stick"></div></div>
+      <p class="d-brand">ARTURO FUENTE</p>
+      <h3 class="d-name">Hemingway</h3>
+
+      <div class="dl">
+        <div><div class="lab">Wrapper</div><div class="val">Cameroon</div></div>
+        <div><div class="lab">Shade</div><div class="val">Colorado</div></div>
+        <div><div class="lab">Wrapper Country</div><div class="val">Cameroon</div></div>
+        <div><div class="lab">Binder Country</div><div class="val">Dominican Republic</div></div>
+        <div style="grid-column: span 2"><div class="lab">Filler Countries</div><div class="val">Dominican Republic</div></div>
+      </div>
+
+      <div class="divider"></div>
+      <h4 class="d-sec">Choose a size</h4>
+      <div id="vitolas"></div>
+
+      <div class="cta-col">
+        <div class="btn-gold" id="addBtn">Add to Humidor · Perfecto 50 × 4"</div>
+        <div class="btn-line" id="wishBtn">♡ Wishlist · Perfecto 50 × 4"</div>
+      </div>
+      <p class="cta-hint">Suggest an edit · applies to the selected vitola</p>
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Browse:</b> one card per cigar (brand + series) — 4,221 rows become ~1,717 entries. The gold
+    chip shows how many vitolas live inside. <b>Detail:</b> shared specs once at the top (they're
+    identical across vitolas in the data — verified), then a size picker — each row is
+    <b>Format (shape) + ring × length</b>, the columns that actually exist (there is no vitola-name
+    field; names users stuffed into the series label are a cleanup item, not a schema feature).
+    Add to Humidor and Wishlist act on the <b>selected size</b> and the button labels say so. Under the hood nothing
+    is merged or deleted — every vitola keeps its own row and ID, so existing humidors are untouched.
+  </p>
+
+<script>
+  const GROUPS = [
+    { brand: "Arturo Fuente", name: "Hemingway", vitolas: 8, meta: "Cameroon" },
+    { brand: "Arturo Fuente", name: "Opus X", vitolas: 15, meta: "Rosado Sun Grown" },
+    { brand: "Arturo Fuente", name: "Don Carlos", vitolas: 14, meta: "Cameroon" },
+    { brand: "Arturo Fuente", name: "Gran Reserva", vitolas: 6, meta: "Connecticut Shade" },
+  ];
+  const VITOLAS = [
+    { name: "Perfecto", dims: "50 × 4\"" },
+    { name: "Perfecto", dims: "53 × 4 1/2\"" },
+    { name: "Figurado", dims: "54 × 4 1/2\"" },
+    { name: "Corona", dims: "45 × 6\"" },
+    { name: "Churchill", dims: "45 × 7\"" },
+    { name: "Presidente", dims: "50 × 9\"" },
+  ];
+
+  const grid = document.getElementById('grid');
+  GROUPS.forEach((g) => {
+    const el = document.createElement('div');
+    el.className = 'gcard';
+    el.innerHTML = `
+      <div class="img"><div class="stick"></div></div>
+      <div class="body">
+        <div class="brand">${g.brand.toUpperCase()}</div>
+        <div class="name">${g.name}</div>
+        <div class="meta">${g.meta}</div>
+        <span class="vchip">${g.vitolas} vitolas</span>
+      </div>`;
+    el.addEventListener('click', () => {
+      document.getElementById('browse').classList.remove('visible');
+      document.getElementById('detail').classList.add('visible');
+    });
+    grid.appendChild(el);
+  });
+
+  const vwrap = document.getElementById('vitolas');
+  let sel = 0;
+  function renderVitolas() {
+    vwrap.innerHTML = '';
+    VITOLAS.forEach((v, i) => {
+      const el = document.createElement('div');
+      el.className = 'vitola' + (i === sel ? ' sel' : '');
+      el.innerHTML = `<span class="radio"></span><span class="vname">${v.name}</span><span class="vdims">${v.dims}</span>`;
+      el.addEventListener('click', () => {
+        sel = i; renderVitolas();
+        document.getElementById('addBtn').textContent = `Add to Humidor · ${v.name} ${v.dims}`;
+        document.getElementById('wishBtn').textContent = `♡ Wishlist · ${v.name} ${v.dims}`;
+      });
+      vwrap.appendChild(el);
+    });
+  }
+  renderVitolas();
+
+  document.getElementById('back').addEventListener('click', () => {
+    document.getElementById('detail').classList.remove('visible');
+    document.getElementById('browse').classList.add('visible');
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Add — Duplicate Check</title>
+<style>
+  :root {
+    --background: #15110b; --foreground: #F5E6D3; --card: #241C17;
+    --secondary: #3D2E23; --border: rgba(212,160,74,0.15);
+    --gold: #D4A04A; --ember: #E8642C; --muted: #A69080;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0806; color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 32px 16px 48px; gap: 20px; min-height: 100vh;
+  }
+  h1.pagetitle { font-family: var(--serif); font-size: 22px; font-weight: 600; }
+  .note { max-width: 620px; color: #8a7a6d; font-size: 13px; line-height: 1.6; text-align: center; }
+  .note b { color: #c9b8a8; }
+
+  .phone {
+    width: 375px; height: 700px; background: var(--background);
+    border-radius: 40px; border: 6px solid #2a221c; overflow: hidden;
+    position: relative; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+  .sheet-bg { position: absolute; inset: 0; background: rgba(0,0,0,0.5); }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 60px;
+    background: var(--background); border-radius: 22px 22px 0 0;
+    border-top: 1px solid var(--border); padding: 18px 18px 24px; overflow-y: auto;
+  }
+  .grab { width: 40px; height: 4px; border-radius: 2px; background: var(--secondary); margin: 0 auto 14px; }
+  h2 { font-family: var(--serif); font-size: 20px; margin-bottom: 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+  .field .input {
+    width: 100%; padding: 11px 12px; font-size: 15px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); color: var(--foreground);
+  }
+  .btn-gold { text-align: center; font-size: 14px; font-weight: 600; padding: 13px 0; border-radius: 11px; background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; cursor: pointer; margin-top: 8px; }
+
+  /* Dupe interstitial */
+  .modal-scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.6); z-index: 10; display: none; }
+  .modal {
+    position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-50%);
+    z-index: 11; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; display: none;
+  }
+  .phone.dupe .modal-scrim, .phone.dupe .modal { display: block; }
+  .modal h3 { font-family: var(--serif); font-size: 18px; margin-bottom: 6px; }
+  .modal .msub { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+  .match {
+    display: flex; align-items: center; gap: 12px; padding: 12px;
+    background: var(--background); border: 1px solid rgba(212,160,74,0.35);
+    border-radius: 12px; margin-bottom: 14px;
+  }
+  .match .img { width: 44px; height: 44px; border-radius: 9px; background: linear-gradient(135deg, #2e2218, #1d1610); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+  .match .stick { width: 70%; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #5a3d26, #7a5636 55%, #4a3320); }
+  .match .brand { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .match .name { font-family: var(--serif); font-size: 15px; }
+  .match .meta { font-size: 11px; color: var(--muted); }
+  .m-btn { display: block; width: 100%; text-align: center; padding: 12px 0; border-radius: 11px; font-size: 13.5px; font-weight: 600; margin-bottom: 8px; cursor: pointer; }
+  .m-primary { background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; }
+  .m-line { border: 1px solid var(--border); color: var(--foreground); font-weight: 500; }
+  .m-ghost { color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 8px 0; }
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">Manual Add — Duplicate Check</h1>
+  <div class="phone" id="phone">
+    <div class="sheet-bg"></div>
+    <div class="sheet">
+      <div class="grab"></div>
+      <h2>Add a Cigar</h2>
+      <div class="field"><label>Brand</label><div class="input">Arturo Fuente</div></div>
+      <div class="field"><label>Series / Line</label><div class="input">Gran Reserve</div></div>
+      <div class="field"><label>Format / Vitola</label><div class="input">Churchill</div></div>
+      <div class="field"><label>Wrapper</label><div class="input">Connecticut Shade</div></div>
+      <div class="btn-gold" id="save">Save to Catalog</div>
+    </div>
+
+    <!-- Duplicate interstitial -->
+    <div class="modal-scrim"></div>
+    <div class="modal">
+      <h3>Is this the same cigar?</h3>
+      <p class="msub">We found a close match already in the catalog. Using it keeps everyone's humidors and reviews connected.</p>
+      <div class="match">
+        <div class="img"><div class="stick"></div></div>
+        <div>
+          <div class="brand">ARTURO FUENTE</div>
+          <div class="name">Gran Reserva</div>
+          <div class="meta">6 vitolas · Connecticut Shade · Dominican Republic</div>
+        </div>
+      </div>
+      <div class="m-btn m-primary" id="useMatch">Yes, use this cigar</div>
+      <div class="m-btn m-line" id="addVitola">Same cigar, but add my vitola to it</div>
+      <div class="m-btn m-ghost" id="createNew">No, mine is different — create new listing</div>
+    </div>
+  </div>
+
+  <p class="note">
+    Tap <b>Save to Catalog</b> to trigger the check. The fuzzy match runs server-side on save (typo
+    "Gran Reserve" still finds "Gran Reserva"). Three paths: <b>use the existing cigar</b> (their
+    add continues with it — nothing new created), <b>same cigar but new vitola</b> (their format/ring/length
+    is added as a vitola under the existing brand + series, keeping shared specs), or <b>create new</b>
+    (today's behavior, never blocked). No match found = saves silently, no interstitial.
+  </p>
+
+<script>
+  const phone = document.getElementById('phone');
+  document.getElementById('save').addEventListener('click', () => phone.classList.add('dupe'));
+  ['useMatch', 'addVitola', 'createNew'].forEach((id) =>
+    document.getElementById(id).addEventListener('click', () => phone.classList.remove('dupe')));
+</script>
+</body>
+</html>
