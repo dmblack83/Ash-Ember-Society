@@ -436,7 +436,7 @@ function AddWishlistSheet({
                       </button>
                     </div>
 
-                    <CigarDetailFields value={manual} onChange={setManual} />
+                    <CigarDetailFields value={manual} onChange={setManual} nameRequired />
 
                     {/* Manual adds always enter the community catalog
                         (pending admin review) — no opt-in needed. */}

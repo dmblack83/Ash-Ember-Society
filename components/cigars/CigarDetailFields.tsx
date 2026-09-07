@@ -22,13 +22,18 @@ import { type CigarDetails, toggleFiller, buildCigarLookupUrl } from "@/lib/ciga
 interface Props {
   value:    CigarDetails;
   onChange: (next: CigarDetails) => void;
+  /* Vitola Name is required only in the manual "add cigar" sheets
+     (humidor + wishlist). Elsewhere (Suggest an Edit, admin size edit)
+     legacy nameless rows exist, so the field stays optional and must
+     not show a required mark. Defaults to false. */
+  nameRequired?: boolean;
 }
 
 const labelCls   = "block text-xs font-medium mb-1.5";
 const labelStyle = { color: "var(--muted-foreground)" } as const;
 const inputStyle = { minHeight: 48 } as const;
 
-export function CigarDetailFields({ value, onChange }: Props) {
+export function CigarDetailFields({ value, onChange, nameRequired = false }: Props) {
   const set = <K extends keyof CigarDetails>(key: K, v: CigarDetails[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -91,7 +96,7 @@ export function CigarDetailFields({ value, onChange }: Props) {
       {/* Vitola name — child-level, like format/ring/length */}
       <div className="col-span-2">
         <label className={labelCls} style={labelStyle}>
-          Vitola Name <span style={{ color: "var(--destructive)" }}>*</span>
+          Vitola Name {nameRequired && <span style={{ color: "var(--destructive)" }}>*</span>}
         </label>
         <input
           type="text"

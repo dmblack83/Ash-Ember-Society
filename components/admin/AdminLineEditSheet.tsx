@@ -110,10 +110,6 @@ export function AdminLineEditSheet({ lineId, current, open, onClose, onSaved }: 
       desktopHeight="80dvh"
     >
       <div className="px-5 pt-5 pb-8 space-y-4">
-        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-          Changes apply to every size of this cigar.
-        </p>
-
         <div>
           <label className={labelCls} style={labelStyle}>
             Brand <span style={{ color: "var(--destructive)" }}>*</span>
