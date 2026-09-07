@@ -1106,7 +1106,7 @@ export function HumidorClient({
       <AddCigarSheet
         open={showAddSheet}
         onClose={() => setShowAddSheet(false)}
-        onAdded={() => { refresh(); }}
+        onAdded={(message) => { refresh(); setToast(message ?? "Added to your humidor!"); }}
         defaultHumidorId={selected === "all" ? null : selected}
       />
 

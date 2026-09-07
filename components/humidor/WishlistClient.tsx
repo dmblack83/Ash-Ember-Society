@@ -16,6 +16,9 @@ import {
   cigarDetailsToRpcArgs,
   cigarDetailsToSuggestionRow,
 } from "@/lib/cigars/cigar-details";
+import { matchCigarLines, type LineMatch } from "@/lib/data/cigar-fetchers";
+import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
+import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
    so its chunk fetches in parallel with the main bundle. */
@@ -64,7 +67,9 @@ function AddWishlistSheet({
 }: {
   open:    boolean;
   onClose: () => void;
-  onAdded: () => void;
+  /* message = a specific outcome to toast; undefined = caller uses
+     its own default. */
+  onAdded: (message?: string) => void;
 }) {
   /* Explicit close = abandoning the entry — discard the draft.
      Eviction/reload never calls this, so the draft survives it. */
@@ -84,6 +89,10 @@ function AddWishlistSheet({
   const [notes,           setNotes]           = useState("");
   const [submitting,      setSubmitting]      = useState(false);
   const [submitError,     setSubmitError]     = useState<string | null>(null);
+
+  /* Manual-add dupe-check interstitial (mockup 06 step 3). Non-null
+     while the user is deciding among the three outcomes. */
+  const [dupe, setDupe] = useState<{ match: LineMatch; matchedChild: SizeChild | null } | null>(null);
 
   /* Layout state */
   const [isDesktop,       setIsDesktop]       = useState(false);
@@ -125,6 +134,7 @@ function AddWishlistSheet({
     setManual(EMPTY_CIGAR_DETAILS);
     setSubmitToCatalog(true);
     setNotes(""); setSubmitError(null);
+    setDupe(null);
 
     /* Restore an in-flight manual draft (iOS PWA relaunch after the
        Look up button or any app switch evicted the page). */
@@ -163,31 +173,15 @@ function AddWishlistSheet({
     setIsManual(false);
   }
 
-  async function handleSubmit() {
-    const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
-    if (!brand) { setSubmitError("Brand is required."); return; }
-
-    setSubmitting(true);
-    setSubmitError(null);
+  /* Second phase: wishlist-row insert + bookkeeping for a resolved
+     catalog row. `suggest` controls the community-review row
+     (false when attaching to an existing listing — Path A). */
+  async function finishWishlistInsert(
+    cigarId: string,
+    opts: { suggest: boolean; bumpUsage?: CatalogResult | null; message?: string },
+  ) {
     const supabase = createClient();
-
     try {
-      let cigarId: string;
-
-      if (selected) {
-        cigarId = selected.id;
-      } else {
-        const { data, error: rpcErr } = await supabase.rpc(
-          "insert_cigar_to_catalog",
-          cigarDetailsToRpcArgs(manual),
-        );
-        if (rpcErr || !data) {
-          setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
-          return;
-        }
-        cigarId = data as string;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setSubmitError("Not authenticated."); return; }
 
@@ -201,28 +195,73 @@ function AddWishlistSheet({
 
       if (insertErr) { setSubmitError(insertErr.message); return; }
 
-      if (selected) {
+      if (opts.bumpUsage) {
         await supabase
           .from("cigar_catalog")
-          .update({ usage_count: selected.usage_count + 1 })
-          .eq("id", selected.id);
+          .update({ usage_count: opts.bumpUsage.usage_count + 1 })
+          .eq("id", opts.bumpUsage.id);
       }
 
-      if (isManual && submitToCatalog && brand) {
+      if (isManual && submitToCatalog && opts.suggest) {
         await supabase
           .from("cigar_catalog_suggestions")
           .insert(cigarDetailsToSuggestionRow(manual, user.id));
       }
 
       clearCigarDraft("wishlist");
-      onAdded();
+      onAdded(opts.message);
       onClose();
+    } catch (err) {
+      console.error("AddWishlistSheet submit error:", err);
+      setSubmitError("Something went wrong. Please try again.");
+    }
+  }
+
+  async function handleSubmit() {
+    const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
+    if (!brand) { setSubmitError("Brand is required."); return; }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      if (selected) {
+        await finishWishlistInsert(selected.id, { suggest: false, bumpUsage: selected });
+        return;
+      }
+      /* Manual path: fuzzy-match BEFORE any insert. null = no match
+         or RPC missing — straight save, zero added friction. */
+      const match = await matchCigarLines(brand, manual.series.trim() || null).catch(() => null);
+      if (match && match.children.length > 0) {
+        setDupe({
+          match,
+          matchedChild: findMatchingSize(match.children, {
+            format:       manual.format,
+            ringGauge:    manual.ringGauge    ? Number(manual.ringGauge)    : null,
+            lengthInches: manual.lengthInches ? Number(manual.lengthInches) : null,
+          }),
+        });
+        return; // interstitial takes over; submitting reset in finally
+      }
+      await createWishlistListingAndFinish(manual.brand.trim(), manual.series.trim() || null);
     } catch (err) {
       console.error("AddWishlistSheet submit error:", err);
       setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /* Insert RPC + finish. Passing explicit brand/series lets Path B
+     use the MATCHED LINE's exact strings (typo never enters the
+     catalog); the v2 RPC copies blend from the line on attach. */
+  async function createWishlistListingAndFinish(brand: string, series: string | null, message?: string) {
+    const supabase = createClient();
+    const args = { ...cigarDetailsToRpcArgs(manual), p_brand: brand, p_series: series };
+    const { data, error: rpcErr } = await supabase.rpc("insert_cigar_to_catalog", args);
+    if (rpcErr || !data) {
+      setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
+      return;
+    }
+    await finishWishlistInsert(data as string, { suggest: true, message });
   }
 
   const hasSelection = selected !== null || isManual;
@@ -516,6 +555,47 @@ function AddWishlistSheet({
 
         </div>
       </div>
+
+      {dupe && (
+        <DupeCheckDialog
+          match={dupe.match}
+          matchedChild={dupe.matchedChild}
+          busy={submitting}
+          onCancel={() => setDupe(null)}
+          onUseExisting={async (child) => {
+            setSubmitting(true);
+            try {
+              await finishWishlistInsert(child.id, {
+                suggest: false,
+                message: "Added to your wishlist. Linked to the existing catalog listing.",
+              });
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+          onAddSize={async () => {
+            setSubmitting(true);
+            try {
+              await createWishlistListingAndFinish(
+                dupe.match.line.brand,
+                dupe.match.line.series,
+                "Added to your wishlist. Your size joined the existing listing.",
+              );
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+          onCreateNew={async () => {
+            setSubmitting(true);
+            try {
+              await createWishlistListingAndFinish(
+                manual.brand.trim(),
+                manual.series.trim() || null,
+                "Added to your wishlist. New catalog listing created, pending review.",
+              );
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+        />
+      )}
     </>
   );
 }
@@ -1015,7 +1095,7 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
       <AddWishlistSheet
         open={showAdd}
         onClose={() => setShowAdd(false)}
-        onAdded={() => { mutateItems(); setToast("Added to your wishlist!"); }}
+        onAdded={(message) => { mutateItems(); setToast(message ?? "Added to your wishlist!"); }}
       />
 
       <AddToHumidorSheet

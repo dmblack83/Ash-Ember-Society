@@ -17,6 +17,9 @@ import {
   cigarDetailsToRpcArgs,
   cigarDetailsToSuggestionRow,
 } from "@/lib/cigars/cigar-details";
+import { matchCigarLines, type LineMatch } from "@/lib/data/cigar-fetchers";
+import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
+import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
 /* ------------------------------------------------------------------
    Types
@@ -25,7 +28,10 @@ import {
 export interface AddCigarSheetProps {
   open:    boolean;
   onClose: () => void;
-  onAdded: () => void;
+  /* message = a specific outcome to toast (e.g. "Linked to the
+     existing catalog listing."); undefined = caller uses its own
+     default. */
+  onAdded: (message?: string) => void;
   /* Humidor to preselect in the picker. Pass the currently-filtered
      humidor id, or null/omit to fall back to the user's default. */
   defaultHumidorId?: string | null;
@@ -91,6 +97,10 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
 
+  /* Manual-add dupe-check interstitial (mockup 06 step 3). Non-null
+     while the user is deciding among the three outcomes. */
+  const [dupe, setDupe] = useState<{ match: LineMatch; matchedChild: SizeChild | null } | null>(null);
+
   /* ── Layout state ─────────────────────────────────────────── */
   const [showTopCaret,    setShowTopCaret]    = useState(false);
   const [showBottomCaret, setShowBottomCaret] = useState(false);
@@ -109,6 +119,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     setQuantity(1); setPurchaseDate(today); setPriceStr("");
     setSource(""); setAgingStart(today); setAgingTarget(""); setNotes("");
     setSubmitError(null);
+    setDupe(null);
     setPickedHumidorId(defaultHumidorId ?? null);
 
     /* Restore an in-flight manual draft. Covers the iOS PWA relaunch
@@ -177,32 +188,15 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     setIsManual(false);
   }
 
-  async function handleSubmit() {
-    const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
-    if (!brand) { setSubmitError("Brand is required."); return; }
-
-    setSubmitting(true);
-    setSubmitError(null);
-
+  /* Second phase: humidor insert + bookkeeping for a resolved
+     catalog row. `suggest` controls the community-review row
+     (false when attaching to an existing listing — Path A). */
+  async function finishInsert(
+    cigarId: string,
+    opts: { suggest: boolean; bumpUsage?: CatalogResult | null; message?: string },
+  ) {
     const supabase = createClient();
-
     try {
-      let cigarId: string;
-
-      if (selected) {
-        cigarId = selected.id;
-      } else {
-        const { data, error: rpcErr } = await supabase.rpc(
-          "insert_cigar_to_catalog",
-          cigarDetailsToRpcArgs(manual),
-        );
-        if (rpcErr || !data) {
-          setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
-          return;
-        }
-        cigarId = data as string;
-      }
-
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setSubmitError("Not authenticated."); return; }
 
@@ -231,28 +225,73 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
         return;
       }
 
-      if (selected) {
+      if (opts.bumpUsage) {
         await supabase
           .from("cigar_catalog")
-          .update({ usage_count: selected.usage_count + 1 })
-          .eq("id", selected.id);
+          .update({ usage_count: opts.bumpUsage.usage_count + 1 })
+          .eq("id", opts.bumpUsage.id);
       }
 
-      if (isManual && submitToCatalog && brand) {
+      if (isManual && submitToCatalog && opts.suggest) {
         await supabase
           .from("cigar_catalog_suggestions")
           .insert(cigarDetailsToSuggestionRow(manual, user.id));
       }
 
       clearCigarDraft("humidor");
-      onAdded();
+      onAdded(opts.message);
       onClose();
+    } catch (err) {
+      console.error("AddCigarSheet submit error:", err);
+      setSubmitError("Something went wrong. Please try again.");
+    }
+  }
+
+  async function handleSubmit() {
+    const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
+    if (!brand) { setSubmitError("Brand is required."); return; }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      if (selected) {
+        await finishInsert(selected.id, { suggest: false, bumpUsage: selected });
+        return;
+      }
+      /* Manual path: fuzzy-match BEFORE any insert. null = no match
+         or RPC missing — straight save, zero added friction. */
+      const match = await matchCigarLines(brand, manual.series.trim() || null).catch(() => null);
+      if (match && match.children.length > 0) {
+        setDupe({
+          match,
+          matchedChild: findMatchingSize(match.children, {
+            format:       manual.format,
+            ringGauge:    manual.ringGauge    ? Number(manual.ringGauge)    : null,
+            lengthInches: manual.lengthInches ? Number(manual.lengthInches) : null,
+          }),
+        });
+        return; // interstitial takes over; submitting reset in finally
+      }
+      await createListingAndFinish(manual.brand.trim(), manual.series.trim() || null);
     } catch (err) {
       console.error("AddCigarSheet submit error:", err);
       setSubmitError("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  /* Insert RPC + finish. Passing explicit brand/series lets Path B
+     use the MATCHED LINE's exact strings (typo never enters the
+     catalog); the v2 RPC copies blend from the line on attach. */
+  async function createListingAndFinish(brand: string, series: string | null, message?: string) {
+    const supabase = createClient();
+    const args = { ...cigarDetailsToRpcArgs(manual), p_brand: brand, p_series: series };
+    const { data, error: rpcErr } = await supabase.rpc("insert_cigar_to_catalog", args);
+    if (rpcErr || !data) {
+      setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
+      return;
+    }
+    await finishInsert(data as string, { suggest: true, message });
   }
 
   const hasSelection = selected !== null || isManual;
@@ -651,6 +690,47 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
         isOpen={showLimitModal}
         onClose={() => setShowLimitModal(false)}
       />
+
+      {dupe && (
+        <DupeCheckDialog
+          match={dupe.match}
+          matchedChild={dupe.matchedChild}
+          busy={submitting}
+          onCancel={() => setDupe(null)}
+          onUseExisting={async (child) => {
+            setSubmitting(true);
+            try {
+              await finishInsert(child.id, {
+                suggest: false,
+                message: "Added to your humidor. Linked to the existing catalog listing.",
+              });
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+          onAddSize={async () => {
+            setSubmitting(true);
+            try {
+              await createListingAndFinish(
+                dupe.match.line.brand,
+                dupe.match.line.series,
+                "Added to your humidor. Your size joined the existing listing.",
+              );
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+          onCreateNew={async () => {
+            setSubmitting(true);
+            try {
+              await createListingAndFinish(
+                manual.brand.trim(),
+                manual.series.trim() || null,
+                "Added to your humidor. New catalog listing created, pending review.",
+              );
+              setDupe(null);
+            } finally { setSubmitting(false); }
+          }}
+        />
+      )}
     </>
   );
 }
