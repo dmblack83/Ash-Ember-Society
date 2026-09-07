@@ -8,9 +8,13 @@ export const runtime = "edge";
 /* ------------------------------------------------------------------
    /api/admin/catalog-sizes/[id]        (id = cigar_catalog.id)
 
-   PATCH  { format?, ring_gauge?, length_inches? }
-     Direct admin edit of one size row (vitola). Size fields only —
-     blend and identity live on the line (see catalog-lines route).
+   PATCH  { name?, format?, ring_gauge?, length_inches?, shade?,
+            wrapper?, wrapper_country?, binder_country?,
+            filler_countries?, brand?, series? }
+     Direct admin edit of one size row (vitola): size + blend fields
+     patch the child directly (blend is vitola-owned). brand/series
+     in the body move this vitola to (or create) that line — the
+     vitola KEEPS its own blend; lines are identity only.
 
    DELETE
      Removes the size row, and its line when no sizes remain.
@@ -65,14 +69,85 @@ export async function PATCH(
     }
     patch.length_inches = l;
   }
-  if (Object.keys(patch).length === 0) {
-    return NextResponse.json({ error: "No editable fields in body" }, { status: 422 });
+  for (const k of ["shade", "wrapper", "wrapper_country", "binder_country"] as const) {
+    if (k in body) {
+      const v = body[k];
+      if (v !== null && (typeof v !== "string" || v.length > 80)) {
+        return NextResponse.json({ error: `${k} must be a short string or null` }, { status: 422 });
+      }
+      patch[k] = v === "" ? null : v;
+    }
+  }
+  if ("filler_countries" in body) {
+    const v = body.filler_countries;
+    if (v !== null && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) {
+      return NextResponse.json({ error: "filler_countries must be a string array or null" }, { status: 422 });
+    }
+    patch.filler_countries = Array.isArray(v) && v.length === 0 ? null : v;
   }
 
   const admin = createServiceClientFor(
     "api/admin/catalog-sizes",
     "direct admin edit of one cigar_catalog size row; is_admin gate above",
   );
+
+  /* Line reassignment: brand/series in the body move this vitola to
+     (or create) that line. The vitola KEEPS its own blend — lines
+     are identity only. */
+  let movedLine = false;
+  let oldLineId: string | null = null;
+  if ("brand" in body || "series" in body) {
+    const nb = body.brand;
+    if ("brand" in body && (typeof nb !== "string" || nb.trim() === "")) {
+      return NextResponse.json({ error: "brand cannot be empty" }, { status: 422 });
+    }
+    const ns = body.series;
+    if ("series" in body && ns !== null && typeof ns !== "string") {
+      return NextResponse.json({ error: "series must be a string or null" }, { status: 422 });
+    }
+
+    const { data: child } = await admin
+      .from("cigar_catalog")
+      .select("brand, series, line_id")
+      .eq("id", id)
+      .maybeSingle<{ brand: string | null; series: string | null; line_id: string | null }>();
+    if (!child) return NextResponse.json({ error: "Size not found" }, { status: 404 });
+    oldLineId = child.line_id;
+
+    const nextBrand  = ("brand"  in body ? (nb as string).trim() : child.brand) ?? "";
+    const nextSeries = "series" in body ? ((ns as string | null)?.trim() || null) : child.series;
+    const changed =
+      nextBrand !== (child.brand ?? "") ||
+      (nextSeries ?? "") !== (child.series ?? "");
+
+    if (changed) {
+      if (!nextBrand) return NextResponse.json({ error: "brand cannot be empty" }, { status: 422 });
+      let destQuery = admin.from("cigar_lines")
+        .select("id, brand, series")
+        .eq("brand", nextBrand);
+      destQuery = nextSeries === null ? destQuery.is("series", null) : destQuery.eq("series", nextSeries);
+      let { data: dest } = await destQuery.maybeSingle<{ id: string; brand: string; series: string | null }>();
+      if (!dest) {
+        const { data: created, error: createErr } = await admin
+          .from("cigar_lines")
+          .insert({ brand: nextBrand, series: nextSeries, community_added: true, approved: false })
+          .select("id, brand, series")
+          .single();
+        if (createErr || !created) {
+          return NextResponse.json({ error: "Failed to create the destination line" }, { status: 500 });
+        }
+        dest = created;
+      }
+      patch.line_id = dest.id;
+      patch.brand   = dest.brand;
+      patch.series  = dest.series;
+      movedLine = true;
+    }
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No editable fields in body" }, { status: 422 });
+  }
 
   const { error: updateErr } = await admin
     .from("cigar_catalog")
@@ -82,8 +157,18 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to update size" }, { status: 500 });
   }
 
+  if (movedLine && oldLineId && oldLineId !== patch.line_id) {
+    const { count: remaining } = await admin
+      .from("cigar_catalog")
+      .select("id", { count: "exact", head: true })
+      .eq("line_id", oldLineId);
+    if ((remaining ?? 0) === 0) {
+      await admin.from("cigar_lines").delete().eq("id", oldLineId);
+    }
+  }
+
   revalidateTag("cigar-catalog", "max");
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, movedLine });
 }
 
 export async function DELETE(

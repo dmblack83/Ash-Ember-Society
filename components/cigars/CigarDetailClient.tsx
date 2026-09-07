@@ -320,6 +320,8 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
       {isAdmin && editSize && (
         <AdminSizeEditSheet
           child={editSize}
+          line={{ brand: c.brand, series: c.series }}
+          siblings={siblings}
           open={true}
           onClose={() => setEditSize(null)}
           onSaved={(kind) => {
@@ -328,6 +330,9 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
               router.push("/discover/cigars");
               return;
             }
+            /* "moved" refreshes like "saved" — the refetched cigar row
+               carries the new brand/series and the sibling key
+               recomputes (routed child included). */
             refreshAfterAdminEdit();
           }}
         />
