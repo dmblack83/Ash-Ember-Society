@@ -2,20 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
-import {
-  type CigarDetails,
-  cigarDetailsFromCurrent,
-  cigarDetailsToCatalogFields,
-  type CurrentCigarFields,
-} from "@/lib/cigars/cigar-details";
 
 /* ------------------------------------------------------------------
    AdminLineEditSheet — direct admin edit of a cigar line's identity
-   and blend (brand, series, wrapper, shade, countries). Size fields
-   are per-vitola (AdminSizeEditSheet). Saves via
-   PATCH /api/admin/catalog-lines/[id]; the DB trigger fans changes
-   out to every size row.
+   (brand, series). Blend and size fields are per-vitola
+   (AdminSizeEditSheet). Saves via PATCH /api/admin/catalog-lines/[id];
+   the DB trigger fans brand/series out to every size row.
 
    Renaming onto an existing line returns 409 line_exists with the
    target's summary — the sheet then offers a MERGE (repoint this
@@ -24,9 +16,9 @@ import {
 
 interface Props {
   lineId:  string;
-  /* Line-shared fields as currently displayed (from the tapped
-     child's copies). */
-  current: CurrentCigarFields;
+  /* Line-shared identity fields as currently displayed (from the
+     tapped child's copies). */
+  current: { brand: string | null; series: string | null };
   open:    boolean;
   onClose: () => void;
   onSaved: (kind: "saved" | "merged") => void;
@@ -36,8 +28,13 @@ interface MergeTarget {
   id: string; brand: string; series: string | null; sizeCount: number;
 }
 
+const labelCls   = "block text-xs font-medium mb-1.5";
+const labelStyle = { color: "var(--muted-foreground)" } as const;
+const inputStyle = { minHeight: 48 } as const;
+
 export function AdminLineEditSheet({ lineId, current, open, onClose, onSaved }: Props) {
-  const [form,  setForm]  = useState<CigarDetails>(() => cigarDetailsFromCurrent(current));
+  const [brand,  setBrand]  = useState(current.brand ?? "");
+  const [series, setSeries] = useState(current.series ?? "");
   const [busy,  setBusy]  = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mergeTarget, setMergeTarget] = useState<MergeTarget | null>(null);
@@ -46,27 +43,26 @@ export function AdminLineEditSheet({ lineId, current, open, onClose, onSaved }: 
     if (!open) return;
     /* Reset-on-open, same pattern as the add sheets. */
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setForm(cigarDetailsFromCurrent(current));
+    setBrand(current.brand ?? "");
+    setSeries(current.series ?? "");
     setBusy(false);
     setError(null);
     setMergeTarget(null);
   }, [open, current]);
 
   async function save(merge: boolean) {
+    if (!brand.trim()) {
+      setError("Brand is required.");
+      return;
+    }
     setBusy(true);
     setError(null);
-    const f = cigarDetailsToCatalogFields(form);
     const res = await fetch(`/api/admin/catalog-lines/${lineId}`, {
       method:  "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        brand:            f.brand,
-        series:           f.series,
-        wrapper:          f.wrapper,
-        shade:            f.shade,
-        wrapper_country:  f.wrapper_country,
-        binder_country:   f.binder_country,
-        filler_countries: f.filler_countries,
+        brand:  brand.trim(),
+        series: series.trim() || null,
         ...(merge ? { merge: true } : {}),
       }),
     });
@@ -118,7 +114,21 @@ export function AdminLineEditSheet({ lineId, current, open, onClose, onSaved }: 
           Changes apply to every size of this cigar.
         </p>
 
-        <CigarDetailFields value={form} onChange={setForm} hideSizeFields />
+        <div>
+          <label className={labelCls} style={labelStyle}>
+            Brand <span style={{ color: "var(--destructive)" }}>*</span>
+          </label>
+          <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)}
+            className="input w-full text-sm" style={inputStyle} />
+        </div>
+        <div>
+          <label className={labelCls} style={labelStyle}>Series</label>
+          <input type="text" value={series} onChange={(e) => setSeries(e.target.value)}
+            className="input w-full text-sm" style={inputStyle} />
+        </div>
+        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+          Applies to every vitola in this line. Blend is edited per vitola.
+        </p>
 
         {error && (
           <p className="text-sm" style={{ color: "var(--destructive)" }}>{error}</p>

@@ -325,19 +325,7 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
       {isAdmin && c.line_id && (
         <AdminLineEditSheet
           lineId={c.line_id}
-          current={{
-            brand:            c.brand,
-            series:           c.series,
-            name:             null,
-            format:           null,
-            ring_gauge:       null,
-            length_inches:    null,
-            shade:            c.shade,
-            wrapper:          c.wrapper,
-            wrapper_country:  c.wrapper_country,
-            binder_country:   c.binder_country,
-            filler_countries: c.filler_countries,
-          }}
+          current={{ brand: c.brand, series: c.series }}
           open={editLine}
           onClose={() => setEditLine(false)}
           onSaved={() => refreshAfterAdminEdit()}

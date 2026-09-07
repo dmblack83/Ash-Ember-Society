@@ -9,11 +9,11 @@ export const runtime = "edge";
    PATCH /api/admin/catalog-lines/[id]      (id = cigar_lines.id)
 
    Direct admin edit of a cigar line. Body: any subset of
-     { brand, series, wrapper, shade, wrapper_country,
-       binder_country, filler_countries, merge }
+     { brand, series, merge }
 
-   Blend/identity changes update cigar_lines; the sync trigger fans
-   brand/series/blend out to every size row.
+   Identity changes update cigar_lines; the sync trigger fans
+   brand/series out to every size row. Blend is vitola-owned and is
+   edited per size via AdminSizeEditSheet.
 
    Renaming onto an EXISTING line (same brand + series) is a merge:
    - without { merge: true } the route answers 409 with the target
@@ -23,10 +23,7 @@ export const runtime = "edge";
      items untouched) and the now-empty source line is deleted.
    ------------------------------------------------------------------ */
 
-const LINE_FIELDS = new Set([
-  "brand", "series", "wrapper", "shade",
-  "wrapper_country", "binder_country", "filler_countries",
-]);
+const LINE_FIELDS = new Set(["brand", "series"]);
 
 interface LineRow {
   id: string; brand: string; series: string | null;
@@ -109,9 +106,8 @@ export async function PATCH(
 
       /* Merge: repoint children to the target line. Edit-in-place —
          ids never change, so humidor items and burn logs are safe.
-         The target line's blend is the surviving authority; the
-         repointed children keep their own blend copies until the
-         target line is next edited (trigger overwrite). */
+         Blend is vitola-owned, so repointed children keep their own
+         blend untouched. */
       const { error: repointErr } = await admin
         .from("cigar_catalog")
         .update({ line_id: target.id, brand: target.brand, series: target.series })

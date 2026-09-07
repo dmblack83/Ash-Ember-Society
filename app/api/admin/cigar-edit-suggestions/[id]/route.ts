@@ -123,10 +123,7 @@ export async function PATCH(
       .maybeSingle();
     if (!lineReadErr && childRow) lineId = (childRow as { line_id: string | null }).line_id;
 
-    const LINE_FIELDS = new Set([
-      "brand", "series", "wrapper", "shade",
-      "wrapper_country", "binder_country", "filler_countries",
-    ]);
+    const LINE_FIELDS = new Set(["brand", "series"]);
     const linePatch:  Record<string, unknown> = {};
     const childPatch: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(patch)) {
