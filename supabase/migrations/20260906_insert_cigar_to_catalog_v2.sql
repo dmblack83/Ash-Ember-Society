@@ -73,10 +73,13 @@ begin
 end;
 $$;
 
+-- Default EXECUTE goes to PUBLIC — revoking only anon leaves that
+-- path open. Revoke both, then grant back the intended callers.
 -- New functions grant EXECUTE to PUBLIC by default; this write RPC
 -- must not be callable with the anon key. Earlier versions never
 -- revoked it either — this closes that hole for the live signature.
-revoke execute on function insert_cigar_to_catalog(text, text, text, numeric, numeric, text, text, text, text, text[]) from anon;
+revoke execute on function insert_cigar_to_catalog(text, text, text, numeric, numeric, text, text, text, text, text[]) from public, anon;
+grant execute on function insert_cigar_to_catalog(text, text, text, numeric, numeric, text, text, text, text, text[]) to authenticated, service_role;
 
 -- Stale overloads from earlier migrations (different signatures, so
 -- CREATE OR REPLACE never collapsed them) may survive in prod with
@@ -91,3 +94,5 @@ drop function if exists insert_cigar_to_catalog(text, text, text, text, text, nu
 --   where l.community_added group by 1,2 order by max(l.created_at) desc limit 5;
 -- select oidvectortypes(proargtypes) from pg_proc where proname = 'insert_cigar_to_catalog';
 --   -- expect exactly ONE row (the 10-param signature)
+-- select has_function_privilege('anon', 'insert_cigar_to_catalog(text,text,text,numeric,numeric,text,text,text,text,text[])', 'execute');
+--   -- expect f

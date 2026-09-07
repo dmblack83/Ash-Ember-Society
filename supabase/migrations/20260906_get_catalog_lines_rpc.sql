@@ -68,7 +68,10 @@ as $$
   offset p_offset limit p_limit
 $$;
 
-revoke execute on function get_catalog_lines(text, text, integer, integer) from anon;
+-- Default EXECUTE goes to PUBLIC — revoking only anon leaves that
+-- path open. Revoke both, then grant back the intended callers.
+revoke execute on function get_catalog_lines(text, text, integer, integer) from public, anon;
+grant execute on function get_catalog_lines(text, text, integer, integer) to authenticated, service_role;
 
 -- ── Verify ──────────────────────────────────────────────────
 -- select count(*) from get_catalog_lines(null, null, 0, 2000);

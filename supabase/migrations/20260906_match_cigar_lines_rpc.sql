@@ -65,7 +65,10 @@ as $$
   order by c.ring_gauge nulls last, c.length_inches nulls last, c.id
 $$;
 
-revoke execute on function match_cigar_lines(text, text) from anon;
+-- Default EXECUTE goes to PUBLIC — revoking only anon leaves that
+-- path open. Revoke both, then grant back the intended callers.
+revoke execute on function match_cigar_lines(text, text) from public, anon;
+grant execute on function match_cigar_lines(text, text) to authenticated, service_role;
 
 -- ── Verify ──────────────────────────────────────────────────
 -- select distinct brand, series, similarity

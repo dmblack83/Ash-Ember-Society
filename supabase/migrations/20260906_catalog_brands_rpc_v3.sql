@@ -22,7 +22,10 @@ as $$
   order by count(h.id) desc, c.brand asc
 $$;
 
-revoke execute on function public.get_catalog_brands() from anon;
+-- Default EXECUTE goes to PUBLIC — revoking only anon leaves that
+-- path open. Revoke both, then grant back the intended callers.
+revoke execute on function public.get_catalog_brands() from public, anon;
+grant execute on function public.get_catalog_brands() to authenticated, service_role;
 
 -- ── Verify ──────────────────────────────────────────────────
 -- select * from get_catalog_brands() limit 5;

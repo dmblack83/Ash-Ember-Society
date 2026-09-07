@@ -9,6 +9,12 @@
 -- the audit report lists these groups for per-entry resolution.
 -- (Seed data: 0 conflicts; prod may differ via community adds.)
 -- Run AFTER 20260906_cigar_lines.sql.
+--
+-- APPLY-ORDER NOTE: children created while insert v1 is still live
+-- (between applying 1-2 and 6) get line_id = null. The stamp UPDATE
+-- below is idempotent (where line_id is null) — either apply all six
+-- migrations in one sitting, or RE-RUN this file's two statements
+-- after migration 6 to stamp any drift rows.
 -- ============================================================
 
 -- Record the before-count to compare in verify:
