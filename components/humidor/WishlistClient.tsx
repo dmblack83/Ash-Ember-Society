@@ -15,7 +15,7 @@ import {
   EMPTY_CIGAR_DETAILS,
   cigarDetailsToRpcArgs,
 } from "@/lib/cigars/cigar-details";
-import { matchCigarLines, type LineMatch } from "@/lib/data/cigar-fetchers";
+import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/data/cigar-fetchers";
 import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
 import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
@@ -249,14 +249,15 @@ function AddWishlistSheet({
      use the MATCHED LINE's exact strings (typo never enters the
      catalog); the v2 RPC copies blend from the line on attach. */
   async function createWishlistListingAndFinish(brand: string, series: string | null, message?: string) {
-    const supabase = createClient();
     const args = { ...cigarDetailsToRpcArgs(manual), p_brand: brand, p_series: series };
-    const { data, error: rpcErr } = await supabase.rpc("insert_cigar_to_catalog", args);
-    if (rpcErr || !data) {
-      setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
+    let cigarId: string;
+    try {
+      cigarId = await insertCigarToCatalog(args);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to save cigar to catalog.");
       return;
     }
-    await finishWishlistInsert(data as string, { message });
+    await finishWishlistInsert(cigarId, { message });
   }
 
   const hasSelection = selected !== null || isManual;

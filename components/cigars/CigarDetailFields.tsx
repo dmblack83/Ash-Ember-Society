@@ -22,13 +22,16 @@ import { type CigarDetails, toggleFiller, buildCigarLookupUrl } from "@/lib/ciga
 interface Props {
   value:    CigarDetails;
   onChange: (next: CigarDetails) => void;
+  /* Hide Format / Ring Gauge / Length — the admin line editor edits
+     line-owned fields only (sizes are edited per vitola). */
+  hideSizeFields?: boolean;
 }
 
 const labelCls   = "block text-xs font-medium mb-1.5";
 const labelStyle = { color: "var(--muted-foreground)" } as const;
 const inputStyle = { minHeight: 48 } as const;
 
-export function CigarDetailFields({ value, onChange }: Props) {
+export function CigarDetailFields({ value, onChange, hideSizeFields = false }: Props) {
   const set = <K extends keyof CigarDetails>(key: K, v: CigarDetails[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -75,9 +78,9 @@ export function CigarDetailFields({ value, onChange }: Props) {
         />
       </div>
 
-      {/* Series / Name */}
+      {/* Series */}
       <div className="col-span-2">
-        <label className={labelCls} style={labelStyle}>Series / Name</label>
+        <label className={labelCls} style={labelStyle}>Series</label>
         <input
           type="text"
           value={value.series}
@@ -88,7 +91,23 @@ export function CigarDetailFields({ value, onChange }: Props) {
         />
       </div>
 
+      {/* Vitola name — child-level, like format/ring/length */}
+      {!hideSizeFields && (
+      <div className="col-span-2">
+        <label className={labelCls} style={labelStyle}>Vitola Name</label>
+        <input
+          type="text"
+          value={value.name}
+          onChange={(e) => set("name", e.target.value)}
+          placeholder="e.g. Short Story (optional)"
+          className="input w-full text-sm"
+          style={inputStyle}
+        />
+      </div>
+      )}
+
       {/* Format */}
+      {!hideSizeFields && (
       <div>
         <label className={labelCls} style={labelStyle}>Format</label>
         <select
@@ -103,8 +122,10 @@ export function CigarDetailFields({ value, onChange }: Props) {
           ))}
         </select>
       </div>
+      )}
 
       {/* Ring Gauge */}
+      {!hideSizeFields && (
       <div>
         <label className={labelCls} style={labelStyle}>Ring Gauge</label>
         <select
@@ -119,8 +140,10 @@ export function CigarDetailFields({ value, onChange }: Props) {
           ))}
         </select>
       </div>
+      )}
 
       {/* Length */}
+      {!hideSizeFields && (
       <div>
         <label className={labelCls} style={labelStyle}>Length</label>
         <select
@@ -135,6 +158,7 @@ export function CigarDetailFields({ value, onChange }: Props) {
           ))}
         </select>
       </div>
+      )}
 
       {/* Shade */}
       <div>

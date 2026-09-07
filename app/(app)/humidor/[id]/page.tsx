@@ -18,6 +18,7 @@ export interface CigarDetail {
   id: string;
   brand: string | null;
   series: string | null;
+  name: string | null;
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;

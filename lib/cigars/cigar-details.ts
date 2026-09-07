@@ -11,6 +11,7 @@
 export interface CigarDetails {
   brand:            string;
   series:           string;
+  name:             string;   // vitola name ("King B"), child-level
   format:           string;   // FORMATS value, or ""
   ringGauge:        string;   // numeric-as-string, or ""
   lengthInches:     string;   // numeric-as-string, or ""
@@ -24,6 +25,7 @@ export interface CigarDetails {
 export const EMPTY_CIGAR_DETAILS: CigarDetails = {
   brand:           "",
   series:          "",
+  name:            "",
   format:          "",
   ringGauge:       "",
   lengthInches:    "",
@@ -48,6 +50,7 @@ export function cigarDetailsToCatalogFields(d: CigarDetails): Record<string, unk
   return {
     brand:            d.brand.trim()          || null,
     series:           d.series.trim()         || null,
+    name:             d.name.trim()           || null,
     format:           d.format                || null,
     ring_gauge:       d.ringGauge    ? Number(d.ringGauge)    : null,
     length_inches:    d.lengthInches ? Number(d.lengthInches) : null,
@@ -65,6 +68,7 @@ export function cigarDetailsToRpcArgs(d: CigarDetails): Record<string, unknown> 
   return {
     p_brand:            f.brand,
     p_series:           f.series,
+    p_name:             f.name,
     p_format:           f.format,
     p_ring_gauge:       f.ring_gauge,
     p_length_inches:    f.length_inches,
@@ -99,6 +103,7 @@ export function diffCigarFields(
 export interface CurrentCigarFields {
   brand:             string | null;
   series:            string | null;
+  name:              string | null;
   format:            string | null;
   ring_gauge:        number | null;
   length_inches:     number | null;
@@ -120,6 +125,7 @@ export function buildCigarLookupUrl(d: CigarDetails): string | null {
   const terms = [
     d.brand,
     d.series,
+    d.name,
     d.format,
     length && gauge ? `${length}x${gauge}` : "",
     d.shade,
@@ -136,6 +142,7 @@ export function cigarDetailsFromCurrent(c: CurrentCigarFields): CigarDetails {
   return {
     brand:           c.brand            ?? "",
     series:          c.series           ?? "",
+    name:            c.name             ?? "",
     format:          c.format           ?? "",
     ringGauge:       c.ring_gauge    !== null ? String(c.ring_gauge)    : "",
     lengthInches:    c.length_inches !== null ? String(c.length_inches) : "",

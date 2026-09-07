@@ -24,6 +24,8 @@ export interface CatalogLine {
 
 export interface SizeChild {
   id:             string;
+  /* Vitola marketing name ("King B") — optional child-level field. */
+  name?:          string | null;
   format:         string | null;
   ring_gauge:     number | null;
   length_inches:  number | null;
@@ -51,9 +53,10 @@ export function sizeDims(c: SizeChild): string {
   return "";
 }
 
-/* 'Perfecto 50 × 4"' — CTA label suffix for a selected size. */
+/* 'Perfecto 50 × 4"' — CTA label suffix for a selected size. The
+   vitola name outranks the shape when present ('King B 50 × 5 1/2"'). */
 export function sizeLabel(c: SizeChild): string {
-  const parts = [c.format, sizeDims(c)].filter(Boolean);
+  const parts = [c.name ?? c.format, sizeDims(c)].filter(Boolean);
   return parts.length > 0 ? parts.join(" ") : "Original size";
 }
 

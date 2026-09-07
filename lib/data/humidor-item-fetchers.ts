@@ -35,7 +35,7 @@ export async function fetchHumidorItemBundle(
     .from("humidor_items")
     .select(
       "id, cigar_id, quantity, purchase_date, price_paid_cents, source, aging_start_date, aging_target_date, notes, created_at, humidor_id, " +
-      "cigar:cigar_catalog(id, brand, series, format, wrapper, wrapper_country, binder_country, filler_countries, shade, ring_gauge, length_inches, image_url)"
+      "cigar:cigar_catalog(id, brand, series, name, format, wrapper, wrapper_country, binder_country, filler_countries, shade, ring_gauge, length_inches, image_url)"
     )
     .eq("id", itemId)
     .eq("user_id", userId)

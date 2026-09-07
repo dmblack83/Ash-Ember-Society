@@ -19,7 +19,7 @@ import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
 
 const CATALOG_SELECT =
-  "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
+  "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
 
 export interface CigarPage {
   results: CatalogResult[];
@@ -94,6 +94,7 @@ export interface CigarDetailRow {
   id: string;
   brand: string | null;
   series: string | null;
+  name: string | null;
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;
@@ -105,13 +106,16 @@ export interface CigarDetailRow {
   community_added: boolean;
   approved: boolean;
   image_url: string | null;
+  /* Parent line link — null until the cigar_lines backfill ran or
+     for null-brand rows. Drives the admin line editor. */
+  line_id: string | null;
 }
 
 export async function fetchCigarDetail(id: string): Promise<CigarDetailRow | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("cigar_catalog")
-    .select("id, brand, series, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url")
+    .select("id, brand, series, name, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url, line_id")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -218,7 +222,7 @@ export async function fetchLineSiblings(
   const supabase = createClient();
   let q = supabase
     .from("cigar_catalog")
-    .select("id, format, ring_gauge, length_inches, image_url")
+    .select("id, name, format, ring_gauge, length_inches, image_url")
     .eq("brand", brand);
   q = series === null ? q.is("series", null) : q.eq("series", series);
   const { data, error } = await q
@@ -227,6 +231,28 @@ export async function fetchLineSiblings(
     .order("id", { ascending: true });
   if (error) throw new Error(error.message);
   return (data ?? []) as SizeChild[];
+}
+
+/* ── Manual-add insert (create-or-attach RPC) ───────────────────── */
+
+/* Calls insert_cigar_to_catalog. The v3 RPC adds p_name; while the
+   migration hasn't been applied (v2 live), a named-arg call carrying
+   p_name matches no signature — retry without it so manual adds never
+   break on deploy order. */
+export async function insertCigarToCatalog(
+  args: Record<string, unknown>,
+): Promise<string> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("insert_cigar_to_catalog", args);
+  if (!error && data) return data as string;
+  if (error && isMissingFunction(error) && "p_name" in args) {
+    const v2Args = { ...args };
+    delete v2Args.p_name;
+    const retry = await supabase.rpc("insert_cigar_to_catalog", v2Args);
+    if (!retry.error && retry.data) return retry.data as string;
+    throw new Error(retry.error?.message ?? "Failed to save cigar to catalog.");
+  }
+  throw new Error(error?.message ?? "Failed to save cigar to catalog.");
 }
 
 /* ── Manual-add dupe check ──────────────────────────────────────── */
