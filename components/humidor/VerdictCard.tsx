@@ -290,6 +290,7 @@ function PhotoStrip({
 export interface VerdictCardCigar {
   brand:  string | null;
   series: string | null;
+  name?:  string | null;
   format: string | null;
 }
 
@@ -464,6 +465,21 @@ export function VerdictCard({
           >
             {cigar?.series ?? cigar?.format ?? "Unknown Cigar"}
           </p>
+          {cigar?.name && (
+            <p
+              style={{
+                fontFamily:    "var(--font-serif)",
+                fontStyle:     "italic",
+                fontSize:      19,
+                fontWeight:    500,
+                color:         "var(--foreground)",
+                margin:        "2px 0 0",
+                lineHeight:    1.1,
+              }}
+            >
+              &ldquo;{cigar.name}&rdquo;
+            </p>
+          )}
           {cigar?.format && cigar?.series && (
             <p
               style={{

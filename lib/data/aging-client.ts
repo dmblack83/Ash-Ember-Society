@@ -26,7 +26,7 @@ export async function fetchAgingItems(userId: string): Promise<AgingItem[]> {
     .from("humidor_items")
     .select(
       "id, aging_start_date, aging_target_date, " +
-      "cigar:cigar_catalog(brand, series)"
+      "cigar:cigar_catalog(brand, series, name)"
     )
     .eq("user_id", userId)
     .eq("is_wishlist", false)

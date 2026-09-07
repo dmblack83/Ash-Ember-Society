@@ -14,6 +14,7 @@ import useSWR, { mutate as globalMutate } from "swr";
 import { Divider } from "@/components/ui/divider";
 import { CigarActions } from "@/components/cigars/CigarActions";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
 import { sizeDims, sizeLabel, type SizeChild } from "@/lib/cigars/line-group";
@@ -154,7 +155,7 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
             className="text-foreground"
             style={{ fontFamily: "var(--font-serif)" }}
           >
-            {c.series ?? c.format}
+            <CigarTitle cigar={{ series: c.series, format: c.format, brand: c.brand, name: selected.name }} />
           </h1>
 
           {c.community_added && !c.approved && (

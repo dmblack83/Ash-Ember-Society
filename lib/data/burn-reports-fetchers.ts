@@ -44,7 +44,7 @@ export async function fetchBurnReportsBundle(userId: string): Promise<BurnReport
         photo_urls,
         review_text,
         content_video_id,
-        cigar:cigar_catalog(id, brand, series, format, wrapper, image_url),
+        cigar:cigar_catalog(id, brand, series, name, format, wrapper, image_url),
         burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
       `)
       .eq("user_id", userId)

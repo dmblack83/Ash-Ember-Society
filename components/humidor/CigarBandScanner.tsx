@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal }           from "react-dom";
 import { createClient }           from "@/utils/supabase/client";
@@ -437,7 +438,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
                           {cigar.brand}
                         </p>
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-                          {cigar.series ?? cigar.format}
+                          {cigarDisplayName(cigar)}
                         </p>
                         {cigar.format && (
                           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>

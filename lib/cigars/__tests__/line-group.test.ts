@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   sizeDims, sizeLabel, findMatchingSize, childToLine,
+  cigarTitle, cigarDisplayName,
 } from "@/lib/cigars/line-group";
 import type { CatalogResult } from "@/components/cigar-search";
 
@@ -75,5 +76,21 @@ describe("childToLine", () => {
       brand: "Padron", series: "1964", wrapper: "Maduro", shade: null,
       sizeCount: 0, repId: "x1", imageUrl: null,
     });
+  });
+});
+
+describe("cigarTitle / cigarDisplayName", () => {
+  test("series is the title; name renders quoted after it", () => {
+    const c = { series: "Chateau Fuente Sun Grown", name: "Queen B", format: "Torpedo" };
+    expect(cigarTitle(c)).toBe("Chateau Fuente Sun Grown");
+    expect(cigarDisplayName(c)).toBe('Chateau Fuente Sun Grown "Queen B"');
+  });
+  test("falls back series -> format -> brand", () => {
+    expect(cigarTitle({ format: "Robusto" })).toBe("Robusto");
+    expect(cigarTitle({ brand: "Padron" })).toBe("Padron");
+    expect(cigarTitle({})).toBe("Cigar");
+  });
+  test("no name = title only", () => {
+    expect(cigarDisplayName({ series: "1964" })).toBe("1964");
   });
 });

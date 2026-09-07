@@ -10,7 +10,7 @@ export interface SharePhoto {
 export interface ShareImageProps {
   reportNumber:         number | null;
   smokedAt:             string;
-  cigar:                { brand: string | null; series: string | null; format: string | null } | null;
+  cigar:                { brand: string | null; series: string | null; name?: string | null; format: string | null } | null;
   overallRating:        number | null;
   drawRating:           number | null;
   burnRating:           number | null;

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import type { BurnReportItem, FlavorTag, PartnerVideo } from "@/app/(app)/humidor/[id]/burn-report/page";
 import Image from "next/image";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { ratingColor, ratingLabel } from "@/lib/rating";
 import { VerdictCard } from "@/components/humidor/VerdictCard";
@@ -356,7 +358,7 @@ function CigarContext({ item }: { item: BurnReportItem }) {
             lineHeight: 1.15,
           }}
         >
-          {c.series ?? c.format}
+          <CigarTitle cigar={c} />
         </p>
         {c.format && c.series && (
           <p
@@ -2068,7 +2070,7 @@ export function BurnReport({
         quantityAfter={quantityAfter}
         humidorItemId={item.id}
         cigarBrand={item.cigar.brand}
-        cigarName={item.cigar.series ?? item.cigar.format}
+        cigarName={cigarDisplayName(item.cigar)}
         reviewText={form.review_text}
         smokeLogId={smokeLogId}
         onRemoveFromHumidor={handleRemoveFromHumidor}

@@ -80,6 +80,7 @@ export interface SmokeLogData {
   cigar: {
     brand:  string | null;
     series: string | null;
+    name?:  string | null;
     format: string | null;
   } | null;
   /* Thirds joined from the burn_reports table (1:1, optional).

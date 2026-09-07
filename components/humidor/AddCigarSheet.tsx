@@ -18,6 +18,7 @@ import {
 } from "@/lib/cigars/cigar-details";
 import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/data/cigar-fetchers";
 import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
 import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
 /* ------------------------------------------------------------------
@@ -366,7 +367,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
                           className="text-base font-semibold text-foreground leading-snug"
                           style={{ fontFamily: "var(--font-serif)" }}
                         >
-                          {selected.series ?? selected.format}
+                          <CigarTitle cigar={selected} />
                         </p>
                         {(selected.format || selected.wrapper || selected.ring_gauge) && (
                           <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>

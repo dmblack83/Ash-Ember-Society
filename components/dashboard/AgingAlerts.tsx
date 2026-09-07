@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useCollapseSignal } from "./collapse-context";
@@ -15,6 +16,7 @@ export interface AgingItem {
   cigar: {
     brand:  string | null;
     series: string | null;
+    name?:  string | null;
     format: string | null;
   };
 }
@@ -82,7 +84,7 @@ function AgingRow({ item }: { item: AgingItem }) {
   const router   = useRouter();
   const days     = daysUntil(item.aging_target_date);
   const duration = agingDuration(item.aging_start_date);
-  const display  = item.cigar.series ?? item.cigar.format;
+  const display  = cigarDisplayName(item.cigar);
 
   return (
     <button

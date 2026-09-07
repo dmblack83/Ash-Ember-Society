@@ -45,6 +45,7 @@ import { NextRequest, NextResponse }            from "next/server";
 import { createServiceClientFor }                from "@/utils/supabase/service";
 import { sendPushToUser }                        from "@/lib/push";
 import { startCronRun, finishCronRun }           from "@/lib/cron-log";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 
 export const runtime = "nodejs";
 
@@ -80,7 +81,7 @@ function isAuthorized(req: NextRequest): boolean {
 interface HumidorRow {
   id:       string;
   user_id:  string;
-  cigar:    { brand: string | null; series: string | null; format: string | null } | null;
+  cigar:    { brand: string | null; series: string | null; name?: string | null; format: string | null } | null;
 }
 
 /* ------------------------------------------------------------------
@@ -102,7 +103,7 @@ async function handle(req: NextRequest) {
   );
   const { data: rows, error } = await supabase
     .from("humidor_items")
-    .select("id, user_id, cigar:cigar_catalog(brand, series, format)")
+    .select("id, user_id, cigar:cigar_catalog(brand, series, name, format)")
     .eq("aging_target_date", today)
     .eq("is_wishlist", false)
     .gt("quantity", 0);
@@ -185,7 +186,7 @@ async function handle(req: NextRequest) {
 
 function cigarLabel(row: HumidorRow): string {
   const c = row.cigar;
-  return [c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ") || "Your cigar";
+  return [c?.brand, c ? cigarDisplayName(c) : null].filter(Boolean).join(" ") || "Your cigar";
 }
 
 export async function GET(req: NextRequest)  { return handle(req); }

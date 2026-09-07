@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IntentLink } from "@/components/ui/IntentLink";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
@@ -185,7 +187,6 @@ function AgingBadge({ item }: { item: HumidorItem }) {
 
 function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const displayName = c.series ?? c.format;
 
   return (
     // IntentLink — humidor grids can contain 50+ cards. Auto-prefetch
@@ -236,7 +237,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
             {c.brand}
           </p>
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-            {displayName}
+            <CigarTitle cigar={c} />
           </p>
           {tagName && (
             <p
@@ -280,7 +281,6 @@ function ListRow({
   onBurnReport?: () => void;
 }) {
   const c = item.cigar;
-  const displayName = c.series ?? c.format;
 
   /* Desktop equivalents of the swipe actions. Swipe is touch-only, so
      without these a mouse user has no list-level path to Quick Log /
@@ -324,8 +324,8 @@ function ListRow({
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {c.brand}
           </p>
-          <p className="text-sm font-semibold text-foreground truncate">
-            {displayName}
+          <p className="text-sm font-semibold text-foreground leading-snug">
+            <CigarTitle cigar={c} />
           </p>
           {tagName && (
             <p
@@ -1149,7 +1149,7 @@ export function HumidorClient({
         open={lastStick != null}
         cigarLabel={
           lastStick
-            ? [lastStick.cigar.brand, lastStick.cigar.series ?? lastStick.cigar.format]
+            ? [lastStick.cigar.brand, cigarDisplayName(lastStick.cigar)]
                 .filter(Boolean)
                 .join(" ")
             : ""

@@ -95,3 +95,30 @@ export function childToLine(c: CatalogResult): CatalogLine {
     imageUrl:  c.image_url,
   };
 }
+
+/* ── Display naming ─────────────────────────────────────────────────
+   Canonical cigar display convention (2026-09-07): the line's series
+   is the title; the vitola NAME renders quoted on its own row:
+     Chateau Fuente Sun Grown
+     "Queen B"
+   cigarDisplayName is the single-string form for labels, alt text,
+   notifications, and share images:
+     Chateau Fuente Sun Grown "Queen B"                              */
+
+export interface CigarNameParts {
+  series?: string | null;
+  name?:   string | null;
+  format?: string | null;
+  brand?:  string | null;
+}
+
+/* Title line (no vitola): series, else format, else brand. */
+export function cigarTitle(c: CigarNameParts): string {
+  return c.series ?? c.format ?? c.brand ?? "Cigar";
+}
+
+/* Single-string form: title plus the quoted vitola name. */
+export function cigarDisplayName(c: CigarNameParts): string {
+  const title = cigarTitle(c);
+  return c.name ? `${title} "${c.name}"` : title;
+}

@@ -7,6 +7,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { useHumidors } from "@/components/humidor/useHumidors";
 import { keyFor } from "@/lib/data/keys";
@@ -158,7 +159,7 @@ export function MoveCigarsSheet({
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {movable.map((item) => {
-                const displayName = item.cigar.series ?? item.cigar.format;
+                const displayName = cigarDisplayName(item.cigar);
                 const currentName = item.humidor_id ? humidorNameById.get(item.humidor_id) ?? "" : "";
                 return (
                   <label key={item.id} htmlFor={`move-item-${item.id}`} style={rowStyle}>

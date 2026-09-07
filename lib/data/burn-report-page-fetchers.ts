@@ -42,7 +42,7 @@ export async function fetchBurnReportCreateBundle(
     await Promise.all([
       supabase
         .from("humidor_items")
-        .select("id, cigar_id, quantity, cigar:cigar_catalog(id, brand, series, format, image_url, wrapper)")
+        .select("id, cigar_id, quantity, cigar:cigar_catalog(id, brand, series, name, format, image_url, wrapper)")
         .eq("id", itemId)
         .eq("user_id", userId)
         .maybeSingle(),
@@ -176,7 +176,7 @@ export async function fetchBurnReportEditBundle(
       review_text,
       smoke_duration_minutes,
       content_video_id,
-      cigar:cigar_catalog(id, brand, series, format, image_url, wrapper),
+      cigar:cigar_catalog(id, brand, series, name, format, image_url, wrapper),
       burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
     `)
     .eq("id",      smokeLogId)
@@ -241,6 +241,7 @@ export async function fetchBurnReportEditBundle(
       id:        cigar.id,
       brand:     cigar.brand,
       series:    cigar.series,
+      name:      cigar.name,
       format:    cigar.format,
       image_url: cigar.image_url,
       wrapper:   cigar.wrapper,
