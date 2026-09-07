@@ -32,7 +32,11 @@ begin
   end if;
 
   select * into v_source from cigar_catalog where id = p_source;
-  if not found then raise exception 'source vitola not found'; end if;
+  -- One statement per line: the Supabase SQL editor's splitter breaks
+  -- on mid-line semicolons inside function bodies (found 2026-09-07).
+  if not found then
+    raise exception 'source vitola not found';
+  end if;
   if not exists (select 1 from cigar_catalog where id = p_target) then
     raise exception 'target vitola not found';
   end if;
