@@ -124,24 +124,6 @@ export function CigarDetailFields({ value, onChange, hideSizeFields = false }: P
       </div>
       )}
 
-      {/* Ring Gauge */}
-      {!hideSizeFields && (
-      <div>
-        <label className={labelCls} style={labelStyle}>Ring Gauge</label>
-        <select
-          value={value.ringGauge}
-          onChange={(e) => set("ringGauge", e.target.value)}
-          className="input w-full text-sm"
-          style={inputStyle}
-        >
-          <option value="">Choose…</option>
-          {RING_GAUGES.map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
-        </select>
-      </div>
-      )}
-
       {/* Length */}
       {!hideSizeFields && (
       <div>
@@ -155,6 +137,24 @@ export function CigarDetailFields({ value, onChange, hideSizeFields = false }: P
           <option value="">Choose…</option>
           {LENGTHS.map((l) => (
             <option key={l.inches} value={l.inches}>{l.label}</option>
+          ))}
+        </select>
+      </div>
+      )}
+
+      {/* Ring Gauge */}
+      {!hideSizeFields && (
+      <div>
+        <label className={labelCls} style={labelStyle}>Ring Gauge</label>
+        <select
+          value={value.ringGauge}
+          onChange={(e) => set("ringGauge", e.target.value)}
+          className="input w-full text-sm"
+          style={inputStyle}
+        >
+          <option value="">Choose…</option>
+          {RING_GAUGES.map((g) => (
+            <option key={g} value={g}>{g}</option>
           ))}
         </select>
       </div>

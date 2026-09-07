@@ -16,7 +16,9 @@ export function CigarTitle({ cigar }: { cigar: CigarNameParts }) {
   return (
     <>
       {cigarTitle(cigar)}
-      {cigar.name && <span className="block">&ldquo;{cigar.name}&rdquo;</span>}
+      {cigar.series && cigar.name && (
+        <span className="block">&ldquo;{cigar.name}&rdquo;</span>
+      )}
     </>
   );
 }
