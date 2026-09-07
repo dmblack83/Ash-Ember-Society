@@ -90,12 +90,14 @@ export function CigarDetailFields({ value, onChange }: Props) {
 
       {/* Vitola name — child-level, like format/ring/length */}
       <div className="col-span-2">
-        <label className={labelCls} style={labelStyle}>Vitola Name</label>
+        <label className={labelCls} style={labelStyle}>
+          Vitola Name <span style={{ color: "var(--destructive)" }}>*</span>
+        </label>
         <input
           type="text"
           value={value.name}
           onChange={(e) => set("name", e.target.value)}
-          placeholder="e.g. Short Story (optional)"
+          placeholder="e.g. Short Story"
           className="input w-full text-sm"
           style={inputStyle}
         />

@@ -216,6 +216,7 @@ function AddWishlistSheet({
   async function handleSubmit() {
     const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
     if (!brand) { setSubmitError("Brand is required."); return; }
+    if (isManual && !manual.name.trim()) { setSubmitError("Vitola name is required."); return; }
     setSubmitting(true);
     setSubmitError(null);
     try {
