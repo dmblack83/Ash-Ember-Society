@@ -83,9 +83,12 @@ grant execute on function insert_cigar_to_catalog(text, text, text, numeric, num
 
 -- Stale overloads from earlier migrations (different signatures, so
 -- CREATE OR REPLACE never collapsed them) may survive in prod with
--- weaker guards. Drop the two known historical signatures:
+-- weaker guards. Drop the known historical signatures (the 8-param
+-- one was found live in prod during the 2026-09-06 apply — the
+-- shade-era signature):
 drop function if exists insert_cigar_to_catalog(text, text, text, numeric, numeric, text, text);
 drop function if exists insert_cigar_to_catalog(text, text, text, text, text, numeric, numeric);
+drop function if exists insert_cigar_to_catalog(text, text, text, numeric, numeric, text, text, text);
 
 -- ── Verify ──────────────────────────────────────────────────
 -- (run as an authenticated test, or inspect after a manual add)
