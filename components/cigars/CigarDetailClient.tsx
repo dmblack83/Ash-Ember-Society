@@ -325,7 +325,7 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
           open={true}
           onClose={() => setEditSize(null)}
           onSaved={(kind) => {
-            if (kind === "deleted" && editSize.id === c.id) {
+            if ((kind === "deleted" || kind === "merged") && editSize.id === c.id) {
               /* The routed child is gone — its detail URL would 404. */
               router.push("/discover/cigars");
               return;

@@ -22,9 +22,10 @@ import { sizeLabel, type SizeChild } from "@/lib/cigars/line-group";
    values ("King T Tubos (Churchill)") aren't in the canonical
    FORMATS list.
 
-   The merge section that consumes `siblings` and emits "merged"
-   arrives in a follow-up task; the prop/callback signature is
-   adopted now so that work builds on this without another rewrite.
+   The merge section folds this vitola into another sibling (or into
+   a size on a different line, once the picker supports that) via the
+   merge_catalog_vitolas RPC, atomically repointing every member
+   reference and deleting this row.
    ------------------------------------------------------------------ */
 
 interface Props {
@@ -33,15 +34,19 @@ interface Props {
   siblings: SizeChild[];
   open:     boolean;
   onClose:  () => void;
-  /* Fired after a successful save, move, or delete; parent revalidates. */
+  /* Fired after a successful save, move, delete, or merge; parent revalidates. */
   onSaved: (kind: "saved" | "moved" | "deleted" | "merged") => void;
 }
 
-export function AdminSizeEditSheet({ child, line, open, onClose, onSaved }: Props) {
-  const [form,       setForm]       = useState<CigarDetails>(EMPTY_CIGAR_DETAILS);
-  const [busy,       setBusy]       = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+const inputStyle = { minHeight: 48 } as const;
+
+export function AdminSizeEditSheet({ child, line, siblings, open, onClose, onSaved }: Props) {
+  const [form,         setForm]         = useState<CigarDetails>(EMPTY_CIGAR_DETAILS);
+  const [busy,         setBusy]         = useState(false);
+  const [confirmDel,   setConfirmDel]   = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState("");
+  const [confirmMerge, setConfirmMerge] = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
 
   /* Seed from the line + child on open. A polluted format that isn't
      in FORMATS can't be represented by the select — it starts empty
@@ -65,6 +70,8 @@ export function AdminSizeEditSheet({ child, line, open, onClose, onSaved }: Prop
     }));
     setBusy(false);
     setConfirmDel(false);
+    setMergeTargetId("");
+    setConfirmMerge(false);
     setError(null);
   }, [open, child, line]);
 
@@ -123,6 +130,25 @@ export function AdminSizeEditSheet({ child, line, open, onClose, onSaved }: Prop
       const body = await res.json().catch(() => ({}));
       setError(body.error ?? "Delete failed.");
       setConfirmDel(false);
+    }
+  }
+
+  async function handleMerge() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/catalog-sizes/${child.id}/merge`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ targetId: mergeTargetId }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      onSaved("merged");
+      onClose();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Merge failed.");
+      setConfirmMerge(false);
     }
   }
 
@@ -206,6 +232,38 @@ export function AdminSizeEditSheet({ child, line, open, onClose, onSaved }: Prop
             Delete this size
           </button>
         )}
+
+        <div className="pt-4 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold text-foreground">Merge into another vitola</p>
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+            Moves every member&apos;s humidor items and burn logs to the vitola you pick, then removes this one. Nothing is lost from anyone&apos;s inventory.
+          </p>
+          <select
+            value={mergeTargetId}
+            onChange={(e) => setMergeTargetId(e.target.value)}
+            className="input w-full text-sm"
+            style={inputStyle}
+          >
+            <option value="">Choose the surviving vitola…</option>
+            {siblings.filter((s) => s.id !== child.id).map((s) => (
+              <option key={s.id} value={s.id}>{sizeLabel(s)}</option>
+            ))}
+          </select>
+          {mergeTargetId && (
+            confirmMerge ? (
+              <button type="button" onClick={handleMerge} disabled={busy}
+                className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-40"
+                style={{ color: "#fff", background: "var(--destructive, #e5484d)" }}>
+                Really merge? This removes the current vitola.
+              </button>
+            ) : (
+              <button type="button" onClick={() => setConfirmMerge(true)} disabled={busy}
+                className="btn btn-secondary w-full disabled:opacity-40" style={{ minHeight: 44 }}>
+                Merge into {sizeLabel(siblings.find((s) => s.id === mergeTargetId) ?? child)}
+              </button>
+            )
+          )}
+        </div>
       </div>
     </BottomSheet>
   );
