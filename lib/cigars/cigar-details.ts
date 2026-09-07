@@ -76,22 +76,6 @@ export function cigarDetailsToRpcArgs(d: CigarDetails): Record<string, unknown> 
   };
 }
 
-/* Row for cigar_catalog_suggestions: catalog fields + composed name +
-   submitter id. */
-export function cigarDetailsToSuggestionRow(
-  d: CigarDetails,
-  userId: string,
-): Record<string, unknown> {
-  const name = [d.brand.trim(), d.series.trim(), d.format]
-    .filter(Boolean)
-    .join(" - ");
-  return {
-    suggested_by: userId,
-    name,
-    ...cigarDetailsToCatalogFields(d),
-  };
-}
-
 /* Field-by-field diff of two catalog-shaped objects. Arrays compared by
    content + order (filler order is meaningful). */
 export function diffCigarFields(

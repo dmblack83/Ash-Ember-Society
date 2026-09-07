@@ -4,7 +4,6 @@ import {
   toggleFiller,
   cigarDetailsToCatalogFields,
   cigarDetailsToRpcArgs,
-  cigarDetailsToSuggestionRow,
   diffCigarFields,
   cigarDetailsFromCurrent,
   buildCigarLookupUrl,
@@ -91,16 +90,6 @@ describe("cigarDetailsToRpcArgs", () => {
       p_binder_country:   "Nicaragua",
       p_filler_countries: ["Nicaragua", "Honduras"],
     });
-  });
-});
-
-describe("cigarDetailsToSuggestionRow", () => {
-  it("adds suggested_by and a composed name on top of catalog fields", () => {
-    const row = cigarDetailsToSuggestionRow(filled, "user-1");
-    expect(row.suggested_by).toBe("user-1");
-    expect(row.name).toBe("Padron - 1964 - Robusto");
-    expect(row.binder_country).toBe("Nicaragua");
-    expect(row.filler_countries).toEqual(["Nicaragua", "Honduras"]);
   });
 });
 
