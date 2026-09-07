@@ -36,7 +36,16 @@ export function CigarDetailRoute({ cigarId }: { cigarId: string }) {
 
   const sizeRows: SizeChild[] = cigar.brand
     ? (siblings ?? [])
-    : [{ id: cigar.id, format: cigar.format, ring_gauge: cigar.ring_gauge, length_inches: cigar.length_inches, image_url: cigar.image_url }];
+    : [{
+        id: cigar.id, name: cigar.name, format: cigar.format,
+        ring_gauge: cigar.ring_gauge, length_inches: cigar.length_inches,
+        image_url: cigar.image_url,
+        shade: cigar.shade, wrapper: cigar.wrapper,
+        wrapper_country: cigar.wrapper_country,
+        binder_country: cigar.binder_country,
+        filler_countries: cigar.filler_countries,
+        community_added: cigar.community_added, approved: cigar.approved,
+      }];
   if (cigar.brand && siblings === undefined) return <CigarDetailSkeleton />;
 
   /* key: navigating detail→detail (different cigar) must reset the
