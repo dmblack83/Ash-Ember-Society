@@ -2,26 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import useSWRInfinite from "swr/infinite";
-import { mutate as globalMutate } from "swr";
 import { useRefreshSignal } from "@/lib/hooks/use-refresh-signal";
-import dynamic from "next/dynamic";
 import { CigarImage } from "@/components/ui/CigarImage";
-import { createClient } from "@/utils/supabase/client";
-import { CatalogResult } from "@/components/cigar-search";
 import { keyFor } from "@/lib/data/keys";
 import useSWR from "swr";
 import { IntentLink } from "@/components/ui/IntentLink";
-import { fetchCigarPage, fetchCatalogBrands } from "@/lib/data/cigar-fetchers";
+import { fetchCatalogLines, fetchCatalogBrands } from "@/lib/data/cigar-fetchers";
 import { parseCatalogRestore, serializeCatalogRestore } from "@/lib/cigars/catalog-restore";
-import type { CigarPage, CatalogBrand } from "@/lib/data/cigar-fetchers";
-
-/* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
-   so its chunk fetches in parallel with the main bundle. */
-const AddToHumidorSheet = dynamic(
-  () => import("@/components/cigars/AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
-  { ssr: false },
-);
-import { Toast } from "@/components/ui/toast";
+import type { CatalogLinePage, CatalogBrand } from "@/lib/data/cigar-fetchers";
+import type { CatalogLine } from "@/lib/cigars/line-group";
 import { SkeletonGridCard, SkeletonListRow } from "@/components/ui/skeleton-card";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 
@@ -37,224 +26,100 @@ const LS_KEY    = "discover-cigars-view";
 const RESTORE_KEY = "ae:catalog-restore";
 
 /* ------------------------------------------------------------------
-   Action button icons
+   Line cards (one card per brand + series line)
    ------------------------------------------------------------------ */
 
-function HumidorIcon() {
+function vitolaChip(count: number) {
+  if (count < 1) return null;
   return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-      <rect x="1.5" y="4.5" width="12" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M1.5 7.5h12" stroke="currentColor" strokeWidth="1.2" />
-      <path d="M5 3V4.5M10 3V4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="7.5" cy="10" r="1" fill="currentColor" opacity="0.6" />
-    </svg>
+    <span
+      className="inline-block self-start text-[10px] font-semibold px-2.5 py-1 rounded-full mt-1.5"
+      style={{ backgroundColor: "rgba(212,160,74,0.12)", color: "var(--gold, #D4A04A)" }}
+    >
+      {count} vitola{count !== 1 ? "s" : ""}
+    </span>
   );
 }
 
-function WishlistIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
-      <path
-        d="M3 2.5h9a1 1 0 011 1v10l-5.5-2.5L2 13.5v-10a1 1 0 011-1z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------
-   Grid card
-   ------------------------------------------------------------------ */
-
-function CatalogGridCard({
-  cigar,
-  onAddHumidor,
-  onAddWishlist,
-  onCardNav,
-  wishlistPending,
-}: {
-  cigar:           CatalogResult;
-  onAddHumidor:    (c: CatalogResult) => void;
-  onAddWishlist:   (c: CatalogResult) => void;
-  onCardNav:       () => void;
-  wishlistPending: boolean;
-}) {
+function LineGridCard({ line, onCardNav }: { line: CatalogLine; onCardNav: () => void }) {
   return (
     <IntentLink
-      href={`/discover/cigars/${cigar.id}`}
+      href={`/discover/cigars/${line.repId}`}
       onClick={onCardNav}
       className="card flex flex-col gap-2 h-full p-0 overflow-hidden cursor-pointer"
       style={{ textDecoration: "none", color: "inherit" }}
     >
-      {/* Cigar image */}
       <div className="w-full aspect-[4/3] bg-muted overflow-hidden flex-shrink-0 relative">
         <CigarImage
-          imageUrl={cigar.image_url}
-          wrapper={cigar.wrapper}
-          alt={cigar.series ?? cigar.format ?? ""}
+          imageUrl={line.imageUrl}
+          wrapper={line.wrapper}
+          alt={line.series ?? line.brand ?? ""}
           fill
           sizes="(min-width: 768px) 25vw, 50vw"
           quality={60}
           className="object-contain"
         />
       </div>
-
-      {/* Info */}
-      <div className="px-3 pt-1 flex flex-col gap-1 flex-1">
+      <div className="px-3 pt-1 pb-3 flex flex-col gap-1 flex-1">
         <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground truncate">
-          {cigar.brand}
+          {line.brand}
         </p>
-        <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-          {cigar.series ?? cigar.format}
+        <p
+          className="text-sm font-semibold text-foreground leading-snug line-clamp-2"
+          style={{ fontFamily: "var(--font-serif)" }}
+        >
+          {line.series ?? line.brand}
         </p>
-        {cigar.format && (
-          <p className="text-xs text-muted-foreground">
-            {cigar.format}{cigar.ring_gauge ? ` · ${cigar.ring_gauge}` : ""}
-          </p>
+        {line.wrapper && (
+          <p className="text-xs text-muted-foreground truncate">{line.wrapper}</p>
         )}
-        {cigar.wrapper && (
-          <p className="text-xs text-muted-foreground truncate mt-auto pt-1">
-            {cigar.wrapper}
-          </p>
-        )}
-      </div>
-
-      {/* Action buttons */}
-      <div className="px-3 pb-3 flex items-center gap-2 mt-auto pt-1">
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddHumidor(cigar); }}
-          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-colors duration-150"
-          style={{
-            backgroundColor: "var(--secondary)",
-            color:           "var(--foreground)",
-            minHeight:       36,
-          }}
-          aria-label={`Add ${cigar.series ?? cigar.format} to humidor`}
-        >
-          <HumidorIcon />
-          <span>Humidor</span>
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddWishlist(cigar); }}
-          disabled={wishlistPending}
-          className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
-          style={{
-            backgroundColor: "var(--secondary)",
-            color:           "var(--foreground)",
-            width:           36,
-            height:          36,
-            flexShrink:      0,
-          }}
-          aria-label={`Add ${cigar.series ?? cigar.format} to wishlist`}
-        >
-          <WishlistIcon />
-        </button>
+        {vitolaChip(line.sizeCount)}
       </div>
     </IntentLink>
   );
 }
 
-/* ------------------------------------------------------------------
-   List row
-   ------------------------------------------------------------------ */
-
-function CatalogListRow({
-  cigar,
-  onAddHumidor,
-  onAddWishlist,
-  onCardNav,
-  wishlistPending,
-}: {
-  cigar:           CatalogResult;
-  onAddHumidor:    (c: CatalogResult) => void;
-  onAddWishlist:   (c: CatalogResult) => void;
-  onCardNav:       () => void;
-  wishlistPending: boolean;
-}) {
-  const meta = [
-    cigar.format,
-    cigar.ring_gauge    ? `${cigar.ring_gauge} ring` : null,
-    cigar.length_inches ? `${cigar.length_inches}"`  : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
+function LineListRow({ line, onCardNav }: { line: CatalogLine; onCardNav: () => void }) {
   return (
     <IntentLink
-      href={`/discover/cigars/${cigar.id}`}
+      href={`/discover/cigars/${line.repId}`}
       onClick={onCardNav}
       className="card flex items-center gap-3 p-3 cursor-pointer"
       style={{ textDecoration: "none", color: "inherit" }}
     >
-      {/* Thumbnail */}
       <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
         <CigarImage
-          imageUrl={cigar.image_url}
-          wrapper={cigar.wrapper}
-          alt={cigar.series ?? cigar.format ?? ""}
+          imageUrl={line.imageUrl}
+          wrapper={line.wrapper}
+          alt={line.series ?? line.brand ?? ""}
           fill
           sizes="48px"
           quality={70}
           className="object-contain"
         />
       </div>
-
-      {/* Brand + series */}
       <div className="flex-1 min-w-0">
         <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
-          {cigar.brand}
+          {line.brand}
         </p>
-        <p className="text-sm font-semibold text-foreground truncate">
-          {cigar.series ?? cigar.format}
+        <p
+          className="text-sm font-semibold text-foreground truncate"
+          style={{ fontFamily: "var(--font-serif)" }}
+        >
+          {line.series ?? line.brand}
         </p>
-        {cigar.wrapper && (
-          <p className="text-xs text-muted-foreground truncate">{cigar.wrapper}</p>
+        {line.wrapper && (
+          <p className="text-xs text-muted-foreground truncate">{line.wrapper}</p>
         )}
       </div>
-
-      {/* Format + ring gauge -- hidden on small mobile */}
-      {meta && (
-        <span className="hidden sm:block flex-shrink-0 text-xs text-muted-foreground text-right max-w-[100px] truncate">
-          {meta}
+      {line.sizeCount >= 1 && (
+        <span
+          className="flex-shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full"
+          style={{ backgroundColor: "rgba(212,160,74,0.12)", color: "var(--gold, #D4A04A)" }}
+        >
+          {line.sizeCount} vitola{line.sizeCount !== 1 ? "s" : ""}
         </span>
       )}
-
-      {/* Action buttons */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddHumidor(cigar); }}
-          className="flex items-center justify-center rounded-lg transition-colors duration-150"
-          style={{
-            backgroundColor: "var(--secondary)",
-            color:           "var(--foreground)",
-            width:           36,
-            height:          36,
-          }}
-          aria-label={`Add ${cigar.series ?? cigar.format} to humidor`}
-        >
-          <HumidorIcon />
-        </button>
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); onAddWishlist(cigar); }}
-          disabled={wishlistPending}
-          className="flex items-center justify-center rounded-lg transition-colors duration-150 disabled:opacity-40"
-          style={{
-            backgroundColor: "var(--secondary)",
-            color:           "var(--foreground)",
-            width:           36,
-            height:          36,
-          }}
-          aria-label={`Add ${cigar.series ?? cigar.format} to wishlist`}
-        >
-          <WishlistIcon />
-        </button>
-      </div>
     </IntentLink>
   );
 }
@@ -284,14 +149,6 @@ export function DiscoverCigarsClient() {
   // View mode -- default grid, persisted to localStorage
   const [view, setView] = useState<ViewMode>("grid");
   const viewMounted = useRef(false);
-
-  // Humidor sheet
-  const [humidorCigar, setHumidorCigar] = useState<CatalogResult | null>(null);
-
-  // Wishlist pending set -- tracks cigar IDs being inserted
-  const [wishlistPending, setWishlistPending] = useState<Set<string>>(new Set());
-
-  const [toast, setToast] = useState<string | null>(null);
 
   /* Restore view preference */
   useEffect(() => {
@@ -363,14 +220,14 @@ export function DiscoverCigarsClient() {
     isLoading,
     error: fetchError,
     mutate: mutateCigars,
-  } = useSWRInfinite<CigarPage>(
+  } = useSWRInfinite<CatalogLinePage>(
     (pageIndex, prev) => {
       if (prev && !prev.hasMore) return null;
       if (showBrandIndex) return null;
-      return keyFor.cigarSearch(debouncedQ, pageIndex, brandSel ?? "");
+      return keyFor.catalogLines(debouncedQ, pageIndex, brandSel ?? "");
     },
     ([, q, brand, pageIndex]) =>
-      fetchCigarPage({
+      fetchCatalogLines({
         query:     q as string,
         brand:     (brand as string) || undefined,
         pageIndex: pageIndex as number,
@@ -429,78 +286,16 @@ export function DiscoverCigarsClient() {
 
   /* Derive flat views. `size === 1 && isLoading` distinguishes initial
      fetch from a load-more (which keeps prior pages on screen). */
-  const cigars      = (data ?? []).flatMap((p) => p.results);
+  const lines       = (data ?? []).flatMap((p) => p.lines);
   const hasMore     = data?.[data.length - 1]?.hasMore ?? false;
   const loading     = isLoading;
   const loadingMore = isValidating && !isLoading && size > 1;
   const error       = fetchError ? "Failed to load cigars. Please try again." : null;
 
-  /* ── Action handlers ──────────────────────────────────────────── */
-
-  function handleAddHumidor(cigar: CatalogResult) {
-    setHumidorCigar(cigar);
-  }
-
-  async function handleAddWishlist(cigar: CatalogResult) {
-    if (wishlistPending.has(cigar.id)) return;
-
-    setWishlistPending((prev) => new Set(prev).add(cigar.id));
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setToast("You must be signed in.");
-      setWishlistPending((prev) => { const s = new Set(prev); s.delete(cigar.id); return s; });
-      return;
-    }
-
-    const { error: insertErr } = await supabase.from("humidor_items").insert({
-      user_id:     user.id,
-      cigar_id:    cigar.id,
-      quantity:    1,
-      is_wishlist: true,
-    });
-
-    if (insertErr) {
-      setToast(insertErr.message);
-    } else {
-      // Increment usage_count (best-effort)
-      supabase
-        .from("cigar_catalog")
-        .update({ usage_count: (cigar.usage_count ?? 0) + 1 })
-        .eq("id", cigar.id);
-      setToast("Added to your wishlist!");
-      // Invalidate any wishlist SWR caches so /humidor/wishlist sees
-      // the new item on next visit instead of a 30s-stale cached list.
-      globalMutate(keyFor.wishlist(user.id));
-      globalMutate(["wishlist-has", user.id]);
-    }
-
-    setWishlistPending((prev) => { const s = new Set(prev); s.delete(cigar.id); return s; });
-  }
-
-  async function handleHumidorSuccess() {
-    if (humidorCigar) {
-      const supabase = createClient();
-      supabase
-        .from("cigar_catalog")
-        .update({ usage_count: (humidorCigar.usage_count ?? 0) + 1 })
-        .eq("id", humidorCigar.id);
-      // Invalidate the user's humidor SWR cache so the new item shows
-      // up immediately on /humidor.
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) globalMutate(keyFor.humidorItems(user.id));
-    }
-    setToast("Added to your humidor!");
-    setHumidorCigar(null);
-  }
-
   /* ── Render ───────────────────────────────────────────────────── */
 
   return (
     <>
-      {toast && <Toast message={toast} onDismiss={() => setToast(null)} />}
-
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
 
         {/* Header */}
@@ -558,11 +353,11 @@ export function DiscoverCigarsClient() {
             </p>
           )
         ) : (
-          !loading && cigars.length > 0 && (
+          !loading && lines.length > 0 && (
             <p className="text-[11px] font-bold tracking-widest uppercase" style={{ color: "var(--muted-foreground)" }}>
               {brandSel !== null && debouncedQ === ""
-                ? `${brandSel} · ${cigars.length}${hasMore ? "+" : ""} cigar${cigars.length !== 1 ? "s" : ""}`
-                : `${cigars.length} result${cigars.length !== 1 ? "s" : ""}`}
+                ? `${brandSel} · ${lines.length}${hasMore ? "+" : ""} cigar${lines.length !== 1 ? "s" : ""}`
+                : `${lines.length} result${lines.length !== 1 ? "s" : ""}`}
             </p>
           )
         )}
@@ -638,7 +433,7 @@ export function DiscoverCigarsClient() {
               Try again
             </button>
           </div>
-        ) : cigars.length === 0 ? (
+        ) : lines.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-4 text-center">
             <div className="text-muted-foreground/35">
               <svg width="56" height="56" viewBox="0 0 56 56" fill="none" aria-hidden="true">
@@ -657,27 +452,21 @@ export function DiscoverCigarsClient() {
           <>
             {view === "grid" ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {cigars.map((c) => (
-                  <CatalogGridCard
-                    key={c.id}
-                    cigar={c}
-                    onAddHumidor={handleAddHumidor}
-                    onAddWishlist={handleAddWishlist}
+                {lines.map((line) => (
+                  <LineGridCard
+                    key={line.repId}
+                    line={line}
                     onCardNav={saveListState}
-                    wishlistPending={wishlistPending.has(c.id)}
                   />
                 ))}
               </div>
             ) : (
               <div className="flex flex-col gap-3">
-                {cigars.map((c) => (
-                  <CatalogListRow
-                    key={c.id}
-                    cigar={c}
-                    onAddHumidor={handleAddHumidor}
-                    onAddWishlist={handleAddWishlist}
+                {lines.map((line) => (
+                  <LineListRow
+                    key={line.repId}
+                    line={line}
                     onCardNav={saveListState}
-                    wishlistPending={wishlistPending.has(c.id)}
                   />
                 ))}
               </div>
@@ -698,14 +487,6 @@ export function DiscoverCigarsClient() {
           </>
         )}
       </div>
-
-      {/* Add to Humidor sheet */}
-      <AddToHumidorSheet
-        cigarId={humidorCigar?.id ?? ""}
-        isOpen={humidorCigar !== null}
-        onClose={() => setHumidorCigar(null)}
-        onSuccess={handleHumidorSuccess}
-      />
     </>
   );
 }
