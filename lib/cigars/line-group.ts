@@ -30,6 +30,14 @@ export interface SizeChild {
   ring_gauge:     number | null;
   length_inches:  number | null;
   image_url?:     string | null;
+  /* Vitola-owned blend + review state (detail page). */
+  shade?:            string | null;
+  wrapper?:          string | null;
+  wrapper_country?:  string | null;
+  binder_country?:   string | null;
+  filler_countries?: string[] | null;
+  community_added?:  boolean;
+  approved?:         boolean;
 }
 
 export interface EnteredSize {
@@ -42,12 +50,13 @@ export interface EnteredSize {
    within 1/8" (spec: Feature 3). */
 export const LENGTH_TOLERANCE_INCHES = 0.125;
 
-/* '50 × 4"' — ring × length, dropping whichever is missing. */
+/* '7 1/4" × 50' — length × ring (detail order is Format > Length >
+   Ring Gauge, 2026-09-07), dropping whichever is missing. */
 export function sizeDims(c: SizeChild): string {
   const len = c.length_inches != null
     ? (lengthLabelForInches(c.length_inches) ?? `${c.length_inches}"`)
     : null;
-  if (c.ring_gauge != null && len) return `${c.ring_gauge} × ${len}`;
+  if (c.ring_gauge != null && len) return `${len} × ${c.ring_gauge}`;
   if (c.ring_gauge != null)        return `${c.ring_gauge} ring`;
   if (len)                         return len;
   return "";
@@ -101,9 +110,11 @@ export function childToLine(c: CatalogResult): CatalogLine {
    is the title; the vitola NAME renders quoted on its own row:
      Chateau Fuente Sun Grown
      "Queen B"
+   No series but name: the name IS the title (no quoting, no second row).
    cigarDisplayName is the single-string form for labels, alt text,
    notifications, and share images:
-     Chateau Fuente Sun Grown "Queen B"                              */
+     Chateau Fuente Sun Grown "Queen B" (series + name)
+     Moroni's Trumpet (name only, no series)                         */
 
 export interface CigarNameParts {
   series?: string | null;
@@ -112,13 +123,15 @@ export interface CigarNameParts {
   brand?:  string | null;
 }
 
-/* Title line (no vitola): series, else format, else brand. */
+/* Title line: series when present; otherwise the vitola name IS the
+   headline (brand-only cigars); then format, then brand. */
 export function cigarTitle(c: CigarNameParts): string {
-  return c.series ?? c.format ?? c.brand ?? "Cigar";
+  return c.series ?? c.name ?? c.format ?? c.brand ?? "Cigar";
 }
 
-/* Single-string form: title plus the quoted vitola name. */
+/* Single-string form: the quoted name attaches only when a series
+   carries the title (no series = the name already IS the title). */
 export function cigarDisplayName(c: CigarNameParts): string {
   const title = cigarTitle(c);
-  return c.name ? `${title} "${c.name}"` : title;
+  return c.series && c.name ? `${title} "${c.name}"` : title;
 }

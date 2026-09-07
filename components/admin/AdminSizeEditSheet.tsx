@@ -2,76 +2,119 @@
 
 import { useEffect, useState } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
-import { FORMATS, LENGTHS, RING_GAUGES } from "@/lib/cigar-taxonomy";
+import { FORMATS } from "@/lib/cigar-taxonomy";
+import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
+import {
+  type CigarDetails,
+  EMPTY_CIGAR_DETAILS,
+  cigarDetailsFromCurrent,
+  cigarDetailsToCatalogFields,
+} from "@/lib/cigars/cigar-details";
 import { sizeLabel, type SizeChild } from "@/lib/cigars/line-group";
 
 /* ------------------------------------------------------------------
-   AdminSizeEditSheet — direct admin edit of one size row (vitola):
-   format / ring gauge / length, plus delete. Saves via
-   PATCH/DELETE /api/admin/catalog-sizes/[id]. The raw current
-   format is shown above the select because polluted seed values
-   ("King T Tubos (Churchill)") aren't in the canonical FORMATS list.
+   AdminSizeEditSheet — full admin editor for one vitola (size row):
+   name / format / ring gauge / length / blend, plus brand/series
+   reassignment (moves this vitola to another line, resolve-or-create,
+   identity only — the vitola keeps its own blend) and delete. Saves
+   via PATCH/DELETE /api/admin/catalog-sizes/[id]. The raw current
+   format is shown above the Format select because polluted seed
+   values ("King T Tubos (Churchill)") aren't in the canonical
+   FORMATS list.
+
+   The merge section folds this vitola into another sibling (or into
+   a size on a different line, once the picker supports that) via the
+   merge_catalog_vitolas RPC, atomically repointing every member
+   reference and deleting this row.
    ------------------------------------------------------------------ */
 
 interface Props {
-  child:   SizeChild;
-  open:    boolean;
-  onClose: () => void;
-  /* Fired after a successful save or delete; parent revalidates. */
-  onSaved: (kind: "saved" | "deleted") => void;
+  child:    SizeChild;
+  line:     { brand: string | null; series: string | null };
+  siblings: SizeChild[];
+  open:     boolean;
+  onClose:  () => void;
+  /* Fired after a successful save, move, delete, or merge; parent revalidates. */
+  onSaved: (kind: "saved" | "moved" | "deleted" | "merged") => void;
 }
 
-const labelCls   = "block text-xs font-medium mb-1.5";
-const labelStyle = { color: "var(--muted-foreground)" } as const;
 const inputStyle = { minHeight: 48 } as const;
 
-export function AdminSizeEditSheet({ child, open, onClose, onSaved }: Props) {
-  const [name,       setName]       = useState("");
-  const [format,     setFormat]     = useState("");
-  const [ringGauge,  setRingGauge]  = useState("");
-  const [lengthStr,  setLengthStr]  = useState("");
-  const [busy,       setBusy]       = useState(false);
-  const [confirmDel, setConfirmDel] = useState(false);
-  const [error,      setError]      = useState<string | null>(null);
+export function AdminSizeEditSheet({ child, line, siblings, open, onClose, onSaved }: Props) {
+  const [form,         setForm]         = useState<CigarDetails>(EMPTY_CIGAR_DETAILS);
+  const [busy,         setBusy]         = useState(false);
+  const [confirmDel,   setConfirmDel]   = useState(false);
+  const [mergeTargetId, setMergeTargetId] = useState("");
+  const [confirmMerge, setConfirmMerge] = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
 
-  /* Seed from the child on open. A polluted format that isn't in
-     FORMATS can't be represented by the select — it starts empty and
-     the raw value is shown as a caption. */
+  /* Seed from the line + child on open. A polluted format that isn't
+     in FORMATS can't be represented by the select — it starts empty
+     and the raw value is shown as a caption. */
   useEffect(() => {
     if (!open) return;
     /* Reset-on-open, same pattern as the add sheets. */
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setName(child.name ?? "");
-    setFormat(child.format && FORMATS.includes(child.format) ? child.format : "");
-    setRingGauge(child.ring_gauge != null ? String(child.ring_gauge) : "");
-    setLengthStr(child.length_inches != null ? String(child.length_inches) : "");
+    setForm(cigarDetailsFromCurrent({
+      brand:            line.brand,
+      series:           line.series,
+      name:             child.name ?? null,
+      format:           child.format,
+      ring_gauge:       child.ring_gauge,
+      length_inches:    child.length_inches,
+      shade:            child.shade ?? null,
+      wrapper:          child.wrapper ?? null,
+      wrapper_country:  child.wrapper_country ?? null,
+      binder_country:   child.binder_country ?? null,
+      filler_countries: child.filler_countries ?? null,
+    }));
     setBusy(false);
     setConfirmDel(false);
+    setMergeTargetId("");
+    setConfirmMerge(false);
     setError(null);
-  }, [open, child]);
+  }, [open, child, line]);
 
   const rawFormatShown = child.format && !FORMATS.includes(child.format);
 
   async function handleSave() {
+    if (!form.brand.trim()) {
+      setError("Brand is required.");
+      return;
+    }
     setBusy(true);
     setError(null);
+
+    const fields = cigarDetailsToCatalogFields(form);
+    const body: Record<string, unknown> = {
+      name:             fields.name,
+      format:           fields.format,
+      ring_gauge:       fields.ring_gauge,
+      length_inches:    fields.length_inches,
+      shade:            fields.shade,
+      wrapper:          fields.wrapper,
+      wrapper_country:  fields.wrapper_country,
+      binder_country:   fields.binder_country,
+      filler_countries: fields.filler_countries,
+    };
+    const nextBrand  = form.brand.trim();
+    const nextSeries = form.series.trim() || null;
+    if (nextBrand !== (line.brand ?? "")) body.brand = nextBrand;
+    if (nextSeries !== line.series) body.series = nextSeries;
+
     const res = await fetch(`/api/admin/catalog-sizes/${child.id}`, {
       method:  "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name:          name.trim() || null,
-        format:        format || null,
-        ring_gauge:    ringGauge ? Number(ringGauge)  : null,
-        length_inches: lengthStr ? Number(lengthStr)  : null,
-      }),
+      body: JSON.stringify(body),
     });
     setBusy(false);
     if (res.ok) {
-      onSaved("saved");
+      const result = await res.json().catch(() => ({}));
+      onSaved(result.movedLine ? "moved" : "saved");
       onClose();
     } else {
-      const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Save failed.");
+      const resBody = await res.json().catch(() => ({}));
+      setError(resBody.error ?? "Save failed.");
     }
   }
 
@@ -90,10 +133,29 @@ export function AdminSizeEditSheet({ child, open, onClose, onSaved }: Props) {
     }
   }
 
+  async function handleMerge() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/catalog-sizes/${child.id}/merge`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ targetId: mergeTargetId }),
+    });
+    setBusy(false);
+    if (res.ok) {
+      onSaved("merged");
+      onClose();
+    } else {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error ?? "Merge failed.");
+      setConfirmMerge(false);
+    }
+  }
+
   const headerSlot = (
     <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid var(--border)" }}>
       <h2 className="text-xl font-bold text-foreground" style={{ fontFamily: "var(--font-serif)" }}>
-        Edit Size
+        Edit Vitola
       </h2>
       <button
         onClick={onClose}
@@ -112,58 +174,28 @@ export function AdminSizeEditSheet({ child, open, onClose, onSaved }: Props) {
     <BottomSheet
       open={open}
       onClose={busy ? () => {} : onClose}
-      ariaLabel="Edit size"
+      ariaLabel="Edit vitola"
       header={headerSlot}
       surface="background"
-      mobileHeight="72dvh"
-      desktopMaxWidth={480}
+      desktopMaxWidth={560}
+      desktopHeight="80dvh"
     >
       <div className="px-5 pt-5 pb-8 space-y-4">
         <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
           Current: {sizeLabel(child)}
         </p>
 
-        <div>
-          <label className={labelCls} style={labelStyle}>Vitola Name</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder='e.g. King B (optional)'
-            className="input w-full text-sm"
-            style={inputStyle}
-          />
-        </div>
+        {rawFormatShown && (
+          <p className="text-xs" style={{ color: "var(--gold, #D4A04A)" }}>
+            Raw value: &ldquo;{child.format}&rdquo; (not a standard format; pick the clean one)
+          </p>
+        )}
 
-        <div>
-          <label className={labelCls} style={labelStyle}>Format</label>
-          {rawFormatShown && (
-            <p className="text-xs mb-1.5" style={{ color: "var(--gold, #D4A04A)" }}>
-              Raw value: &ldquo;{child.format}&rdquo; (not a standard format; pick the clean one)
-            </p>
-          )}
-          <select value={format} onChange={(e) => setFormat(e.target.value)} className="input w-full text-sm" style={inputStyle}>
-            <option value="">Not set</option>
-            {FORMATS.map((f) => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
+        <CigarDetailFields value={form} onChange={setForm} />
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className={labelCls} style={labelStyle}>Ring Gauge</label>
-            <select value={ringGauge} onChange={(e) => setRingGauge(e.target.value)} className="input w-full text-sm" style={inputStyle}>
-              <option value="">Not set</option>
-              {RING_GAUGES.map((g) => <option key={g} value={g}>{g}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls} style={labelStyle}>Length</label>
-            <select value={lengthStr} onChange={(e) => setLengthStr(e.target.value)} className="input w-full text-sm" style={inputStyle}>
-              <option value="">Not set</option>
-              {LENGTHS.map((l) => <option key={l.inches} value={l.inches}>{l.label}</option>)}
-            </select>
-          </div>
-        </div>
+        <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+          Changing brand or series moves this vitola to that line.
+        </p>
 
         {error && (
           <p className="text-sm" style={{ color: "var(--destructive)" }}>{error}</p>
@@ -176,7 +208,7 @@ export function AdminSizeEditSheet({ child, open, onClose, onSaved }: Props) {
           className="btn btn-primary w-full disabled:opacity-40"
           style={{ minHeight: 48 }}
         >
-          {busy ? "Saving…" : "Save size"}
+          {busy ? "Saving…" : "Save vitola"}
         </button>
 
         {confirmDel ? (
@@ -200,6 +232,38 @@ export function AdminSizeEditSheet({ child, open, onClose, onSaved }: Props) {
             Delete this size
           </button>
         )}
+
+        <div className="pt-4 space-y-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <p className="text-xs font-semibold text-foreground">Merge into another vitola</p>
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+            Moves every member&apos;s humidor items and burn logs to the vitola you pick, then removes this one. Nothing is lost from anyone&apos;s inventory.
+          </p>
+          <select
+            value={mergeTargetId}
+            onChange={(e) => setMergeTargetId(e.target.value)}
+            className="input w-full text-sm"
+            style={inputStyle}
+          >
+            <option value="">Choose the surviving vitola…</option>
+            {siblings.filter((s) => s.id !== child.id).map((s) => (
+              <option key={s.id} value={s.id}>{sizeLabel(s)}</option>
+            ))}
+          </select>
+          {mergeTargetId && (
+            confirmMerge ? (
+              <button type="button" onClick={handleMerge} disabled={busy}
+                className="w-full py-3 rounded-xl text-sm font-semibold disabled:opacity-40"
+                style={{ color: "#fff", background: "var(--destructive, #e5484d)" }}>
+                Really merge? This removes the current vitola.
+              </button>
+            ) : (
+              <button type="button" onClick={() => setConfirmMerge(true)} disabled={busy}
+                className="btn btn-secondary w-full disabled:opacity-40" style={{ minHeight: 44 }}>
+                Merge into {sizeLabel(siblings.find((s) => s.id === mergeTargetId) ?? child)}
+              </button>
+            )
+          )}
+        </div>
       </div>
     </BottomSheet>
   );

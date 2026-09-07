@@ -22,16 +22,18 @@ import { type CigarDetails, toggleFiller, buildCigarLookupUrl } from "@/lib/ciga
 interface Props {
   value:    CigarDetails;
   onChange: (next: CigarDetails) => void;
-  /* Hide Format / Ring Gauge / Length — the admin line editor edits
-     line-owned fields only (sizes are edited per vitola). */
-  hideSizeFields?: boolean;
+  /* Vitola Name is required only in the manual "add cigar" sheets
+     (humidor + wishlist). Elsewhere (Suggest an Edit, admin size edit)
+     legacy nameless rows exist, so the field stays optional and must
+     not show a required mark. Defaults to false. */
+  nameRequired?: boolean;
 }
 
 const labelCls   = "block text-xs font-medium mb-1.5";
 const labelStyle = { color: "var(--muted-foreground)" } as const;
 const inputStyle = { minHeight: 48 } as const;
 
-export function CigarDetailFields({ value, onChange, hideSizeFields = false }: Props) {
+export function CigarDetailFields({ value, onChange, nameRequired = false }: Props) {
   const set = <K extends keyof CigarDetails>(key: K, v: CigarDetails[K]) =>
     onChange({ ...value, [key]: v });
 
@@ -92,22 +94,21 @@ export function CigarDetailFields({ value, onChange, hideSizeFields = false }: P
       </div>
 
       {/* Vitola name — child-level, like format/ring/length */}
-      {!hideSizeFields && (
       <div className="col-span-2">
-        <label className={labelCls} style={labelStyle}>Vitola Name</label>
+        <label className={labelCls} style={labelStyle}>
+          Vitola Name {nameRequired && <span style={{ color: "var(--destructive)" }}>*</span>}
+        </label>
         <input
           type="text"
           value={value.name}
           onChange={(e) => set("name", e.target.value)}
-          placeholder="e.g. Short Story (optional)"
+          placeholder="e.g. Short Story"
           className="input w-full text-sm"
           style={inputStyle}
         />
       </div>
-      )}
 
       {/* Format */}
-      {!hideSizeFields && (
       <div>
         <label className={labelCls} style={labelStyle}>Format</label>
         <select
@@ -122,28 +123,8 @@ export function CigarDetailFields({ value, onChange, hideSizeFields = false }: P
           ))}
         </select>
       </div>
-      )}
-
-      {/* Ring Gauge */}
-      {!hideSizeFields && (
-      <div>
-        <label className={labelCls} style={labelStyle}>Ring Gauge</label>
-        <select
-          value={value.ringGauge}
-          onChange={(e) => set("ringGauge", e.target.value)}
-          className="input w-full text-sm"
-          style={inputStyle}
-        >
-          <option value="">Choose…</option>
-          {RING_GAUGES.map((g) => (
-            <option key={g} value={g}>{g}</option>
-          ))}
-        </select>
-      </div>
-      )}
 
       {/* Length */}
-      {!hideSizeFields && (
       <div>
         <label className={labelCls} style={labelStyle}>Length</label>
         <select
@@ -158,7 +139,22 @@ export function CigarDetailFields({ value, onChange, hideSizeFields = false }: P
           ))}
         </select>
       </div>
-      )}
+
+      {/* Ring Gauge */}
+      <div>
+        <label className={labelCls} style={labelStyle}>Ring Gauge</label>
+        <select
+          value={value.ringGauge}
+          onChange={(e) => set("ringGauge", e.target.value)}
+          className="input w-full text-sm"
+          style={inputStyle}
+        >
+          <option value="">Choose…</option>
+          {RING_GAUGES.map((g) => (
+            <option key={g} value={g}>{g}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Shade */}
       <div>

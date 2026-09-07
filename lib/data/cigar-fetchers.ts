@@ -222,7 +222,7 @@ export async function fetchLineSiblings(
   const supabase = createClient();
   let q = supabase
     .from("cigar_catalog")
-    .select("id, name, format, ring_gauge, length_inches, image_url")
+    .select("id, name, format, ring_gauge, length_inches, image_url, shade, wrapper, wrapper_country, binder_country, filler_countries, community_added, approved")
     .eq("brand", brand);
   q = series === null ? q.is("series", null) : q.eq("series", series);
   const { data, error } = await q

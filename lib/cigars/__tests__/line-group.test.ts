@@ -10,8 +10,8 @@ const child = (over: Partial<{ id: string; format: string | null; ring_gauge: nu
 });
 
 describe("sizeDims / sizeLabel", () => {
-  test("formats ring × length with fraction label", () => {
-    expect(sizeDims(child({ length_inches: 7.25 }))).toBe('48 × 7 1/4"');
+  test("formats length × ring with fraction label", () => {
+    expect(sizeDims(child({ length_inches: 7.25 }))).toBe('7 1/4" × 48');
   });
   test("ring only when length missing", () => {
     expect(sizeDims(child({ length_inches: null }))).toBe("48 ring");
@@ -23,13 +23,13 @@ describe("sizeDims / sizeLabel", () => {
     expect(sizeDims(child({ ring_gauge: null, length_inches: null }))).toBe("");
   });
   test("label joins format and dims", () => {
-    expect(sizeLabel(child())).toBe('Churchill 48 × 7"');
+    expect(sizeLabel(child())).toBe('Churchill 7" × 48');
   });
   test("label prefers the vitola name over format", () => {
-    expect(sizeLabel({ ...child(), name: "King B" })).toBe('King B 48 × 7"');
+    expect(sizeLabel({ ...child(), name: "King B" })).toBe('King B 7" × 48');
   });
   test("label without format is dims only", () => {
-    expect(sizeLabel(child({ format: null }))).toBe('48 × 7"');
+    expect(sizeLabel(child({ format: null }))).toBe('7" × 48');
   });
   test("label with nothing is 'Original size'", () => {
     expect(sizeLabel(child({ format: null, ring_gauge: null, length_inches: null }))).toBe("Original size");
@@ -85,7 +85,12 @@ describe("cigarTitle / cigarDisplayName", () => {
     expect(cigarTitle(c)).toBe("Chateau Fuente Sun Grown");
     expect(cigarDisplayName(c)).toBe('Chateau Fuente Sun Grown "Queen B"');
   });
-  test("falls back series -> format -> brand", () => {
+  test("no series: the name IS the title, unquoted", () => {
+    const c = { series: null, name: "Moroni's Trumpet", format: "Toro", brand: "Apostate Cigars" };
+    expect(cigarTitle(c)).toBe("Moroni's Trumpet");
+    expect(cigarDisplayName(c)).toBe("Moroni's Trumpet");
+  });
+  test("falls back name -> format -> brand", () => {
     expect(cigarTitle({ format: "Robusto" })).toBe("Robusto");
     expect(cigarTitle({ brand: "Padron" })).toBe("Padron");
     expect(cigarTitle({})).toBe("Cigar");

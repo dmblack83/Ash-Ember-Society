@@ -95,29 +95,33 @@ export default async function AdminPage() {
 
   /* ── Fetch pending community-added cigar lines ───────────────── */
   /* !inner keeps only lines with at least one pending size; the
-     embedded filters limit the sizes list to the pending ones. */
+     embedded filters limit the sizes list to the pending ones. Blend
+     is vitola-owned, so the preview wrapper comes from the first
+     pending size rather than the (now identity-only) line row. */
   const { data: communityRows } = await admin
     .from("cigar_lines")
     .select(`
       id,
       brand,
       series,
-      wrapper,
       created_at,
-      sizes:cigar_catalog!inner (id, format, ring_gauge, length_inches)
+      sizes:cigar_catalog!inner (id, format, ring_gauge, length_inches, wrapper)
     `)
     .eq("sizes.approved", false)
     .eq("sizes.community_added", true)
     .order("created_at", { ascending: true });
 
-  const communityLines: PendingCommunityLine[] = (communityRows ?? []).map((row) => ({
-    id:         row.id,
-    brand:      row.brand,
-    series:     row.series,
-    wrapper:    row.wrapper,
-    created_at: row.created_at,
-    sizes:      (Array.isArray(row.sizes) ? row.sizes : [row.sizes]).filter(Boolean),
-  }));
+  const communityLines: PendingCommunityLine[] = (communityRows ?? []).map((row) => {
+    const sizes = (Array.isArray(row.sizes) ? row.sizes : [row.sizes]).filter(Boolean);
+    return {
+      id:         row.id,
+      brand:      row.brand,
+      series:     row.series,
+      wrapper:    sizes[0]?.wrapper ?? null,
+      created_at: row.created_at,
+      sizes:      sizes.map(({ id, format, ring_gauge, length_inches }) => ({ id, format, ring_gauge, length_inches })),
+    };
+  });
 
   return (
     <div className="px-4 sm:px-6 pt-6 pb-10 flex flex-col gap-6 max-w-2xl mx-auto">

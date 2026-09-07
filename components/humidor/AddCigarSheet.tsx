@@ -242,6 +242,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
   async function handleSubmit() {
     const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
     if (!brand) { setSubmitError("Brand is required."); return; }
+    if (isManual && !manual.name.trim()) { setSubmitError("Vitola name is required."); return; }
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -405,7 +406,7 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
                       </button>
                     </div>
 
-                    <CigarDetailFields value={manual} onChange={setManual} />
+                    <CigarDetailFields value={manual} onChange={setManual} nameRequired />
 
                     {/* Manual adds always enter the community catalog
                         (pending admin review) — no opt-in needed. */}
