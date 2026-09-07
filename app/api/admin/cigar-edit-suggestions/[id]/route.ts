@@ -142,7 +142,7 @@ export async function PATCH(
         const conflict = lineErr.code === "23505";
         return NextResponse.json(
           { error: conflict
-              ? "That brand and series already exist as another line. Merge via the audit workflow instead."
+              ? "That brand and series already exist as another line. Use Edit line on the cigar page to merge instead."
               : "Failed to apply line fields" },
           { status: conflict ? 409 : 500 },
         );
