@@ -27,6 +27,7 @@ export const runtime = "edge";
 const ALLOWED_FIELDS = new Set([
   "brand",
   "series",
+  "name",
   "format",
   "ring_gauge",
   "length_inches",

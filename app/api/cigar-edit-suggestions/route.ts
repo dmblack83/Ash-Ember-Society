@@ -26,6 +26,7 @@ import { checkRateLimit }           from "@/lib/rate-limit";
 const EDITABLE_FIELDS = [
   "brand",
   "series",
+  "name",
   "format",
   "ring_gauge",
   "length_inches",

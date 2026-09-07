@@ -766,6 +766,7 @@ export function HumidorItemClient({
               id:                item.cigar_id,
               brand:             c.brand,
               series:            c.series,
+              name:              c.name,
               format:            c.format,
               ring_gauge:        c.ring_gauge,
               length_inches:     c.length_inches,

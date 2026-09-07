@@ -13,6 +13,7 @@ import {
 const filled: CigarDetails = {
   brand:           "  Padron  ",
   series:          "1964",
+  name:            " No. 4 ",
   format:          "Robusto",
   ringGauge:       "50",
   lengthInches:    "5",
@@ -50,6 +51,7 @@ describe("cigarDetailsToCatalogFields", () => {
     expect(cigarDetailsToCatalogFields(filled)).toEqual({
       brand:            "Padron",
       series:           "1964",
+      name:             "No. 4",
       format:           "Robusto",
       ring_gauge:       50,
       length_inches:    5,
@@ -64,6 +66,7 @@ describe("cigarDetailsToCatalogFields", () => {
     expect(cigarDetailsToCatalogFields(EMPTY_CIGAR_DETAILS)).toEqual({
       brand:            null,
       series:           null,
+      name:             null,
       format:           null,
       ring_gauge:       null,
       length_inches:    null,
@@ -81,6 +84,7 @@ describe("cigarDetailsToRpcArgs", () => {
     expect(cigarDetailsToRpcArgs(filled)).toEqual({
       p_brand:            "Padron",
       p_series:           "1964",
+      p_name:             "No. 4",
       p_format:           "Robusto",
       p_ring_gauge:       50,
       p_length_inches:    5,
@@ -115,6 +119,7 @@ describe("cigarDetailsFromCurrent", () => {
     expect(cigarDetailsFromCurrent({
       brand:            "Padron",
       series:           null,
+      name:             null,
       format:           "Robusto",
       ring_gauge:       50,
       length_inches:    5,
@@ -126,6 +131,7 @@ describe("cigarDetailsFromCurrent", () => {
     })).toEqual({
       brand:           "Padron",
       series:          "",
+      name:            "",
       format:          "Robusto",
       ringGauge:       "50",
       lengthInches:    "5",
@@ -162,7 +168,7 @@ describe("buildCigarLookupUrl", () => {
 
   it("composes the full field set, excludes countries, joins length x gauge", () => {
     const url = buildCigarLookupUrl(filled);
-    expect(q(url)).toBe("Padron 1964 Robusto 5x50 Maduro Habano cigar");
+    expect(q(url)).toBe("Padron 1964 No. 4 Robusto 5x50 Maduro Habano cigar");
   });
 
   it("omits the dimension term when only one of length/gauge is present", () => {

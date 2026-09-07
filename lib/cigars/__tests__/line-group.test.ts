@@ -24,6 +24,9 @@ describe("sizeDims / sizeLabel", () => {
   test("label joins format and dims", () => {
     expect(sizeLabel(child())).toBe('Churchill 48 × 7"');
   });
+  test("label prefers the vitola name over format", () => {
+    expect(sizeLabel({ ...child(), name: "King B" })).toBe('King B 48 × 7"');
+  });
   test("label without format is dims only", () => {
     expect(sizeLabel(child({ format: null }))).toBe('48 × 7"');
   });
