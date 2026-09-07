@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter }    from "next/navigation";
@@ -258,7 +259,7 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
                           {it.cigar.brand}
                         </p>
                         <p className="truncate" style={{ fontFamily: "var(--font-serif)", fontSize: 16, fontWeight: 600, color: "var(--foreground)" }}>
-                          {it.cigar.series ?? it.cigar.format}
+                          {cigarDisplayName(it.cigar)}
                         </p>
                       </div>
                     </div>
@@ -300,7 +301,7 @@ export function BlindDraw({ items }: { items: HumidorItem[] }) {
                   {drawn.cigar.brand}
                 </p>
                 <p style={{ fontFamily: "var(--font-serif)", fontSize: 26, fontWeight: 700, lineHeight: 1.1, color: "var(--foreground)", margin: "2px 0" }}>
-                  {drawn.cigar.series ?? drawn.cigar.format}
+                  {cigarDisplayName(drawn.cigar)}
                 </p>
                 {drawn.cigar.format && (
                   <p className="text-xs" style={{ color: "var(--muted-foreground)", marginBottom: 16 }}>

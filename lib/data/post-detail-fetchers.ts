@@ -103,7 +103,7 @@ export async function fetchPostDetailBundle(
           pairing_drink, pairing_food, location, occasion,
           smoke_duration_minutes, review_text, photo_urls,
           cigar_id, flavor_tag_ids, user_id,
-          cigar:cigar_catalog(brand, series, format),
+          cigar:cigar_catalog(brand, series, name, format),
           burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
         `)
         .eq("id", smokeLogId)

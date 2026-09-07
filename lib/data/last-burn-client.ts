@@ -26,7 +26,7 @@ export interface LastBurnLog {
   isFullReport: boolean;
   flavorNames: string[];          // first 3, resolved
   video: { youtube_video_id: string } | null;
-  cigar: { brand: string | null; series: string | null; format: string | null };
+  cigar: { brand: string | null; series: string | null; name?: string | null; format: string | null };
 }
 export interface LastBurnBundle {
   latest: LastBurnLog | null;
@@ -38,7 +38,7 @@ const SELECT = `
   id, smoked_at, created_at, overall_rating, draw_rating, burn_rating,
   construction_rating, smoke_duration_minutes, pairing_drink, review_text,
   flavor_tag_ids, content_video_id, humidor_item_id,
-  cigar:cigar_catalog(brand, series, format),
+  cigar:cigar_catalog(brand, series, name, format),
   burn_report:burn_reports(id)
 `;
 
@@ -50,8 +50,8 @@ type Raw = {
   smoke_duration_minutes: number | null; pairing_drink: string | null;
   review_text: string | null; flavor_tag_ids: string[] | null;
   content_video_id: string | null; humidor_item_id: string | null;
-  cigar: { brand: string | null; series: string | null; format: string | null }
-       | Array<{ brand: string | null; series: string | null; format: string | null }> | null;
+  cigar: { brand: string | null; series: string | null; name?: string | null; format: string | null }
+       | Array<{ brand: string | null; series: string | null; name?: string | null; format: string | null }> | null;
   burn_report: { id: string } | Array<{ id: string }> | null;
 };
 

@@ -12,6 +12,7 @@ export interface CatalogResult {
   id:              string;
   brand:           string | null;
   series:          string | null;
+  name?:           string | null;
   format:          string | null;
   ring_gauge:      number | null;
   length_inches:   number | null;

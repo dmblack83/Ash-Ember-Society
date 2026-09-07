@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
@@ -58,6 +59,7 @@ export interface BurnReportRow {
     id:        string;
     brand:     string;
     series:    string | null;
+    name?:     string | null;
     format:    string | null;
     wrapper:   string | null;
     image_url: string | null;
@@ -218,7 +220,7 @@ function BurnReportCard({
     }
 
     const c = report.cigar;
-    const cigarLabel = [c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ");
+    const cigarLabel = [c?.brand, c ? cigarDisplayName(c) : null].filter(Boolean).join(" ");
     const title      = `${cigarLabel} — ${report.overall_rating ?? "N/A"}/100`;
     const content    = report.review_text?.trim() || `Rating: ${report.overall_rating ?? "N/A"}/100`;
 
@@ -315,7 +317,7 @@ function BurnReportCard({
           <ShareReportButton
             reportId={report.id}
             reportNumber={reportNumber}
-            cigarLabel={[c?.brand, c?.series ?? c?.format].filter(Boolean).join(" ")}
+            cigarLabel={[c?.brand, c ? cigarDisplayName(c) : null].filter(Boolean).join(" ")}
           />
           <div className="flex flex-col gap-1">
             <button

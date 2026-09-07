@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useRouter } from "next/navigation";
 import { relativeBurnTime, yearsAgoLabel, nudgeLine } from "@/lib/home/last-burn";
 import { ratingColor, ratingLabel } from "@/lib/rating";
@@ -65,7 +66,7 @@ export function LastBurn({ bundle, readyCount }: { bundle: LastBurnBundle; ready
   const isOtd = bundle.onThisDay != null;
   const showBridge = bundle.onThisDay != null && bundle.onThisDay.id !== bundle.latest.id;
 
-  const name = log.cigar.series ?? log.cigar.format ?? "";
+  const name = cigarDisplayName(log.cigar);
   const score = log.overall_rating;
   const scoreColor = score != null ? ratingColor(score) : "var(--paper-dim)";
 

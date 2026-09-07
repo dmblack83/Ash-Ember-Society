@@ -1,5 +1,6 @@
 "use client";
 
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal }           from "react-dom";
 import { createClient }           from "@/utils/supabase/client";
@@ -63,7 +64,7 @@ async function matchCatalog(ocrText: string): Promise<CatalogResult[]> {
   const { data } = await supabase
     .from("cigar_catalog")
     .select(
-      "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url"
+      "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url"
     )
     .or(orFilter)
     .order("usage_count", { ascending: false })
@@ -422,7 +423,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
                         <CigarImage
                           imageUrl={cigar.image_url}
                           wrapper={cigar.wrapper}
-                          alt={cigar.series ?? cigar.format ?? ""}
+                          alt={cigarDisplayName(cigar)}
                           width={52}
                           height={52}
                           sizes="52px"
@@ -437,7 +438,7 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
                           {cigar.brand}
                         </p>
                         <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-                          {cigar.series ?? cigar.format}
+                          {cigarDisplayName(cigar)}
                         </p>
                         {cigar.format && (
                           <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>

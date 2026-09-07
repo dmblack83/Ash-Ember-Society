@@ -16,7 +16,7 @@ import {
   cigarDetailsToRpcArgs,
 } from "@/lib/cigars/cigar-details";
 import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/data/cigar-fetchers";
-import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
+import { findMatchingSize, cigarDisplayName, type SizeChild } from "@/lib/cigars/line-group";
 import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
@@ -27,6 +27,7 @@ const AddToHumidorSheet = dynamic(
 );
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
@@ -400,7 +401,7 @@ function AddWishlistSheet({
                           className="text-base font-semibold text-foreground leading-snug"
                           style={{ fontFamily: "var(--font-serif)" }}
                         >
-                          {selected.series ?? selected.format}
+                          <CigarTitle cigar={selected} />
                         </p>
                         {(selected.format || selected.wrapper || selected.ring_gauge) && (
                           <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
@@ -661,7 +662,7 @@ function WishlistCard({
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="(max-width: 640px) 100vw, 640px"
             quality={60}
@@ -671,7 +672,7 @@ function WishlistCard({
 
         <div className="flex flex-col gap-1 min-w-0 pr-8 w-full">
           <p className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground truncate">{c.brand}</p>
-          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2">{c.series ?? c.format}</h3>
+          <h3 className="text-sm font-semibold text-foreground leading-snug line-clamp-2"><CigarTitle cigar={c} /></h3>
           {c.format && <p className="text-xs text-muted-foreground">{c.format}</p>}
           {(c.wrapper || c.ring_gauge) && (
             <p className="text-xs text-muted-foreground mt-1 truncate">
@@ -741,7 +742,7 @@ function WishlistListRow({
             <CigarImage
               imageUrl={c.image_url}
               wrapper={c.wrapper}
-              alt={c.series ?? c.format ?? ""}
+              alt={cigarDisplayName(c)}
               width={48}
               height={48}
               sizes="48px"
@@ -752,7 +753,7 @@ function WishlistListRow({
 
           <div className="flex-1 min-w-0">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">{c.brand}</p>
-            <p className="text-sm font-semibold text-foreground truncate">{c.series ?? c.format}</p>
+            <p className="text-sm font-semibold text-foreground leading-snug"><CigarTitle cigar={c} /></p>
             {(c.format || c.wrapper) && (
               <p className="text-xs text-muted-foreground truncate">
                 {[c.format, c.wrapper].filter(Boolean).join(" · ")}

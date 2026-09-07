@@ -82,7 +82,7 @@ export async function GET(
       overall_rating, draw_rating, burn_rating, construction_rating, flavor_rating,
       smoke_duration_minutes, pairing_drink, occasion,
       flavor_tag_ids, photo_urls, review_text,
-      cigar:cigar_catalog(brand, series, format),
+      cigar:cigar_catalog(brand, series, name, format),
       burn_report:burn_reports(id, thirds_enabled, third_beginning, third_middle, third_end)
     `)
     .eq("id",      id)

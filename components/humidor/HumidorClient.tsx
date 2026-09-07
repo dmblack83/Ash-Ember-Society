@@ -6,6 +6,8 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { IntentLink } from "@/components/ui/IntentLink";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { AddCigarOptions } from "@/components/humidor/AddCigarOptions";
 import { HumidorConditions } from "@/components/govee/HumidorConditions";
@@ -56,6 +58,7 @@ interface Cigar {
   id: string;
   brand: string | null;
   series: string | null;
+  name?:  string | null;
   format: string | null;
   wrapper: string | null;
   wrapper_country: string | null;
@@ -185,7 +188,6 @@ function AgingBadge({ item }: { item: HumidorItem }) {
 
 function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
   const c = item.cigar;
-  const displayName = c.series ?? c.format;
 
   return (
     // IntentLink — humidor grids can contain 50+ cards. Auto-prefetch
@@ -222,7 +224,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="(min-width: 768px) 25vw, 50vw"
             quality={60}
@@ -236,7 +238,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
             {c.brand}
           </p>
           <p className="text-sm font-semibold text-foreground leading-snug line-clamp-2">
-            {displayName}
+            <CigarTitle cigar={c} />
           </p>
           {tagName && (
             <p
@@ -280,7 +282,6 @@ function ListRow({
   onBurnReport?: () => void;
 }) {
   const c = item.cigar;
-  const displayName = c.series ?? c.format;
 
   /* Desktop equivalents of the swipe actions. Swipe is touch-only, so
      without these a mouse user has no list-level path to Quick Log /
@@ -296,9 +297,10 @@ function ListRow({
     <IntentLink
       href={`/humidor/${item.id}`}
       className="block group"
-      /* See GridCard for rationale. List rows are denser and fixed-
-         height, so the reserved intrinsic size is much smaller. */
-      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
+      /* See GridCard for rationale. List rows are denser than cards;
+         the estimate covers the extra quoted vitola-name row so
+         off-screen placeholders don't pop shorter than reality. */
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 96px" }}
     >
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
@@ -306,7 +308,7 @@ function ListRow({
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="48px"
             quality={70}
@@ -324,8 +326,8 @@ function ListRow({
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-medium">
             {c.brand}
           </p>
-          <p className="text-sm font-semibold text-foreground truncate">
-            {displayName}
+          <p className="text-sm font-semibold text-foreground leading-snug">
+            <CigarTitle cigar={c} />
           </p>
           {tagName && (
             <p
@@ -1149,7 +1151,7 @@ export function HumidorClient({
         open={lastStick != null}
         cigarLabel={
           lastStick
-            ? [lastStick.cigar.brand, lastStick.cigar.series ?? lastStick.cigar.format]
+            ? [lastStick.cigar.brand, cigarDisplayName(lastStick.cigar)]
                 .filter(Boolean)
                 .join(" ")
             : ""

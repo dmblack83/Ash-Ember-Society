@@ -9,6 +9,8 @@ import { Divider } from "@/components/ui/divider";
 import { Toast } from "@/components/ui/toast";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
+import { CigarTitle } from "@/components/cigars/CigarTitle";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 import type { HumidorItemDetail, SmokeLog } from "@/app/(app)/humidor/[id]/page";
 import { QuickLogModal, type SmokeLogDraft } from "@/components/humidor/QuickLogModal";
 import { LastStickPrompt } from "@/components/humidor/LastStickPrompt";
@@ -473,7 +475,7 @@ export function HumidorItemClient({
     humidors?.find((h) => h.id === item.humidor_id)?.name ?? "My Humidor";
 
   const c = item.cigar;
-  const cigarLabel = [c.brand, c.series ?? c.format].filter(Boolean).join(" ");
+  const cigarLabel = [c.brand, cigarDisplayName(c)].filter(Boolean).join(" ");
   const days = agingDays(item.aging_start_date);
   const aging = agingState(item.aging_start_date, item.aging_target_date);
   // progress: target-aware when set, legacy 180d fallback otherwise
@@ -710,7 +712,7 @@ export function HumidorItemClient({
             <CigarImage
               imageUrl={c.image_url}
               wrapper={c.wrapper}
-              alt={c.series ?? c.format ?? ""}
+              alt={cigarDisplayName(c)}
               fill
               sizes="(max-width: 640px) 100vw, 256px"
               quality={80}
@@ -737,7 +739,7 @@ export function HumidorItemClient({
             </p>
           )}
           <h1 className="text-foreground leading-tight" style={{ fontFamily: "var(--font-serif)" }}>
-            {c.series ?? c.format}
+            <CigarTitle cigar={c} />
           </h1>
 
           {/* Wrapper / binder / filler chips */}

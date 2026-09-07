@@ -18,6 +18,7 @@ export interface BurnReportCigar {
   id: string;
   brand: string | null;
   series: string | null;
+  name?: string | null;
   format: string | null;
   image_url: string | null;
   wrapper: string | null;

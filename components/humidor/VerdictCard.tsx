@@ -17,6 +17,7 @@
    has to adapt its source data once at the boundary.
    ------------------------------------------------------------------ */
 
+import { cigarTitle } from "@/lib/cigars/line-group";
 import React from "react";
 import Image from "next/image";
 import { smokedAtToLocalDate } from "@/lib/format";
@@ -290,6 +291,7 @@ function PhotoStrip({
 export interface VerdictCardCigar {
   brand:  string | null;
   series: string | null;
+  name?:  string | null;
   format: string | null;
 }
 
@@ -462,8 +464,23 @@ export function VerdictCard({
               letterSpacing: "-0.01em",
             }}
           >
-            {cigar?.series ?? cigar?.format ?? "Unknown Cigar"}
+            {cigar ? cigarTitle(cigar) : "Unknown Cigar"}
           </p>
+          {cigar?.name && (
+            <p
+              style={{
+                fontFamily:    "var(--font-serif)",
+                fontStyle:     "italic",
+                fontSize:      19,
+                fontWeight:    500,
+                color:         "var(--foreground)",
+                margin:        "2px 0 0",
+                lineHeight:    1.1,
+              }}
+            >
+              &ldquo;{cigar.name}&rdquo;
+            </p>
+          )}
           {cigar?.format && cigar?.series && (
             <p
               style={{

@@ -20,7 +20,7 @@ export async function fetchHumidorItems(userId: string): Promise<HumidorItem[]> 
     .from("humidor_items")
     .select(
       "humidor_id, id, cigar_id, quantity, purchase_date, price_paid_cents, aging_start_date, aging_target_date, notes, created_at, " +
-      "cigar:cigar_catalog(id, brand, series, format, wrapper, wrapper_country, ring_gauge, length_inches, image_url)"
+      "cigar:cigar_catalog(id, brand, series, name, format, wrapper, wrapper_country, ring_gauge, length_inches, image_url)"
     )
     .eq("user_id",     userId)
     .eq("is_wishlist", false)
@@ -48,7 +48,7 @@ export async function fetchWishlistItems(userId: string): Promise<WishlistItem[]
     .from("humidor_items")
     .select(
       "id, cigar_id, created_at, " +
-      "cigar:cigar_catalog(id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url)"
+      "cigar:cigar_catalog(id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url)"
     )
     .eq("user_id",     userId)
     .eq("is_wishlist", true)

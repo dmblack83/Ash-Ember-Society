@@ -46,6 +46,7 @@ export function selectQueryWords(ocrText: string, max = 16): string[] {
 interface CandidateFields {
   brand: string | null;
   series: string | null;
+  name?: string | null;
   format: string | null;
 }
 
@@ -85,7 +86,7 @@ export function scoreCandidates<T extends CandidateFields>(
       // re-earn credit for "fuente".
       const brandWords = new Set(brand.split(/\s+/));
       const nameWords = new Set(
-        foldText(`${cigar.series ?? ""} ${cigar.format ?? ""}`)
+        foldText(`${cigar.series ?? ""} ${cigar.name ?? ""} ${cigar.format ?? ""}`)
           .replace(/[^\w\s]/g, " ")
           .split(/\s+/)
           .filter((w) => w.length >= 3 && !brandWords.has(w))
