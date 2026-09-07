@@ -324,7 +324,7 @@ function CigarContext({ item }: { item: BurnReportItem }) {
         <CigarImage
           imageUrl={c.image_url}
           wrapper={c.wrapper}
-          alt={c.series ?? c.format ?? ""}
+          alt={cigarDisplayName(c)}
           width={44}
           height={44}
           sizes="44px"

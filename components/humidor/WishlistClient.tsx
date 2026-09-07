@@ -16,7 +16,7 @@ import {
   cigarDetailsToRpcArgs,
 } from "@/lib/cigars/cigar-details";
 import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/data/cigar-fetchers";
-import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
+import { findMatchingSize, cigarDisplayName, type SizeChild } from "@/lib/cigars/line-group";
 import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
 /* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
@@ -662,7 +662,7 @@ function WishlistCard({
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="(max-width: 640px) 100vw, 640px"
             quality={60}
@@ -742,7 +742,7 @@ function WishlistListRow({
             <CigarImage
               imageUrl={c.image_url}
               wrapper={c.wrapper}
-              alt={c.series ?? c.format ?? ""}
+              alt={cigarDisplayName(c)}
               width={48}
               height={48}
               sizes="48px"

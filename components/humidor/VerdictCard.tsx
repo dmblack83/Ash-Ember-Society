@@ -17,6 +17,7 @@
    has to adapt its source data once at the boundary.
    ------------------------------------------------------------------ */
 
+import { cigarTitle } from "@/lib/cigars/line-group";
 import React from "react";
 import Image from "next/image";
 import { smokedAtToLocalDate } from "@/lib/format";
@@ -463,7 +464,7 @@ export function VerdictCard({
               letterSpacing: "-0.01em",
             }}
           >
-            {cigar?.series ?? cigar?.format ?? "Unknown Cigar"}
+            {cigar ? cigarTitle(cigar) : "Unknown Cigar"}
           </p>
           {cigar?.name && (
             <p

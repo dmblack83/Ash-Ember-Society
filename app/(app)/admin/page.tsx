@@ -70,7 +70,7 @@ export default async function AdminPage() {
       current,
       suggested,
       created_at,
-      cigar:cigar_catalog (brand, series),
+      cigar:cigar_catalog (brand, series, name, format),
       submitter:public_profiles!cigar_edit_suggestions_suggested_by_fkey (display_name)
     `)
     .eq("status", "pending")
@@ -83,7 +83,9 @@ export default async function AdminPage() {
       id:           row.id,
       cigar_id:     row.cigar_id,
       cigar_brand:  cigar?.brand  ?? null,
-      cigar_series: cigar?.series ?? null,
+      cigar_series: cigar
+        ? [cigar.series ?? cigar.format, cigar.name ? `"${cigar.name}"` : null].filter(Boolean).join(" ") || null
+        : null,
       submitter:    submitter?.display_name ?? null,
       current:      (row.current   as Record<string, unknown>) ?? {},
       suggested:    (row.suggested as Record<string, unknown>) ?? {},

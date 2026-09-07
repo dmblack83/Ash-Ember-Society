@@ -223,7 +223,7 @@ function GridCard({ item, tagName }: { item: HumidorItem; tagName?: string }) {
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="(min-width: 768px) 25vw, 50vw"
             quality={60}
@@ -296,9 +296,10 @@ function ListRow({
     <IntentLink
       href={`/humidor/${item.id}`}
       className="block group"
-      /* See GridCard for rationale. List rows are denser and fixed-
-         height, so the reserved intrinsic size is much smaller. */
-      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 72px" }}
+      /* See GridCard for rationale. List rows are denser than cards;
+         the estimate covers the extra quoted vitola-name row so
+         off-screen placeholders don't pop shorter than reality. */
+      style={{ contentVisibility: "auto", containIntrinsicSize: "auto 96px" }}
     >
       <div className="card card-interactive flex items-center gap-3 p-3">
         {/* Thumbnail */}
@@ -306,7 +307,7 @@ function ListRow({
           <CigarImage
             imageUrl={c.image_url}
             wrapper={c.wrapper}
-            alt={c.series ?? c.format ?? ""}
+            alt={cigarDisplayName(c)}
             fill
             sizes="48px"
             quality={70}

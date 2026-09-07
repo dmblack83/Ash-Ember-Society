@@ -59,6 +59,7 @@ export interface BurnReportRow {
     id:        string;
     brand:     string;
     series:    string | null;
+    name?:     string | null;
     format:    string | null;
     wrapper:   string | null;
     image_url: string | null;
