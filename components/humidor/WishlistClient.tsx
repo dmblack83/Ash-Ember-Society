@@ -14,7 +14,6 @@ import {
   type CigarDetails,
   EMPTY_CIGAR_DETAILS,
   cigarDetailsToRpcArgs,
-  cigarDetailsToSuggestionRow,
 } from "@/lib/cigars/cigar-details";
 import { matchCigarLines, type LineMatch } from "@/lib/data/cigar-fetchers";
 import { findMatchingSize, type SizeChild } from "@/lib/cigars/line-group";
@@ -82,7 +81,6 @@ function AddWishlistSheet({
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
   const [manual,          setManual]          = useState<CigarDetails>(EMPTY_CIGAR_DETAILS);
-  const [submitToCatalog, setSubmitToCatalog] = useState(true);
   const [notes,           setNotes]           = useState("");
   const [submitting,      setSubmitting]      = useState(false);
   const [submitError,     setSubmitError]     = useState<string | null>(null);
@@ -136,7 +134,6 @@ function AddWishlistSheet({
     if (!open) return;
     setSelected(null); setIsManual(false);
     setManual(EMPTY_CIGAR_DETAILS);
-    setSubmitToCatalog(true);
     setNotes(""); setSubmitError(null);
     setDupe(null);
 
@@ -178,11 +175,11 @@ function AddWishlistSheet({
   }
 
   /* Second phase: wishlist-row insert + bookkeeping for a resolved
-     catalog row. `suggest` controls the community-review row
-     (false when attaching to an existing listing — Path A). */
+     catalog row. Community review rides on the catalog row itself
+     (community_added/approved) — no separate suggestion record. */
   async function finishWishlistInsert(
     cigarId: string,
-    opts: { suggest: boolean; bumpUsage?: CatalogResult | null; message?: string },
+    opts: { bumpUsage?: CatalogResult | null; message?: string },
   ) {
     const supabase = createClient();
     try {
@@ -206,12 +203,6 @@ function AddWishlistSheet({
           .eq("id", opts.bumpUsage.id);
       }
 
-      if (isManual && submitToCatalog && opts.suggest) {
-        await supabase
-          .from("cigar_catalog_suggestions")
-          .insert(cigarDetailsToSuggestionRow(manual, user.id));
-      }
-
       clearCigarDraft("wishlist");
       onAdded(opts.message);
       onClose();
@@ -228,7 +219,7 @@ function AddWishlistSheet({
     setSubmitError(null);
     try {
       if (selected) {
-        await finishWishlistInsert(selected.id, { suggest: false, bumpUsage: selected });
+        await finishWishlistInsert(selected.id, { bumpUsage: selected });
         return;
       }
       /* Manual path: fuzzy-match BEFORE any insert. null = no match
@@ -265,7 +256,7 @@ function AddWishlistSheet({
       setSubmitError(rpcErr?.message ?? "Failed to save cigar to catalog.");
       return;
     }
-    await finishWishlistInsert(data as string, { suggest: true, message });
+    await finishWishlistInsert(data as string, { message });
   }
 
   const hasSelection = selected !== null || isManual;
@@ -444,30 +435,11 @@ function AddWishlistSheet({
 
                     <CigarDetailFields value={manual} onChange={setManual} />
 
-                    <label className="flex items-start gap-3 cursor-pointer select-none">
-                      <div
-                        className="flex-shrink-0 mt-0.5 flex items-center justify-center rounded transition-colors"
-                        style={{
-                          width:           20,
-                          height:          20,
-                          backgroundColor: submitToCatalog ? "var(--primary)" : "transparent",
-                          border:          `1.5px solid ${submitToCatalog ? "var(--primary)" : "var(--border)"}`,
-                        }}
-                        onClick={() => setSubmitToCatalog((v) => !v)}
-                      >
-                        {submitToCatalog && (
-                          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden="true">
-                            <path d="M2 5.5l2.5 2.5 4.5-5" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        )}
-                      </div>
-                      <div onClick={() => setSubmitToCatalog((v) => !v)}>
-                        <p className="text-sm font-medium text-foreground">Submit to catalog</p>
-                        <p className="text-xs mt-0.5" style={{ color: "var(--muted-foreground)" }}>
-                          Help the community - we&apos;ll review and add it.
-                        </p>
-                      </div>
-                    </label>
+                    {/* Manual adds always enter the community catalog
+                        (pending admin review) — no opt-in needed. */}
+                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                      New cigars join the community catalog after a quick review.
+                    </p>
                   </div>
                 )}
 
@@ -570,7 +542,6 @@ function AddWishlistSheet({
             setSubmitting(true);
             try {
               await finishWishlistInsert(child.id, {
-                suggest: false,
                 message: "Added to your wishlist. Linked to the existing catalog listing.",
               });
               setDupe(null);
