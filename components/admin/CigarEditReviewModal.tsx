@@ -201,6 +201,13 @@ export function CigarEditReviewModal({ suggestion, onClose, onResolved }: Props)
           <p className="text-xs mt-3" style={{ color: "#E8642C" }}>{error}</p>
         )}
 
+        {["brand", "series", "wrapper", "shade", "wrapper_country", "binder_country", "filler_countries"]
+          .some((f) => f in suggestion.suggested) && (
+          <p className="text-[11px] mt-3" style={{ color: "var(--muted-foreground)" }}>
+            Brand, series and blend changes apply to every size of this cigar.
+          </p>
+        )}
+
         {/* Actions */}
         <div className="flex gap-3 mt-5">
           <button

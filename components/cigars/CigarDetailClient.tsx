@@ -6,6 +6,7 @@
  * to a client shell; data now arrives via props from CigarDetailRoute.
  */
 
+import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Divider } from "@/components/ui/divider";
@@ -13,7 +14,7 @@ import { CigarActions } from "@/components/cigars/CigarActions";
 import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButton";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
-import { lengthLabelForInches } from "@/lib/cigar-taxonomy";
+import { sizeDims, sizeLabel, type SizeChild } from "@/lib/cigars/line-group";
 import { keyFor } from "@/lib/data/keys";
 import { fetchCigarPendingEdit, type CigarDetailRow } from "@/lib/data/cigar-fetchers";
 import { useAppSession } from "@/components/system/app-session";
@@ -30,21 +31,30 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 }
 
 interface Props {
-  cigar:              CigarDetailRow;
-  initialIsWishlisted: boolean;
+  cigar:    CigarDetailRow;
+  siblings: SizeChild[];
 }
 
-export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
+export function CigarDetailClient({ cigar: c, siblings }: Props) {
+  /* Tapped child preselected (humidor deep links keep working). */
+  const [selectedId, setSelectedId] = useState(c.id);
+  const selected =
+    siblings.find((s) => s.id === selectedId) ??
+    ({ id: c.id, format: c.format, ring_gauge: c.ring_gauge, length_inches: c.length_inches, image_url: c.image_url } as SizeChild);
+
   /* Pending edit-suggestion flag — per-user (RLS-scoped), fetched
-     lazily; the button renders optimistically while it loads. */
+     lazily; the button renders optimistically while it loads. Keyed
+     per selected child — the suggestion targets the chosen size. */
   const { ready, session } = useAppSession();
   const userId = ready && session ? session.userId : null;
   const { data: hasPendingEdit = false } = useSWR(
-    userId ? keyFor.cigarPendingEdit(userId, c.id) : null,
-    () => fetchCigarPendingEdit(c.id),
+    userId ? keyFor.cigarPendingEdit(userId, selected.id) : null,
+    () => fetchCigarPendingEdit(selected.id),
   );
 
-  /* Build details list — omit null/undefined fields */
+  /* Build details list — blend-only (Format / Ring Gauge / Length
+     live in the size picker below, not here). Omit null/undefined
+     fields. */
   const details: { label: string; value: string }[] = [
     c.shade          ? { label: "Shade",            value: c.shade }                                            : null,
     c.wrapper        ? { label: "Wrapper",          value: wrapperDisplay(c.wrapper) }                           : null,
@@ -52,12 +62,11 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
     c.binder_country  ? { label: "Binder Country",   value: countryName(c.binder_country) }                     : null,
     (c.filler_countries && c.filler_countries.length > 0)
       ? { label: "Filler Countries", value: c.filler_countries.map(countryName).join(", ") }                    : null,
-    c.format         ? { label: "Format",           value: c.format }                                           : null,
-    c.ring_gauge != null
-      ? { label: "Ring Gauge", value: String(c.ring_gauge) }                                                    : null,
-    c.length_inches != null
-      ? { label: "Length",     value: lengthLabelForInches(c.length_inches) ?? `${c.length_inches}"` }          : null,
   ].filter((d): d is { label: string; value: string } => d !== null);
+
+  /* Hero image: selected child, then the line row, then any sibling,
+     then the CigarImage component's own wrapper-default fallback. */
+  const heroImage = selected.image_url ?? c.image_url ?? siblings.find((s) => s.image_url)?.image_url ?? null;
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8 space-y-8">
@@ -91,7 +100,7 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
             this is above the fold and contributes to LCP on phones. */}
         <div className="w-full sm:w-72 aspect-[4/3] rounded-xl overflow-hidden bg-muted flex items-center justify-center flex-shrink-0 relative">
           <CigarImage
-            imageUrl={c.image_url}
+            imageUrl={heroImage}
             wrapper={c.wrapper}
             alt={c.series ?? c.format ?? ""}
             fill
@@ -113,9 +122,6 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
           >
             {c.series ?? c.format}
           </h1>
-          {c.format && (
-            <p className="text-sm text-muted-foreground">{c.format}</p>
-          )}
 
           {c.community_added && !c.approved && (
             <span className="text-[11px] text-muted-foreground">
@@ -125,7 +131,7 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
 
           {/* Actions — desktop inline in hero */}
           <div className="hidden sm:block mt-6">
-            <CigarActions cigarId={c.id} initialIsWishlisted={initialIsWishlisted} />
+            <CigarActions cigarId={selected.id} sizeText={sizeLabel(selected)} />
           </div>
         </div>
       </section>
@@ -144,22 +150,67 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
 
       <Divider className="my-6" />
 
+      {/* ── Choose a size ───────────────────────────────────────── */}
+      <section className="space-y-3 animate-slide-up">
+        <h2>Choose a size</h2>
+        <div role="radiogroup" aria-label="Choose a size" className="space-y-2">
+          {siblings.map((s) => {
+            const sel = s.id === selectedId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                role="radio"
+                aria-checked={sel}
+                onClick={() => setSelectedId(s.id)}
+                className="w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-colors duration-150"
+                style={{
+                  backgroundColor: sel ? "rgba(212,160,74,0.07)" : "var(--card)",
+                  border: `1px solid ${sel ? "var(--gold, #D4A04A)" : "var(--border)"}`,
+                }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="flex-shrink-0 rounded-full"
+                  style={{
+                    width: 17, height: 17,
+                    border: `1.5px solid ${sel ? "var(--gold, #D4A04A)" : "var(--muted-foreground)"}`,
+                    backgroundColor: "transparent",
+                    boxShadow: sel ? "inset 0 0 0 3.5px var(--background), inset 0 0 0 12px var(--gold, #D4A04A)" : "none",
+                  }}
+                />
+                <span className="flex-1 text-sm font-medium text-foreground">
+                  {s.format ?? "Original size"}
+                </span>
+                <span className="text-xs text-muted-foreground tabular-nums">
+                  {sizeDims(s)}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <Divider className="my-6" />
+
       {/* ── Actions (mobile only — desktop shown inline in hero) ─── */}
       <section className="sm:hidden">
-        <CigarActions cigarId={c.id} initialIsWishlisted={initialIsWishlisted} />
+        <CigarActions cigarId={selected.id} sizeText={sizeLabel(selected)} />
       </section>
 
       {/* ── Suggest an edit — reuses the humidor item page's button +
-             sheet; RLS-scoped pending flag decides button vs note. ── */}
-      <section className="sm:max-w-xs">
+             sheet; RLS-scoped pending flag decides button vs note.
+             Blend fields come from the line-shared row; size fields
+             come from the selected vitola. ── */}
+      <section className="sm:max-w-xs space-y-2">
         <CigarEditSuggestButton
           cigar={{
-            id:               c.id,
+            id:               selected.id,
             brand:            c.brand,
             series:           c.series,
-            format:           c.format,
-            ring_gauge:       c.ring_gauge,
-            length_inches:    c.length_inches,
+            format:           selected.format,
+            ring_gauge:       selected.ring_gauge,
+            length_inches:    selected.length_inches,
             shade:            c.shade,
             wrapper:          c.wrapper,
             wrapper_country:  c.wrapper_country,
@@ -168,6 +219,9 @@ export function CigarDetailClient({ cigar: c, initialIsWishlisted }: Props) {
           }}
           hasPending={hasPendingEdit}
         />
+        <p className="text-[11px] text-center text-muted-foreground">
+          Applies to the selected vitola
+        </p>
       </section>
 
       <Divider className="my-6" />

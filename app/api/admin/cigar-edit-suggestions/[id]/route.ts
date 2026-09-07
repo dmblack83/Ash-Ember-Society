@@ -95,7 +95,10 @@ export async function PATCH(
     );
   }
 
-  // 5. On approve, apply the diff to cigar_catalog (whitelisted fields only)
+  // 5. On approve, apply the diff — line-owned fields go to
+  //    cigar_lines (the sync trigger propagates to every size);
+  //    size fields patch the child row. Falls back to child-only
+  //    patching when the line migration hasn't been applied.
   if (body.action === "approve") {
     const raw = suggestion.suggested as Record<string, unknown>;
     const patch: Record<string, unknown> = {};
@@ -110,13 +113,49 @@ export async function PATCH(
       return NextResponse.json({ error: "Suggestion contains no applicable fields" }, { status: 422 });
     }
 
-    const { error: updateErr } = await admin
+    /* Line linkage — tolerate a missing column (migration pending). */
+    let lineId: string | null = null;
+    const { data: childRow, error: lineReadErr } = await admin
       .from("cigar_catalog")
-      .update(patch)
-      .eq("id", suggestion.cigar_id);
+      .select("line_id")
+      .eq("id", suggestion.cigar_id)
+      .maybeSingle();
+    if (!lineReadErr && childRow) lineId = (childRow as { line_id: string | null }).line_id;
 
-    if (updateErr) {
-      return NextResponse.json({ error: "Failed to apply suggestion" }, { status: 500 });
+    const LINE_FIELDS = new Set([
+      "brand", "series", "wrapper", "shade",
+      "wrapper_country", "binder_country", "filler_countries",
+    ]);
+    const linePatch:  Record<string, unknown> = {};
+    const childPatch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      (lineId && LINE_FIELDS.has(k) ? linePatch : childPatch)[k] = v;
+    }
+
+    if (lineId && Object.keys(linePatch).length > 0) {
+      const { error: lineErr } = await admin
+        .from("cigar_lines")
+        .update(linePatch)
+        .eq("id", lineId);
+      if (lineErr) {
+        const conflict = lineErr.code === "23505";
+        return NextResponse.json(
+          { error: conflict
+              ? "That brand and series already exist as another line. Merge via the audit workflow instead."
+              : "Failed to apply line fields" },
+          { status: conflict ? 409 : 500 },
+        );
+      }
+    }
+
+    if (Object.keys(childPatch).length > 0) {
+      const { error: updateErr } = await admin
+        .from("cigar_catalog")
+        .update(childPatch)
+        .eq("id", suggestion.cigar_id);
+      if (updateErr) {
+        return NextResponse.json({ error: "Failed to apply suggestion" }, { status: 500 });
+      }
     }
   }
 

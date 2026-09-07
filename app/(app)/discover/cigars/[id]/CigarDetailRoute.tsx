@@ -4,43 +4,42 @@ import useSWR from "swr";
 import { notFound } from "next/navigation";
 import { useGatedSession } from "@/lib/auth/use-gated-session";
 import { keyFor } from "@/lib/data/keys";
-import {
-  fetchCigarDetail,
-  fetchCigarWishlisted,
-} from "@/lib/data/cigar-fetchers";
+import { fetchCigarDetail, fetchLineSiblings } from "@/lib/data/cigar-fetchers";
+import { type SizeChild } from "@/lib/cigars/line-group";
 import { CigarDetailClient } from "@/components/cigars/CigarDetailClient";
 import { CigarDetailSkeleton } from "./_skeletons";
 
 /**
  * Client entry for the cigar detail shell. The catalog row is public
- * data cached under keyFor.cigar (shared across users); the wishlist
- * flag is per-user. The two loads run in parallel; the page renders
- * as soon as the cigar row lands — the wishlist flag only gates the
- * heart state inside CigarActions, so we default it to false rather
- * than blocking the whole page on it.
+ * data cached under keyFor.cigar (shared across users). Once the row
+ * lands, its (brand, series) drive a dependent fetch of every sibling
+ * size in the line — the wishlist flag is no longer fetched here; it
+ * moves into CigarActions, keyed per selected child.
  */
 export function CigarDetailRoute({ cigarId }: { cigarId: string }) {
   const { allowed, session } = useGatedSession();
-
-  const userId = session?.userId ?? null;
 
   const { data: cigar } = useSWR(
     allowed ? keyFor.cigar(cigarId) : null,
     () => fetchCigarDetail(cigarId),
   );
-  const { data: isWishlisted } = useSWR(
-    allowed && userId ? keyFor.cigarWishlisted(userId, cigarId) : null,
-    () => fetchCigarWishlisted(userId as string, cigarId),
+
+  /* Size rows of this line — dependent on the cigar row (brand +
+     series drive the group). Null-brand rows are their own group. */
+  const { data: siblings } = useSWR(
+    allowed && cigar?.brand ? keyFor.lineSiblings(cigar.brand, cigar.series) : null,
+    () => fetchLineSiblings(cigar!.brand as string, cigar!.series),
   );
 
   if (!allowed || !session || cigar === undefined) return <CigarDetailSkeleton />;
   if (cigar === null) notFound();
 
-  /* Wait for the wishlist flag too — CigarActions seeds local state
-     from its initial prop, so rendering early with `false` and
-     re-rendering later would NOT update the heart. The flag query is
-     a single-row index hit that resolves with the cigar row. */
-  if (isWishlisted === undefined) return <CigarDetailSkeleton />;
+  const sizeRows: SizeChild[] = cigar.brand
+    ? (siblings ?? [])
+    : [{ id: cigar.id, format: cigar.format, ring_gauge: cigar.ring_gauge, length_inches: cigar.length_inches, image_url: cigar.image_url }];
+  if (cigar.brand && siblings === undefined) return <CigarDetailSkeleton />;
 
-  return <CigarDetailClient cigar={cigar} initialIsWishlisted={isWishlisted} />;
+  /* key: navigating detail→detail (different cigar) must reset the
+     size selection — without a remount, selectedId would go stale. */
+  return <CigarDetailClient key={cigar.id} cigar={cigar} siblings={sizeRows} />;
 }

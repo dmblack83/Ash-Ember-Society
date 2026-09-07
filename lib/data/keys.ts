@@ -91,6 +91,13 @@ export const keyFor = {
     ["cigar-search", query, brand, page] as const,
   /* Brand index for the catalog landing (popularity-ranked). */
   catalogBrands: ["catalog-brands"] as const,
+  /* Line-grouped catalog browse (consolidated cards). */
+  catalogLines: (query: string, page: number, brand = "") =>
+    ["catalog-lines", query, brand, page] as const,
+  /* All size rows of one line (brand + series group). Public data,
+     shared across users. */
+  lineSiblings: (brand: string, series: string | null) =>
+    ["line-siblings", brand, series ?? ""] as const,
   /* Per-user "is this cigar on my wishlist" flag for the detail page. */
   cigarWishlisted: (userId: string, cigarId: string) =>
     ["cigar-wishlisted", userId, cigarId] as const,

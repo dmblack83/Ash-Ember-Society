@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual Add Flow — Exact Walkthrough</title>
+<style>
+  :root {
+    --background: #15110b; --foreground: #F5E6D3; --card: #241C17;
+    --secondary: #3D2E23; --border: rgba(212,160,74,0.15);
+    --gold: #D4A04A; --ember: #E8642C; --muted: #A69080;
+    --destructive: #e5484d;
+    --serif: Georgia, 'Times New Roman', serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0a0806; color: var(--foreground);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 48px; gap: 18px; min-height: 100vh;
+  }
+  h1.pagetitle { font-family: var(--serif); font-size: 22px; font-weight: 600; }
+  .flowsteps { display: flex; gap: 8px; font-size: 11px; color: var(--muted); flex-wrap: wrap; justify-content: center; }
+  .flowsteps span { padding: 4px 10px; border: 1px solid var(--border); border-radius: 99px; }
+  .flowsteps span.on { color: var(--gold); border-color: var(--gold); }
+  .note { max-width: 620px; color: #8a7a6d; font-size: 13px; line-height: 1.6; text-align: center; }
+  .note b { color: #c9b8a8; }
+
+  .phone {
+    width: 375px; height: 730px; background: var(--background);
+    border-radius: 40px; border: 6px solid #2a221c; overflow: hidden;
+    position: relative; box-shadow: 0 24px 60px rgba(0,0,0,0.6);
+  }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; top: 42px;
+    background: var(--background); border-radius: 22px 22px 0 0;
+    border-top: 1px solid var(--border); display: flex; flex-direction: column;
+  }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .sheet-head h2 { font-family: var(--serif); font-size: 20px; font-weight: 700; }
+  .sheet-head .x { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 17px; cursor: pointer; }
+  .sheet-body { flex: 1; overflow-y: auto; padding: 16px 20px 24px; }
+
+  .screen { display: none; }
+  .screen.visible { display: block; }
+
+  /* search step */
+  .search input {
+    width: 100%; padding: 12px; font-size: 16px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); color: var(--foreground); outline: none;
+  }
+  .hintrow { text-align: center; padding: 26px 0 10px; color: var(--muted); font-size: 13px; }
+  .manual-link { display: block; text-align: center; color: var(--gold); font-size: 14px; font-weight: 600; padding: 12px; border: 1px dashed rgba(212,160,74,0.4); border-radius: 11px; cursor: pointer; }
+
+  /* form fields */
+  .field { margin-bottom: 13px; }
+  .field label { display: block; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+  .req { color: var(--destructive); }
+  .tin, .sel {
+    width: 100%; padding: 11px 12px; font-size: 15px; border-radius: 10px;
+    background: var(--card); border: 1px solid var(--border); color: var(--foreground);
+  }
+  .sel { position: relative; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+  .sel .chev { color: var(--muted); font-size: 11px; }
+  .sel .ph { color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip { font-size: 12.5px; padding: 7px 13px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; }
+  .chip.on { border-color: var(--gold); color: var(--gold); background: rgba(212,160,74,0.08); }
+  .sec-h { font-family: var(--serif); font-size: 16px; margin: 20px 0 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+  .stepper { display: flex; align-items: center; gap: 16px; }
+  .stepper .pm { width: 38px; height: 38px; border-radius: 10px; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 17px; color: var(--foreground); cursor: pointer; }
+  .stepper .qty { font-size: 17px; font-weight: 600; min-width: 20px; text-align: center; }
+  .btn-gold { text-align: center; font-size: 15px; font-weight: 600; padding: 14px 0; border-radius: 12px; background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; cursor: pointer; margin-top: 14px; }
+
+  /* dupe modal */
+  .scrim { position: absolute; inset: 0; background: rgba(0,0,0,0.65); z-index: 10; display: none; }
+  .modal {
+    position: absolute; left: 14px; right: 14px; top: 50%; transform: translateY(-50%);
+    z-index: 11; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px 18px; display: none; max-height: 86%; overflow-y: auto;
+  }
+  .phone.dupe .scrim, .phone.dupe .modal { display: block; }
+  .modal h3 { font-family: var(--serif); font-size: 18px; margin-bottom: 6px; }
+  .modal .msub { font-size: 12.5px; color: var(--muted); line-height: 1.5; margin-bottom: 13px; }
+  .linecard { background: var(--background); border: 1px solid rgba(212,160,74,0.35); border-radius: 12px; padding: 13px 14px; margin-bottom: 6px; }
+  .linecard .brand { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .linecard .name { font-family: var(--serif); font-size: 16px; margin: 1px 0 2px; }
+  .linecard .meta { font-size: 11px; color: var(--muted); }
+  .sizes { margin: 10px 0 2px; }
+  .sizes .sz {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 9px 11px; border: 1px solid var(--border); border-radius: 9px;
+    font-size: 13px; margin-bottom: 6px; cursor: pointer;
+  }
+  .sizes .sz .dims { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sizes .sz.yours { border-color: var(--gold); background: rgba(212,160,74,0.07); }
+  .sizes .sz.yours::after { content: "your size"; font-size: 9px; letter-spacing: 0.08em; color: var(--gold); }
+  .m-btn { display: block; width: 100%; text-align: center; padding: 12px 0; border-radius: 11px; font-size: 13.5px; font-weight: 600; margin-top: 8px; cursor: pointer; }
+  .m-primary { background: linear-gradient(180deg, #e1c787 0%, #b89549 100%); color: #1a1208; }
+  .m-line { border: 1px solid var(--border); color: var(--foreground); font-weight: 500; }
+  .m-ghost { color: var(--muted); font-weight: 500; font-size: 12.5px; padding: 9px 0 2px; }
+
+  /* success */
+  .success { text-align: center; padding: 60px 10px 0; }
+  .success .ring { width: 64px; height: 64px; border-radius: 50%; border: 2px solid var(--gold); margin: 0 auto 18px; display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: 26px; }
+  .success h3 { font-family: var(--serif); font-size: 21px; margin-bottom: 8px; }
+  .success p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .toast { margin: 26px auto 0; max-width: 280px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-size: 13px; }
+</style>
+</head>
+<body>
+  <h1 class="pagetitle">Manual Add Flow — Exact Walkthrough</h1>
+  <div class="flowsteps" id="steps">
+    <span class="on" data-s="1">1 · Search first</span>
+    <span data-s="2">2 · Manual form</span>
+    <span data-s="3">3 · Duplicate check</span>
+    <span data-s="4">4 · Done</span>
+  </div>
+
+  <div class="phone" id="phone">
+    <div class="sheet">
+      <div class="sheet-head">
+        <h2>Add Cigar</h2>
+        <div class="x">✕</div>
+      </div>
+      <div class="sheet-body">
+
+        <!-- STEP 1: search-first (unchanged from today) -->
+        <div class="screen visible" id="s1">
+          <div class="search field">
+            <input type="search" placeholder="Search the catalog first…" value="arturo fuente gran reserve">
+          </div>
+          <div class="hintrow">No matches for "arturo fuente gran reserve"</div>
+          <div class="manual-link" id="toManual">+ Add it manually</div>
+        </div>
+
+        <!-- STEP 2: manual form (real fields, real order) -->
+        <div class="screen" id="s2">
+          <div class="field"><label>Brand <span class="req">*</span></label><div class="tin">Arturo Fuente</div></div>
+          <div class="field"><label>Series / Name</label><div class="tin">Gran Reserve</div></div>
+          <div class="field"><label>Format</label><div class="sel"><span>Churchill</span><span class="chev">▼</span></div></div>
+          <div class="two">
+            <div class="field"><label>Ring Gauge</label><div class="sel"><span>48</span><span class="chev">▼</span></div></div>
+            <div class="field"><label>Length</label><div class="sel"><span>7 1/4"</span><span class="chev">▼</span></div></div>
+          </div>
+          <div class="field"><label>Shade</label><div class="sel"><span>Colorado Claro</span><span class="chev">▼</span></div></div>
+          <div class="field"><label>Wrapper</label><div class="sel"><span>Connecticut Shade</span><span class="chev">▼</span></div></div>
+          <div class="field"><label>Wrapper Country</label><div class="sel"><span>USA</span><span class="chev">▼</span></div></div>
+          <div class="field"><label>Binder Country</label><div class="sel"><span>Dominican Republic</span><span class="chev">▼</span></div></div>
+          <div class="field">
+            <label>Filler Countries</label>
+            <div class="chips">
+              <span class="chip on">Dominican Republic</span>
+              <span class="chip">Nicaragua</span>
+              <span class="chip">Honduras</span>
+              <span class="chip">USA</span>
+            </div>
+          </div>
+
+          <h4 class="sec-h">Your Entry</h4>
+          <div class="field"><label>Quantity</label>
+            <div class="stepper"><span class="pm">−</span><span class="qty">2</span><span class="pm">+</span></div>
+          </div>
+          <div class="two">
+            <div class="field"><label>Purchase Date</label><div class="tin">09/06/2026</div></div>
+            <div class="field"><label>Price (each)</label><div class="tin">14.50</div></div>
+          </div>
+          <div class="field"><label>Source</label><div class="tin" style="color:var(--muted)">e.g. Famous Smoke Shop</div></div>
+          <div class="field"><label>Notes</label><div class="tin" style="color:var(--muted)">Storage location, thoughts…</div></div>
+          <div class="btn-gold" id="saveBtn">Add to Humidor</div>
+        </div>
+
+        <!-- STEP 4: success -->
+        <div class="screen" id="s4">
+          <div class="success">
+            <div class="ring">✓</div>
+            <h3 id="doneTitle">Added to your humidor</h3>
+            <p id="doneSub">2 × Arturo Fuente Gran Reserva<br>Churchill · 48 × 7 1/4"</p>
+            <div class="toast" id="doneToast">Linked to the existing catalog listing — your typo never made it in.</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- STEP 3: duplicate check modal -->
+    <div class="scrim"></div>
+    <div class="modal">
+      <h3>Is this the same cigar?</h3>
+      <p class="msub">A close match is already in the catalog. Using it keeps every member's reviews and stats connected.</p>
+      <div class="linecard">
+        <div class="brand">ARTURO FUENTE</div>
+        <div class="name">Gran Reserva</div>
+        <div class="meta">Connecticut Shade · Colorado Claro · Dom. Rep.</div>
+        <div class="sizes">
+          <div class="sz yours"><span>Churchill</span><span class="dims">48 × 7 1/4"</span></div>
+          <div class="sz"><span>Corona</span><span class="dims">44 × 5 1/2"</span></div>
+          <div class="sz"><span>Toro</span><span class="dims">52 × 6"</span></div>
+          <div class="sz"><span>Robusto</span><span class="dims">50 × 5"</span></div>
+        </div>
+      </div>
+      <div class="m-btn m-primary" id="useSize">Yes — add the Churchill to my humidor</div>
+      <div class="m-btn m-line" id="newSize">Same cigar, but my size isn't listed</div>
+      <div class="m-btn m-ghost" id="createNew">No, mine is different — create a new listing</div>
+    </div>
+  </div>
+
+  <p class="note">
+    <b>Step 1</b> is unchanged: search first, manual add only when nothing matches. <b>Step 2</b> is the
+    real form, every field in today's order — nothing added, nothing removed. <b>Step 3</b> fires on
+    save only when the catalog has a close match (typo "Gran Reserve" finds line "Gran Reserva"): it
+    shows the matched line with its sizes, and because the entered Churchill 48 × 7 1/4" matches an
+    existing size, that row is pre-highlighted — one tap finishes the add against the existing listing.
+    "My size isn't listed" attaches their format/ring/length as a new size under the line.
+    "Create a new listing" is never blocked. No match at all → straight to <b>Step 4</b>, no interruption.
+  </p>
+
+<script>
+  const phone = document.getElementById('phone');
+  const steps = document.getElementById('steps');
+  function goStep(n) {
+    ['1','2','4'].forEach((s) => {
+      const el = document.getElementById('s' + s);
+      if (el) el.classList.toggle('visible', s === String(n));
+    });
+    phone.classList.toggle('dupe', n === 3);
+    [...steps.children].forEach((c) => c.classList.toggle('on', c.dataset.s === String(n)));
+  }
+  document.getElementById('toManual').addEventListener('click', () => goStep(2));
+  document.getElementById('saveBtn').addEventListener('click', () => goStep(3));
+  document.getElementById('useSize').addEventListener('click', () => {
+    document.getElementById('doneSub').innerHTML = '2 × Arturo Fuente Gran Reserva<br>Churchill · 48 × 7 1/4"';
+    document.getElementById('doneToast').textContent = 'Linked to the existing catalog listing — your typo never made it in.';
+    goStep(4);
+  });
+  document.getElementById('newSize').addEventListener('click', () => {
+    document.getElementById('doneSub').innerHTML = '2 × Arturo Fuente Gran Reserva<br>Your size: Churchill · 48 × 7 1/4" (added to the line)';
+    document.getElementById('doneToast').textContent = 'Your size joined the existing Gran Reserva listing.';
+    goStep(4);
+  });
+  document.getElementById('createNew').addEventListener('click', () => {
+    document.getElementById('doneSub').innerHTML = '2 × Arturo Fuente Gran Reserve<br>Churchill · 48 × 7 1/4" (new listing)';
+    document.getElementById('doneToast').textContent = 'New catalog listing created, pending community review.';
+    goStep(4);
+  });
+</script>
+</body>
+</html>

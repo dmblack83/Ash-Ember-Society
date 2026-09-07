@@ -18,6 +18,13 @@ const TAB_BAR_H = 45;
 export default function DiscoverLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
+  /* The catalog is reachable from the side sheet / rail, not these
+     tabs — approved catalog mockups show no tab bar there. Skipping
+     the offset too keeps the catalog flush under the top bar. */
+  if (pathname.startsWith("/discover/cigars")) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       {/* ── Fixed sub-nav ─────────────────────────────────────────── */}
@@ -26,7 +33,7 @@ export default function DiscoverLayout({ children }: { children: React.ReactNode
       <div
         style={{
           position:        "fixed",
-          top:             0,
+          top:             "var(--page-top-offset)",
           left:            "var(--app-content-left)",
           right:           0,
           zIndex:          30,

@@ -16,6 +16,7 @@
 import { createClient }     from "@/utils/supabase/client";
 import type { CatalogResult } from "@/components/cigar-search";
 import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
+import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
 
 const CATALOG_SELECT =
   "id, brand, series, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
@@ -146,4 +147,140 @@ export async function fetchCigarWishlisted(userId: string, cigarId: string): Pro
     .maybeSingle();
   if (error) throw new Error(error.message);
   return !!data;
+}
+
+/* ── Line-grouped browse (consolidated catalog) ─────────────────── */
+
+export interface CatalogLinePage {
+  lines:   CatalogLine[];
+  hasMore: boolean;
+  /* false = the get_catalog_lines RPC is missing (migration not yet
+     applied) and this page fell back to ungrouped child rows. */
+  grouped: boolean;
+}
+
+interface CatalogLineRpcRow {
+  brand: string | null; series: string | null;
+  wrapper: string | null; shade: string | null;
+  size_count: number; rep_id: string; image_url: string | null;
+  total_usage: number;
+}
+
+/* PostgREST "function not found" — the manual-apply migration hasn't
+   run yet. Every new RPC caller degrades on this. */
+function isMissingFunction(error: { code?: string; message?: string }): boolean {
+  return error.code === "PGRST202" || /function .* does not exist|not find the function/i.test(error.message ?? "");
+}
+
+export async function fetchCatalogLines({
+  query,
+  brand,
+  pageIndex,
+  pageSize,
+}: {
+  query: string; brand?: string; pageIndex: number; pageSize: number;
+}): Promise<CatalogLinePage> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("get_catalog_lines", {
+    p_search: query || null,
+    p_brand:  brand || null,
+    p_offset: pageIndex * pageSize,
+    p_limit:  pageSize,
+  });
+
+  if (error) {
+    if (!isMissingFunction(error)) throw new Error(error.message);
+    /* Fallback: ungrouped child rows, one card each (today's list). */
+    const page = await fetchCigarPage({ query, brand, pageIndex, pageSize });
+    return { lines: page.results.map(childToLine), hasMore: page.hasMore, grouped: false };
+  }
+
+  const rows = (data ?? []) as CatalogLineRpcRow[];
+  return {
+    lines: rows.map((r) => ({
+      brand: r.brand, series: r.series, wrapper: r.wrapper, shade: r.shade,
+      sizeCount: Number(r.size_count), repId: r.rep_id, imageUrl: r.image_url,
+    })),
+    hasMore: rows.length === pageSize,
+    grouped: true,
+  };
+}
+
+/* ── Line siblings (detail size picker) ─────────────────────────── */
+
+/* All size rows of the tapped child's line, via (brand, series)
+   equality — identical to line grouping post-backfill and correct
+   before any migration runs. */
+export async function fetchLineSiblings(
+  brand:  string,
+  series: string | null,
+): Promise<SizeChild[]> {
+  const supabase = createClient();
+  let q = supabase
+    .from("cigar_catalog")
+    .select("id, format, ring_gauge, length_inches, image_url")
+    .eq("brand", brand);
+  q = series === null ? q.is("series", null) : q.eq("series", series);
+  const { data, error } = await q
+    .order("ring_gauge", { ascending: true, nullsFirst: false })
+    .order("length_inches", { ascending: true, nullsFirst: false })
+    .order("id", { ascending: true });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as SizeChild[];
+}
+
+/* ── Manual-add dupe check ──────────────────────────────────────── */
+
+export interface LineMatch {
+  similarity: number;
+  line: {
+    brand: string; series: string | null;
+    wrapper: string | null; shade: string | null;
+    wrapper_country: string | null; binder_country: string | null;
+    filler_countries: string[] | null;
+  };
+  children: SizeChild[];
+}
+
+interface MatchRpcRow {
+  similarity: number; brand: string; series: string | null;
+  wrapper: string | null; shade: string | null;
+  wrapper_country: string | null; binder_country: string | null;
+  filler_countries: string[] | null;
+  child_id: string; child_format: string | null;
+  child_ring_gauge: number | null; child_length_inches: number | null;
+}
+
+/* null = no match above threshold OR the RPC is missing (dupe check
+   silently skipped — creation is never blocked). */
+export async function matchCigarLines(
+  brand:  string,
+  series: string | null,
+): Promise<LineMatch | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase.rpc("match_cigar_lines", {
+    p_brand:  brand,
+    p_series: series,
+  });
+  if (error) {
+    if (isMissingFunction(error)) return null;
+    throw new Error(error.message);
+  }
+  const rows = (data ?? []) as MatchRpcRow[];
+  if (rows.length === 0) return null;
+  const first = rows[0];
+  return {
+    similarity: first.similarity,
+    line: {
+      brand: first.brand, series: first.series,
+      wrapper: first.wrapper, shade: first.shade,
+      wrapper_country: first.wrapper_country,
+      binder_country: first.binder_country,
+      filler_countries: first.filler_countries,
+    },
+    children: rows.map((r) => ({
+      id: r.child_id, format: r.child_format,
+      ring_gauge: r.child_ring_gauge, length_inches: r.child_length_inches,
+    })),
+  };
 }
