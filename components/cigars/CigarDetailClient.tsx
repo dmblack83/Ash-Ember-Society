@@ -17,6 +17,7 @@ import { CigarEditSuggestButton } from "@/components/cigars/CigarEditSuggestButt
 import { CigarTitle } from "@/components/cigars/CigarTitle";
 import { CigarImage } from "@/components/ui/CigarImage";
 import { countryName, wrapperDisplay } from "@/lib/country-name";
+import { lengthLabelForInches } from "@/lib/cigar-taxonomy";
 import { sizeDims, sizeLabel, cigarDisplayName, type SizeChild } from "@/lib/cigars/line-group";
 import { keyFor } from "@/lib/data/keys";
 import { fetchCigarPendingEdit, type CigarDetailRow } from "@/lib/data/cigar-fetchers";
@@ -55,7 +56,13 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
   const [selectedId, setSelectedId] = useState(c.id);
   const selected =
     siblings.find((s) => s.id === selectedId) ??
-    ({ id: c.id, name: c.name, format: c.format, ring_gauge: c.ring_gauge, length_inches: c.length_inches, image_url: c.image_url } as SizeChild);
+    ({
+      id: c.id, name: c.name, format: c.format, ring_gauge: c.ring_gauge,
+      length_inches: c.length_inches, image_url: c.image_url,
+      shade: c.shade, wrapper: c.wrapper, wrapper_country: c.wrapper_country,
+      binder_country: c.binder_country, filler_countries: c.filler_countries,
+      community_added: c.community_added, approved: c.approved,
+    } as SizeChild);
 
   /* Pending edit-suggestion flag — per-user (RLS-scoped), fetched
      lazily; the button renders optimistically while it loads. Keyed
@@ -87,16 +94,20 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
     if (c.brand) void globalMutate(keyFor.lineSiblings(c.brand, c.series));
   }
 
-  /* Build details list — blend-only (Format / Ring Gauge / Length
-     live in the size picker below, not here). Omit null/undefined
-     fields. */
+  /* Build details list from the selected vitola — Format > Length >
+     Ring Gauge > blend. Omit null/undefined fields. */
+  const sel = selected;
   const details: { label: string; value: string }[] = [
-    c.shade          ? { label: "Shade",            value: c.shade }                                            : null,
-    c.wrapper        ? { label: "Wrapper",          value: wrapperDisplay(c.wrapper) }                           : null,
-    c.wrapper_country ? { label: "Wrapper Country",  value: countryName(c.wrapper_country) }                    : null,
-    c.binder_country  ? { label: "Binder Country",   value: countryName(c.binder_country) }                     : null,
-    (c.filler_countries && c.filler_countries.length > 0)
-      ? { label: "Filler Countries", value: c.filler_countries.map(countryName).join(", ") }                    : null,
+    sel.format ? { label: "Format", value: sel.format } : null,
+    sel.length_inches != null
+      ? { label: "Length", value: lengthLabelForInches(sel.length_inches) ?? `${sel.length_inches}"` } : null,
+    sel.ring_gauge != null ? { label: "Ring Gauge", value: String(sel.ring_gauge) } : null,
+    sel.shade   ? { label: "Shade",   value: sel.shade } : null,
+    sel.wrapper ? { label: "Wrapper", value: wrapperDisplay(sel.wrapper) } : null,
+    sel.wrapper_country ? { label: "Wrapper Country", value: countryName(sel.wrapper_country) } : null,
+    sel.binder_country  ? { label: "Binder Country",  value: countryName(sel.binder_country) }  : null,
+    (sel.filler_countries?.length ?? 0) > 0
+      ? { label: "Filler Countries", value: sel.filler_countries!.map(countryName).join(", ") } : null,
   ].filter((d): d is { label: string; value: string } => d !== null);
 
   /* Hero image: selected child, then the line row, then any sibling,
@@ -158,7 +169,18 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
             <CigarTitle cigar={{ series: c.series, format: c.format, brand: c.brand, name: selected.name }} />
           </h1>
 
-          {c.community_added && !c.approved && (
+          {isAdmin && c.line_id && (
+            <button
+              type="button"
+              onClick={() => setEditLine(true)}
+              className="self-start text-xs font-medium px-3 py-1.5 rounded-lg"
+              style={{ color: "var(--gold, #D4A04A)", border: "1px solid rgba(212,160,74,0.4)" }}
+            >
+              Edit line
+            </button>
+          )}
+
+          {(selected.community_added ?? false) && !(selected.approved ?? true) && (
             <span className="text-[11px] text-muted-foreground">
               Community submission, pending review
             </span>
@@ -175,19 +197,7 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
 
       {/* ── Details ─────────────────────────────────────────────── */}
       <section className="space-y-4 animate-slide-up">
-        <div className="flex items-center justify-between">
-          <h2>Details</h2>
-          {isAdmin && c.line_id && (
-            <button
-              type="button"
-              onClick={() => setEditLine(true)}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg"
-              style={{ color: "var(--gold, #D4A04A)", border: "1px solid rgba(212,160,74,0.4)" }}
-            >
-              Edit line
-            </button>
-          )}
-        </div>
+        <h2>Details</h2>
         <dl className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-5">
           {details.map((d) => (
             <DetailRow key={d.label} label={d.label} value={d.value} />
@@ -197,10 +207,10 @@ export function CigarDetailClient({ cigar: c, siblings }: Props) {
 
       <Divider className="my-6" />
 
-      {/* ── Choose a size ───────────────────────────────────────── */}
+      {/* ── Choose Vitola ───────────────────────────────────────── */}
       <section className="space-y-3 animate-slide-up">
-        <h2>Choose a size</h2>
-        <div role="radiogroup" aria-label="Choose a size" className="space-y-2">
+        <h2>Choose Vitola</h2>
+        <div role="radiogroup" aria-label="Choose Vitola" className="space-y-2">
           {siblings.map((s) => {
             const sel = s.id === selectedId;
             return (

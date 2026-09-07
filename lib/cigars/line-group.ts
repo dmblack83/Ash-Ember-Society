@@ -30,6 +30,14 @@ export interface SizeChild {
   ring_gauge:     number | null;
   length_inches:  number | null;
   image_url?:     string | null;
+  /* Vitola-owned blend + review state (detail page). */
+  shade?:            string | null;
+  wrapper?:          string | null;
+  wrapper_country?:  string | null;
+  binder_country?:   string | null;
+  filler_countries?: string[] | null;
+  community_added?:  boolean;
+  approved?:         boolean;
 }
 
 export interface EnteredSize {
