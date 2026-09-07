@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import useSWR from "swr";
 import { createClient } from "@/utils/supabase/client";
 import { Toast } from "@/components/ui/toast";
 import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { keyFor } from "@/lib/data/keys";
+import { fetchCigarWishlisted } from "@/lib/data/cigar-fetchers";
+import { useAppSession } from "@/components/system/app-session";
 
 /* AddToHumidorSheet (462 lines) is always mounted (it manages its own
    visibility via the `open` prop), but lazy-loading still splits its
@@ -16,20 +20,24 @@ const AddToHumidorSheet = dynamic(
 
 /* ------------------------------------------------------------------
    CigarActions — client wrapper for the Add to Humidor sheet and
-   the Add to Wishlist toggle. Placed as a server-passthrough component
-   on the detail page so the page stays a server component.
+   the Add to Wishlist toggle. Selection-aware: cigarId is whichever
+   size the caller currently has selected, so the wishlist flag and
+   both CTA labels track the picked vitola.
    ------------------------------------------------------------------ */
 
 interface CigarActionsProps {
-  cigarId: string;
-  initialIsWishlisted: boolean;
+  cigarId:  string;   // the SELECTED size (child id)
+  sizeText: string;   // e.g. 'Perfecto 50 × 4"' — CTA label suffix
 }
 
-export function CigarActions({
-  cigarId,
-  initialIsWishlisted,
-}: CigarActionsProps) {
-  const [isWishlisted, setIsWishlisted] = useState(initialIsWishlisted);
+export function CigarActions({ cigarId, sizeText }: CigarActionsProps) {
+  const { ready, session } = useAppSession();
+  const userId = ready && session ? session.userId : null;
+  const { data: isWishlisted = false, mutate: mutateWishlisted } = useSWR(
+    userId ? keyFor.cigarWishlisted(userId, cigarId) : null,
+    () => fetchCigarWishlisted(userId as string, cigarId),
+  );
+
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -37,9 +45,9 @@ export function CigarActions({
   async function toggleWishlist() {
     if (wishlistLoading) return;
 
-    /* Optimistic update */
+    /* Optimistic update through the SWR cache */
     const prev = isWishlisted;
-    setIsWishlisted(!prev);
+    void mutateWishlisted(!prev, { revalidate: false });
     setWishlistLoading(true);
 
     const supabase = createClient();
@@ -48,7 +56,7 @@ export function CigarActions({
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setIsWishlisted(prev);
+      void mutateWishlisted(prev, { revalidate: false });
       setWishlistLoading(false);
       return;
     }
@@ -61,7 +69,7 @@ export function CigarActions({
         is_wishlist: true,
       });
       if (error) {
-        setIsWishlisted(prev);
+        void mutateWishlisted(prev, { revalidate: false });
         setToast("Failed to add to wishlist.");
       } else {
         setToast("Added to your wishlist!");
@@ -75,7 +83,7 @@ export function CigarActions({
         .eq("cigar_id", cigarId)
         .eq("is_wishlist", true);
       if (error) {
-        setIsWishlisted(prev);
+        void mutateWishlisted(prev, { revalidate: false });
         setToast("Failed to remove from wishlist.");
       }
     }
@@ -84,6 +92,7 @@ export function CigarActions({
        Safe on the error paths too — a re-pull just returns current server
        truth. */
     void revalidateHumidor(user.id);
+    void mutateWishlisted();
     setWishlistLoading(false);
   }
 
@@ -101,7 +110,7 @@ export function CigarActions({
           className="btn btn-primary w-full"
           onClick={() => setSheetOpen(true)}
         >
-          Add to Humidor
+          Add to Humidor · {sizeText}
         </button>
 
         <button
@@ -112,7 +121,7 @@ export function CigarActions({
             isWishlisted ? "btn-ghost opacity-70" : "btn-secondary"
           }`}
         >
-          {isWishlisted ? "On Wishlist ✓" : "Add to Wishlist"}
+          {isWishlisted ? "On Wishlist ✓" : `Add to Wishlist · ${sizeText}`}
         </button>
       </div>
 
