@@ -27,11 +27,12 @@ export function DupeCheckDialog({
 }: DupeCheckDialogProps) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onCancel();
+      /* busy gate mirrors the scrim click — no dismissal mid-insert. */
+      if (e.key === "Escape" && !busy) onCancel();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onCancel]);
+  }, [onCancel, busy]);
 
   const meta = [match.line.wrapper, match.line.shade, match.line.wrapper_country]
     .filter(Boolean)

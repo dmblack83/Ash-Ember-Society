@@ -673,7 +673,12 @@ export function AddCigarSheet({ open, onClose, onAdded, defaultHumidorId = null 
     <>
       <BottomSheet
         open={open}
-        onClose={handleClose}
+        /* While the dupe interstitial is up, the sheet's own Escape
+           listener (BottomSheet's useEscapeKey fires alongside the
+           dialog's — stopPropagation can't stop sibling window
+           listeners) must cancel the DIALOG, not close the sheet and
+           wipe the draft. No-op while an insert is in flight. */
+        onClose={dupe ? () => { if (!submitting) setDupe(null); } : handleClose}
         ariaLabel="Add cigar to humidor"
         header={headerSlot}
         bodyOverlay={caretOverlay}

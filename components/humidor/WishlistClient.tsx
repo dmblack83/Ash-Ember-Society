@@ -78,9 +78,6 @@ function AddWishlistSheet({
     onClose();
   };
 
-  /* Escape-key dismissal. */
-  useEscapeKey(open, handleClose);
-
   /* Selection state */
   const [selected,        setSelected]        = useState<CatalogResult | null>(null);
   const [isManual,        setIsManual]        = useState(false);
@@ -93,6 +90,13 @@ function AddWishlistSheet({
   /* Manual-add dupe-check interstitial (mockup 06 step 3). Non-null
      while the user is deciding among the three outcomes. */
   const [dupe, setDupe] = useState<{ match: LineMatch; matchedChild: SizeChild | null } | null>(null);
+
+  /* Escape-key dismissal. Suspended while the dupe interstitial is up
+     — the dialog's own (busy-gated) Escape handler cancels the dialog
+     instead, so one Escape press can't also close the sheet and wipe
+     the draft (sibling window listeners both fire; stopPropagation
+     doesn't help). */
+  useEscapeKey(open && !dupe, handleClose);
 
   /* Layout state */
   const [isDesktop,       setIsDesktop]       = useState(false);
