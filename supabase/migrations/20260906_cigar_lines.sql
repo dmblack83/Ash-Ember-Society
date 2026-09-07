@@ -83,5 +83,6 @@ create trigger cigar_lines_sync_children
 -- ── Rollback (byte-identical to today) ──────────────────────
 -- drop trigger if exists cigar_lines_sync_children on cigar_lines;
 -- drop function if exists sync_cigar_line_children();
+-- drop index if exists cigar_catalog_brand_series_idx;
 -- alter table cigar_catalog drop column if exists line_id;
 -- drop table if exists cigar_lines;

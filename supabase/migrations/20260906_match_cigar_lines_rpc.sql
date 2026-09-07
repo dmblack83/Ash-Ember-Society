@@ -42,7 +42,7 @@ as $$
       ) as sim
     from cigar_catalog c
     where c.brand is not null
-    order by sim desc
+    order by sim desc, c.brand asc, coalesce(c.series, '') asc
     limit 1
   ),
   meta as (
