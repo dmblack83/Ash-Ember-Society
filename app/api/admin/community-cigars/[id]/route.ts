@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidateTag }             from "next/cache";
 import { createClient }               from "@/utils/supabase/server";
 import { getServerUser }              from "@/lib/auth/server-user";
 import { createServiceClientFor }     from "@/utils/supabase/service";
@@ -81,6 +82,10 @@ export async function PATCH(
     return NextResponse.json({ error: "Failed to approve sizes" }, { status: 500 });
   }
 
+  /* Server-cached catalog reads (getCigarById/getPopularCigars) carry
+     the approved flag — bust them so the badge clears immediately. */
+  revalidateTag("cigar-catalog", "max");
+
   return NextResponse.json({ ok: true });
 }
 
@@ -149,6 +154,9 @@ export async function DELETE(
       return NextResponse.json({ error: "Sizes removed, but deleting the line failed" }, { status: 500 });
     }
   }
+
+  /* Bust cached catalog reads so deleted rows stop ghosting. */
+  revalidateTag("cigar-catalog", "max");
 
   return NextResponse.json({ ok: true });
 }
