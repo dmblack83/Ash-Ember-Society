@@ -106,11 +106,14 @@ export async function PATCH(
       return NextResponse.json({ error: "series must be a string or null" }, { status: 422 });
     }
 
-    const { data: child } = await admin
+    const { data: child, error: childErr } = await admin
       .from("cigar_catalog")
       .select("brand, series, line_id")
       .eq("id", id)
       .maybeSingle<{ brand: string | null; series: string | null; line_id: string | null }>();
+    if (childErr) {
+      return NextResponse.json({ error: "Failed to load the size row" }, { status: 500 });
+    }
     if (!child) return NextResponse.json({ error: "Size not found" }, { status: 404 });
     oldLineId = child.line_id;
 
@@ -126,7 +129,11 @@ export async function PATCH(
         .select("id, brand, series")
         .eq("brand", nextBrand);
       destQuery = nextSeries === null ? destQuery.is("series", null) : destQuery.eq("series", nextSeries);
-      let { data: dest } = await destQuery.maybeSingle<{ id: string; brand: string; series: string | null }>();
+      const destRes = await destQuery.maybeSingle<{ id: string; brand: string; series: string | null }>();
+      if (destRes.error) {
+        return NextResponse.json({ error: "Failed to look up the destination line" }, { status: 500 });
+      }
+      let dest = destRes.data;
       if (!dest) {
         const { data: created, error: createErr } = await admin
           .from("cigar_lines")
@@ -158,12 +165,19 @@ export async function PATCH(
   }
 
   if (movedLine && oldLineId && oldLineId !== patch.line_id) {
-    const { count: remaining } = await admin
+    /* Orphan cleanup is best-effort: the vitola already moved. Never
+       delete on an unverified count; FK RESTRICT backstops anyway. */
+    const { count: remaining, error: countErr } = await admin
       .from("cigar_catalog")
       .select("id", { count: "exact", head: true })
       .eq("line_id", oldLineId);
-    if ((remaining ?? 0) === 0) {
-      await admin.from("cigar_lines").delete().eq("id", oldLineId);
+    if (countErr) {
+      console.error("[catalog-sizes] orphan-line count failed; skipping cleanup", countErr);
+    } else if ((remaining ?? 0) === 0) {
+      const { error: orphanDelErr } = await admin.from("cigar_lines").delete().eq("id", oldLineId);
+      if (orphanDelErr) {
+        console.error("[catalog-sizes] orphan-line delete failed", orphanDelErr);
+      }
     }
   }
 
