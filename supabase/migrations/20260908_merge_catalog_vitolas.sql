@@ -31,23 +31,26 @@ begin
     raise exception 'source and target are the same row';
   end if;
 
+  -- Body style constraints (Supabase SQL editor parser, found 2026-09-07):
+  -- one statement per line, and NO select nested inside an if condition
+  -- or where clause (perform / delete using instead). Valid plpgsql
+  -- otherwise 42601s in the editor.
   select * into v_source from cigar_catalog where id = p_source;
-  -- One statement per line: the Supabase SQL editor's splitter breaks
-  -- on mid-line semicolons inside function bodies (found 2026-09-07).
   if not found then
     raise exception 'source vitola not found';
   end if;
-  if not exists (select 1 from cigar_catalog where id = p_target) then
+  perform 1 from cigar_catalog where id = p_target;
+  if not found then
     raise exception 'target vitola not found';
   end if;
 
   delete from humidor_items s
+  using humidor_items t
   where s.cigar_id = p_source
     and s.is_wishlist
-    and exists (
-      select 1 from humidor_items t
-      where t.user_id = s.user_id and t.cigar_id = p_target and t.is_wishlist
-    );
+    and t.user_id = s.user_id
+    and t.cigar_id = p_target
+    and t.is_wishlist;
   get diagnostics v_wishlist_dupes = row_count;
 
   update humidor_items set cigar_id = p_target where cigar_id = p_source;
