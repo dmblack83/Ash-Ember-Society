@@ -97,13 +97,9 @@ function SelectedLineCard({
 
 function SkeletonRows() {
   return (
-    <div className="space-y-2" aria-hidden="true">
+    <div className="space-y-2 animate-pulse" aria-hidden="true">
       {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="animate-pulse rounded-xl"
-          style={{ height: 60, backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-        />
+        <div key={i} className="rounded-xl bg-muted" style={{ height: 60 }} />
       ))}
     </div>
   );
