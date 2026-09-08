@@ -16,6 +16,7 @@
 import { createClient }     from "@/utils/supabase/client";
 import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
+import { escapeIlikeExact } from "@/lib/ilike-escape";
 
 const CATALOG_SELECT =
   "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
@@ -101,6 +102,38 @@ export async function fetchCatalogBrands(): Promise<CatalogBrand[]> {
   const { data, error } = await supabase.rpc("get_catalog_brands");
   if (error) throw new Error(error.message);
   return (data ?? []) as CatalogBrand[];
+}
+
+/* Series suggestions for one brand, sourced from cigar_lines (the
+   authenticated read policy already allows this). Non-null, ordered,
+   deduped. Pairs with keyFor.seriesForBrand(brand); powers the manual
+   add form's series datalist. Empty brand short-circuits to []. */
+export async function fetchSeriesForBrand(brand: string): Promise<string[]> {
+  const trimmed = brand.trim();
+  if (!trimmed) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("cigar_lines")
+    .select("series")
+    /* Case-insensitive brand match, mirroring the normalized line
+       identity: ILIKE with no wildcards in the (escaped) value is
+       plain case-insensitive equality, so a free-typed "padron"
+       still surfaces the "Padron" line's series. */
+    .ilike("brand", escapeIlikeExact(trimmed))
+    .not("series", "is", null)
+    .order("series", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of (data ?? []) as { series: string | null }[]) {
+    if (row.series && !seen.has(row.series)) {
+      seen.add(row.series);
+      out.push(row.series);
+    }
+  }
+  return out;
 }
 
 /* ── Cigar detail (public catalog row) ──────────────────────────── */

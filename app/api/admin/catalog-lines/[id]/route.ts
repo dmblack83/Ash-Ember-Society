@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag }             from "next/cache";
 import { requireAdmin }              from "@/lib/auth/admin-gate";
 import { createServiceClientFor }    from "@/utils/supabase/service";
+import { escapeIlikeExact }          from "@/lib/ilike-escape";
 
 export const runtime = "edge";
 
@@ -55,6 +56,15 @@ export async function PATCH(
   if ("brand" in patch && (typeof patch.brand !== "string" || patch.brand.trim() === "")) {
     return NextResponse.json({ error: "brand cannot be empty" }, { status: 422 });
   }
+  if ("series" in patch && patch.series !== null && typeof patch.series !== "string") {
+    return NextResponse.json({ error: "series must be a string or null" }, { status: 422 });
+  }
+
+  /* Normalize what gets persisted: brand trimmed, series trimmed-or-
+     null. Line identity is case- and whitespace-insensitive (20260909
+     migration), so stray whitespace must never land in cigar_lines. */
+  if ("brand" in patch) patch.brand = (patch.brand as string).trim();
+  if (typeof patch.series === "string") patch.series = patch.series.trim() || null;
 
   const admin = createServiceClientFor(
     "api/admin/catalog-lines",
@@ -78,14 +88,20 @@ export async function PATCH(
     (nextSeries ?? "") !== (line.series ?? "");
 
   if (renamed) {
+    const nextBrandTrimmed  = nextBrand.trim();
+    const nextSeriesTrimmed = nextSeries === null ? null : nextSeries.trim();
     let targetQuery = admin
       .from("cigar_lines")
       .select("id, brand, series")
-      .eq("brand", nextBrand)
+      /* Case- and whitespace-insensitive line-identity match, mirroring
+         the normalized unique index (lower(btrim(...))): ILIKE with no
+         wildcards in the (escaped) value is plain case-insensitive
+         equality. */
+      .ilike("brand", escapeIlikeExact(nextBrandTrimmed))
       .neq("id", id);
-    targetQuery = nextSeries === null || nextSeries === ""
+    targetQuery = nextSeriesTrimmed === null || nextSeriesTrimmed === ""
       ? targetQuery.is("series", null)
-      : targetQuery.eq("series", nextSeries);
+      : targetQuery.ilike("series", escapeIlikeExact(nextSeriesTrimmed));
     const { data: target } = await targetQuery.maybeSingle<LineRow>();
 
     if (target) {

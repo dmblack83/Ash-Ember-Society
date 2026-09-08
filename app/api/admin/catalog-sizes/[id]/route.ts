@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag }             from "next/cache";
 import { requireAdmin }              from "@/lib/auth/admin-gate";
 import { createServiceClientFor }    from "@/utils/supabase/service";
+import { escapeIlikeExact }          from "@/lib/ilike-escape";
 
 export const runtime = "edge";
 
@@ -127,8 +128,12 @@ export async function PATCH(
       if (!nextBrand) return NextResponse.json({ error: "brand cannot be empty" }, { status: 422 });
       let destQuery = admin.from("cigar_lines")
         .select("id, brand, series")
-        .eq("brand", nextBrand);
-      destQuery = nextSeries === null ? destQuery.is("series", null) : destQuery.eq("series", nextSeries);
+        /* Case- and whitespace-insensitive line-identity match, mirroring
+           the normalized unique index (lower(btrim(...))): ILIKE with no
+           wildcards in the (escaped) value is plain case-insensitive
+           equality. nextBrand/nextSeries are already trimmed above. */
+        .ilike("brand", escapeIlikeExact(nextBrand));
+      destQuery = nextSeries === null ? destQuery.is("series", null) : destQuery.ilike("series", escapeIlikeExact(nextSeries));
       const destRes = await destQuery.maybeSingle<{ id: string; brand: string; series: string | null }>();
       if (destRes.error) {
         return NextResponse.json({ error: "Failed to look up the destination line" }, { status: 500 });
