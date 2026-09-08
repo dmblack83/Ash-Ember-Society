@@ -5,31 +5,23 @@ import useSWR from "swr";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { createClient } from "@/utils/supabase/client";
-import { CatalogResult, CigarSearch } from "@/components/cigar-search";
+import type { CatalogResult } from "@/lib/data/cigar-fetchers";
 import { keyFor } from "@/lib/data/keys";
 import { fetchWishlistItems } from "@/lib/data/humidor-fetchers";
-import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
-import { loadCigarDraft, saveCigarDraft, clearCigarDraft } from "@/lib/cigars/cigar-draft";
-import {
-  type CigarDetails,
-  EMPTY_CIGAR_DETAILS,
-  cigarDetailsToRpcArgs,
-} from "@/lib/cigars/cigar-details";
-import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/data/cigar-fetchers";
-import { findMatchingSize, cigarDisplayName, type SizeChild } from "@/lib/cigars/line-group";
-import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
+import { loadCigarDraft } from "@/lib/cigars/cigar-draft";
+import { cigarDisplayName } from "@/lib/cigars/line-group";
 
-/* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
-   so its chunk fetches in parallel with the main bundle. */
-const AddToHumidorSheet = dynamic(
-  () => import("@/components/cigars/AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+/* AddFlowSheet is always mounted but lazy-loaded so its chunk fetches
+   in parallel with the main bundle. */
+const AddFlowSheet = dynamic(
+  () => import("@/components/cigars/add-flow/AddFlowSheet").then((m) => ({ default: m.AddFlowSheet })),
   { ssr: false },
 );
 import { Toast } from "@/components/ui/toast";
 import { ViewToggle, ViewMode } from "@/components/ui/view-toggle";
 import { CigarTitle } from "@/components/cigars/CigarTitle";
 import { CigarImage } from "@/components/ui/CigarImage";
-import { useEscapeKey } from "@/lib/hooks/use-escape-key";
 
 /* ------------------------------------------------------------------
    Types
@@ -41,541 +33,6 @@ export interface WishlistItem {
   created_at: string;
   notes:      string | null;
   cigar:      CatalogResult;
-}
-
-/* ------------------------------------------------------------------
-   Add Wishlist Sheet
-   ------------------------------------------------------------------ */
-
-function WishlistCaret({ dir }: { dir: "up" | "down" }) {
-  return (
-    <svg
-      width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true"
-      style={{ color: "var(--muted-foreground)", opacity: 0.65 }}
-    >
-      {dir === "up"
-        ? <path d="M4.5 11.5L9 7L13.5 11.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        : <path d="M4.5 6.5L9 11L13.5 6.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />}
-    </svg>
-  );
-}
-
-function AddWishlistSheet({
-  open,
-  onClose,
-  onAdded,
-}: {
-  open:    boolean;
-  onClose: () => void;
-  /* message = a specific outcome to toast; undefined = caller uses
-     its own default. */
-  onAdded: (message?: string) => void;
-}) {
-  /* Explicit close = abandoning the entry — discard the draft.
-     Eviction/reload never calls this, so the draft survives it. */
-  const handleClose = () => {
-    clearCigarDraft("wishlist");
-    onClose();
-  };
-
-  /* Selection state */
-  const [selected,        setSelected]        = useState<CatalogResult | null>(null);
-  const [isManual,        setIsManual]        = useState(false);
-  const [manual,          setManual]          = useState<CigarDetails>(EMPTY_CIGAR_DETAILS);
-  const [notes,           setNotes]           = useState("");
-  const [submitting,      setSubmitting]      = useState(false);
-  const [submitError,     setSubmitError]     = useState<string | null>(null);
-
-  /* Manual-add dupe-check interstitial (mockup 06 step 3). Non-null
-     while the user is deciding among the three outcomes. */
-  const [dupe, setDupe] = useState<{ match: LineMatch; matchedChild: SizeChild | null } | null>(null);
-
-  /* Escape-key dismissal. Suspended while the dupe interstitial is up
-     — the dialog's own (busy-gated) Escape handler cancels the dialog
-     instead, so one Escape press can't also close the sheet and wipe
-     the draft (sibling window listeners both fire; stopPropagation
-     doesn't help). */
-  useEscapeKey(open && !dupe, handleClose);
-
-  /* Layout state */
-  const [isDesktop,       setIsDesktop]       = useState(false);
-  const [showTopCaret,    setShowTopCaret]    = useState(false);
-  const [showBottomCaret, setShowBottomCaret] = useState(false);
-
-  const bodyRef = useRef<HTMLDivElement>(null);
-
-  /* Desktop detection */
-  useEffect(() => {
-    const mq      = window.matchMedia("(min-width: 640px)");
-    setIsDesktop(mq.matches);
-    const handler = (e: MediaQueryListEvent) => setIsDesktop(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-
-  /* Body scroll lock */
-  useEffect(() => {
-    if (!open) return;
-    const scrollY = window.scrollY;
-    document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.position = "";
-      document.body.style.top      = "";
-      document.body.style.width    = "";
-      document.body.style.overflow = "";
-      window.scrollTo(0, scrollY);
-    };
-  }, [open]);
-
-  /* Reset on open */
-  useEffect(() => {
-    if (!open) return;
-    setSelected(null); setIsManual(false);
-    setManual(EMPTY_CIGAR_DETAILS);
-    setNotes(""); setSubmitError(null);
-    setDupe(null);
-
-    /* Restore an in-flight manual draft (iOS PWA relaunch after the
-       Look up button or any app switch evicted the page). */
-    const draft = loadCigarDraft("wishlist");
-    if (draft) {
-      setIsManual(true);
-      setManual(draft);
-    }
-  }, [open]);
-
-  /* Mirror the manual draft to localStorage as the user types.
-     saveCigarDraft self-clears when every field is empty. */
-  useEffect(() => {
-    if (!open || !isManual) return;
-    saveCigarDraft("wishlist", manual);
-  }, [open, isManual, manual]);
-
-  /* Scroll caret tracking */
-  function updateCarets() {
-    const el = bodyRef.current;
-    if (!el) return;
-    setShowTopCaret(el.scrollTop > 4);
-    setShowBottomCaret(el.scrollTop + el.clientHeight < el.scrollHeight - 4);
-  }
-
-  useEffect(() => {
-    const id = requestAnimationFrame(updateCarets);
-    return () => cancelAnimationFrame(id);
-  }, [selected, isManual, open]);
-
-  function handleClear() {
-    /* CigarSearch remounts when hasSelection flips back to false
-       (it's gated on `open && !hasSelection`) — autoFocus handles
-       the input refocus on its own. */
-    setSelected(null);
-    setIsManual(false);
-  }
-
-  /* Second phase: wishlist-row insert + bookkeeping for a resolved
-     catalog row. Community review rides on the catalog row itself
-     (community_added/approved) — no separate suggestion record. */
-  async function finishWishlistInsert(
-    cigarId: string,
-    opts: { bumpUsage?: CatalogResult | null; message?: string },
-  ) {
-    const supabase = createClient();
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setSubmitError("Not authenticated."); return; }
-
-      const { error: insertErr } = await supabase.from("humidor_items").insert({
-        user_id:     user.id,
-        cigar_id:    cigarId,
-        quantity:    1,
-        notes:       notes.trim() || null,
-        is_wishlist: true,
-      });
-
-      if (insertErr) { setSubmitError(insertErr.message); return; }
-
-      if (opts.bumpUsage) {
-        await supabase
-          .from("cigar_catalog")
-          .update({ usage_count: opts.bumpUsage.usage_count + 1 })
-          .eq("id", opts.bumpUsage.id);
-      }
-
-      clearCigarDraft("wishlist");
-      onAdded(opts.message);
-      onClose();
-    } catch (err) {
-      console.error("AddWishlistSheet submit error:", err);
-      setSubmitError("Something went wrong. Please try again.");
-    }
-  }
-
-  async function handleSubmit() {
-    const brand = isManual ? manual.brand.trim() : (selected?.brand ?? "Unknown");
-    if (!brand) { setSubmitError("Brand is required."); return; }
-    if (isManual && !manual.name.trim()) { setSubmitError("Vitola name is required."); return; }
-    setSubmitting(true);
-    setSubmitError(null);
-    try {
-      if (selected) {
-        await finishWishlistInsert(selected.id, { bumpUsage: selected });
-        return;
-      }
-      /* Manual path: fuzzy-match BEFORE any insert. null = no match
-         or RPC missing — straight save, zero added friction. */
-      const match = await matchCigarLines(brand, manual.series.trim() || null).catch(() => null);
-      if (match && match.children.length > 0) {
-        setDupe({
-          match,
-          matchedChild: findMatchingSize(match.children, {
-            format:       manual.format,
-            ringGauge:    manual.ringGauge    ? Number(manual.ringGauge)    : null,
-            lengthInches: manual.lengthInches ? Number(manual.lengthInches) : null,
-          }),
-        });
-        return; // interstitial takes over; submitting reset in finally
-      }
-      await createWishlistListingAndFinish(manual.brand.trim(), manual.series.trim() || null);
-    } catch (err) {
-      console.error("AddWishlistSheet submit error:", err);
-      setSubmitError("Something went wrong. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  /* Insert RPC + finish. Passing explicit brand/series lets Path B
-     use the MATCHED LINE's exact strings (typo never enters the
-     catalog); the v2 RPC copies blend from the line on attach. */
-  async function createWishlistListingAndFinish(brand: string, series: string | null, message?: string) {
-    const args = { ...cigarDetailsToRpcArgs(manual), p_brand: brand, p_series: series };
-    let cigarId: string;
-    try {
-      cigarId = await insertCigarToCatalog(args);
-    } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : "Failed to save cigar to catalog.");
-      return;
-    }
-    await finishWishlistInsert(cigarId, { message });
-  }
-
-  const hasSelection = selected !== null || isManual;
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40"
-        style={{
-          backgroundColor: "rgba(0,0,0,0.65)",
-          opacity:         open ? 1 : 0,
-          visibility:      open ? "visible" : "hidden",
-          pointerEvents:   open ? "auto" : "none",
-          transition:      open
-            ? "opacity 300ms ease"
-            : "opacity 300ms ease, visibility 0ms 300ms",
-        }}
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-
-      {/* Modal */}
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Add to wishlist"
-        className="fixed z-50 flex flex-col"
-        style={isDesktop ? {
-          top:             "50%",
-          left:            "50%",
-          transform:       open ? "translate(-50%, -50%)" : "translate(-50%, calc(-50% + 24px))",
-          opacity:         open ? 1 : 0,
-          visibility:      open ? "visible" : "hidden",
-          transition:      open
-            ? "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease"
-            : "transform 300ms cubic-bezier(0.32,0.72,0,1), opacity 300ms ease, visibility 0ms 300ms",
-          pointerEvents:   open ? "auto" : "none",
-          width:           "min(90vw, 640px)",
-          height:          "80dvh",
-          backgroundColor: "var(--background)",
-          borderRadius:    20,
-          border:          "1px solid var(--border)",
-          overflow:        "hidden",
-        } : {
-          left:                 0,
-          right:                0,
-          bottom:               0,
-          transform:            open ? "translateY(0)" : "translateY(100%)",
-          visibility:           open ? "visible" : "hidden",
-          transition:           open
-            ? "transform 320ms cubic-bezier(0.32,0.72,0,1)"
-            : "transform 320ms cubic-bezier(0.32,0.72,0,1), visibility 0ms 320ms",
-          height:               "calc(100dvh - 48px)",
-          backgroundColor:      "var(--background)",
-          borderTopLeftRadius:  20,
-          borderTopRightRadius: 20,
-          borderTop:            "1px solid var(--border)",
-          overflow:             "hidden",
-        }}
-      >
-        {/* Drag handle — mobile only */}
-        {!isDesktop && (
-          <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full" style={{ backgroundColor: "var(--border)" }} />
-          </div>
-        )}
-
-        {/* Fixed header: title */}
-        <div
-          className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        >
-          <h2
-            className="text-xl font-bold text-foreground"
-            style={{ fontFamily: "var(--font-serif)" }}
-          >
-            Add to Wishlist
-          </h2>
-          <button
-            onClick={handleClose}
-            className="flex items-center justify-center rounded-xl text-muted-foreground transition-colors"
-            style={{ width: 40, height: 40 }}
-            aria-label="Close"
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-              <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Search — see AddCigarSheet for the rationale on why this
-            is gated on `open && !hasSelection`. */}
-        {open && !hasSelection && (
-          <div
-            className="px-5 py-3 flex-shrink-0"
-            style={{ borderBottom: "1px solid var(--border)" }}
-          >
-            <CigarSearch
-              onSelect={(r) => setSelected(r)}
-              onManual={() => setIsManual(true)}
-              autoFocus
-            />
-          </div>
-        )}
-
-        {/* Scrollable body */}
-        <div className="relative flex-1 min-h-0">
-
-          <div
-            ref={bodyRef}
-            className="h-full overflow-y-auto overscroll-contain"
-            onScroll={updateCarets}
-          >
-            {/* Results list now lives in CigarSearch's dropdown
-                above. Body is empty until the user picks a cigar
-                or switches to manual entry. */}
-
-            {/* Selection + form */}
-            {hasSelection && (
-              <div className="px-5 pt-5 pb-8 space-y-5">
-
-                {/* Selected cigar card */}
-                {selected && (
-                  <div
-                    className="rounded-2xl p-4 animate-fade-in"
-                    style={{ backgroundColor: "var(--card)", border: "1px solid var(--border)" }}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        {selected.brand && (
-                          <p
-                            className="text-[11px] font-bold tracking-widest uppercase mb-1"
-                            style={{ color: "var(--primary)" }}
-                          >
-                            {selected.brand}
-                          </p>
-                        )}
-                        <p
-                          className="text-base font-semibold text-foreground leading-snug"
-                          style={{ fontFamily: "var(--font-serif)" }}
-                        >
-                          <CigarTitle cigar={selected} />
-                        </p>
-                        {(selected.format || selected.wrapper || selected.ring_gauge) && (
-                          <p className="text-xs mt-1" style={{ color: "var(--muted-foreground)" }}>
-                            {[
-                              selected.format,
-                              selected.wrapper,
-                              selected.ring_gauge    ? `${selected.ring_gauge} ring` : null,
-                              selected.length_inches ? `${selected.length_inches}"` : null,
-                            ].filter(Boolean).join(" · ")}
-                          </p>
-                        )}
-                      </div>
-                      <button
-                        onClick={handleClear}
-                        className="text-xs px-3 py-1.5 rounded-lg flex-shrink-0 transition-colors"
-                        style={{ color: "var(--muted-foreground)", backgroundColor: "var(--muted)" }}
-                      >
-                        Change
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Manual entry fields */}
-                {isManual && (
-                  <div className="space-y-4 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-foreground">Cigar Details</h3>
-                      <button type="button" onClick={handleClear} className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                        Back to search
-                      </button>
-                    </div>
-
-                    <CigarDetailFields value={manual} onChange={setManual} nameRequired />
-
-                    {/* Manual adds always enter the community catalog
-                        (pending admin review) — no opt-in needed. */}
-                    <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                      New cigars join the community catalog after a quick review.
-                    </p>
-                  </div>
-                )}
-
-                {/* Notes + submit */}
-                <div
-                  className="space-y-4 pt-5"
-                  style={{ borderTop: "1px solid var(--border)" }}
-                >
-                  <div>
-                    <label className="block text-xs font-medium mb-1.5" style={{ color: "var(--muted-foreground)" }}>Notes</label>
-                    <textarea
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Why you want to try this one..."
-                      rows={3}
-                      className="input w-full resize-none text-sm py-3"
-                    />
-                  </div>
-
-                  {submitError && (
-                    <p className="text-sm text-center" style={{ color: "var(--destructive)" }}>{submitError}</p>
-                  )}
-
-                  <button
-                    onClick={handleSubmit}
-                    disabled={submitting}
-                    className="btn btn-primary w-full disabled:opacity-40"
-                    style={{ minHeight: 52 }}
-                  >
-                    {submitting ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <span
-                          className="rounded-full border animate-spin"
-                          style={{ width: 16, height: 16, borderColor: "rgba(255,255,255,0.3)", borderTopColor: "#fff" }}
-                        />
-                        Adding...
-                      </span>
-                    ) : "Add to Wishlist"}
-                  </button>
-                </div>
-
-              </div>
-            )}
-          </div>
-
-          {/* Top scroll caret */}
-          {showTopCaret && (
-            <div
-              aria-hidden="true"
-              style={{
-                position:       "absolute",
-                top:            0,
-                left:           0,
-                right:          0,
-                height:         44,
-                background:     "linear-gradient(to bottom, var(--background) 30%, transparent)",
-                display:        "flex",
-                alignItems:     "flex-start",
-                justifyContent: "center",
-                paddingTop:     8,
-                pointerEvents:  "none",
-              }}
-            >
-              <WishlistCaret dir="up" />
-            </div>
-          )}
-
-          {/* Bottom scroll caret */}
-          {showBottomCaret && (
-            <div
-              aria-hidden="true"
-              style={{
-                position:       "absolute",
-                bottom:         0,
-                left:           0,
-                right:          0,
-                height:         44,
-                background:     "linear-gradient(to top, var(--background) 30%, transparent)",
-                display:        "flex",
-                alignItems:     "flex-end",
-                justifyContent: "center",
-                paddingBottom:  8,
-                pointerEvents:  "none",
-              }}
-            >
-              <WishlistCaret dir="down" />
-            </div>
-          )}
-
-        </div>
-      </div>
-
-      {dupe && (
-        <DupeCheckDialog
-          match={dupe.match}
-          matchedChild={dupe.matchedChild}
-          busy={submitting}
-          onCancel={() => setDupe(null)}
-          onUseExisting={async (child) => {
-            setSubmitting(true);
-            try {
-              await finishWishlistInsert(child.id, {
-                message: "Added to your wishlist. Linked to the existing catalog listing.",
-              });
-              setDupe(null);
-            } finally { setSubmitting(false); }
-          }}
-          onAddSize={async () => {
-            setSubmitting(true);
-            try {
-              await createWishlistListingAndFinish(
-                dupe.match.line.brand,
-                dupe.match.line.series,
-                "Added to your wishlist. Your size joined the existing listing.",
-              );
-              setDupe(null);
-            } finally { setSubmitting(false); }
-          }}
-          onCreateNew={async () => {
-            setSubmitting(true);
-            try {
-              await createWishlistListingAndFinish(
-                manual.brand.trim(),
-                manual.series.trim() || null,
-                "Added to your wishlist. New catalog listing created, pending review.",
-              );
-              setDupe(null);
-            } finally { setSubmitting(false); }
-          }}
-        />
-      )}
-    </>
-  );
 }
 
 /* ------------------------------------------------------------------
@@ -926,15 +383,18 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     }
   }
 
-  /* Move-to-humidor success — drop from wishlist optimistically.
-     The Humidor list invalidation is handled by HumidorClient's own
-     refresh() when AddToHumidorSheet's onSuccess fires there. */
-  async function handleMoveSuccess() {
+  /* Move-to-humidor success — drop from wishlist optimistically and
+     delete the old wishlist row. AddFlowSheet's finishHumidorInsert
+     doesn't revalidate the Humidor SWR cache itself (unlike the old
+     AddToHumidorSheet.insertEntry), so we do it explicitly here — the
+     Humidor list must be fresh when the user navigates there. */
+  async function handleMoveSuccess(message?: string) {
     if (!moveItem) return;
-    setToast("Moved to your humidor!");
+    setToast(message ?? "Moved to your humidor!");
     mutateItems(items.filter((i) => i.id !== moveItem.id), { revalidate: false });
     const supabase = createClient();
     await supabase.from("humidor_items").delete().eq("id", moveItem.id);
+    void revalidateHumidor(userId);
     setMoveItem(null);
   }
 
@@ -1070,17 +530,20 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
         )}
       </div>
 
-      <AddWishlistSheet
+      <AddFlowSheet
         open={showAdd}
+        entry={{ kind: "search" }}
+        mode="wishlist"
         onClose={() => setShowAdd(false)}
         onAdded={(message) => { mutateItems(); setToast(message ?? "Added to your wishlist!"); }}
       />
 
-      <AddToHumidorSheet
-        cigarId={moveItem?.cigar_id ?? ""}
-        isOpen={!!moveItem}
+      <AddFlowSheet
+        open={!!moveItem}
+        entry={{ kind: "vitola", cigarId: moveItem?.cigar_id ?? "" }}
+        mode="humidor"
         onClose={() => setMoveItem(null)}
-        onSuccess={handleMoveSuccess}
+        onAdded={handleMoveSuccess}
       />
     </>
   );

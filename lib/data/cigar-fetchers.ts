@@ -14,12 +14,29 @@
  */
 
 import { createClient }     from "@/utils/supabase/client";
-import type { CatalogResult } from "@/components/cigar-search";
 import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
 
 const CATALOG_SELECT =
   "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
+
+/* Shared catalog row shape — used by CigarSearch's successor
+   (LineSearchPanel/fetchCigarPage), the band scanner's client-side
+   match query, and WishlistClient's cigar payload. */
+export interface CatalogResult {
+  id:              string;
+  brand:           string | null;
+  series:          string | null;
+  name?:           string | null;
+  format:          string | null;
+  ring_gauge:      number | null;
+  length_inches:   number | null;
+  wrapper:         string | null;
+  wrapper_country: string | null;
+  shade:           string | null;
+  usage_count:     number;
+  image_url:       string | null;
+}
 
 export interface CigarPage {
   results: CatalogResult[];
@@ -106,6 +123,8 @@ export interface CigarDetailRow {
   community_added: boolean;
   approved: boolean;
   image_url: string | null;
+  /* Popularity signal — the add flow bumps it on insert. */
+  usage_count: number;
   /* Parent line link — null until the cigar_lines backfill ran or
      for null-brand rows. Drives the admin line editor. */
   line_id: string | null;
@@ -115,7 +134,7 @@ export async function fetchCigarDetail(id: string): Promise<CigarDetailRow | nul
   const supabase = createClient();
   const { data, error } = await supabase
     .from("cigar_catalog")
-    .select("id, brand, series, name, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url, line_id")
+    .select("id, brand, series, name, format, wrapper, wrapper_country, shade, binder_country, filler_countries, ring_gauge, length_inches, community_added, approved, image_url, usage_count, line_id")
     .eq("id", id)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -222,7 +241,7 @@ export async function fetchLineSiblings(
   const supabase = createClient();
   let q = supabase
     .from("cigar_catalog")
-    .select("id, name, format, ring_gauge, length_inches, image_url, shade, wrapper, wrapper_country, binder_country, filler_countries, community_added, approved")
+    .select("id, name, format, ring_gauge, length_inches, image_url, shade, wrapper, wrapper_country, binder_country, filler_countries, community_added, approved, usage_count")
     .eq("brand", brand);
   q = series === null ? q.is("series", null) : q.eq("series", series);
   const { data, error } = await q

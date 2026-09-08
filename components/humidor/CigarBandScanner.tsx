@@ -1,14 +1,23 @@
 "use client";
 
-import { cigarDisplayName } from "@/lib/cigars/line-group";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { cigarDisplayName, sizeLabel } from "@/lib/cigars/line-group";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createPortal }           from "react-dom";
 import { createClient }           from "@/utils/supabase/client";
 import { CigarImage }             from "@/components/ui/CigarImage";
-import { AddToHumidorSheet }      from "@/components/cigars/AddToHumidorSheet";
-import type { CatalogResult }     from "@/components/cigar-search";
+import dynamic                    from "next/dynamic";
+import type { CatalogResult }     from "@/lib/data/cigar-fetchers";
 import { computeCoverCrop }       from "@/lib/scanner/crop";
 import { selectQueryWords, scoreCandidates } from "@/lib/scanner/ocr-match";
+import { groupMatchesByLine, type LineMatchGroup } from "@/lib/scanner/group-matches";
+import type { AddFlowEntry } from "@/lib/cigars/add-flow-entry";
+
+/* AddFlowSheet is lazy-loaded — same rationale as HumidorClient/
+   WishlistClient: it's only needed once a match is tapped. */
+const AddFlowSheet = dynamic(
+  () => import("@/components/cigars/add-flow/AddFlowSheet").then((m) => ({ default: m.AddFlowSheet })),
+  { ssr: false },
+);
 
 /* ------------------------------------------------------------------
    Types
@@ -25,8 +34,7 @@ type Phase =
 interface Props {
   onClose:  () => void;
   onAdded:  () => void;   // refresh humidor list
-  onSearch: () => void;   // fallback to text search
-  defaultHumidorId?: string | null;  // preselect in the AddToHumidorSheet picker
+  defaultHumidorId?: string | null;  // preselect in the unified add sheet
 }
 
 /* ------------------------------------------------------------------
@@ -104,14 +112,36 @@ function captureImage(video: HTMLVideoElement): string {
    CigarBandScanner
    ------------------------------------------------------------------ */
 
-export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId }: Props) {
+export function CigarBandScanner({ onClose, onAdded, defaultHumidorId }: Props) {
   const [phase,         setPhase]         = useState<Phase>("requesting");
   const [statusText,    setStatusText]    = useState("Initializing camera…");
   const [matches,       setMatches]       = useState<CatalogResult[]>([]);
-  const [addCigarId,    setAddCigarId]    = useState<string | null>(null);
+  const [ocrWords,      setOcrWords]      = useState<string[]>([]);
+  const [sheetEntry,    setSheetEntry]    = useState<AddFlowEntry | null>(null);
 
   const videoRef  = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  /* Line-grouped results (mockup 08): a band identifies the LINE, not
+     the size, so matches are grouped back to (brand, series) before
+     display. `matches` arrives pre-ranked by scoreCandidates, so the
+     first group encountered is always the best-scoring line. */
+  const groups = useMemo(() => groupMatchesByLine(matches), [matches]);
+  const primaryGroup = groups[0] ?? null;
+  const restGroups    = groups.slice(1);
+
+  /* Best guess at a search/manual seed when nothing (or nothing good
+     enough) matched: the top group's brand, else the single most
+     distinctive OCR word. */
+  const bestBrandGuess = primaryGroup?.brand ?? ocrWords[0];
+
+  function handlePickGroup(group: LineMatchGroup) {
+    if (group.children.length === 1) {
+      setSheetEntry({ kind: "vitola", cigarId: group.children[0].id });
+      return;
+    }
+    setSheetEntry({ kind: "line", brand: group.brand, series: group.series, fromScan: true });
+  }
 
   /* ── Camera lifecycle ───────────────────────────────────────────── */
 
@@ -181,9 +211,15 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
       const { ocrText } = await res.json();
 
       if (!ocrText?.trim()) {
+        setOcrWords([]);
         setPhase("no_match");
         return;
       }
+
+      /* Computed alongside matchCatalog's own (identical) tokenizing —
+         kept here too so bestBrandGuess has a fallback even when no
+         catalog row matches at all. matchCatalog itself is untouched. */
+      setOcrWords(selectQueryWords(ocrText));
 
       setStatusText("Searching catalog…");
       const found = await matchCatalog(ocrText);
@@ -205,6 +241,8 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
   async function handleRetry() {
     setPhase("requesting");
     setMatches([]);
+    setOcrWords([]);
+    setSheetEntry(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia(CAMERA_CONSTRAINTS);
       streamRef.current = stream;
@@ -378,9 +416,16 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
                 <button
                   type="button"
                   className="btn btn-primary w-full"
-                  onClick={() => { onClose(); onSearch(); }}
+                  onClick={() => setSheetEntry({ kind: "search", query: bestBrandGuess })}
                 >
-                  Search Catalog Instead
+                  Search the Catalog
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary w-full"
+                  onClick={() => setSheetEntry({ kind: "manual", brand: bestBrandGuess })}
+                >
+                  Add Manually
                 </button>
                 <button
                   type="button"
@@ -397,66 +442,32 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
                   className="text-xs uppercase font-semibold tracking-widest pb-3 pt-1"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  {matches.length === 1 ? "Match Found" : `${matches.length} Possible Matches`}
+                  Match Found
                 </p>
 
                 <div className="space-y-2">
-                  {matches.map((cigar) => (
-                    <button
-                      key={cigar.id}
-                      type="button"
-                      onClick={() => setAddCigarId(cigar.id)}
-                      className="w-full flex items-center gap-3 rounded-xl px-3 py-3 text-left"
-                      style={{
-                        backgroundColor: "var(--secondary)",
-                        border:          "1px solid var(--border)",
-                        cursor:          "pointer",
-                        touchAction:     "manipulation",
-                        WebkitTapHighlightColor: "transparent",
-                      }}
-                    >
-                      {/* Cigar image */}
-                      <div
-                        className="rounded-lg overflow-hidden flex-shrink-0"
-                        style={{ width: 52, height: 52 }}
-                      >
-                        <CigarImage
-                          imageUrl={cigar.image_url}
-                          wrapper={cigar.wrapper}
-                          alt={cigarDisplayName(cigar)}
-                          width={52}
-                          height={52}
-                          sizes="52px"
-                          quality={75}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                        />
-                      </div>
+                  {primaryGroup && (
+                    <LineMatchCard group={primaryGroup} onPick={() => handlePickGroup(primaryGroup)} />
+                  )}
 
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted-foreground)" }}>
-                          {cigar.brand}
-                        </p>
-                        <p className="text-sm font-semibold truncate" style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}>
-                          {cigarDisplayName(cigar)}
-                        </p>
-                        {cigar.format && (
-                          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>{cigar.format}</p>
-                        )}
-                      </div>
-
-                      {/* Add indicator */}
-                      <div
-                        className="flex-shrink-0 flex items-center justify-center rounded-full"
-                        style={{ width: 32, height: 32, backgroundColor: "rgba(212,160,74,0.15)" }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                          <path d="M7 2v10M2 7h10" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"/>
-                        </svg>
-                      </div>
-                    </button>
+                  {restGroups.map((group) => (
+                    <LineMatchCard
+                      key={group.children[0].id}
+                      group={group}
+                      muted
+                      onPick={() => handlePickGroup(group)}
+                    />
                   ))}
                 </div>
+
+                <button
+                  type="button"
+                  className="w-full text-xs text-center mt-3"
+                  style={{ color: "var(--muted-foreground)" }}
+                  onClick={() => setSheetEntry({ kind: "search", query: bestBrandGuess })}
+                >
+                  None of these? Search instead
+                </button>
 
                 <button
                   type="button"
@@ -550,23 +561,119 @@ export function CigarBandScanner({ onClose, onAdded, onSearch, defaultHumidorId 
         </div>
       )}
 
-      {/* AddToHumidor sheet for selected match */}
-      {addCigarId && (
-        <AddToHumidorSheet
-          cigarId={addCigarId}
-          isOpen={true}
-          defaultHumidorId={defaultHumidorId}
-          onClose={() => setAddCigarId(null)}
-          onSuccess={() => {
-            setAddCigarId(null);
-            stopCamera();
-            onAdded();
-            onClose();
-          }}
-        />
-      )}
+      {/* Unified add sheet for the tapped group/link/button */}
+      <AddFlowSheet
+        open={sheetEntry !== null}
+        entry={sheetEntry ?? { kind: "search" }}
+        mode="humidor"
+        defaultHumidorId={defaultHumidorId}
+        onClose={() => setSheetEntry(null)}
+        onAdded={() => {
+          setSheetEntry(null);
+          stopCamera();
+          onAdded();
+          onClose();
+        }}
+      />
     </div>
   );
 
   return createPortal(content, document.body);
+}
+
+/* ------------------------------------------------------------------
+   LineMatchCard — one grouped line, mockup 08. `muted` renders the
+   smaller, lower-emphasis row used for every group after the first.
+   ------------------------------------------------------------------ */
+
+function LineMatchCard({
+  group, muted, onPick,
+}: {
+  group: LineMatchGroup;
+  muted?: boolean;
+  onPick: () => void;
+}) {
+  const top   = group.children[0];
+  const count = group.children.length;
+  const size  = muted ? 40 : 52;
+
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      className="w-full flex items-center gap-3 rounded-xl text-left"
+      style={{
+        padding:         muted ? "8px 12px" : "12px",
+        backgroundColor: muted ? "transparent" : "var(--secondary)",
+        border:          "1px solid var(--border)",
+        opacity:         muted ? 0.75 : 1,
+        cursor:          "pointer",
+        touchAction:     "manipulation",
+        WebkitTapHighlightColor: "transparent",
+      }}
+    >
+      {/* Cigar image */}
+      <div
+        className="rounded-lg overflow-hidden flex-shrink-0"
+        style={{ width: size, height: size }}
+      >
+        <CigarImage
+          imageUrl={top.image_url}
+          wrapper={top.wrapper}
+          alt={group.series ? `${group.brand ?? ""} ${group.series}`.trim() : cigarDisplayName(top)}
+          width={size}
+          height={size}
+          sizes={`${size}px`}
+          quality={75}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      </div>
+
+      {/* Brand + series */}
+      <div className="flex-1 min-w-0">
+        {group.brand && (
+          <p
+            className={muted ? "text-[9px] uppercase tracking-widest font-semibold" : "text-[10px] uppercase tracking-widest font-medium"}
+            style={{ color: muted ? "var(--muted-foreground)" : "var(--primary)" }}
+          >
+            {group.brand}
+          </p>
+        )}
+        {group.series && (
+          <p
+            className={muted ? "text-xs font-medium truncate" : "text-sm font-semibold truncate"}
+            style={{ color: "var(--foreground)", fontFamily: "var(--font-serif)" }}
+          >
+            {group.series}
+          </p>
+        )}
+        {count === 1 && (
+          <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+            {sizeLabel(top)}
+          </p>
+        )}
+      </div>
+
+      {/* Vitola count chip, or the Add indicator on the primary card */}
+      {count > 1 ? (
+        <span
+          className="flex-shrink-0 whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border"
+          style={muted
+            ? { color: "var(--muted-foreground)", borderColor: "var(--border)" }
+            : { backgroundColor: "rgba(212,160,74,0.12)", color: "var(--gold)", borderColor: "var(--gold-deep)" }}
+        >
+          {count} vitolas
+        </span>
+      ) : !muted && (
+        <div
+          className="flex-shrink-0 flex items-center justify-center rounded-full"
+          style={{ width: 32, height: 32, backgroundColor: "rgba(212,160,74,0.15)" }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M7 2v10M2 7h10" stroke="var(--gold)" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+        </div>
+      )}
+    </button>
+  );
 }

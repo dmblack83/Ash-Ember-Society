@@ -35,12 +35,12 @@ import {
   fetchHasWishlistItems,
 } from "@/lib/data/humidor-fetchers";
 
-/* AddCigarSheet (873 lines) and CigarBandScanner (579 lines) are
-   only mounted after user interaction. Lazy-loading shaves their
-   chunks off the Humidor route's initial bundle. ssr:false because
-   neither sheet has any meaningful server-render output. */
-const AddCigarSheet = dynamic(
-  () => import("@/components/humidor/AddCigarSheet").then((m) => ({ default: m.AddCigarSheet })),
+/* AddFlowSheet and CigarBandScanner (579 lines) are only mounted
+   after user interaction. Lazy-loading shaves their chunks off the
+   Humidor route's initial bundle. ssr:false because neither sheet
+   has any meaningful server-render output. */
+const AddFlowSheet = dynamic(
+  () => import("@/components/cigars/add-flow/AddFlowSheet").then((m) => ({ default: m.AddFlowSheet })),
   { ssr: false },
 );
 const CigarBandScanner = dynamic(
@@ -1100,13 +1100,14 @@ export function HumidorClient({
         <CigarBandScanner
           onClose={() => setShowScanner(false)}
           onAdded={() => { setShowScanner(false); refresh(); }}
-          onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
           defaultHumidorId={selected === "all" ? null : selected}
         />
       )}
 
-      <AddCigarSheet
+      <AddFlowSheet
         open={showAddSheet}
+        entry={{ kind: "search" }}
+        mode="humidor"
         onClose={() => setShowAddSheet(false)}
         onAdded={(message) => { refresh(); setToast(message ?? "Added to your humidor!"); }}
         defaultHumidorId={selected === "all" ? null : selected}

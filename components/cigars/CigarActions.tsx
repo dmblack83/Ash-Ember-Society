@@ -10,11 +10,11 @@ import { keyFor } from "@/lib/data/keys";
 import { fetchCigarWishlisted } from "@/lib/data/cigar-fetchers";
 import { useAppSession } from "@/components/system/app-session";
 
-/* AddToHumidorSheet (462 lines) is always mounted (it manages its own
-   visibility via the `open` prop), but lazy-loading still splits its
-   ~30 KB chunk off the initial bundle and parallelizes the fetch. */
-const AddToHumidorSheet = dynamic(
-  () => import("./AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+/* AddFlowSheet is always mounted (it manages its own visibility via the
+   `open` prop), but lazy-loading still splits its chunk off the initial
+   bundle and parallelizes the fetch. */
+const AddFlowSheet = dynamic(
+  () => import("./add-flow/AddFlowSheet").then((m) => ({ default: m.AddFlowSheet })),
   { ssr: false },
 );
 
@@ -96,8 +96,13 @@ export function CigarActions({ cigarId, sizeText }: CigarActionsProps) {
     setWishlistLoading(false);
   }
 
-  function handleAddSuccess() {
-    setToast("Added to your humidor!");
+  function handleAddSuccess(message?: string) {
+    /* AddFlowSheet's finishHumidorInsert doesn't revalidate the Humidor
+       SWR cache itself (unlike the old AddToHumidorSheet.insertEntry) —
+       do it here so the humidor list is fresh when the user navigates
+       back to it. */
+    if (userId) void revalidateHumidor(userId);
+    setToast(message ?? "Added to your humidor!");
   }
 
   return (
@@ -125,11 +130,12 @@ export function CigarActions({ cigarId, sizeText }: CigarActionsProps) {
         </button>
       </div>
 
-      <AddToHumidorSheet
-        cigarId={cigarId}
-        isOpen={sheetOpen}
+      <AddFlowSheet
+        open={sheetOpen}
+        entry={{ kind: "vitola", cigarId }}
+        mode="humidor"
         onClose={() => setSheetOpen(false)}
-        onSuccess={handleAddSuccess}
+        onAdded={handleAddSuccess}
       />
     </>
   );
