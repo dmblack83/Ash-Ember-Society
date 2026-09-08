@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import {
   SHADES,
   WRAPPERS,
@@ -9,6 +10,7 @@ import {
   RING_GAUGES,
 } from "@/lib/cigar-taxonomy";
 import { type CigarDetails, toggleFiller, buildCigarLookupUrl } from "@/lib/cigars/cigar-details";
+import { useBrandSeriesSuggestions } from "@/lib/cigars/use-brand-series-suggestions";
 
 /* ------------------------------------------------------------------
    CigarDetailFields
@@ -38,6 +40,15 @@ export function CigarDetailFields({ value, onChange, nameRequired = false }: Pro
     onChange({ ...value, [key]: v });
 
   const lookupUrl = buildCigarLookupUrl(value);
+
+  /* Fat-finger prevention: native datalists so picking a suggestion
+     inserts the canonical string, but typing a brand-new value stays
+     possible. useId keeps the datalist ids unique if this component
+     ever mounts more than once at a time. */
+  const uid           = useId();
+  const brandListId   = `cigar-brand-options-${uid}`;
+  const seriesListId  = `cigar-series-options-${uid}`;
+  const { brandOptions, seriesOptions } = useBrandSeriesSuggestions(value.brand);
 
   return (
     <div className="grid grid-cols-2 gap-3">
@@ -77,7 +88,13 @@ export function CigarDetailFields({ value, onChange, nameRequired = false }: Pro
           placeholder="e.g. Arturo Fuente"
           className="input w-full text-sm"
           style={inputStyle}
+          list={brandListId}
         />
+        <datalist id={brandListId}>
+          {brandOptions.map((b) => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
       </div>
 
       {/* Series */}
@@ -90,7 +107,13 @@ export function CigarDetailFields({ value, onChange, nameRequired = false }: Pro
           placeholder="e.g. Opus X"
           className="input w-full text-sm"
           style={inputStyle}
+          list={seriesListId}
         />
+        <datalist id={seriesListId}>
+          {seriesOptions.map((s) => (
+            <option key={s} value={s} />
+          ))}
+        </datalist>
       </div>
 
       {/* Vitola name — child-level, like format/ring/length */}

@@ -98,6 +98,9 @@ export const keyFor = {
      shared across users. */
   lineSiblings: (brand: string, series: string | null) =>
     ["line-siblings", brand, series ?? ""] as const,
+  /* Series datalist options for one brand (manual add form). Public
+     data, shared across users; refetches per debounced brand value. */
+  seriesForBrand: (brand: string) => ["series-for-brand", brand] as const,
   /* Per-user "is this cigar on my wishlist" flag for the detail page. */
   cigarWishlisted: (userId: string, cigarId: string) =>
     ["cigar-wishlisted", userId, cigarId] as const,

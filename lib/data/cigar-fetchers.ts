@@ -86,6 +86,34 @@ export async function fetchCatalogBrands(): Promise<CatalogBrand[]> {
   return (data ?? []) as CatalogBrand[];
 }
 
+/* Series suggestions for one brand, sourced from cigar_lines (the
+   authenticated read policy already allows this). Non-null, ordered,
+   deduped. Pairs with keyFor.seriesForBrand(brand); powers the manual
+   add form's series datalist. Empty brand short-circuits to []. */
+export async function fetchSeriesForBrand(brand: string): Promise<string[]> {
+  const trimmed = brand.trim();
+  if (!trimmed) return [];
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("cigar_lines")
+    .select("series")
+    .eq("brand", trimmed)
+    .not("series", "is", null)
+    .order("series", { ascending: true });
+  if (error) throw new Error(error.message);
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of (data ?? []) as { series: string | null }[]) {
+    if (row.series && !seen.has(row.series)) {
+      seen.add(row.series);
+      out.push(row.series);
+    }
+  }
+  return out;
+}
+
 /* ── Cigar detail (public catalog row) ──────────────────────────── */
 
 /* Same projection as the server getCigarById (lib/data/cigar-catalog.ts).
