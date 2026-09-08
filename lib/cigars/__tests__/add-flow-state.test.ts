@@ -1,7 +1,26 @@
 import { describe, expect, test } from "vitest";
-import { emptySaveForm, setPurchaseDate, setAgingStart } from "../add-flow-state";
+import {
+  emptySaveForm,
+  setPurchaseDate,
+  setAgingStart,
+  defaultAgingTarget,
+} from "../add-flow-state";
 
 const TODAY = "2026-09-07";
+
+describe("defaultAgingTarget", () => {
+  test("is today plus 14 days (the 2 Weeks preset)", () => {
+    expect(defaultAgingTarget(TODAY)).toBe("2026-09-21");
+  });
+
+  test("crosses month boundaries correctly", () => {
+    expect(defaultAgingTarget("2026-09-20")).toBe("2026-10-04");
+  });
+
+  test("crosses year boundaries correctly", () => {
+    expect(defaultAgingTarget("2026-12-25")).toBe("2027-01-08");
+  });
+});
 
 describe("emptySaveForm", () => {
   test("defaults every field for a fresh sheet open", () => {
@@ -11,7 +30,11 @@ describe("emptySaveForm", () => {
       priceStr:     "",
       source:       "",
       agingStart:   TODAY,
-      agingTarget:  "",
+      /* Saving without ever expanding purchase details must produce
+         what today's always-mounted AgingTargetSelect produces: the
+         2 Weeks preset date, not null (spec: "saving collapsed must
+         produce exactly what today's form produces"). */
+      agingTarget:  "2026-09-21",
       notes:        "",
       agingSynced:  true,
     });

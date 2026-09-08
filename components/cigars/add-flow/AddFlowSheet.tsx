@@ -329,6 +329,17 @@ export function AddFlowSheet({
     setPickedHumidorId(fallback.id);
   }, [open, humidors, pickedHumidorId]);
 
+  /* Full catalog row for id-only resolutions (entry kind "vitola",
+     ungrouped-fallback lines). Same SWR key the save-stage card and
+     the detail page use (keyFor.cigar), so this subscription dedupes
+     against theirs — no extra request. Read here so the submit path
+     has usage_count in hand for the bump. */
+  const idOnlyCigarId = resolved?.kind === "id" ? resolved.cigarId : null;
+  const { data: idCigar } = useSWR(
+    idOnlyCigarId ? keyFor.cigar(idOnlyCigarId) : null,
+    () => fetchCigarDetail(idOnlyCigarId as string),
+  );
+
   /* Already-in-humidor conflict check — fires whenever a concrete
      catalog cigarId resolves in humidor mode. Manual inserts never
      set `resolved`, so they never reach this (matches AddCigarSheet's
@@ -573,15 +584,24 @@ export function AddFlowSheet({
   }
 
   /* Insert the resolved catalog cigar as a brand-new humidor/wishlist
-     entry. No usage_count is available from any resolution path today
-     (lines and siblings don't carry it), so bumpUsage stays unset —
-     the mechanism is preserved for a future caller that has one. */
+     entry. Every resolution path supplies a usage_count for the bump:
+     "child" resolutions carry it on the SizeChild (fetchLineSiblings
+     selects it), "id" resolutions read it off the SWR-cached
+     CigarDetailRow. Missing value (match-RPC children, row still
+     loading) degrades to no bump — same read-modify-write +1 pattern
+     as AddCigarSheet. */
   async function insertResolvedCigar() {
     if (!resolved) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await finishInsert(resolved.cigarId, {});
+      const bumpUsage =
+        resolved.kind === "child" && resolved.child.usage_count != null
+          ? { id: resolved.cigarId, usage_count: resolved.child.usage_count }
+          : resolved.kind === "id" && idCigar
+            ? { id: idCigar.id, usage_count: idCigar.usage_count }
+            : null;
+      await finishInsert(resolved.cigarId, { bumpUsage });
     } finally {
       setSubmitting(false);
     }

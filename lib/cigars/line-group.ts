@@ -38,6 +38,10 @@ export interface SizeChild {
   filler_countries?: string[] | null;
   community_added?:  boolean;
   approved?:         boolean;
+  /* Popularity signal — carried so the add flow can bump it on insert
+     (read-modify-write usage_count + 1). Optional: match-RPC children
+     and older constructors omit it, and the bump silently skips then. */
+  usage_count?:      number;
 }
 
 export interface EnteredSize {
