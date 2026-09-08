@@ -83,6 +83,10 @@ export function LineSearchPanel({
   const inputRef     = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /* True when the mount effect owns the seeded initialQuery search;
+     the query-change effect consumes it to skip exactly one run, so
+     a scanner handoff costs ONE fetch instead of two 300ms apart. */
+  const skipQueryEffectRef = useRef(false);
 
   async function loadPopular() {
     try {
@@ -128,6 +132,7 @@ export function LineSearchPanel({
     if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
     void (async () => {
       if (initialQuery.trim()) {
+        skipQueryEffectRef.current = true;
         await doSearch(initialQuery.trim(), 0);
       } else {
         await loadPopular();
@@ -135,8 +140,13 @@ export function LineSearchPanel({
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Re-fetch when query changes */
+  /* Re-fetch when query changes. Skips its first run when the mount
+     effect already fired the seeded initialQuery search. */
   useEffect(() => {
+    if (skipQueryEffectRef.current) {
+      skipQueryEffectRef.current = false;
+      return;
+    }
     if (!query.trim()) {
       if (debounceRef.current) clearTimeout(debounceRef.current);
       (async () => {
