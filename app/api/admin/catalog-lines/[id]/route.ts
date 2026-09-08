@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidateTag }             from "next/cache";
 import { requireAdmin }              from "@/lib/auth/admin-gate";
 import { createServiceClientFor }    from "@/utils/supabase/service";
+import { escapeIlikeExact }          from "@/lib/ilike-escape";
 
 export const runtime = "edge";
 
@@ -78,14 +79,20 @@ export async function PATCH(
     (nextSeries ?? "") !== (line.series ?? "");
 
   if (renamed) {
+    const nextBrandTrimmed  = nextBrand.trim();
+    const nextSeriesTrimmed = nextSeries === null ? null : nextSeries.trim();
     let targetQuery = admin
       .from("cigar_lines")
       .select("id, brand, series")
-      .eq("brand", nextBrand)
+      /* Case- and whitespace-insensitive line-identity match, mirroring
+         the normalized unique index (lower(btrim(...))): ILIKE with no
+         wildcards in the (escaped) value is plain case-insensitive
+         equality. */
+      .ilike("brand", escapeIlikeExact(nextBrandTrimmed))
       .neq("id", id);
-    targetQuery = nextSeries === null || nextSeries === ""
+    targetQuery = nextSeriesTrimmed === null || nextSeriesTrimmed === ""
       ? targetQuery.is("series", null)
-      : targetQuery.eq("series", nextSeries);
+      : targetQuery.ilike("series", escapeIlikeExact(nextSeriesTrimmed));
     const { data: target } = await targetQuery.maybeSingle<LineRow>();
 
     if (target) {
