@@ -8,6 +8,7 @@ import { createClient } from "@/utils/supabase/client";
 import { CatalogResult, CigarSearch } from "@/components/cigar-search";
 import { keyFor } from "@/lib/data/keys";
 import { fetchWishlistItems } from "@/lib/data/humidor-fetchers";
+import { revalidateHumidor } from "@/lib/data/humidor-cache";
 import { CigarDetailFields } from "@/components/cigars/CigarDetailFields";
 import { loadCigarDraft, saveCigarDraft, clearCigarDraft } from "@/lib/cigars/cigar-draft";
 import {
@@ -19,10 +20,10 @@ import { matchCigarLines, insertCigarToCatalog, type LineMatch } from "@/lib/dat
 import { findMatchingSize, cigarDisplayName, type SizeChild } from "@/lib/cigars/line-group";
 import { DupeCheckDialog } from "@/components/cigars/DupeCheckDialog";
 
-/* AddToHumidorSheet (462 lines) is always mounted but lazy-loaded
-   so its chunk fetches in parallel with the main bundle. */
-const AddToHumidorSheet = dynamic(
-  () => import("@/components/cigars/AddToHumidorSheet").then((m) => ({ default: m.AddToHumidorSheet })),
+/* AddFlowSheet is always mounted but lazy-loaded so its chunk fetches
+   in parallel with the main bundle. */
+const AddFlowSheet = dynamic(
+  () => import("@/components/cigars/add-flow/AddFlowSheet").then((m) => ({ default: m.AddFlowSheet })),
   { ssr: false },
 );
 import { Toast } from "@/components/ui/toast";
@@ -926,15 +927,18 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
     }
   }
 
-  /* Move-to-humidor success — drop from wishlist optimistically.
-     The Humidor list invalidation is handled by HumidorClient's own
-     refresh() when AddToHumidorSheet's onSuccess fires there. */
-  async function handleMoveSuccess() {
+  /* Move-to-humidor success — drop from wishlist optimistically and
+     delete the old wishlist row. AddFlowSheet's finishHumidorInsert
+     doesn't revalidate the Humidor SWR cache itself (unlike the old
+     AddToHumidorSheet.insertEntry), so we do it explicitly here — the
+     Humidor list must be fresh when the user navigates there. */
+  async function handleMoveSuccess(message?: string) {
     if (!moveItem) return;
-    setToast("Moved to your humidor!");
+    setToast(message ?? "Moved to your humidor!");
     mutateItems(items.filter((i) => i.id !== moveItem.id), { revalidate: false });
     const supabase = createClient();
     await supabase.from("humidor_items").delete().eq("id", moveItem.id);
+    void revalidateHumidor(userId);
     setMoveItem(null);
   }
 
@@ -1076,11 +1080,12 @@ export function WishlistClient({ initialItems, userId }: WishlistClientProps) {
         onAdded={(message) => { mutateItems(); setToast(message ?? "Added to your wishlist!"); }}
       />
 
-      <AddToHumidorSheet
-        cigarId={moveItem?.cigar_id ?? ""}
-        isOpen={!!moveItem}
+      <AddFlowSheet
+        open={!!moveItem}
+        entry={{ kind: "vitola", cigarId: moveItem?.cigar_id ?? "" }}
+        mode="humidor"
         onClose={() => setMoveItem(null)}
-        onSuccess={handleMoveSuccess}
+        onAdded={handleMoveSuccess}
       />
     </>
   );
