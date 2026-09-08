@@ -1100,7 +1100,6 @@ export function HumidorClient({
         <CigarBandScanner
           onClose={() => setShowScanner(false)}
           onAdded={() => { setShowScanner(false); refresh(); }}
-          onSearch={() => { setShowScanner(false); setShowAddSheet(true); }}
           defaultHumidorId={selected === "all" ? null : selected}
         />
       )}

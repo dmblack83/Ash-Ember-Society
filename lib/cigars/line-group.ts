@@ -6,7 +6,7 @@
  * no Supabase — so size matching and label logic are unit-testable.
  */
 
-import type { CatalogResult } from "@/components/cigar-search";
+import type { CatalogResult } from "@/lib/data/cigar-fetchers";
 import { lengthLabelForInches } from "@/lib/cigar-taxonomy";
 
 export interface CatalogLine {

@@ -3,7 +3,7 @@ import {
   sizeDims, sizeLabel, findMatchingSize, childToLine,
   cigarTitle, cigarDisplayName,
 } from "@/lib/cigars/line-group";
-import type { CatalogResult } from "@/components/cigar-search";
+import type { CatalogResult } from "@/lib/data/cigar-fetchers";
 
 const child = (over: Partial<{ id: string; format: string | null; ring_gauge: number | null; length_inches: number | null }> = {}) => ({
   id: "c1", format: "Churchill", ring_gauge: 48, length_inches: 7, ...over,

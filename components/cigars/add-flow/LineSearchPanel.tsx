@@ -2,8 +2,38 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchCatalogLines } from "@/lib/data/cigar-fetchers";
-import { Highlight } from "@/components/cigar-search";
+import { tokenizeSearch } from "@/lib/cigar-search-query";
 import type { CatalogLine } from "@/lib/cigars/line-group";
+
+/* ------------------------------------------------------------------
+   Gold-highlight matched text — moved from the retired cigar-search.tsx
+   ------------------------------------------------------------------ */
+
+function Highlight({ text, query }: { text: string; query: string }) {
+  const tokens = tokenizeSearch(query);
+  if (!text || tokens.length === 0) return <>{text}</>;
+
+  // Build one alternation of regex-escaped tokens; split keeps the matches.
+  const pattern = tokens
+    .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("|");
+  const parts = text.split(new RegExp(`(${pattern})`, "gi"));
+  const tokenSet = new Set(tokens); // tokens are already lowercased
+
+  return (
+    <>
+      {parts.map((part, i) =>
+        tokenSet.has(part.toLowerCase()) ? (
+          <span key={i} style={{ color: "var(--gold)", fontWeight: 600 }}>
+            {part}
+          </span>
+        ) : (
+          part
+        )
+      )}
+    </>
+  );
+}
 
 /* ------------------------------------------------------------------
    LineSearchPanel

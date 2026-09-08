@@ -14,12 +14,29 @@
  */
 
 import { createClient }     from "@/utils/supabase/client";
-import type { CatalogResult } from "@/components/cigar-search";
 import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
 
 const CATALOG_SELECT =
   "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
+
+/* Shared catalog row shape — used by CigarSearch's successor
+   (LineSearchPanel/fetchCigarPage), the band scanner's client-side
+   match query, and WishlistClient's cigar payload. */
+export interface CatalogResult {
+  id:              string;
+  brand:           string | null;
+  series:          string | null;
+  name?:           string | null;
+  format:          string | null;
+  ring_gauge:      number | null;
+  length_inches:   number | null;
+  wrapper:         string | null;
+  wrapper_country: string | null;
+  shade:           string | null;
+  usage_count:     number;
+  image_url:       string | null;
+}
 
 export interface CigarPage {
   results: CatalogResult[];

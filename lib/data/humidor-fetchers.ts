@@ -12,7 +12,7 @@
 import { createClient } from "@/utils/supabase/client";
 import type { HumidorItem }  from "@/components/humidor/HumidorClient";
 import type { WishlistItem } from "@/components/humidor/WishlistClient";
-import type { CatalogResult } from "@/components/cigar-search";
+import type { CatalogResult } from "@/lib/data/cigar-fetchers";
 
 export async function fetchHumidorItems(userId: string): Promise<HumidorItem[]> {
   const supabase = createClient();
