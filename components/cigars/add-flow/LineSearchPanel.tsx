@@ -1,0 +1,327 @@
+"use client";
+
+import { useState, useEffect, useRef, useCallback } from "react";
+import { fetchCatalogLines } from "@/lib/data/cigar-fetchers";
+import { Highlight } from "@/components/cigar-search";
+import type { CatalogLine } from "@/lib/cigars/line-group";
+
+/* ------------------------------------------------------------------
+   LineSearchPanel
+
+   Search panel for the unified add-cigar sheet. Structurally mirrors
+   CigarSearch (300ms debounce, popular-on-mount, click-outside
+   dismiss, Load more, manual links) but rows render a LINE (brand +
+   series, one row per catalog line) instead of a flat vitola/child
+   row — mockup 01 (line-grouped search) is the visual authority.
+   ------------------------------------------------------------------ */
+
+export interface LineSearchPanelProps {
+  initialQuery?: string;
+  onPickLine:    (line: CatalogLine) => void; // sheet decides picker vs skip
+  onManual:      () => void;
+  autoFocus?:    boolean;
+}
+
+/* Search results page size. 8 keeps the dropdown short on mobile;
+   "Load more" appends another page when the user wants to see
+   results past the top matches. Matches CigarSearch's SEARCH_PAGE_SIZE
+   convention. */
+const SEARCH_PAGE_SIZE = 8;
+
+function VitolaChip({ sizeCount }: { sizeCount: number }) {
+  if (sizeCount === 0) return null;
+  if (sizeCount === 1) {
+    return (
+      <span
+        className="flex-shrink-0 whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border"
+        style={{ color: "var(--muted-foreground)", borderColor: "var(--border)" }}
+      >
+        1 vitola
+      </span>
+    );
+  }
+  return (
+    <span
+      className="flex-shrink-0 whitespace-nowrap text-[10px] font-semibold px-2.5 py-1 rounded-full border"
+      style={{
+        backgroundColor: "rgba(212,160,74,0.12)",
+        color:           "var(--gold)",
+        borderColor:     "var(--gold-deep)",
+      }}
+    >
+      {sizeCount} vitolas
+    </span>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <svg
+      className="flex-shrink-0"
+      style={{ color: "var(--muted-foreground)" }}
+      width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden="true"
+    >
+      <path d="M5 3L9 7L5 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function LineSearchPanel({
+  initialQuery = "",
+  onPickLine,
+  onManual,
+  autoFocus,
+}: LineSearchPanelProps) {
+  const [query,        setQuery]        = useState(initialQuery);
+  const [lines,        setLines]        = useState<CatalogLine[]>([]);
+  const [searching,    setSearching]    = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isPopular,    setIsPopular]    = useState(true);
+  const [hasMore,      setHasMore]      = useState(false);
+  const [loadingMore,  setLoadingMore]  = useState(false);
+
+  const inputRef     = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function loadPopular() {
+    try {
+      const { lines: rows } = await fetchCatalogLines({ query: "", pageIndex: 0, pageSize: 20 });
+      setLines(rows);
+    } catch {
+      setLines([]);
+    } finally {
+      setIsPopular(true);
+      setShowDropdown(true);
+      setHasMore(false);
+    }
+  }
+
+  /* doSearch handles BOTH the first page (pageIndex=0, replaces lines)
+     and subsequent pages (pageIndex>0, appends). Delegates to the
+     shared fetchCatalogLines so this dropdown and the Discover grid
+     run identical line grouping. */
+  const doSearch = useCallback(async (q: string, pageIndex: number) => {
+    if (pageIndex === 0) setSearching(true);
+    else                 setLoadingMore(true);
+    try {
+      const { lines: rows, hasMore: more } = await fetchCatalogLines({
+        query:     q,
+        pageIndex,
+        pageSize:  SEARCH_PAGE_SIZE,
+      });
+      setLines((prev) => (pageIndex === 0 ? rows : [...prev, ...rows]));
+      setHasMore(more);
+    } catch {
+      if (pageIndex === 0) { setLines([]); setHasMore(false); }
+    } finally {
+      setIsPopular(false);
+      setShowDropdown(true);
+      setSearching(false);
+      setLoadingMore(false);
+    }
+  }, []);
+
+  /* Load popular on mount, unless a scanner handoff seeded a query,
+     in which case that search runs immediately instead. */
+  useEffect(() => {
+    if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
+    void (async () => {
+      if (initialQuery.trim()) {
+        await doSearch(initialQuery.trim(), 0);
+      } else {
+        await loadPopular();
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Re-fetch when query changes */
+  useEffect(() => {
+    if (!query.trim()) {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      (async () => {
+        await loadPopular();
+      })();
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => doSearch(query.trim(), 0), 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [query, doSearch]);
+
+  /* Dismiss when clicking outside */
+  useEffect(() => {
+    function onPointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  function handlePick(line: CatalogLine) {
+    setShowDropdown(false);
+    onPickLine(line);
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      {/* Search input */}
+      <div className="relative">
+        <svg
+          className="absolute left-4 top-1/2 -translate-y-1/2 flex-shrink-0 pointer-events-none"
+          style={{ color: "var(--muted-foreground)" }}
+          width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true"
+        >
+          <circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M12 12l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+        <input
+          ref={inputRef}
+          type="search"
+          value={query}
+          onChange={(e) => { setQuery(e.target.value); setShowDropdown(true); }}
+          onFocus={() => setShowDropdown(true)}
+          placeholder="Search cigars…"
+          className="input w-full pl-11 pr-4 text-base"
+          style={{ minHeight: 52 }}
+          autoComplete="off"
+        />
+        {searching && (
+          <span className="absolute right-4 top-1/2 -translate-y-1/2">
+            <span
+              className="rounded-full border animate-spin block"
+              style={{
+                width: 16, height: 16,
+                borderColor: "rgba(193,120,23,0.3)",
+                borderTopColor: "var(--primary)",
+              }}
+            />
+          </span>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {showDropdown && (
+        <div
+          className="absolute left-0 right-0 z-10 mt-2 rounded-2xl glass animate-fade-in"
+          style={{
+            border:     "1px solid var(--border)",
+            maxHeight:  "60vh",
+            overflowX:  "hidden",
+            overflowY:  "auto",
+          }}
+        >
+          {lines.length === 0 ? (
+            <div className="px-4 py-5 space-y-3 text-center">
+              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                No results for &ldquo;{query}&rdquo;
+              </p>
+              <button
+                onClick={onManual}
+                className="w-full text-sm font-semibold rounded-xl transition-colors"
+                style={{
+                  minHeight: 44,
+                  color: "var(--primary)",
+                  backgroundColor: "rgba(193,120,23,0.10)",
+                }}
+              >
+                Can&apos;t find it? Add manually
+              </button>
+            </div>
+          ) : (
+            <>
+              {isPopular && (
+                <div
+                  className="px-4 py-2"
+                  style={{ borderBottom: "1px solid var(--border)" }}
+                >
+                  <span
+                    className="text-[10px] font-bold tracking-widest uppercase"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    Popular Cigars
+                  </span>
+                </div>
+              )}
+              {lines.map((line, i) => (
+                <button
+                  key={line.repId}
+                  onClick={() => handlePick(line)}
+                  className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors active:opacity-70"
+                  style={{
+                    borderBottom:
+                      i < lines.length - 1 ? "1px solid var(--border)" : "none",
+                  }}
+                >
+                  <span className="flex-1 min-w-0">
+                    <span
+                      className="block text-[10px] font-bold tracking-widest uppercase"
+                      style={{ color: "var(--primary)" }}
+                    >
+                      <Highlight text={line.brand ?? ""} query={query} />
+                    </span>
+                    {line.series && (
+                      <span
+                        className="block text-base font-medium text-foreground leading-snug truncate"
+                        style={{ fontFamily: "var(--font-serif)" }}
+                      >
+                        <Highlight text={line.series} query={query} />
+                      </span>
+                    )}
+                    {line.wrapper && (
+                      <span
+                        className="block text-xs mt-0.5 truncate"
+                        style={{ color: "var(--muted-foreground)" }}
+                      >
+                        {line.wrapper}
+                      </span>
+                    )}
+                  </span>
+                  <VitolaChip sizeCount={line.sizeCount} />
+                  <ChevronIcon />
+                </button>
+              ))}
+              {hasMore && !isPopular && (
+                <button
+                  onClick={() => doSearch(query.trim(), lines.length / SEARCH_PAGE_SIZE)}
+                  disabled={loadingMore}
+                  className="w-full text-sm font-semibold text-center transition-colors active:opacity-70 flex items-center justify-center gap-2"
+                  style={{
+                    minHeight: 48,
+                    color: "var(--primary)",
+                    borderTop: "1px solid var(--border)",
+                  }}
+                >
+                  {loadingMore && (
+                    <span
+                      className="rounded-full border animate-spin block"
+                      style={{
+                        width: 14, height: 14,
+                        borderColor: "rgba(193,120,23,0.3)",
+                        borderTopColor: "var(--primary)",
+                      }}
+                    />
+                  )}
+                  {loadingMore ? "Loading…" : "Load more"}
+                </button>
+              )}
+              <button
+                onClick={onManual}
+                className="w-full text-sm text-center transition-colors active:opacity-70"
+                style={{
+                  minHeight: 48,
+                  color: "var(--muted-foreground)",
+                  borderTop: "1px solid var(--border)",
+                }}
+              >
+                Can&apos;t find it? Add manually
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
