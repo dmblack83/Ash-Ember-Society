@@ -113,10 +113,13 @@ export function LineSearchPanel({
   const inputRef     = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /* True when the mount effect owns the seeded initialQuery search;
-     the query-change effect consumes it to skip exactly one run, so
-     a scanner handoff costs ONE fetch instead of two 300ms apart. */
-  const skipQueryEffectRef = useRef(false);
+  /* True when the mount effect owns the initial load (popular OR a
+     seeded initialQuery search); the query-change effect consumes it
+     to skip exactly one run, so mount never fires two RPCs (one from
+     the mount effect, one from the query-change effect's empty-query
+     branch) and a scanner handoff costs ONE fetch instead of two
+     300ms apart. */
+  const skipQueryEffectRef = useRef(true);
 
   async function loadPopular() {
     try {
@@ -157,12 +160,14 @@ export function LineSearchPanel({
   }, []);
 
   /* Load popular on mount, unless a scanner handoff seeded a query,
-     in which case that search runs immediately instead. */
+     in which case that search runs immediately instead. Either way
+     this effect owns the initial load; skipQueryEffectRef (already
+     true from its initializer) makes the query-change effect skip
+     its first run so it never duplicates this fetch. */
   useEffect(() => {
     if (autoFocus) setTimeout(() => inputRef.current?.focus(), 120);
     void (async () => {
       if (initialQuery.trim()) {
-        skipQueryEffectRef.current = true;
         await doSearch(initialQuery.trim(), 0);
       } else {
         await loadPopular();
@@ -170,8 +175,10 @@ export function LineSearchPanel({
     })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* Re-fetch when query changes. Skips its first run when the mount
-     effect already fired the seeded initialQuery search. */
+  /* Re-fetch when query changes. Skips its first run unconditionally
+     — the mount effect above always owns the initial load (popular
+     or seeded search), so this would otherwise double-fire
+     loadPopular() on every empty-query sheet open. */
   useEffect(() => {
     if (skipQueryEffectRef.current) {
       skipQueryEffectRef.current = false;

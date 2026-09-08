@@ -231,9 +231,14 @@ export function AddFlowSheet({
   const today = new Date().toISOString().split("T")[0];
 
   /* Explicit close = user abandoning the entry — discard the draft so
-     it doesn't resurface on the next open. */
+     it doesn't resurface on the next open, but only when this session
+     could plausibly have shown/edited it (see everEnteredManualRef).
+     Otherwise a sheet opened from a detail page / scanner / wishlist
+     promote would wipe an unrelated in-progress Humidor-tab draft. */
   const handleClose = () => {
-    clearCigarDraft(mode);
+    if (entry.kind === "search" || everEnteredManualRef.current) {
+      clearCigarDraft(mode);
+    }
     onClose();
   };
 
@@ -273,10 +278,23 @@ export function AddFlowSheet({
   const [showBottomCaret, setShowBottomCaret] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
+  /* True once this open session has shown/edited the manual form —
+     either as the entry stage itself or via "Add manually" from
+     search. Explicit close only wipes the draft when it could
+     plausibly hold THIS session's edits: entry.kind "search" (the
+     only entry that restores a stashed draft) or manual having been
+     visited. Other entry points (detail page, scanner, wishlist
+     promote) never touch the manual form, so closing them must not
+     wipe an unrelated in-progress Humidor-tab draft. Reset on every
+     open, below. */
+  const everEnteredManualRef = useRef(false);
+
   /* ── Reset on open ────────────────────────────────────────────── */
   useEffect(() => {
     if (!open) return;
-    setStage(stageForEntry(entry));
+    const initialStage = stageForEntry(entry);
+    setStage(initialStage);
+    everEnteredManualRef.current = initialStage === "manual";
     setStashedLine(entry.kind === "line" ? { brand: entry.brand, series: entry.series, fromScan: entry.fromScan } : null);
     setPriorStage(null);
     setResolved(entry.kind === "vitola" ? { kind: "id", cigarId: entry.cigarId } : null);
@@ -300,6 +318,7 @@ export function AddFlowSheet({
       const draft = loadCigarDraft(mode);
       if (draft) {
         setStage("manual");
+        everEnteredManualRef.current = true;
         setManual(draft);
       }
     }
@@ -685,7 +704,7 @@ export function AddFlowSheet({
           <LineSearchPanel
             initialQuery={entry.kind === "search" ? (entry.query ?? "") : ""}
             onPickLine={handlePickLine}
-            onManual={() => setStage("manual")}
+            onManual={() => { everEnteredManualRef.current = true; setStage("manual"); }}
             autoFocus
           />
         </div>
