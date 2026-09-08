@@ -56,6 +56,15 @@ export async function PATCH(
   if ("brand" in patch && (typeof patch.brand !== "string" || patch.brand.trim() === "")) {
     return NextResponse.json({ error: "brand cannot be empty" }, { status: 422 });
   }
+  if ("series" in patch && patch.series !== null && typeof patch.series !== "string") {
+    return NextResponse.json({ error: "series must be a string or null" }, { status: 422 });
+  }
+
+  /* Normalize what gets persisted: brand trimmed, series trimmed-or-
+     null. Line identity is case- and whitespace-insensitive (20260909
+     migration), so stray whitespace must never land in cigar_lines. */
+  if ("brand" in patch) patch.brand = (patch.brand as string).trim();
+  if (typeof patch.series === "string") patch.series = patch.series.trim() || null;
 
   const admin = createServiceClientFor(
     "api/admin/catalog-lines",

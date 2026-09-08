@@ -17,6 +17,7 @@ import { createClient }     from "@/utils/supabase/client";
 import type { CatalogResult } from "@/components/cigar-search";
 import { tokenizeSearch, toLikePattern } from "@/lib/cigar-search-query";
 import { childToLine, type CatalogLine, type SizeChild } from "@/lib/cigars/line-group";
+import { escapeIlikeExact } from "@/lib/ilike-escape";
 
 const CATALOG_SELECT =
   "id, brand, series, name, format, ring_gauge, length_inches, wrapper, wrapper_country, shade, usage_count, image_url";
@@ -98,7 +99,11 @@ export async function fetchSeriesForBrand(brand: string): Promise<string[]> {
   const { data, error } = await supabase
     .from("cigar_lines")
     .select("series")
-    .eq("brand", trimmed)
+    /* Case-insensitive brand match, mirroring the normalized line
+       identity: ILIKE with no wildcards in the (escaped) value is
+       plain case-insensitive equality, so a free-typed "padron"
+       still surfaces the "Padron" line's series. */
+    .ilike("brand", escapeIlikeExact(trimmed))
     .not("series", "is", null)
     .order("series", { ascending: true });
   if (error) throw new Error(error.message);
