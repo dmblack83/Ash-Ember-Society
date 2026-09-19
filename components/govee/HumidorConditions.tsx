@@ -133,9 +133,14 @@ export function HumidorConditions({
 
   const v = deriveOverview(humidors);
   if (humidors.length === 1) {
-    /* one humidor: single strip only once a reading exists, else nothing
-       (matches the pre-multi-humidor behavior exactly) */
-    return readingOf(humidors[0]) !== null ? <SingleStrip h={humidors[0]} onEdit={onEdit} /> : null;
+    /* One humidor: on the humidor page (onEdit present) always show the
+       strip — its pencil is the only path to rename / set details /
+       assign a sensor, and hiding it locked the default humidor out of
+       management until a second one existed. On home (no onEdit), keep
+       the pre-multi behavior: strip only once a reading exists. */
+    return readingOf(humidors[0]) !== null || onEdit
+      ? <SingleStrip h={humidors[0]} onEdit={onEdit} />
+      : null;
   }
   if (v.sensored === 0 && !onEdit) return null; // home: nothing to show
 
