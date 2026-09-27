@@ -11,7 +11,7 @@ const vitRow = (id: string, line_id: string) => ({ id, line_id, brand: "AF", ser
 /** A fake client that answers reads from a tiny in-memory catalog and records batches. */
 function fakeClient() {
   const batches: string[][] = [];
-  const query = vi.fn(async (sql: string) => {
+  const query = vi.fn(async (sql: string): Promise<Record<string, unknown>[]> => {
     if (/from cigar_lines/.test(sql)) return [lineRow(A, "AF", "H"), lineRow(B, "AF", "H NT")].filter((l) => !/where id = any/.test(sql) || sql.includes(l.id));
     if (/from cigar_catalog/.test(sql)) return [vitRow(V1, B)].filter((v) => !/where (id|line_id) = any/.test(sql) || sql.includes(v.id) || sql.includes(v.line_id));
     if (/from humidor_items group by/.test(sql)) return [];
@@ -88,18 +88,53 @@ describe("runUndo", () => {
     expect(batches[1].join("\n")).toContain("insert into cigar_lines");
     expect(u.reversed).toBeGreaterThan(0);
   });
+
+  it("refuses to undo an undo receipt", async () => {
+    const { client } = fakeClient();
+    const files: Record<string, unknown> = { "ops.json": opsFile };
+    const { io } = fakeIo(files);
+    const r = await runExecute(client, io, "ops.json", "out");
+    const u = await runUndo(client, io, r.receiptPath, "out", { force: false });
+    await expect(runUndo(client, io, u.receiptPath, "out", { force: false })).rejects.toThrow(/undo receipt/);
+  });
 });
 
 describe("runProbeTxn", () => {
-  it("creates the probe table, forces an error in the same batch, and reports rollback from the row count", async () => {
+  it("reports rolled back when the batch fails on division by zero and the table is gone", async () => {
     const { client, query } = fakeClient();
     const batch = client.batch as ReturnType<typeof vi.fn>;
-    batch.mockRejectedValueOnce(new Error("division by zero"));
+    batch.mockRejectedValueOnce(new Error("ERROR: division by zero"));
+    query.mockImplementation(async (sql: string) => {
+      if (/count\(\*\)/.test(sql)) throw new Error('relation "_ae_txn_probe" does not exist');
+      return [];
+    });
     const { io } = fakeIo({});
-    const result = await runProbeTxn(client, io);
-    expect(result).toBe("rolled back");
+    expect(await runProbeTxn(client, io)).toBe("rolled back");
     expect((batch.mock.calls[0][0] as string[]).join("\n")).toMatch(/create table[\s\S]*insert[\s\S]*1\s*\/\s*0/);
-    expect(query.mock.calls.some(([s]) => /drop table if exists _ae_txn_probe/.test(s as string))).toBe(true);
+    expect(query.mock.calls.filter(([s]) => /drop table if exists _ae_txn_probe/.test(s as string)).length).toBeGreaterThanOrEqual(2);
+  });
+  it("reports NOT rolled back when the row survives", async () => {
+    const { client, query } = fakeClient();
+    (client.batch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("ERROR: division by zero"));
+    query.mockImplementation(async (sql: string) => (/count\(\*\)/.test(sql) ? [{ n: "1" }] : []));
+    const { io } = fakeIo({});
+    expect(await runProbeTxn(client, io)).toBe("NOT rolled back");
+  });
+  it("reports NOT rolled back when the batch does not error at all", async () => {
+    const { client, query } = fakeClient();
+    query.mockImplementation(async (sql: string) => (/count\(\*\)/.test(sql) ? [{ n: 1 }] : []));
+    const { io } = fakeIo({});
+    expect(await runProbeTxn(client, io)).toBe("NOT rolled back");
+  });
+  it("throws inconclusive on a transport error from the batch or an unexpected count error, and still drops the table", async () => {
+    const a = fakeClient();
+    (a.client.batch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("fetch failed"));
+    await expect(runProbeTxn(a.client, fakeIo({}).io)).rejects.toThrow(/inconclusive/);
+    expect(a.query.mock.calls.filter(([s]) => /drop table if exists _ae_txn_probe/.test(s as string)).length).toBeGreaterThanOrEqual(2);
+    const b = fakeClient();
+    (b.client.batch as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error("ERROR: division by zero"));
+    b.query.mockImplementation(async (sql: string) => { if (/count\(\*\)/.test(sql)) throw new Error("503 Service Unavailable"); return []; });
+    await expect(runProbeTxn(b.client, fakeIo({}).io)).rejects.toThrow(/inconclusive/);
   });
 });
 

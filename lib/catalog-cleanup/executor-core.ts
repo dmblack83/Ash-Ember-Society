@@ -76,6 +76,7 @@ export async function runExecute(client: MgmtClient, io: Io, opsPath: string, ou
 export async function runUndo(client: MgmtClient, io: Io, receiptPath: string, outDir: string, opts: { force: boolean }) {
   const receipt = io.readJson(receiptPath) as Receipt;
   if (!receipt || receipt.committed !== true) throw new Error(`receipt ${receiptPath} is not committed; nothing to undo (verify prod state by hand)`);
+  if (receipt.runId.startsWith("undo-")) throw new Error(`receipt ${receiptPath} is an undo receipt; redo is not supported, re-run the original ops file instead`);
   const current = await fetchRefRows(client, receipt.snapshots.refs.map((r) => r.cigar_id));
   const warnings = reverseWarnings(receipt, current);
   for (const w of warnings) io.log(`WARNING: ${w}`);
@@ -94,16 +95,44 @@ export async function runUndo(client: MgmtClient, io: Io, receiptPath: string, o
 export async function runProbeTxn(client: MgmtClient, io: Io): Promise<"rolled back" | "NOT rolled back"> {
   await client.query("drop table if exists _ae_txn_probe;");
   try {
-    await client.batch(["create table _ae_txn_probe (id int);", "insert into _ae_txn_probe values (1);", "select 1 / 0;"]);
-    io.log("probe batch did not error; the channel may not run statements together");
-  } catch (e) {
-    io.log(`probe batch errored as intended: ${(e as Error).message.slice(0, 120)}`);
+    return await probeOnce(client, io);
+  } finally {
+    await client.query("drop table if exists _ae_txn_probe;");
   }
-  const [{ n }] = await client.query<{ n: number | string }>(
-    "select count(*) as n from _ae_txn_probe;",
-  ).catch(() => [{ n: 0 }]); // table absent = whole batch rolled back
-  await client.query("drop table if exists _ae_txn_probe;");
-  const result = Number(n) === 0 ? "rolled back" : "NOT rolled back";
-  io.log(`transaction probe: ${result}`);
-  return result;
+}
+
+async function probeOnce(client: MgmtClient, io: Io): Promise<"rolled back" | "NOT rolled back"> {
+  let batchError: Error | null = null;
+  try {
+    await client.batch(["create table _ae_txn_probe (id int);", "insert into _ae_txn_probe values (1);", "select 1 / 0;"]);
+  } catch (e) {
+    batchError = e as Error;
+  }
+
+  if (!batchError) {
+    io.log("probe batch did not error; the channel may not run statements together");
+    io.log("transaction probe: NOT rolled back");
+    return "NOT rolled back";
+  }
+
+  // A transport failure or unrelated server error never proves anything about the transaction.
+  if (!/division by zero/i.test(batchError.message)) {
+    throw new Error(`transaction probe inconclusive: ${batchError.message}`);
+  }
+  io.log(`probe batch errored as intended: ${batchError.message.slice(0, 120)}`);
+
+  try {
+    const [{ n }] = await client.query<{ n: number | string }>("select count(*) as n from _ae_txn_probe;");
+    const result = Number(n) === 0 ? "rolled back" : "NOT rolled back";
+    io.log(`transaction probe: ${result}`);
+    return result;
+  } catch (e) {
+    const message = (e as Error).message;
+    // Postgres 42P01: the table itself never landed, so the whole batch was rolled back.
+    if (/does not exist/i.test(message)) {
+      io.log("transaction probe: rolled back");
+      return "rolled back";
+    }
+    throw new Error(`transaction probe inconclusive: ${message}`);
+  }
 }
