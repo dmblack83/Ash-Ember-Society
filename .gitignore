@@ -63,3 +63,6 @@ next-env.d.ts
 /blob-report
 /playwright/.cache
 verification-shots/
+
+# catalog cleanup executor outputs (ops, previews, receipts)
+.catalog-cleanup-out/

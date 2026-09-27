@@ -92,9 +92,9 @@ node scripts/catalog-cleanup/executor.mjs undo receipt-<ts>.json    # reverses t
 
 Token and project ref come from env at run time: `SUPABASE_MGMT_TOKEN` (pasted per session, never written to `.env.local`) and `SUPABASE_PROJECT_REF` (may live in `.env.local`; it is not a secret). The executor refuses to start `execute`/`undo` without a token and prints the revoke URL when it finishes.
 
-`execute` always runs `preview` first and aborts on any precondition failure. It never applies a partial run: all ops in one `begin … commit` inside a single Management API request; any error rolls everything back and the receipt is discarded (a receipt only exists for a committed run).
+`execute` always runs `preview` first and aborts on any precondition failure. It never applies a partial run: all ops go in ONE Management API request as a multi-statement query with no explicit transaction control, which Postgres runs as a single implicit transaction (any statement error rolls the whole batch back). `executor.ts probe-txn` proves this once against prod before the first run (creates a probe table, inserts, forces an error, checks the insert is gone, drops the table). A receipt only counts once the API confirms the batch.
 
-Output files land in the session scratchpad by default (`--out <dir>` to override) so nothing generated lands in the repo by accident.
+Output files (ops, previews, receipts) land in `.catalog-cleanup-out/` at the repo root (git-ignored; `--out <dir>` to override). Receipts must outlive the session that produced them because an undo can happen days later, so the session scratchpad is not a safe default.
 
 ## 6. Preview and preconditions
 
