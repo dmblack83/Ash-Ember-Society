@@ -4,6 +4,7 @@ export interface LineRow {
   series: string | null;
   community_added: boolean;
   approved: boolean;
+  created_at: string | null;
 }
 
 export interface VitolaRow {
@@ -25,6 +26,7 @@ export interface VitolaRow {
   approved: boolean;
   image_url: string | null;
   source_id: string | null;
+  strength: string | null;
 }
 
 /** vitola id -> humidor_items + smoke_logs rows pointing at it */

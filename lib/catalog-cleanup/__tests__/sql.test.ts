@@ -8,12 +8,12 @@ const V1 = "33333333-3333-4333-8333-333333333333";
 const V2 = "44444444-4444-4444-8444-444444444444";
 
 const line = (id: string, brand: string, series: string | null): LineRow =>
-  ({ id, brand, series, community_added: false, approved: true });
+  ({ id, brand, series, community_added: false, approved: true, created_at: null });
 const vitola = (id: string, line_id: string, extra: Partial<VitolaRow> = {}): VitolaRow => ({
   id, line_id, brand: "B", series: "S", name: null, format: null, ring_gauge: null,
   length_inches: null, wrapper: null, shade: null, wrapper_country: null,
   binder_country: null, filler_countries: null, usage_count: 0,
-  community_added: false, approved: true, image_url: null, source_id: null, ...extra,
+  community_added: false, approved: true, image_url: null, source_id: null, strength: null, ...extra,
 });
 const ctx = (): CatalogContext => ({
   lines: new Map([[A, line(A, "Arturo Fuente", "Hemingway")], [B, line(B, "Arturo Fuente", "Hemingway NT")]]),

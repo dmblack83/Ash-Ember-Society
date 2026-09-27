@@ -86,6 +86,7 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
         if (mergedAway.has(s.id) || mergedAway.has(t.id)) return block(i, `a vitola in this merge is merged away earlier in this run`);
         if (s.line_id !== t.line_id) return block(i, `source and target are on different lines`);
         if (!op.reviewed && (ctx.refs[s.id] ?? 0) > 0) return block(i, `unreviewed merge: source has ${ctx.refs[s.id]} real reference(s)`);
+        if (!op.reviewed && [s, t].some((v) => v.community_added || !v.approved)) return block(i, `unreviewed merge touches a community-added or unapproved vitola`);
         mergedAway.add(s.id);
         return;
       }
@@ -95,7 +96,9 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
 }
 
 const cell = (v: unknown) => (v === null || v === undefined ? "(null)" : String(v)).replace(/\|/g, "\\|");
-const vitolaLabel = (v: VitolaRow) => `${cell(v.brand)} / ${cell(v.series)} / ${cell(v.name)} / ${cell(v.format)} ${cell(v.length_inches)}x${cell(v.ring_gauge)} ${cell(v.wrapper)} ${cell(v.shade)}`;
+const vitolaLabel = (v: VitolaRow) =>
+  `${cell(v.brand)} / ${cell(v.series)} / ${cell(v.name)} / ${cell(v.format)} ${cell(v.length_inches)}x${cell(v.ring_gauge)} ${cell(v.wrapper)} ${cell(v.shade)}` +
+  `${v.community_added ? " [community]" : ""}${!v.approved ? " [unapproved]" : ""}`;
 
 function describe(op: Op, ctx: CatalogContext): string {
   switch (op.type) {

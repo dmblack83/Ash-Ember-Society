@@ -2,9 +2,15 @@ import type { MgmtClient } from "./mgmt-client";
 import { uuidLit, UUID_RE } from "./sql";
 import type { CatalogContext, LineRow, RefCounts, RefRow, RefTable, VitolaRow } from "./types";
 
-export const VITOLA_COLUMNS =
-  "id, line_id, brand, series, name, format, ring_gauge, length_inches, wrapper, shade, wrapper_country, binder_country, filler_countries, usage_count, community_added, approved, image_url, source_id";
-export const LINE_COLUMNS = "id, brand, series, community_added, approved";
+/** Every non-generated cigar_catalog column. Snapshots, undo re-inserts, and the
+ *  execute-time schema check all derive from this one list. */
+export const VITOLA_COLUMN_LIST: readonly string[] = [
+  "id", "line_id", "brand", "series", "name", "format", "ring_gauge", "length_inches", "wrapper", "shade",
+  "wrapper_country", "binder_country", "filler_countries", "usage_count", "community_added", "approved",
+  "image_url", "source_id", "strength",
+];
+export const VITOLA_COLUMNS = VITOLA_COLUMN_LIST.join(", ");
+export const LINE_COLUMNS = "id, brand, series, community_added, approved, created_at";
 
 const num = (v: unknown): number | null => {
   if (v === null || v === undefined || v === "") return null;
@@ -39,14 +45,17 @@ export function normalizeVitola(raw: Record<string, unknown>): VitolaRow {
     binder_country: str(raw.binder_country), filler_countries: textArray(raw.filler_countries),
     usage_count: num(raw.usage_count) ?? 0,
     community_added: bool(raw.community_added), approved: bool(raw.approved),
-    image_url: str(raw.image_url), source_id: str(raw.source_id),
+    image_url: str(raw.image_url), source_id: str(raw.source_id), strength: str(raw.strength),
   };
 }
 
 export function normalizeLine(raw: Record<string, unknown>): LineRow {
   const brand = str(raw.brand);
   if (!brand) throw new Error(`line ${String(raw.id)}: brand is required`);
-  return { id: id(raw.id, "id"), brand, series: str(raw.series), community_added: bool(raw.community_added), approved: bool(raw.approved) };
+  return {
+    id: id(raw.id, "id"), brand, series: str(raw.series), community_added: bool(raw.community_added), approved: bool(raw.approved),
+    created_at: str(raw.created_at),
+  };
 }
 
 const idList = (ids: string[]) => `any(array[${ids.map(uuidLit).join(",")}])`;

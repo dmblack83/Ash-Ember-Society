@@ -1,5 +1,5 @@
 import { UUID_RE } from "./sql";
-import type { Op, OpsFile } from "./types";
+import type { OpsFile } from "./types";
 import { VITOLA_FIELD_KEYS } from "./types";
 
 export class OpsValidationError extends Error {
@@ -91,13 +91,4 @@ export function validateOpsFile(input: unknown): OpsFile {
   else input.ops.forEach((op, i) => errors.push(...validateOp(op, i)));
   if (errors.length) throw new OpsValidationError(errors);
   return input as unknown as OpsFile;
-}
-
-export function opTouchesVitola(op: Op, vitolaId: string): boolean {
-  switch (op.type) {
-    case "update_vitola": case "write_name": return op.vitolaId === vitolaId;
-    case "merge_vitola": return op.sourceVitolaId === vitolaId || op.targetVitolaId === vitolaId;
-    case "fold_line": return vitolaId in op.childFills;
-    case "rename_line": return false;
-  }
 }

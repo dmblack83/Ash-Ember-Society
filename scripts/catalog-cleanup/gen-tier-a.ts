@@ -4,13 +4,13 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createMgmtClient } from "../../lib/catalog-cleanup/mgmt-client";
+import { parseOut } from "../../lib/catalog-cleanup/cli-args";
 import { fetchLines, fetchRefCounts, fetchVitolas } from "../../lib/catalog-cleanup/catalog-read";
 import { generateTierA } from "../../lib/catalog-cleanup/rules-tier-a";
 import type { OpsFile } from "../../lib/catalog-cleanup/types";
 
-const args = process.argv.slice(2);
-const outIdx = args.indexOf("--out");
-const outDir = outIdx >= 0 ? args[outIdx + 1] : ".catalog-cleanup-out";
+let outDir: string;
+try { outDir = parseOut(process.argv.slice(2)).outDir; } catch (e) { console.error(e instanceof Error ? e.message : e); process.exit(2); }
 
 async function main() {
   const token = process.env.SUPABASE_MGMT_TOKEN ?? "";

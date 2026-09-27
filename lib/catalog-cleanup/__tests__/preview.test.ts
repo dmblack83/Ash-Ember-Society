@@ -9,11 +9,11 @@ const V1 = "33333333-3333-4333-8333-333333333333";
 const V2 = "44444444-4444-4444-8444-444444444444";
 const V3 = "66666666-6666-4666-8666-666666666666";
 const base = { reason: "r", generator: "t", reviewed: false };
-const line = (id: string, brand: string, series: string | null, community = false): LineRow => ({ id, brand, series, community_added: community, approved: true });
+const line = (id: string, brand: string, series: string | null, community = false): LineRow => ({ id, brand, series, community_added: community, approved: true, created_at: null });
 const vit = (id: string, line_id: string, extra: Partial<VitolaRow> = {}): VitolaRow => ({
   id, line_id, brand: "B", series: "S", name: null, format: null, ring_gauge: null, length_inches: null, wrapper: null,
   shade: null, wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0,
-  community_added: false, approved: true, image_url: null, source_id: null, ...extra,
+  community_added: false, approved: true, image_url: null, source_id: null, strength: null, ...extra,
 });
 const ctx = (over: Partial<CatalogContext> = {}): CatalogContext => ({
   lines: new Map([[A, line(A, "Arturo Fuente", "Hemingway")], [B, line(B, "Arturo Fuente", "Hemingway NT")], [C, line(C, "Padron", null, true)]]),
@@ -62,6 +62,14 @@ describe("checkPreconditions", () => {
     const c = ctx(); c.vitolas.set(V2, vit(V2, B));
     expect(checkPreconditions([{ ...base, type: "merge_vitola", sourceVitolaId: V1, targetVitolaId: V2 }], c)).toEqual([]);
     expect(checkPreconditions([{ ...base, type: "merge_vitola", sourceVitolaId: V1, targetVitolaId: V2 }], { ...c, refs: { [V1]: 1 } })[0].reason).toMatch(/real reference/);
+  });
+  it("blocks an unreviewed merge touching a community-added or unapproved vitola, and allows it when reviewed", () => {
+    const c = ctx(); c.vitolas.set(V2, vit(V2, B, { community_added: true }));
+    const op: Op = { ...base, type: "merge_vitola", sourceVitolaId: V1, targetVitolaId: V2 };
+    expect(checkPreconditions([op], c)).toEqual([expect.objectContaining({ reason: "unreviewed merge touches a community-added or unapproved vitola" })]);
+    expect(checkPreconditions([{ ...op, reviewed: true } as Op], c)).toEqual([]);
+    const u = ctx(); u.vitolas.set(V2, vit(V2, B)); u.vitolas.set(V1, vit(V1, B, { approved: false }));
+    expect(checkPreconditions([op], u)[0].reason).toMatch(/community-added or unapproved/);
   });
   it("blocks any other op on a vitola that is merged away in the same run", () => {
     const c = ctx(); c.vitolas.set(V2, vit(V2, B));
@@ -119,6 +127,12 @@ describe("renderPreview", () => {
     expect(md).toContain("shade: (null) → Natural");
     expect(md).toContain("## Blocked (1)");
     expect(md).toContain("vitola already has a name");
+  });
+  it("tags community-added and unapproved vitolas in the sample tables", () => {
+    const c = ctx(); c.vitolas.set(V2, vit(V2, B, { community_added: true, approved: false }));
+    const md = renderPreview({ ops: [{ ...base, type: "merge_vitola", sourceVitolaId: V1, targetVitolaId: V2 }], ctx: c, blocked: [], generator: "g" });
+    expect(md).toContain("[community]");
+    expect(md).toContain("[unapproved]");
   });
   it("marks QA-sample rows and says nothing to do for an empty file", () => {
     expect(renderPreview({ ops: [], ctx: ctx(), blocked: [], generator: "g" })).toContain("Nothing to do");

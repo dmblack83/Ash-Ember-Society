@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { normalizeVitola, normalizeLine, fetchRefCounts, fetchVitolasById, fetchRefRows, buildContext } from "../catalog-read";
+import { VITOLA_COLUMN_LIST, VITOLA_COLUMNS, normalizeVitola, normalizeLine, fetchRefCounts, fetchVitolasById, fetchRefRows, buildContext } from "../catalog-read";
 import type { MgmtClient } from "../mgmt-client";
 
 const A = "11111111-1111-4111-8111-111111111111";
@@ -19,6 +19,9 @@ describe("normalizeVitola", () => {
     expect(v.usage_count).toBe(3);
     expect(v.community_added).toBe(false);
     expect(v.filler_countries).toEqual(["Nicaragua", "Dom. Rep"]);
+    expect(v.strength).toBeNull();
+    expect(normalizeVitola({ id: A, strength: "medium_full" }).strength).toBe("medium_full");
+    expect(normalizeLine({ id: A, brand: "P", created_at: "2026-09-06 10:00:00+00" }).created_at).toBe("2026-09-06 10:00:00+00");
   });
   it("keeps JSON arrays and maps missing usage_count to 0", () => {
     const v = normalizeVitola({ id: A, filler_countries: ["a"], usage_count: null });
@@ -34,7 +37,7 @@ describe("normalizeVitola", () => {
 describe("normalizeLine", () => {
   it("coerces booleans and requires brand", () => {
     expect(normalizeLine({ id: A, brand: "Padron", series: null, community_added: "t", approved: "f" }))
-      .toEqual({ id: A, brand: "Padron", series: null, community_added: true, approved: false });
+      .toEqual({ id: A, brand: "Padron", series: null, community_added: true, approved: false, created_at: null });
     expect(() => normalizeLine({ id: A, brand: null })).toThrow(/brand/);
   });
 });
@@ -77,5 +80,12 @@ describe("buildContext", () => {
     expect(ctx.lines.get(A)?.brand).toBe("P");
     expect(ctx.vitolas.get(B)?.line_id).toBe(A);
     expect(ctx.refs[B]).toBe(1);
+  });
+});
+
+describe("VITOLA_COLUMN_LIST", () => {
+  it("is the single source for the select string and includes strength", () => {
+    expect(VITOLA_COLUMNS).toBe(VITOLA_COLUMN_LIST.join(", "));
+    expect(VITOLA_COLUMN_LIST).toContain("strength");
   });
 });

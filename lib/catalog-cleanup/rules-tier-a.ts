@@ -115,21 +115,35 @@ export function generateTierA(lines: LineRow[], vitolas: VitolaRow[], refs: RefC
     movedIn.set(parent.id, [...(movedIn.get(parent.id) ?? []), ...xs]);
   }
 
-  /* R3: identical-composition vitolas within a line */
+  /* R3: identical-composition vitolas within a line. Vitola identity needs
+     known dims, and automatic merges only touch seeded, approved rows. */
+  const hasUnknownDims = (c: VitolaRow) => c.format === null || c.ring_gauge === null || c.length_inches === null;
+  const identity = (c: VitolaRow) => [norm(c.name), norm(c.wrapper), norm(c.shade)].join("|");
+  const vitLabel = (l: LineRow, d: VitolaRow) => `${label(l)} / ${d.name ?? "-"} ${d.length_inches ?? "?"}x${d.ring_gauge ?? "?"}`;
   for (const l of lines) {
     const ks = kids(l);
     if (ks.length < 2) continue;
+    const identityCount = new Map<string, number>();
+    for (const c of ks) identityCount.set(identity(c), (identityCount.get(identity(c)) ?? 0) + 1);
     const seen = new Map<string, VitolaRow[]>();
     for (const c of ks) {
-      const key = [norm(c.name), norm(c.format), c.ring_gauge ?? "", c.length_inches ?? "", norm(c.wrapper), norm(c.shade)].join("|");
+      if (hasUnknownDims(c)) {
+        if ((identityCount.get(identity(c)) ?? 0) > 1) {
+          deferred.push({ kind: "merge_vitola", flaggedWhy: "unknown dims", sourceVitolaId: c.id, label: vitLabel(l, c) }); summary.deferred++;
+        }
+        continue;
+      }
+      const key = [norm(c.name), norm(c.format), c.ring_gauge, c.length_inches, norm(c.wrapper), norm(c.shade)].join("|");
       seen.set(key, [...(seen.get(key) ?? []), c]);
     }
     for (const group of seen.values()) {
       if (group.length < 2) continue;
       const [keep, ...drop] = [...group].sort((a, b) => b.usage_count - a.usage_count || a.id.localeCompare(b.id));
+      const unseeded = group.some((c) => c.community_added === true || c.approved === false);
       for (const d of drop) {
         const r = refs[d.id] ?? 0;
-        const lbl = `${label(l)} / ${d.name ?? "-"} ${d.length_inches ?? "?"}x${d.ring_gauge ?? "?"}`;
+        const lbl = vitLabel(l, d);
+        if (unseeded) { deferred.push({ kind: "merge_vitola", flaggedWhy: "community-added or unapproved row in group", sourceVitolaId: d.id, targetVitolaId: keep.id, label: lbl }); summary.deferred++; continue; }
         if (r > 0) { deferred.push({ kind: "merge_vitola", flaggedWhy: `real references ${r}`, sourceVitolaId: d.id, targetVitolaId: keep.id, label: lbl }); summary.deferred++; continue; }
         const op: MergeVitolaOp = { type: "merge_vitola", sourceVitolaId: d.id, targetVitolaId: keep.id, generator: GEN, reviewed: false,
           reason: `identical full composition in ${label(l)} (name + format + dims + wrapper + shade)` };
