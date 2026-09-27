@@ -19,7 +19,7 @@ export const NOISE_FILL: Record<string, ChildFill> = {
 
 export const norm = (s: string | null | undefined): string =>
   (s ?? "").trim().toLowerCase().replace(/\s+/g, " ").replace(/\bsun grown\b/g, "sungrown");
-const tokens = (s: string | null | undefined) => norm(s).split(" ").filter(Boolean);
+export const tokens = (s: string | null | undefined) => norm(s).split(" ").filter(Boolean);
 const rawTokens = (s: string) => s.trim().replace(/\s+/g, " ").replace(/\bSun Grown\b/gi, "SunGrown").split(" ");
 
 export interface Deferred {
