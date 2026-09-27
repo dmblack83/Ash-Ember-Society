@@ -48,7 +48,7 @@ export function buildReceipt(args: { runId: string; opsFile: string; ops: Op[]; 
 
 function vitolaInsert(v: VitolaRow): string {
   const row = v as unknown as Record<string, unknown>;
-  const vals = VITOLA_COLUMN_LIST.map((c) => (c === "id" ? uuidLit(v.id) : c === "line_id" ? (v.line_id ? uuidLit(v.line_id) : "null") : lit(row[c] as never)));
+  const vals = VITOLA_COLUMN_LIST.map((c) => (c === "id" ? uuidLit(v.id) : c === "line_id" ? (v.line_id ? uuidLit(v.line_id) : "null") : c === "created_at" ? (v.created_at === null ? "now()" : lit(v.created_at)) : lit(row[c] as never)));
   return `insert into cigar_catalog (${VITOLA_COLUMN_LIST.join(", ")}) values (${vals.join(", ")}) on conflict (id) do nothing;`;
 }
 

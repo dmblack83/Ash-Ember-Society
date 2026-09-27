@@ -13,7 +13,7 @@ const line = (brand: string, series: string | null, extra: Partial<LineRow> = {}
 const vit = (l: LineRow, extra: Partial<VitolaRow> = {}): VitolaRow => ({
   id: uid(), line_id: l.id, brand: l.brand, series: l.series, name: null, format: "Robusto", ring_gauge: 50, length_inches: 5,
   wrapper: null, shade: null, wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0,
-  community_added: false, approved: true, image_url: null, source_id: "seed", strength: null, ...extra,
+  community_added: false, approved: true, image_url: null, source_id: "seed", strength: null, created_at: null, ...extra,
 });
 
 describe("NOISE_FILL", () => {

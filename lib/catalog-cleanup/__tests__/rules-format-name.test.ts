@@ -7,7 +7,7 @@ let n = 0;
 const uid = () => `${(++n).toString(16).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const vit = (extra: Partial<VitolaRow>): VitolaRow => ({
   id: uid(), line_id: uid(), brand: "B", series: "S", name: null, format: null, ring_gauge: 50, length_inches: 5, wrapper: null, shade: null,
-  wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0, community_added: false, approved: true, image_url: null, source_id: "seed", strength: null, ...extra,
+  wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0, community_added: false, approved: true, image_url: null, source_id: "seed", strength: null, created_at: null, ...extra,
 });
 
 describe("splitFormat", () => {

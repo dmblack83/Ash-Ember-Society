@@ -7,7 +7,7 @@ import type { CatalogContext, LineRow, RefCounts, RefRow, RefTable, VitolaRow } 
 export const VITOLA_COLUMN_LIST: readonly string[] = [
   "id", "line_id", "brand", "series", "name", "format", "ring_gauge", "length_inches", "wrapper", "shade",
   "wrapper_country", "binder_country", "filler_countries", "usage_count", "community_added", "approved",
-  "image_url", "source_id", "strength",
+  "image_url", "source_id", "strength", "created_at",
 ];
 export const VITOLA_COLUMNS = VITOLA_COLUMN_LIST.join(", ");
 export const LINE_COLUMNS = "id, brand, series, community_added, approved, created_at";
@@ -46,6 +46,7 @@ export function normalizeVitola(raw: Record<string, unknown>): VitolaRow {
     usage_count: num(raw.usage_count) ?? 0,
     community_added: bool(raw.community_added), approved: bool(raw.approved),
     image_url: str(raw.image_url), source_id: str(raw.source_id), strength: str(raw.strength),
+    created_at: str(raw.created_at),
   };
 }
 

@@ -27,6 +27,7 @@ export interface VitolaRow {
   image_url: string | null;
   source_id: string | null;
   strength: string | null;
+  created_at: string | null;
 }
 
 /** vitola id -> humidor_items + smoke_logs rows pointing at it */

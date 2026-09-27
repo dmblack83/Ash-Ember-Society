@@ -13,7 +13,7 @@ const line = (id: string, brand: string, series: string | null, community = fals
 const vit = (id: string, line_id: string, extra: Partial<VitolaRow> = {}): VitolaRow => ({
   id, line_id, brand: "B", series: "S", name: null, format: null, ring_gauge: null, length_inches: null, wrapper: null,
   shade: null, wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0,
-  community_added: false, approved: true, image_url: null, source_id: null, strength: null, ...extra,
+  community_added: false, approved: true, image_url: null, source_id: null, strength: null, created_at: null, ...extra,
 });
 const ctx = (over: Partial<CatalogContext> = {}): CatalogContext => ({
   lines: new Map([[A, line(A, "Arturo Fuente", "Hemingway")], [B, line(B, "Arturo Fuente", "Hemingway NT")], [C, line(C, "Padron", null, true)]]),
