@@ -75,8 +75,14 @@ describe("checkPreconditions", () => {
     expect(blocked[0].reason).toMatch(/merged away/);
   });
   it("blocks a line folded twice or renamed after being folded", () => {
-    expect(checkPreconditions([fold(), fold()], ctx())[1].reason).toMatch(/already folded/);
-    expect(checkPreconditions([fold(), { ...base, type: "rename_line", lineId: B, brand: "X", series: null }], ctx())[1].reason).toMatch(/folded away/);
+    const twice = checkPreconditions([fold(), fold()], ctx());
+    expect(twice).toHaveLength(1);
+    expect(twice[0]).toMatchObject({ opIndex: 1 });
+    expect(twice[0].reason).toMatch(/already folded/);
+    const renamed = checkPreconditions([fold(), { ...base, type: "rename_line", lineId: B, brand: "X", series: null }], ctx());
+    expect(renamed).toHaveLength(1);
+    expect(renamed[0]).toMatchObject({ opIndex: 1 });
+    expect(renamed[0].reason).toMatch(/folded away/);
   });
 });
 

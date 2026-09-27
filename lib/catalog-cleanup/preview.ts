@@ -13,22 +13,7 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
   const blocked: Blocked[] = [];
   const mergedAway = new Set<string>();
   const foldedAway = new Set<string>();
-  const conflictedLines = new Set<string>();  // Lines involved in conflicting operations
   const block = (i: number, reason: string) => blocked.push({ opIndex: i, reason });
-
-  // Pre-pass: detect lines with conflicting operations (fold + rename/fold)
-  for (let i = 0; i < ops.length; i++) {
-    const op = ops[i];
-    if (op.type === "fold_line") {
-      const laterOps = ops.slice(i + 1);
-      if (laterOps.some(o => (o.type === "fold_line" && o.sourceLineId === op.sourceLineId) || (o.type === "rename_line" && o.lineId === op.sourceLineId))) {
-        conflictedLines.add(op.sourceLineId);
-      }
-    } else if (op.type === "rename_line") {
-      const earlierFold = ops.slice(0, i).some(o => o.type === "fold_line" && o.sourceLineId === op.lineId);
-      if (earlierFold) conflictedLines.add(op.lineId);
-    }
-  }
 
   ops.forEach((op, i) => {
     switch (op.type) {
@@ -37,7 +22,6 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
         const tgt = ctx.lines.get(op.targetLineId);
         if (!src) return block(i, `source line ${op.sourceLineId} not found`);
         if (!tgt) return block(i, `target line ${op.targetLineId} not found`);
-        if (conflictedLines.has(op.sourceLineId)) return block(i, `line ${op.sourceLineId} already folded in this run`);
         if (foldedAway.has(op.sourceLineId)) return block(i, `line ${op.sourceLineId} already folded earlier in this run`);
         if (foldedAway.has(op.targetLineId)) return block(i, `target line ${op.targetLineId} was folded away earlier in this run`);
         const kids = childrenOf(ctx, src.id);
@@ -59,7 +43,6 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
       case "rename_line": {
         const line = ctx.lines.get(op.lineId);
         if (!line) return block(i, `line ${op.lineId} not found`);
-        if (conflictedLines.has(op.lineId)) return block(i, `line ${op.lineId} was folded away earlier in this run`);
         if (foldedAway.has(op.lineId)) return block(i, `line ${op.lineId} was folded away earlier in this run`);
         const ident = normIdent(op.brand, op.series);
         for (const other of ctx.lines.values()) {
