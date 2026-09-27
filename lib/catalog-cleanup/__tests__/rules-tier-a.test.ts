@@ -1,0 +1,89 @@
+// lib/catalog-cleanup/__tests__/rules-tier-a.test.ts
+import { describe, it, expect } from "vitest";
+import { generateTierA, NOISE_FILL, norm } from "../rules-tier-a";
+import { SHADES, WRAPPERS } from "../../cigar-taxonomy";
+import type { LineRow, VitolaRow } from "../types";
+
+let n = 0;
+const uid = () => `${(++n).toString(16).padStart(8, "0")}-0000-4000-8000-000000000000`;
+const line = (brand: string, series: string | null, extra: Partial<LineRow> = {}): LineRow => ({ id: uid(), brand, series, community_added: false, approved: true, ...extra });
+const vit = (l: LineRow, extra: Partial<VitolaRow> = {}): VitolaRow => ({
+  id: uid(), line_id: l.id, brand: l.brand, series: l.series, name: null, format: "Robusto", ring_gauge: 50, length_inches: 5,
+  wrapper: null, shade: null, wrapper_country: null, binder_country: null, filler_countries: null, usage_count: 0,
+  community_added: false, approved: true, image_url: null, source_id: "seed", ...extra,
+});
+
+describe("NOISE_FILL", () => {
+  it("only maps onto names that exist in the taxonomy", () => {
+    const shades = new Set(SHADES.map((s) => s.name)), wrappers = new Set(WRAPPERS.map((w) => w.name));
+    for (const fill of Object.values(NOISE_FILL)) {
+      if (fill.shade) expect(shades.has(fill.shade)).toBe(true);
+      if (fill.wrapper) expect(wrappers.has(fill.wrapper)).toBe(true);
+    }
+    expect(NOISE_FILL.nt).toEqual({ shade: "Natural" });
+    expect(NOISE_FILL.connecticut).toEqual({ wrapper: "Connecticut Shade" });
+  });
+});
+
+describe("generateTierA", () => {
+  it("R1: folds case/whitespace duplicate lines into the one with the most vitolas", () => {
+    const a = line("Chateau Fuente", null), b = line("chateau fuente ", null);
+    const vs = [vit(a), vit(a, { ring_gauge: 54 }), vit(b)];
+    const r = generateTierA([a, b], vs, {});
+    expect(r.ops).toEqual([expect.objectContaining({ type: "fold_line", sourceLineId: b.id, targetLineId: a.id, childFills: {} })]);
+    expect(r.ops[0].reason).toMatch(/case\/whitespace/);
+  });
+  it("R2: folds a wrapper-noise suffix line and fills the child's null shade", () => {
+    const p = line("Arturo Fuente", "Hemingway Best Seller"), x = line("Arturo Fuente", "Hemingway Best Seller NT");
+    const kid = vit(x);
+    const r = generateTierA([p, x], [vit(p), kid], {});
+    expect(r.ops).toEqual([expect.objectContaining({ type: "fold_line", sourceLineId: x.id, targetLineId: p.id, childFills: { [kid.id]: { shade: "Natural" } } })]);
+  });
+  it("R2: treats 'Sun Grown' as one token and maps it to the Sun Grown shade", () => {
+    const p = line("Oliva", "Serie G"), x = line("Oliva", "Serie G Sun Grown");
+    const kid = vit(x);
+    const r = generateTierA([p, x], [vit(p), kid], {});
+    expect(r.ops[0]).toMatchObject({ childFills: { [kid.id]: { shade: "Sun Grown" } } });
+  });
+  it("R2: does not fill when the child already carries the same value, and defers on a conflicting value", () => {
+    const p = line("AF", "Hemingway"), x = line("AF", "Hemingway Maduro"), y = line("AF", "Hemingway Oscuro");
+    const same = vit(x, { shade: "Maduro" }), conflict = vit(y, { shade: "Maduro" });
+    const r = generateTierA([p, x, y], [vit(p), same, conflict], {});
+    expect(r.ops).toEqual([expect.objectContaining({ sourceLineId: x.id, childFills: {} })]);
+    expect(r.deferred).toEqual([expect.objectContaining({ kind: "fold_line", sourceLineId: y.id, flaggedWhy: expect.stringMatching(/conflict/) })]);
+  });
+  it("R2: defers named remainders, community-added lines, and lines with real references", () => {
+    const p = line("L'Atelier", "Imports"), sub = line("L'Atelier", "Imports La Mission");
+    const c = line("Padron", "1964"), cc = line("Padron", "1964 Maduro", { community_added: true });
+    const u = line("Oliva", "V"), ux = line("Oliva", "V Maduro");
+    const uKid = vit(ux);
+    const r = generateTierA([p, sub, c, cc, u, ux], [vit(p), vit(sub), vit(c), vit(cc), vit(u), uKid], { [uKid.id]: 1 });
+    expect(r.ops).toEqual([]);
+    expect(r.deferred.map((d) => d.flaggedWhy).sort()).toEqual(["community-added", "named remainder (possible sub-brand)", "real references 1"].sort());
+  });
+  it("R3: merges identical-composition vitolas within a line, keeping the highest usage, and never merges by name alone", () => {
+    const l = line("Perdomo", "Habano Bourbon Barrel-Aged");
+    const keep = vit(l, { name: "Maduro", usage_count: 3 }), dup = vit(l, { name: "Maduro", usage_count: 1 });
+    const otherSize = vit(l, { name: "Maduro", ring_gauge: 54, length_inches: 6 });
+    const r = generateTierA([l], [keep, dup, otherSize], {});
+    expect(r.ops).toEqual([expect.objectContaining({ type: "merge_vitola", sourceVitolaId: dup.id, targetVitolaId: keep.id })]);
+  });
+  it("R3: defers a duplicate whose source has real references", () => {
+    const l = line("X", "Y");
+    const keep = vit(l), dup = vit(l);
+    const r = generateTierA([l], [keep, dup], { [dup.id]: 2 });
+    expect(r.ops).toEqual([]);
+    expect(r.deferred[0]).toMatchObject({ kind: "merge_vitola", flaggedWhy: "real references 2" });
+  });
+  it("reports a summary", () => {
+    const r = generateTierA([], [], {});
+    expect(r.summary).toEqual({ caseDupeFolds: 0, noiseFolds: 0, vitolaMerges: 0, deferred: 0 });
+  });
+});
+
+describe("norm", () => {
+  it("lowercases, trims, collapses whitespace, and joins sun grown", () => {
+    expect(norm("  Serie  G  Sun Grown ")).toBe("serie g sungrown");
+    expect(norm(null)).toBe("");
+  });
+});

@@ -23,6 +23,7 @@ export const SHADES: OptionWithDescription[] = [
   { name: "Candela / Double Claro", description: "Bright Green" },
   { name: "Claro",                  description: "Pale Tan" },
   { name: "Colorado Claro",         description: "Light Brown / Natural" },
+  { name: "Natural",                description: "Light Brown / Untreated" },
   { name: "Colorado",               description: "Medium Brown / Reddish" },
   { name: "Rosado Sun Grown",       description: "Reddish / Sun-Grown" },
   { name: "Sun Grown",              description: "Dark Brown / Sun-Grown" },
