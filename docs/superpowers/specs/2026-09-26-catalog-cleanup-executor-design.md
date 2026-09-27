@@ -29,25 +29,32 @@ generators/*.mjs  ──►  ops.json  ──►  executor.mjs ──preview─�
                                           └──undo <receipt>──►  reverse ops, one transaction
 ```
 
-Location: `scripts/catalog-cleanup/` (committed; replaces the untracked `.catalog-audit-v2.tmp.mjs` / `.format-analysis.tmp.mjs` / `.research-targets.tmp.mjs` in the repo root, which are deleted once their logic moves in).
+Location: logic in `lib/catalog-cleanup/` (TypeScript, unit-tested by the repo's runner, which only scans `lib/**/*.test.ts`), thin CLIs in `scripts/catalog-cleanup/` run with `npx tsx`. Replaces the untracked `.catalog-audit-v2.tmp.mjs` / `.format-analysis.tmp.mjs` / `.research-targets.tmp.mjs` in the repo root, which are deleted once their logic moves in.
 
 ```
+lib/catalog-cleanup/
+├── types.ts             # LineRow, VitolaRow, RefCounts, Op union, OpsFile, Receipt
+├── sql.ts               # literal escaping + SQL text per op type (forward and reverse)
+├── ops.ts               # OpsFile validation
+├── mgmt-client.ts       # Management API query channel (token, project ref, SQL in / rows out, transaction wrapper)
+├── catalog-read.ts      # fetch lines + vitolas + real reference counts
+├── preview.ts           # precondition checks + markdown rendering
+├── receipt.ts           # snapshot affected rows, derive undo ops
+├── rules-tier-a.ts      # pass 1 generator: case-dupe lines, wrapper-noise folds, identical vitola pairs
+├── rules-format-name.ts # pass 1 generator: format→name split
+└── __tests__/           # vitest, fixture rows only, never prod
 scripts/catalog-cleanup/
-├── lib/
-│   ├── mgmt-client.mjs      # Management API query channel (token, project ref, SQL in / rows out)
-│   ├── catalog-read.mjs     # fetch lines + vitolas + real reference counts
-│   ├── ops.mjs              # op schema, validation, canonical SQL per op type
-│   ├── preview.mjs          # precondition checks + markdown rendering
-│   └── receipt.mjs          # snapshot affected rows, build undo ops
-├── generators/
-│   ├── rules-tier-a.mjs     # pass 1: case-dupe lines, wrapper-noise folds, identical vitola pairs
-│   ├── rules-format-name.mjs# pass 1: format→name split
-│   └── review-export.mjs    # optional: mockups page export v3 → ops (kept for later passes)
-├── executor.mjs             # CLI: preview | execute | undo | refs
+├── executor.ts          # CLI: refs | preview | execute | undo
+├── gen-tier-a.ts        # CLI wrapper for rules-tier-a
+├── gen-format-name.ts   # CLI wrapper for rules-format-name
 └── README.md
 ```
 
-Tests: `tests/unit/catalog-cleanup/*.test.ts` (vitest, already the repo's unit runner) on `ops`, `preview`, `receipt`, and both rule generators, against fixture rows. No test touches prod.
+The review-page export generator (`review-export`) is deferred: Dave restarted the cleanup as if no page decisions existed.
+
+Taxonomy change (in scope): `lib/cigar-taxonomy.ts` `SHADES` gains `Natural` (the seed data's `NT` / `Natural` suffix has no plain shade to land on today; `Colorado Claro` is described as natural but is a different value). Wrapper-noise tokens map as: `nt`/`natural` → shade `Natural`; `md`/`maduro` → shade `Maduro`; `oscuro` → shade `Oscuro / Double Maduro`; `claro` → shade `Claro`; `sungrown`/`sun grown` → shade `Sun Grown`; `connecticut` → wrapper `Connecticut Shade`; `broadleaf` → wrapper `Connecticut Broadleaf`; `habano` → wrapper `Habano`; `corojo` → wrapper `Corojo`; `cameroon` → wrapper `Cameroon`. The preview sample is where Dave vetoes any of these mappings.
+
+Tests: `lib/catalog-cleanup/__tests__/*.test.ts` (vitest, `npm run test:unit`) against fixture rows. No test touches prod.
 
 ## 4. Operations file
 
