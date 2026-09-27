@@ -13,7 +13,7 @@ const line = (id: string, brand: string, series: string | null): LineRow => ({ i
 const vit = (id: string, line_id: string, extra: Partial<VitolaRow> = {}): VitolaRow => ({
   id, line_id, brand: "Arturo Fuente", series: "Hemingway NT", name: null, format: "Robusto", ring_gauge: 50, length_inches: 5,
   wrapper: null, shade: null, wrapper_country: "Ecuador", binder_country: null, filler_countries: ["Dom. Rep"], usage_count: 2,
-  community_added: false, approved: true, image_url: "https://img", source_id: "seed-9", strength: null, ...extra,
+  community_added: false, approved: true, image_url: "https://img", source_id: "seed-9", strength: null, created_at: null, ...extra,
 });
 const ctx = (): CatalogContext => ({
   lines: new Map([[A, line(A, "Arturo Fuente", "Hemingway")], [B, line(B, "Arturo Fuente", "Hemingway NT")]]),
@@ -68,7 +68,7 @@ describe("buildReceipt + reverseSql", () => {
     const r = buildReceipt({ runId: "run3", opsFile: "o", ops, lines: [], vitolas: [...c.vitolas.values()], refs: [{ table: "humidor_items", id: H1, cigar_id: V1 }] });
     const sql = reverseSql(r);
     expect(sql[0]).toBe(
-      `insert into cigar_catalog (id, line_id, brand, series, name, format, ring_gauge, length_inches, wrapper, shade, wrapper_country, binder_country, filler_countries, usage_count, community_added, approved, image_url, source_id, strength) values (${uuidLit(V1)}, ${uuidLit(B)}, 'Arturo Fuente', 'Hemingway NT', null, 'Robusto', 50, 5, null, null, 'Ecuador', null, array['Dom. Rep']::text[], 2, false, true, 'https://img', 'seed-9', null) on conflict (id) do nothing;`,
+      `insert into cigar_catalog (id, line_id, brand, series, name, format, ring_gauge, length_inches, wrapper, shade, wrapper_country, binder_country, filler_countries, usage_count, community_added, approved, image_url, source_id, strength, created_at) values (${uuidLit(V1)}, ${uuidLit(B)}, 'Arturo Fuente', 'Hemingway NT', null, 'Robusto', 50, 5, null, null, 'Ecuador', null, array['Dom. Rep']::text[], 2, false, true, 'https://img', 'seed-9', null, now()) on conflict (id) do nothing;`,
     );
     expect(sql[1]).toBe(`update humidor_items set cigar_id = ${uuidLit(V1)} where id = ${uuidLit(H1)} and cigar_id = ${uuidLit(V2)};`);
     expect(sql[2]).toBe(`update cigar_catalog set usage_count = 2, image_url = 'https://img' where id = ${uuidLit(V2)};`);

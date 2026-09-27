@@ -117,12 +117,12 @@ describe("runExecute snapshot column check", () => {
     expect(batches).toHaveLength(1);
   });
   it("throws before writing a receipt when prod has a column the list lacks, or lacks a listed column", async () => {
-    for (const cols of [[...VITOLA_COLUMN_LIST, "created_at"], VITOLA_COLUMN_LIST.filter((c) => c !== "strength")]) {
+    for (const cols of [[...VITOLA_COLUMN_LIST, "updated_at"], VITOLA_COLUMN_LIST.filter((c) => c !== "strength")]) {
       const { client, batches, query } = fakeClient();
       const base = query.getMockImplementation()!;
       query.mockImplementation(async (sql: string) => (/information_schema\.columns/.test(sql) ? cols.map((c) => ({ column_name: c })) : base(sql)));
       const files: Record<string, unknown> = { "ops.json": opsFile };
-      await expect(runExecute(client, fakeIo(files).io, "ops.json", "out")).rejects.toThrow(/snapshot column list .*(missing prod column\(s\): created_at|prod lacks: strength)/);
+      await expect(runExecute(client, fakeIo(files).io, "ops.json", "out")).rejects.toThrow(/snapshot column list .*(missing prod column\(s\): updated_at|prod lacks: strength)/);
       expect(batches).toHaveLength(0);
       expect(Object.keys(files).some((k) => k.includes("receipt-"))).toBe(false);
     }
