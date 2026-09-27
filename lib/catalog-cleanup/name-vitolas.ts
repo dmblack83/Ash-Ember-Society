@@ -11,6 +11,13 @@ export interface DimsFlag { vitolaId: string; label: string; ours: { ring: numbe
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
 const rank = (c: Confidence) => CONF.indexOf(c);
+const HTTP_RE = /^https?:\/\//;
+
+/** trim + strip a single trailing slash, so "https://a" and "https://a/" count as one source */
+const normUrl = (u: string): string => {
+  const t = u.trim();
+  return t.endsWith("/") ? t.slice(0, -1) : t;
+};
 
 export function validateNameFile(input: unknown, fileName: string): NameFile {
   const fail = (why: string): never => { throw new Error(`${fileName}: ${why}`); };
@@ -26,6 +33,7 @@ export function validateNameFile(input: unknown, fileName: string): NameFile {
     if (r.name !== null && typeof r.name !== "string") fail(`names[${i}].name must be a string or null`);
     if (!CONF.includes(r.confidence as Confidence)) fail(`names[${i}].confidence must be high|medium|low`);
     if (!Array.isArray(r.sourceUrls) || r.sourceUrls.some((u) => typeof u !== "string")) fail(`names[${i}].sourceUrls must be a string array`);
+    if ((r.sourceUrls as string[]).some((u) => !HTTP_RE.test(u))) fail(`names[${i}].sourceUrls must be http(s) urls`);
     if (r.note !== undefined && typeof r.note !== "string") fail(`names[${i}].note must be a string`);
     if (r.dimsFlag !== undefined) {
       if (!isObj(r.dimsFlag)) fail(`names[${i}].dimsFlag must be an object`);
@@ -33,12 +41,23 @@ export function validateNameFile(input: unknown, fileName: string): NameFile {
       if (d.ring !== undefined && typeof d.ring !== "number") fail(`names[${i}].dimsFlag.ring must be a number`);
       if (d.length !== undefined && typeof d.length !== "number") fail(`names[${i}].dimsFlag.length must be a number`);
       if (typeof d.sourceUrl !== "string") fail(`names[${i}].dimsFlag.sourceUrl must be a string`);
+      if (!HTTP_RE.test(d.sourceUrl as string)) fail(`names[${i}].dimsFlag.sourceUrl must be an http(s) url`);
     }
   });
   return o as unknown as NameFile;
 }
 
 const label = (v: VitolaRow) => `${v.brand ?? "?"} / ${v.series ?? "-"} / ${v.format ?? "?"} ${v.length_inches ?? "?"}x${v.ring_gauge ?? "?"}`;
+
+/** Returns the matched brand/series text (as stored on the vitola) when `clean` equals,
+ *  case-insensitively, the brand, the series, or "brand series" - null parts are skipped. */
+const matchesBrandSeries = (v: VitolaRow, clean: string): string | null => {
+  const lc = clean.toLowerCase();
+  const brand = v.brand?.trim();
+  const series = v.series?.trim();
+  const candidates = [brand, series, brand && series ? `${brand} ${series}` : undefined].filter((c): c is string => !!c);
+  return candidates.find((c) => c.toLowerCase() === lc) ?? null;
+};
 
 export function generateNameVitolas(args: { nameFiles: NameFile[]; vitolas: VitolaRow[]; minConfidence?: Confidence }) {
   const min = args.minConfidence ?? "high";
@@ -58,28 +77,43 @@ export function generateNameVitolas(args: { nameFiles: NameFile[]; vitolas: Vito
     const v = byId.get(vitolaId);
     const results = [...perModel.values()];
     if (!v) { for (const r of results) { rejected.push(`${r.file}: unknown vitola ${vitolaId}`); summary.rejected++; } continue; }
-    for (const r of results) if (r.dimsFlag) { dimsFlags.push({ vitolaId, label: label(v), ours: { ring: v.ring_gauge, length: v.length_inches }, published: { ...(r.dimsFlag.ring !== undefined ? { ring: r.dimsFlag.ring } : {}), ...(r.dimsFlag.length !== undefined ? { length: r.dimsFlag.length } : {}) }, sourceUrl: r.dimsFlag.sourceUrl }); summary.dimsFlags++; }
+    for (const r of results) if (r.dimsFlag) { dimsFlags.push({ vitolaId, label: label(v), ours: { ring: v.ring_gauge, length: v.length_inches }, published: { ...(r.dimsFlag.ring !== undefined ? { ring: r.dimsFlag.ring } : {}), ...(r.dimsFlag.length !== undefined ? { length: r.dimsFlag.length } : {}) }, sourceUrl: normUrl(r.dimsFlag.sourceUrl) }); summary.dimsFlags++; }
     const named = results.filter((r) => r.name !== null);
     if (named.length === 0) { summary.notFound++; continue; }
     if (v.name !== null) { summary.alreadyNamed++; continue; }
-    const valid: Array<NameResult & { file: string; clean: string }> = [];
-    for (const r of named) {
-      const clean = (r.name as string).trim().replace(/\s+/g, " ");
+
+    /* every non-null cleaned name, independent of whether it will later be rejected -
+     * a rejected candidate still counts toward cross-model disagreement */
+    const cleanedNamed = named.map((r) => ({ ...r, clean: (r.name as string).trim().replace(/\s+/g, " ") }));
+    const distinctAll = new Set(cleanedNamed.map((r) => r.clean.toLowerCase()));
+
+    const valid: Array<NameResult & { file: string; clean: string; urls: string[] }> = [];
+    for (const r of cleanedNamed) {
+      const clean = r.clean;
       if (!clean) { rejected.push(`${r.file}: empty name for ${vitolaId}`); summary.rejected++; continue; }
       if (clean.length > 120) { rejected.push(`${r.file}: name over 120 chars for ${vitolaId}`); summary.rejected++; continue; }
       if (v.format && clean.toLowerCase() === v.format.trim().toLowerCase()) { rejected.push(`${r.file}: name equals the format "${v.format}" for ${vitolaId}`); summary.rejected++; continue; }
-      if (r.confidence === "high" && new Set(r.sourceUrls).size < 2) { rejected.push(`${r.file}: high confidence needs two distinct sources for ${vitolaId}`); summary.rejected++; continue; }
-      valid.push({ ...r, clean });
+      const brandSeries = matchesBrandSeries(v, clean);
+      if (brandSeries) { rejected.push(`${r.file}: name equals the line's brand/series "${brandSeries}" for ${vitolaId}`); summary.rejected++; continue; }
+      const urls = r.sourceUrls.map(normUrl);
+      if (r.confidence === "high" && new Set(urls).size < 2) { rejected.push(`${r.file}: high confidence needs two distinct sources for ${vitolaId}`); summary.rejected++; continue; }
+      valid.push({ ...r, clean, urls });
     }
-    if (valid.length === 0) continue;
-    const distinct = new Set(valid.map((r) => r.clean.toLowerCase()));
-    if (distinct.size > 1) {
+
+    if (distinctAll.size > 1) {
       summary.disagreements++; summary.pending++;
-      pending.push({ vitolaId, label: label(v), name: valid[0].clean, confidence: valid[0].confidence, sourceUrls: valid.flatMap((r) => r.sourceUrls), note: `models disagree: ${valid.map((r) => `${r.file.split("/")[0]} "${r.clean}"`).join(" vs ")}` });
+      pending.push({
+        vitolaId, label: label(v),
+        name: cleanedNamed[0].clean, confidence: cleanedNamed[0].confidence,
+        sourceUrls: [...new Set(cleanedNamed.flatMap((r) => r.sourceUrls.map(normUrl)))],
+        note: `models disagree: ${cleanedNamed.map((r) => `${r.file.split("/")[0]} "${r.clean}"`).join(" vs ")}`,
+      });
       continue;
     }
+
+    if (valid.length === 0) continue;
     const best = [...valid].sort((a, b) => rank(a.confidence) - rank(b.confidence))[0];
-    const urls = [...new Set(valid.flatMap((r) => r.sourceUrls))];
+    const urls = [...new Set(valid.flatMap((r) => r.urls))];
     if (rank(best.confidence) <= rank(min)) {
       const op: WriteNameOp = { type: "write_name", vitolaId, name: best.clean, confidence: best.confidence, sourceUrl: urls[0], evidence: urls.map((url) => ({ url })),
         reason: `web research: ${best.note ?? "dims-matched published size name"}`, generator: "name-vitolas", reviewed: false };

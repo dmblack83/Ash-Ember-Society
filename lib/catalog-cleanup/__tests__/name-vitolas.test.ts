@@ -75,4 +75,29 @@ describe("generateNameVitolas", () => {
     expect(r.ops).toEqual([expect.objectContaining({ vitolaId: v.id, name: "Right" })]);
     expect(r.pending).toEqual([]);
   });
+  it("treats a rejected result as still contributing to model disagreement", () => {
+    const v = vit();
+    const r = generateNameVitolas({ nameFiles: [
+      file("modelA", [res(v.id, "Short Story", "high", ["https://only"])]),
+      file("modelB", [res(v.id, "Best Seller", "high", ["https://a", "https://b"])]),
+    ], vitolas: [v] });
+    expect(r.ops).toEqual([]);
+    expect(r.pending).toEqual([expect.objectContaining({ vitolaId: v.id, note: expect.stringMatching(/models disagree/) })]);
+    expect(r.rejected).toHaveLength(1);
+    expect(r.rejected.join("\n")).toMatch(/two distinct sources/);
+  });
+  it("validates url format and normalizes urls before counting distinct sources", () => {
+    expect(() => validateNameFile(file("opus", [res(uid(), "x", "high", ["", "n/a"])]), "n.json")).toThrow(/sourceUrls must be http\(s\)/);
+    expect(() => validateNameFile(file("opus", [res(uid(), "x", "high", ["https://a"], { dimsFlag: { ring: 50, sourceUrl: "not-a-url" } })]), "n.json")).toThrow(/dimsFlag\.sourceUrl must be an http\(s\) url/);
+    const v = vit();
+    const r = generateNameVitolas({ nameFiles: [file("opus", [res(v.id, "Short Story", "high", ["https://a", "https://a/"])])], vitolas: [v] });
+    expect(r.ops).toEqual([]);
+    expect(r.rejected.join("\n")).toMatch(/two distinct sources/);
+  });
+  it("rejects a name equal to the brand or series but accepts a distinct name", () => {
+    const bad = vit(), good = vit();
+    const r = generateNameVitolas({ nameFiles: [file("opus", [res(bad.id, "Hemingway"), res(good.id, "Short Story")])], vitolas: [bad, good] });
+    expect(r.ops).toEqual([expect.objectContaining({ vitolaId: good.id, name: "Short Story" })]);
+    expect(r.rejected.join("\n")).toMatch(/name equals the line's brand\/series "Hemingway"/);
+  });
 });
