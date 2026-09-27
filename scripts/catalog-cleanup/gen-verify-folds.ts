@@ -13,6 +13,10 @@ const { outDir, rest } = parseOut(process.argv.slice(2));
 const dIdx = rest.indexOf("--decisions");
 const decisionsPath = dIdx >= 0 ? rest[dIdx + 1] : null;
 if (dIdx >= 0 && !decisionsPath) { console.error("--decisions needs a file"); process.exit(2); }
+if (decisionsPath && path.resolve(decisionsPath) === path.resolve(outDir, "review.json")) {
+  console.error("copy review.json to review-decided.json and edit that; the output file is overwritten each run");
+  process.exit(2);
+}
 
 async function main() {
   const token = process.env.SUPABASE_MGMT_TOKEN ?? "";
@@ -33,6 +37,10 @@ async function main() {
   fs.writeFileSync(path.join(outDir, "resolved-keep.json"), JSON.stringify(r.resolvedKeep, null, 2));
   console.log(`verdict files: ${files.length}; ${JSON.stringify(r.summary)}`);
   for (const s of r.skipped) console.log(`skipped: ${s}`);
+  for (const o of r.orphans) {
+    const models = verdictFiles.filter((f) => f.verdicts.some((vd) => vd.targetId === o)).map((f) => f.model);
+    console.log(`orphan verdict: ${o} (${models.join(", ")})`);
+  }
   console.log(`wrote ops-verify-folds.json (${r.ops.length} ops), review.json (${r.review.length} for Dave), resolved-keep.json (${r.resolvedKeep.length})`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });
