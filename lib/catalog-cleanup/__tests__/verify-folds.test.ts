@@ -64,6 +64,9 @@ describe("generateVerifyFolds", () => {
     const p = line("A", "B"), s = line("A", "B C");
     const keepT: FoldTarget = { kind: "fold", id: `fold:${s.id}:${p.id}`, a: sum(s), b: sum(p), flaggedWhy: "x" };
     expect(generateVerifyFolds({ targets: [keepT], verdictFiles: [v("fable", keepT.id, "keep"), v("opus", keepT.id, "keep")], lines: [p, s], vitolas: [], refs: {} }).resolvedKeep).toEqual([keepT.id]);
+    const unevidenced = generateVerifyFolds({ targets: [keepT], verdictFiles: [v("fable", keepT.id, "keep", []), v("opus", keepT.id, "keep", [])], lines: [p, s], vitolas: [], refs: {} });
+    expect(unevidenced.resolvedKeep).toEqual([]);
+    expect(unevidenced.review[0].why).toBe("a model cited no url");
 
     const refChild = vit(s);
     const refT: FoldTarget = { ...keepT };
@@ -107,6 +110,35 @@ describe("generateVerifyFolds", () => {
     const t: FoldTarget = { kind: "fold", id: `fold:${s.id}:${p.id}`, a: sum(s), b: sum(p), flaggedWhy: "x" };
     const r = generateVerifyFolds({ targets: [t], verdictFiles: [v("fable", "fold:unknown:unknown", "fold")], lines: [p, s], vitolas: [], refs: {} });
     expect(r.orphans).toContain("fold:unknown:unknown");
+  });
+  it("sends two agreed folds of the same source line (A into B, A near-dupe into C) to review as a conflict", () => {
+    const b = line("A", "B"), a = line("A", "B C"), c = line("A", "B  C.");
+    const t1: FoldTarget = { kind: "fold", id: `fold:${a.id}:${b.id}`, a: sum(a), b: sum(b), flaggedWhy: "x" };
+    const t2: FoldTarget = { kind: "near_dupe", id: `near_dupe:${a.id}:${c.id}`, a: sum(a), b: sum(c), flaggedWhy: "trigram 90%" };
+    const r = generateVerifyFolds({ targets: [t1, t2], verdictFiles: [v("fable", t1.id, "fold"), v("opus", t1.id, "fold"), v("fable", t2.id, "merge_a_into_b"), v("opus", t2.id, "merge_a_into_b")], lines: [a, b, c], vitolas: [], refs: {} });
+    expect(r.ops).toEqual([]);
+    expect(r.review.map((i) => i.targetId)).toEqual([t1.id, t2.id]);
+    expect(r.review.every((i) => /conflicts with another fold/.test(i.why))).toBe(true);
+    expect(r.review[0].why).toContain(t2.id);
+    expect(r.review[0].verdicts).toHaveLength(2);
+    expect(r.summary).toMatchObject({ autoFolds: 0, review: 2 });
+  });
+  it("sends a chain (A into B, B into C) to review because B is both a source and a target", () => {
+    const a = line("A", "X Y Z"), b = line("A", "X Y"), c = line("A", "X");
+    const t1: FoldTarget = { kind: "fold", id: `fold:${a.id}:${b.id}`, a: sum(a), b: sum(b), flaggedWhy: "x" };
+    const t2: FoldTarget = { kind: "fold", id: `fold:${b.id}:${c.id}`, a: sum(b), b: sum(c), flaggedWhy: "x" };
+    const r = generateVerifyFolds({ targets: [t1, t2], verdictFiles: [v("fable", t1.id, "fold"), v("opus", t1.id, "fold"), v("fable", t2.id, "fold"), v("opus", t2.id, "fold")], lines: [a, b, c], vitolas: [], refs: {} });
+    expect(r.ops).toEqual([]);
+    expect(r.review).toHaveLength(2);
+    expect(r.review.every((i) => /conflicts with another fold/.test(i.why))).toBe(true);
+  });
+  it("includes decided ops in conflict detection", () => {
+    const a = line("A", "X Y Z"), b = line("A", "X Y"), c = line("A", "X");
+    const t1: FoldTarget = { kind: "fold", id: `fold:${a.id}:${b.id}`, a: sum(a), b: sum(b), flaggedWhy: "x" };
+    const t2: FoldTarget = { kind: "fold", id: `fold:${b.id}:${c.id}`, a: sum(b), b: sum(c), flaggedWhy: "x" };
+    const r = generateVerifyFolds({ targets: [t1, t2], verdictFiles: [v("fable", t1.id, "fold"), v("opus", t1.id, "fold")], decisions: [{ targetId: t2.id, decision: "fold" }], lines: [a, b, c], vitolas: [], refs: {} });
+    expect(r.ops).toEqual([]);
+    expect(r.review.map((i) => i.targetId).sort()).toEqual([t1.id, t2.id].sort());
   });
   it("reports a summary", () => {
     expect(generateVerifyFolds({ targets: [], verdictFiles: [], lines: [], vitolas: [], refs: {} }).summary).toEqual({ targets: 0, autoFolds: 0, resolvedKeep: 0, review: 0, skipped: 0, decided: 0 });

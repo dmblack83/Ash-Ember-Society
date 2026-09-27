@@ -1,11 +1,11 @@
 /* Pass-2 exporter: writes research batches for the fold-verdict and naming agents.
  * Run: SUPABASE_MGMT_TOKEN=... npx tsx scripts/catalog-cleanup/gen-research-targets.ts [--out .catalog-cleanup-out] [--max-per-batch 40]
- * Reads <out>/deferred.json (from gen-tier-a). Writes <out>/research/targets/folds.json and <out>/research/targets/names-NN.json */
+ * Reads <out>/deferred.json (from gen-tier-a). Writes <out>/research/targets/folds-NN.json and <out>/research/targets/names-NN.json */
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { createMgmtClient } from "../../lib/catalog-cleanup/mgmt-client";
 import { fetchLines, fetchRefCounts, fetchVitolas } from "../../lib/catalog-cleanup/catalog-read";
-import { buildFoldTargets, buildNameBatches } from "../../lib/catalog-cleanup/research-targets";
+import { batchFoldTargets, buildFoldTargets, buildNameBatches } from "../../lib/catalog-cleanup/research-targets";
 import { parseOut } from "../../lib/catalog-cleanup/cli-args";
 
 const { outDir, rest } = parseOut(process.argv.slice(2));
@@ -25,9 +25,11 @@ async function main() {
   const names = buildNameBatches(lines, vitolas, refs, maxPerBatch);
   const dir = path.join(outDir, "research", "targets");
   fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, "folds.json"), JSON.stringify(folds, null, 2));
+  const foldBatches = batchFoldTargets(folds, maxPerBatch);
+  for (const f of fs.readdirSync(dir)) if (f === "folds.json" || /^folds-\d+\.json$/.test(f)) fs.unlinkSync(path.join(dir, f));
+  for (const b of foldBatches) fs.writeFileSync(path.join(dir, `${b.batch}.json`), JSON.stringify(b, null, 2));
   for (const b of names) fs.writeFileSync(path.join(dir, `${b.batch}.json`), JSON.stringify(b, null, 2));
-  console.log(`fold targets: ${folds.filter((f) => f.kind === "fold").length} folds + ${folds.filter((f) => f.kind === "near_dupe").length} near-dupes -> ${path.join(dir, "folds.json")}`);
+  console.log(`fold targets: ${folds.filter((f) => f.kind === "fold").length} folds + ${folds.filter((f) => f.kind === "near_dupe").length} near-dupes -> ${foldBatches.length} batch files (folds-NN.json), max ${maxPerBatch} per batch`);
   console.log(`name batches: ${names.length} files, ${names.reduce((s, b) => s + b.vitolas.length, 0)} nameless vitolas, max ${maxPerBatch} per batch`);
 }
 main().catch((e) => { console.error(e instanceof Error ? e.message : e); process.exit(1); });

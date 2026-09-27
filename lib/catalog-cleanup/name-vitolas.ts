@@ -114,7 +114,11 @@ export function generateNameVitolas(args: { nameFiles: NameFile[]; vitolas: Vito
     if (valid.length === 0) continue;
     const best = [...valid].sort((a, b) => rank(a.confidence) - rank(b.confidence))[0];
     const urls = [...new Set(valid.flatMap((r) => r.urls))];
-    if (rank(best.confidence) <= rank(min)) {
+    /* a disputed size is never auto-named: the name may belong to the published size, not ours */
+    const disputed = results.find((r) => r.dimsFlag)?.dimsFlag;
+    if (disputed) {
+      pending.push({ vitolaId, label: label(v), name: best.clean, confidence: best.confidence, sourceUrls: urls, note: `dims disagree with published size (${disputed.ring ?? "?"}/${disputed.length ?? "?"})` }); summary.pending++;
+    } else if (rank(best.confidence) <= rank(min)) {
       const op: WriteNameOp = { type: "write_name", vitolaId, name: best.clean, confidence: best.confidence, sourceUrl: urls[0], evidence: urls.map((url) => ({ url })),
         reason: `web research: ${best.note ?? "dims-matched published size name"}`, generator: "name-vitolas", reviewed: false };
       ops.push(op); summary.ops++;

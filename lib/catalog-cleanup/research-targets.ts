@@ -37,6 +37,9 @@ function summarize(l: LineRow, vitolas: VitolaRow[], refs: RefCounts): LineSumma
   return { lineId: l.id, brand: l.brand, series: l.series, communityAdded: l.community_added || kids.some((k) => k.community_added), refs: vs.reduce((s, v) => s + v.refs, 0), vitolas: vs };
 }
 
+/** whitespace-split series text with no normalisation, so both sides of a remainder slice count words alike */
+const rawTokens = (x: string | null) => (x ?? "").trim().split(/\s+/).filter(Boolean);
+
 export function buildFoldTargets(deferred: DeferredEntry[], lines: LineRow[], vitolas: VitolaRow[], refs: RefCounts): FoldTarget[] {
   const byId = new Map(lines.map((l) => [l.id, l]));
   const out: FoldTarget[] = [];
@@ -44,13 +47,21 @@ export function buildFoldTargets(deferred: DeferredEntry[], lines: LineRow[], vi
     if (d.kind !== "fold_line" || !d.sourceLineId || !d.targetLineId) continue;
     const s = byId.get(d.sourceLineId), t = byId.get(d.targetLineId);
     if (!s || !t) continue;
-    const remainderTokens = (s.series ?? "").trim().replace(/\s+/g, " ").split(" ").slice(tokens(t.series).length);
+    const remainderTokens = rawTokens(s.series).slice(rawTokens(t.series).length);
     out.push({ kind: "fold", id: `fold:${s.id}:${t.id}`, a: summarize(s, vitolas, refs), b: summarize(t, vitolas, refs), remainder: remainderTokens.join(" "), flaggedWhy: d.flaggedWhy });
   }
   for (const p of findNearDupeSeries(lines)) {
     const a = byId.get(p.a)!, b = byId.get(p.b)!;
     out.push({ kind: "near_dupe", id: `near_dupe:${p.a}:${p.b}`, a: summarize(a, vitolas, refs), b: summarize(b, vitolas, refs), flaggedWhy: `trigram ${Math.round(p.similarity * 100)}%` });
   }
+  return out;
+}
+
+/** Splits fold targets into consecutive batches of at most `maxPerBatch`, in input order,
+ *  named folds-01, folds-02, ... so parallel research agents each own one file. */
+export function batchFoldTargets(targets: FoldTarget[], maxPerBatch = 40): Array<{ batch: string; targets: FoldTarget[] }> {
+  const out: Array<{ batch: string; targets: FoldTarget[] }> = [];
+  for (let i = 0; i < targets.length; i += maxPerBatch) out.push({ batch: `folds-${String(out.length + 1).padStart(2, "0")}`, targets: targets.slice(i, i + maxPerBatch) });
   return out;
 }
 

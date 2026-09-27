@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildFoldTargets, buildNameBatches, findNearDupeSeries, trigramSimilarity } from "../research-targets";
+import { batchFoldTargets, buildFoldTargets, buildNameBatches, findNearDupeSeries, trigramSimilarity } from "../research-targets";
 import type { LineRow, VitolaRow } from "../types";
 
 let n = 0;
@@ -45,6 +45,11 @@ describe("buildFoldTargets", () => {
     expect([nd.a.lineId, nd.b.lineId]).toEqual([x.id, y.id].sort());
     expect(nd.id).toBe(`near_dupe:${[x.id, y.id].sort().join(":")}`);
   });
+  it("computes the remainder from raw tokens on both sides (Sun Grown parent, Sun Grown Toro child -> Toro)", () => {
+    const p = line("Brand", "Sun Grown"), s = line("Brand", "Sun Grown Toro");
+    const t = buildFoldTargets([{ kind: "fold_line", flaggedWhy: "x", sourceLineId: s.id, targetLineId: p.id, label: "x" }], [p, s], [], {});
+    expect(t[0].remainder).toBe("Toro");
+  });
   it("ignores deferred entries that are not folds and folds whose lines no longer exist", () => {
     const p = line("A", "B");
     const t = buildFoldTargets([
@@ -52,6 +57,17 @@ describe("buildFoldTargets", () => {
       { kind: "fold_line", flaggedWhy: "community-added", sourceLineId: uid(), targetLineId: p.id, label: "gone" },
     ], [p], [vit(p)], {});
     expect(t).toEqual([]);
+  });
+});
+
+describe("batchFoldTargets", () => {
+  it("splits 90 targets at cap 40 into folds-01..03 of 40/40/10 in input order", () => {
+    const l = line("A", "B");
+    const targets = Array.from({ length: 90 }, (_, i) => ({ kind: "fold" as const, id: `t${i}`, a: { lineId: l.id, brand: "A", series: "B", communityAdded: false, refs: 0, vitolas: [] }, b: { lineId: l.id, brand: "A", series: "B", communityAdded: false, refs: 0, vitolas: [] }, flaggedWhy: "x" }));
+    const batches = batchFoldTargets(targets, 40);
+    expect(batches.map((b) => b.batch)).toEqual(["folds-01", "folds-02", "folds-03"]);
+    expect(batches.map((b) => b.targets.length)).toEqual([40, 40, 10]);
+    expect(batches.flatMap((b) => b.targets.map((t) => t.id))).toEqual(targets.map((t) => t.id));
   });
 });
 

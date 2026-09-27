@@ -62,6 +62,7 @@ export function generateVerifyFolds(args: { targets: FoldTarget[]; verdictFiles:
   const targetIds = new Set(args.targets.map((t) => t.id));
   const orphans = [...byTarget.keys()].filter((id) => !targetIds.has(id));
 
+  const emitted: Array<{ op: FoldLineOp; t: FoldTarget; reviewed: boolean; verdicts: ReviewItem["verdicts"] }> = [];
   const emit = (t: FoldTarget, source: string, target: string, reviewed: boolean, verdicts: Array<Verdict & { model: string }>) => {
     const op: FoldLineOp = {
       type: "fold_line", sourceLineId: source, targetLineId: target, childFills: {},
@@ -70,7 +71,7 @@ export function generateVerifyFolds(args: { targets: FoldTarget[]; verdictFiles:
       evidence: verdicts.flatMap((v) => v.urls.map((url) => ({ url }))),
       ...(!reviewed && verdicts.length >= 2 ? { agreement: { modelA: verdicts[0].model, modelB: verdicts[1].model } } : {}),
     };
-    ops.push(op);
+    emitted.push({ op, t, reviewed, verdicts: verdicts.map((v) => ({ model: v.model, answer: v.answer, reason: v.reason, urls: v.urls })) });
   };
 
   for (const t of args.targets) {
@@ -94,13 +95,13 @@ export function generateVerifyFolds(args: { targets: FoldTarget[]; verdictFiles:
 
     if (verdicts.length < 2) { toReview(`only ${verdicts.length} model(s) answered`); continue; }
     if (verdicts.some((v) => v.answer === "unsure")) { toReview("a model answered unsure"); continue; }
+    if (verdicts.some((v) => v.urls.length === 0)) { toReview("a model cited no url"); continue; }
     if (verdicts.every((v) => v.answer === "keep")) { resolvedKeep.push(t.id); summary.resolvedKeep++; continue; }
     const invalid = verdicts.find((v) => v.answer !== "keep" && ((t.kind === "fold" && v.answer !== "fold") || (t.kind === "near_dupe" && v.answer === "fold")));
     if (invalid) { toReview(`answer "${invalid.answer}" is not valid for a ${t.kind} target`); continue; }
     const dirs = verdicts.map((v) => direction(v.answer));
     if (dirs.some((d) => d === null)) { toReview("models disagree (fold vs keep)"); continue; }
     if (t.kind === "near_dupe" && new Set(dirs.map((d) => d!.join(">"))).size > 1) { toReview("models disagree on merge direction"); continue; }
-    if (verdicts.some((v) => v.urls.length === 0)) { toReview("a model cited no url"); continue; }
     const [source, target] = dirs[0]!;
     const sourceLine = source === t.a.lineId ? a : b;
     const children = args.vitolas.filter((vt) => vt.line_id === source);
@@ -109,6 +110,23 @@ export function generateVerifyFolds(args: { targets: FoldTarget[]; verdictFiles:
     if (liveCommunity) { toReview("source line is community-added"); continue; }
     if (liveRefs > 0) { toReview(`source line has ${liveRefs} real references`); continue; }
     emit(t, source, target, false, verdicts); summary.autoFolds++;
+  }
+  /* conflicts: a line folded away by two ops, or folded away while also absorbing another line.
+   * Every op involved goes to review (decided ops included - Dave resolves), the rest ship. */
+  const asSource = new Map<string, number>(), asTarget = new Map<string, number>();
+  for (const { op } of emitted) {
+    asSource.set(op.sourceLineId, (asSource.get(op.sourceLineId) ?? 0) + 1);
+    asTarget.set(op.targetLineId, (asTarget.get(op.targetLineId) ?? 0) + 1);
+  }
+  const conflictLines = new Set([...asSource.keys()].filter((id) => asSource.get(id)! > 1 || asTarget.has(id)));
+  const touches = (op: FoldLineOp) => conflictLines.has(op.sourceLineId) || conflictLines.has(op.targetLineId);
+  const shares = (x: FoldLineOp, y: FoldLineOp) => [x.sourceLineId, x.targetLineId].some((id) => conflictLines.has(id) && (id === y.sourceLineId || id === y.targetLineId));
+  for (const e of emitted) {
+    if (!touches(e.op)) { ops.push(e.op); continue; }
+    const others = emitted.filter((o) => o !== e && shares(e.op, o.op)).map((o) => o.t.id);
+    review.push({ targetId: e.t.id, label: label(e.t), why: `conflicts with another fold in this run (${others.join(", ")})`, verdicts: e.verdicts });
+    summary.review++;
+    if (!e.reviewed) summary.autoFolds--;
   }
   return { ops, resolvedKeep, review, skipped, summary, orphans };
 }

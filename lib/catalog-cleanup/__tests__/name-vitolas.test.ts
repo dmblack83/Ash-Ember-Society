@@ -61,10 +61,19 @@ describe("generateNameVitolas", () => {
     expect(r.pending).toEqual([expect.objectContaining({ vitolaId: w.id, note: expect.stringMatching(/models disagree/) })]);
   });
   it("collects dims flags and honours --min-confidence medium", () => {
-    const v = vit();
-    const r = generateNameVitolas({ nameFiles: [file("opus", [res(v.id, "Signature", "medium", ["https://a"], { dimsFlag: { ring: 50, sourceUrl: "https://a" } })])], vitolas: [v], minConfidence: "medium" });
-    expect(r.ops).toHaveLength(1);
+    const v = vit(), w = vit();
+    const r = generateNameVitolas({ nameFiles: [file("opus", [res(v.id, "Signature", "medium", ["https://a"], { dimsFlag: { ring: 50, sourceUrl: "https://a" } }), res(w.id, "Corona", "medium", ["https://a"])])], vitolas: [v, w], minConfidence: "medium" });
+    expect(r.ops).toEqual([expect.objectContaining({ vitolaId: w.id, name: "Corona" })]);
+    expect(r.pending).toEqual([expect.objectContaining({ vitolaId: v.id, note: "dims disagree with published size (50/?)" })]);
     expect(r.dimsFlags).toEqual([{ vitolaId: v.id, label: "Arturo Fuente / Hemingway / Perfecto 4x49", ours: { ring: 49, length: 4 }, published: { ring: 50 }, sourceUrl: "https://a" }]);
+  });
+  it("never writes a name for a result carrying dimsFlag, even at high confidence with two sources", () => {
+    const v = vit();
+    const r = generateNameVitolas({ nameFiles: [file("opus", [res(v.id, "Short Story", "high", ["https://a", "https://b"], { dimsFlag: { ring: 48, length: 4.25, sourceUrl: "https://a" } })])], vitolas: [v] });
+    expect(r.ops).toEqual([]);
+    expect(r.pending).toEqual([expect.objectContaining({ vitolaId: v.id, name: "Short Story", note: expect.stringMatching(/dims disagree/) })]);
+    expect(r.dimsFlags).toHaveLength(1);
+    expect(r.summary).toMatchObject({ ops: 0, pending: 1, dimsFlags: 1 });
   });
   it("collapses model families so a re-labeled same model overrides its earlier name with no disagreement", () => {
     const v = vit();

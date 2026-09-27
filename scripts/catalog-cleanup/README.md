@@ -91,12 +91,12 @@ logs). Set `reviewed: true` on an op only after a human looked at it.
 
 ## Pass 2: web-verified folds and names
 
-1. `npx tsx scripts/catalog-cleanup/gen-research-targets.ts` writes `research/targets/folds.json` and `research/targets/names-NN.json` (40 vitolas per batch, biggest brands first).
-2. Claude runs research agents: for folds, TWO agents on different models per batch, each writing `research/verdicts/folds-<model>.json`, using `scripts/catalog-cleanup/research/fold-verdict-prompt.md`; for names, one agent per batch writing `research/names/<batch>-<model>.json`, using `name-vitolas-prompt.md`.
+1. `npx tsx scripts/catalog-cleanup/gen-research-targets.ts` writes `research/targets/folds-NN.json` (40 fold targets per batch) and `research/targets/names-NN.json` (40 vitolas per batch, biggest brands first). `--max-per-batch` sets both caps.
+2. Claude runs research agents: for each folds-NN.json, TWO agents on different model families, each writing `research/verdicts/folds-NN-<model>.json`, using `scripts/catalog-cleanup/research/fold-verdict-prompt.md`; for names, one agent per batch writing `research/names/<batch>-<model>.json`, using `name-vitolas-prompt.md`.
 3. `npx tsx scripts/catalog-cleanup/gen-verify-folds.ts` writes `ops-verify-folds.json` (both models agreed, seeded, no references), `review.json` (everything else, with both reasons and links) and `resolved-keep.json`.
-4. Dave answers `review.json`: copy it to `review-decided.json` as a list of `{ "targetId": "...", "decision": "fold|keep|merge_a_into_b|merge_b_into_a" }`, then re-run `gen-verify-folds.ts --decisions review-decided.json`. Decided items become reviewed ops.
+4. Dave answers `review.json`: copy it to `review-decided.json` as a list of `{ "targetId": "...", "decision": "fold|keep|merge_a_into_b|merge_b_into_a" }`, then re-run `gen-verify-folds.ts --decisions .catalog-cleanup-out/review-decided.json`. Decided items become reviewed ops; a decision whose targetId matches no target is printed as ignored. Two folds that touch the same line (one line folded twice, or folded while absorbing another) all go back to review as a conflict.
 5. `preview`, approve, `execute` the fold ops (same executor commands as pass 1).
-6. `npx tsx scripts/catalog-cleanup/gen-name-vitolas.ts` writes `ops-name-vitolas.json` (high confidence only), `names-pending.json` (medium, low, disagreements), `dims-flags.json`, `names-rejected.txt`.
+6. `npx tsx scripts/catalog-cleanup/gen-name-vitolas.ts` writes `ops-name-vitolas.json` (high confidence only), `names-pending.json` (medium, low, disagreements, and any size whose published dimensions disagree with ours), `dims-flags.json`, `names-rejected.txt`.
 7. `preview` (spot-check the QA rows and their links), `execute`.
 
 Name research can run in rounds: every batch file that exists is used; batches not yet researched are simply absent from the ops file. Re-running a batch with the same model replaces its earlier answers.
