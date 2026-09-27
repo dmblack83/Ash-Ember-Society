@@ -84,6 +84,25 @@ describe("checkPreconditions", () => {
     expect(renamed[0]).toMatchObject({ opIndex: 1 });
     expect(renamed[0].reason).toMatch(/folded away/);
   });
+  it("accepts childFills for a child that an earlier fold moved into the source line", () => {
+    const c = ctx();
+    const ops: Op[] = [
+      fold({ sourceLineId: C, targetLineId: B } as never),
+      fold({ sourceLineId: B, targetLineId: A, childFills: { [V3]: { shade: "Maduro" }, [V1]: { shade: "Maduro" } } } as never),
+    ];
+    c.lines.set(C, line(C, "Arturo Fuente", "Hemingway NT  ", false));
+    expect(checkPreconditions(ops, c)).toEqual([]);
+  });
+  it("gates a later fold on children that an earlier fold moved in", () => {
+    const c = ctx();
+    c.lines.set(C, line(C, "Arturo Fuente", "Hemingway NT  ", false));
+    const ops: Op[] = [
+      fold({ sourceLineId: C, targetLineId: B, reviewed: true } as never),
+      fold({ sourceLineId: B, targetLineId: A } as never),
+    ];
+    const blocked = checkPreconditions(ops, { ...c, refs: { [V3]: 1 } });
+    expect(blocked).toEqual([expect.objectContaining({ opIndex: 1, reason: expect.stringMatching(/real reference/) })]);
+  });
 });
 
 describe("renderPreview", () => {

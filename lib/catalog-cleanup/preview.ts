@@ -15,6 +15,16 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
   const foldedAway = new Set<string>();
   const block = (i: number, reason: string) => blocked.push({ opIndex: i, reason });
 
+  /* Running view of vitola -> line, updated as folds execute in order, so a
+     later op sees children an earlier fold in this same run already moved
+     into its source line (the generator can legitimately emit childFills for
+     such a child; the static ctx.vitolas.line_id would still show it under
+     its original line and wrongly block it). */
+  const lineOf = new Map<string, string | null>();
+  for (const v of ctx.vitolas.values()) lineOf.set(v.id, v.line_id);
+  const currentKids = (lineId: string): VitolaRow[] =>
+    [...ctx.vitolas.values()].filter((v) => lineOf.get(v.id) === lineId);
+
   ops.forEach((op, i) => {
     switch (op.type) {
       case "fold_line": {
@@ -24,7 +34,7 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
         if (!tgt) return block(i, `target line ${op.targetLineId} not found`);
         if (foldedAway.has(op.sourceLineId)) return block(i, `line ${op.sourceLineId} already folded earlier in this run`);
         if (foldedAway.has(op.targetLineId)) return block(i, `target line ${op.targetLineId} was folded away earlier in this run`);
-        const kids = childrenOf(ctx, src.id);
+        const kids = currentKids(src.id);
         if (!op.reviewed) {
           if (src.community_added || kids.some((k) => k.community_added)) return block(i, `unreviewed fold of a community-added line (${src.brand} / ${src.series ?? "-"})`);
           const referenced = kids.filter((k) => (ctx.refs[k.id] ?? 0) > 0);
@@ -32,11 +42,12 @@ export function checkPreconditions(ops: Op[], ctx: CatalogContext): Blocked[] {
         }
         for (const [vid, fill] of Object.entries(op.childFills)) {
           const kid = ctx.vitolas.get(vid);
-          if (!kid || kid.line_id !== src.id) { block(i, `childFills vitola ${vid} is not a child of the source line`); continue; }
+          if (!kid || lineOf.get(vid) !== src.id) { block(i, `childFills vitola ${vid} is not a child of the source line`); continue; }
           if (mergedAway.has(vid)) block(i, `childFills vitola ${vid} is merged away in this run`);
           if (fill.shade !== undefined && kid.shade !== null) block(i, `child ${vid} already has shade "${kid.shade}"`);
           if (fill.wrapper !== undefined && kid.wrapper !== null) block(i, `child ${vid} already has wrapper "${kid.wrapper}"`);
         }
+        for (const k of kids) lineOf.set(k.id, op.targetLineId);
         foldedAway.add(op.sourceLineId);
         return;
       }

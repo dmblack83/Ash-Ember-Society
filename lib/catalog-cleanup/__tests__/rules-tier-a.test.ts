@@ -1,6 +1,8 @@
 // lib/catalog-cleanup/__tests__/rules-tier-a.test.ts
 import { describe, it, expect } from "vitest";
 import { generateTierA, NOISE_FILL, norm } from "../rules-tier-a";
+import { checkPreconditions } from "../preview";
+import { buildContext } from "../catalog-read";
 import { SHADES, WRAPPERS } from "../../cigar-taxonomy";
 import type { LineRow, VitolaRow } from "../types";
 
@@ -124,5 +126,24 @@ describe("norm", () => {
   it("lowercases, trims, collapses whitespace, and joins sun grown", () => {
     expect(norm("  Serie  G  Sun Grown ")).toBe("serie g sungrown");
     expect(norm(null)).toBe("");
+  });
+});
+
+describe("generateTierA output passes checkPreconditions", () => {
+  it("R1 keep then R2 with moved-in fills is accepted by the preview layer", () => {
+    const parent = line("AF", "Hemingway"), keep = line("AF", "Hemingway Maduro"), dup = line("AF", "Hemingway  Maduro");
+    const vitolas = [vit(parent), vit(keep), vit(dup)];
+    const lines = [parent, keep, dup];
+    const r = generateTierA(lines, vitolas, {});
+    expect(r.ops).toHaveLength(2);
+    expect(checkPreconditions(r.ops, buildContext(lines, vitolas, {}))).toEqual([]);
+  });
+  it("chained R2 folds are accepted by the preview layer in either row order", () => {
+    const root = line("Drew Estate", "Undercrown"), mid = line("Drew Estate", "Undercrown Connecticut"), deep = line("Drew Estate", "Undercrown Connecticut Maduro");
+    const vitolas = [vit(root), vit(mid), vit(deep)];
+    for (const lines of [[deep, mid, root], [root, mid, deep]]) {
+      const r = generateTierA(lines, vitolas, {});
+      expect(checkPreconditions(r.ops, buildContext(lines, vitolas, {}))).toEqual([]);
+    }
   });
 });
