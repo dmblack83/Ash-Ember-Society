@@ -36,7 +36,11 @@ export function generateTierA(lines: LineRow[], vitolas: VitolaRow[], refs: RefC
   const kidsOf = new Map<string, VitolaRow[]>();
   for (const v of vitolas) if (v.line_id) kidsOf.set(v.line_id, [...(kidsOf.get(v.line_id) ?? []), v]);
   const kids = (l: LineRow) => kidsOf.get(l.id) ?? [];
-  const refsOf = (l: LineRow) => kids(l).reduce((s, k) => s + (refs[k.id] ?? 0), 0);
+  /** target line id -> children folded into it earlier in this run (R1 or R2). */
+  const movedIn = new Map<string, VitolaRow[]>();
+  /** a line's own children plus any that already rode a fold into it this run. R2 gates and fills key off this. */
+  const effectiveKids = (l: LineRow) => [...kids(l), ...(movedIn.get(l.id) ?? [])];
+  const refsOf = (l: LineRow) => effectiveKids(l).reduce((s, k) => s + (refs[k.id] ?? 0), 0);
   const label = (l: LineRow) => `${l.brand} / ${l.series ?? "-"}`;
   const folded = new Set<string>();
   const summary = { caseDupeFolds: 0, noiseFolds: 0, vitolaMerges: 0, deferred: 0 };
@@ -51,54 +55,64 @@ export function generateTierA(lines: LineRow[], vitolas: VitolaRow[], refs: RefC
       const op: FoldLineOp = { type: "fold_line", sourceLineId: d.id, targetLineId: keep.id, childFills: {}, generator: GEN, reviewed: false,
         reason: `case/whitespace duplicate of ${label(keep)}` };
       ops.push(op); folded.add(d.id); summary.caseDupeFolds++;
+      movedIn.set(keep.id, [...(movedIn.get(keep.id) ?? []), ...effectiveKids(d)]);
     }
   }
 
-  /* R2: wrapper-noise suffix folds */
+  /* R2: wrapper-noise suffix folds. Process ascending by series token length
+     (ties by id) rather than input order: a shorter noise line must fold
+     into its parent before a longer line under the same parent is
+     considered, so the longer line's own parent search skips the
+     already-folded intermediate (excluded via `folded`) and resolves
+     straight to the root with the FULL remainder, instead of losing the
+     intermediate's fills to row-order chance. */
   const byBrand = new Map<string, LineRow[]>();
   for (const l of lines) byBrand.set(norm(l.brand), [...(byBrand.get(norm(l.brand)) ?? []), l]);
-  for (const group of byBrand.values()) {
-    for (const x of group) {
-      if (!x.series || folded.has(x.id)) continue;
-      const tx = tokens(x.series);
-      let parent: LineRow | null = null;
-      for (const p of group) {
-        if (p.id === x.id || !p.series || folded.has(p.id)) continue;
-        const tp = tokens(p.series);
-        if (tp.length >= tx.length || !tp.every((t, i) => t === tx[i])) continue;
-        if (!parent || tokens(parent.series).length < tp.length) parent = p;
-      }
-      if (!parent) continue;
-      const remainder = tx.slice(tokens(parent.series).length);
-      const remainderRaw = rawTokens(x.series).slice(tokens(parent.series).length).join(" ");
-      const defer = (why: string) => { deferred.push({ kind: "fold_line", flaggedWhy: why, sourceLineId: x.id, targetLineId: parent!.id, label: `${label(x)} → ${label(parent!)} [${remainderRaw}]` }); summary.deferred++; };
-      if (!remainder.every((t) => t in NOISE_FILL)) { defer("named remainder (possible sub-brand)"); continue; }
-      const xs = kids(x);
-      if (x.community_added || xs.some((k) => k.community_added)) { defer("community-added"); continue; }
-      const r = refsOf(x);
-      if (r > 0) { defer(`real references ${r}`); continue; }
-      const childFills: Record<string, ChildFill> = {};
-      let conflict: string | null = null;
-      for (const k of xs) {
-        const fill: ChildFill = {};
-        for (const t of remainder) {
-          const f = NOISE_FILL[t];
-          if (f.shade) {
-            if (k.shade === null) { if (fill.shade && fill.shade !== f.shade) conflict = `two shades in suffix (${fill.shade}, ${f.shade})`; fill.shade = f.shade; }
-            else if (norm(k.shade) !== norm(f.shade)) conflict = `child shade "${k.shade}" conflicts with suffix ${t}`;
-          }
-          if (f.wrapper) {
-            if (k.wrapper === null) { if (fill.wrapper && fill.wrapper !== f.wrapper) conflict = `two wrappers in suffix (${fill.wrapper}, ${f.wrapper})`; fill.wrapper = f.wrapper; }
-            else if (norm(k.wrapper) !== norm(f.wrapper)) conflict = `child wrapper "${k.wrapper}" conflicts with suffix ${t}`;
-          }
-        }
-        if (Object.keys(fill).length) childFills[k.id] = fill;
-      }
-      if (conflict) { defer(conflict); continue; }
-      ops.push({ type: "fold_line", sourceLineId: x.id, targetLineId: parent.id, childFills, generator: GEN, reviewed: false,
-        reason: `series extends "${parent.series}" by wrapper-noise "${remainderRaw}"` });
-      folded.add(x.id); summary.noiseFolds++;
+  const r2Candidates = lines
+    .filter((l) => l.series && !folded.has(l.id))
+    .sort((a, b) => tokens(a.series).length - tokens(b.series).length || a.id.localeCompare(b.id));
+  for (const x of r2Candidates) {
+    if (!x.series || folded.has(x.id)) continue;
+    const group = byBrand.get(norm(x.brand)) ?? [];
+    const tx = tokens(x.series);
+    let parent: LineRow | null = null;
+    for (const p of group) {
+      if (p.id === x.id || !p.series || folded.has(p.id)) continue;
+      const tp = tokens(p.series);
+      if (tp.length >= tx.length || !tp.every((t, i) => t === tx[i])) continue;
+      if (!parent || tokens(parent.series).length < tp.length) parent = p;
     }
+    if (!parent) continue;
+    const remainder = tx.slice(tokens(parent.series).length);
+    const remainderRaw = rawTokens(x.series).slice(tokens(parent.series).length).join(" ");
+    const defer = (why: string) => { deferred.push({ kind: "fold_line", flaggedWhy: why, sourceLineId: x.id, targetLineId: parent!.id, label: `${label(x)} → ${label(parent!)} [${remainderRaw}]` }); summary.deferred++; };
+    if (!remainder.every((t) => t in NOISE_FILL)) { defer("named remainder (possible sub-brand)"); continue; }
+    const xs = effectiveKids(x);
+    if (x.community_added || xs.some((k) => k.community_added)) { defer("community-added"); continue; }
+    const r = refsOf(x);
+    if (r > 0) { defer(`real references ${r}`); continue; }
+    const childFills: Record<string, ChildFill> = {};
+    let conflict: string | null = null;
+    for (const k of xs) {
+      const fill: ChildFill = {};
+      for (const t of remainder) {
+        const f = NOISE_FILL[t];
+        if (f.shade) {
+          if (k.shade === null) { if (fill.shade && fill.shade !== f.shade) conflict = `two shades in suffix (${fill.shade}, ${f.shade})`; fill.shade = f.shade; }
+          else if (norm(k.shade) !== norm(f.shade)) conflict = `child shade "${k.shade}" conflicts with suffix ${t}`;
+        }
+        if (f.wrapper) {
+          if (k.wrapper === null) { if (fill.wrapper && fill.wrapper !== f.wrapper) conflict = `two wrappers in suffix (${fill.wrapper}, ${f.wrapper})`; fill.wrapper = f.wrapper; }
+          else if (norm(k.wrapper) !== norm(f.wrapper)) conflict = `child wrapper "${k.wrapper}" conflicts with suffix ${t}`;
+        }
+      }
+      if (Object.keys(fill).length) childFills[k.id] = fill;
+    }
+    if (conflict) { defer(conflict); continue; }
+    ops.push({ type: "fold_line", sourceLineId: x.id, targetLineId: parent.id, childFills, generator: GEN, reviewed: false,
+      reason: `series extends "${parent.series}" by wrapper-noise "${remainderRaw}"` });
+    folded.add(x.id); summary.noiseFolds++;
+    movedIn.set(parent.id, [...(movedIn.get(parent.id) ?? []), ...xs]);
   }
 
   /* R3: identical-composition vitolas within a line */

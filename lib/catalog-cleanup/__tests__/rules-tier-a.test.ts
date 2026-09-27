@@ -79,6 +79,45 @@ describe("generateTierA", () => {
     const r = generateTierA([], [], {});
     expect(r.summary).toEqual({ caseDupeFolds: 0, noiseFolds: 0, vitolaMerges: 0, deferred: 0 });
   });
+  it("R2 chained: shorter noise line folds first and the longer one resolves to the root with the full remainder, regardless of row order", () => {
+    const root = line("Drew Estate", "Undercrown"), mid = line("Drew Estate", "Undercrown Connecticut"), deep = line("Drew Estate", "Undercrown Connecticut Maduro");
+    const midKid = vit(mid), deepKid = vit(deep);
+    for (const order of [[deep, mid, root], [root, mid, deep]]) {
+      const r = generateTierA(order, [vit(root), midKid, deepKid], {});
+      expect(r.ops.map((o) => o.type)).toEqual(["fold_line", "fold_line"]);
+      expect(r.ops[0]).toMatchObject({ sourceLineId: mid.id, targetLineId: root.id, childFills: { [midKid.id]: { wrapper: "Connecticut Shade" } } });
+      expect(r.ops[1]).toMatchObject({ sourceLineId: deep.id, targetLineId: root.id, childFills: { [deepKid.id]: { wrapper: "Connecticut Shade", shade: "Maduro" } } });
+      expect(r.deferred).toEqual([]);
+    }
+  });
+  it("R2 chained: a two-shade suffix is a conflict even when reached through a chain", () => {
+    const root = line("X", "Base"), mid = line("X", "Base Maduro"), deep = line("X", "Base Maduro Natural");
+    const r = generateTierA([deep, mid, root], [vit(root), vit(mid), vit(deep)], {});
+    expect(r.ops).toHaveLength(1);
+    expect(r.ops[0]).toMatchObject({ sourceLineId: mid.id });
+    expect(r.deferred).toEqual([expect.objectContaining({ sourceLineId: deep.id, flaggedWhy: expect.stringMatching(/two shades/) })]);
+  });
+  it("R1 keep then R2: children folded in by R1 count toward the R2 gates and fills", () => {
+    const parent = line("AF", "Hemingway"), keep = line("AF", "Hemingway Maduro"), dup = line("AF", "hemingway maduro", { community_added: true });
+    const dupKid = vit(dup, { community_added: true });
+    const r = generateTierA([parent, keep, dup], [vit(parent), vit(keep), dupKid], {});
+    expect(r.ops).toEqual([expect.objectContaining({ type: "fold_line", sourceLineId: dup.id, targetLineId: keep.id })]);
+    expect(r.deferred).toEqual([expect.objectContaining({ kind: "fold_line", sourceLineId: keep.id, flaggedWhy: "community-added" })]);
+  });
+  it("R1 keep then R2: a seeded, unreferenced R1 merge folds on with fills for every effective child", () => {
+    const parent = line("AF", "Hemingway"), keep = line("AF", "Hemingway Maduro"), dup = line("AF", "Hemingway  Maduro");
+    const keepKid = vit(keep), dupKid = vit(dup);
+    const r = generateTierA([parent, keep, dup], [vit(parent), keepKid, dupKid], {});
+    expect(r.ops).toHaveLength(2);
+    expect(r.ops[1]).toMatchObject({ sourceLineId: keep.id, targetLineId: parent.id, childFills: { [keepKid.id]: { shade: "Maduro" }, [dupKid.id]: { shade: "Maduro" } } });
+  });
+  it("R2: wrapper tokens fill wrapper, and an existing conflicting wrapper defers", () => {
+    const p = line("Oliva", "Serie O"), hab = line("Oliva", "Serie O Habano"), cam = line("Oliva", "Serie O Cameroon");
+    const habKid = vit(hab), camKid = vit(cam, { wrapper: "Habano" });
+    const r = generateTierA([p, hab, cam], [vit(p), habKid, camKid], {});
+    expect(r.ops).toEqual([expect.objectContaining({ sourceLineId: hab.id, childFills: { [habKid.id]: { wrapper: "Habano" } } })]);
+    expect(r.deferred).toEqual([expect.objectContaining({ sourceLineId: cam.id, flaggedWhy: expect.stringMatching(/conflicts with suffix cameroon/) })]);
+  });
 });
 
 describe("norm", () => {
