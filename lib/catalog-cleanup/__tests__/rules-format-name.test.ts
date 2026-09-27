@@ -42,4 +42,9 @@ describe("generateFormatName", () => {
     ]);
     expect(r.summary).toEqual({ candidates: 3, splittable: 2, untouched: 1, communityAdded: 1 });
   });
+  it("does not count a canonical value with irregular internal spacing as a candidate", () => {
+    const r = generateFormatName([vit({ format: "Petit  Corona" }), vit({ format: " toro" })], FORMATS);
+    expect(r.ops).toEqual([]);
+    expect(r.summary).toEqual({ candidates: 0, splittable: 0, untouched: 0, communityAdded: 0 });
+  });
 });

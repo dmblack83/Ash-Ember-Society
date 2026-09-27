@@ -3,12 +3,16 @@ import type { UpdateVitolaOp, VitolaRow } from "./types";
 const GEN = "rules-format-name";
 const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+export const normalizeLabel = (s: string) => s.trim().replace(/\s+/g, " ");
+
+export const isCanonicalFormat = (label: string, formats: string[]) =>
+  formats.some((f) => f.toLowerCase() === normalizeLabel(label).toLowerCase());
+
 /** name = the full current label; format = the longest canonical shape it contains as whole words. */
 export function splitFormat(format: string, formats: string[]): { name: string; format: string } | null {
-  const label = format.trim().replace(/\s+/g, " ");
+  const label = normalizeLabel(format);
+  if (isCanonicalFormat(label, formats)) return null;
   const lower = label.toLowerCase();
-  const canonical = new Set(formats.map((f) => f.toLowerCase()));
-  if (canonical.has(lower)) return null;
   let best: string | null = null;
   for (const f of formats) {
     if (f.length <= 3) continue;
@@ -22,8 +26,8 @@ export function generateFormatName(vitolas: VitolaRow[], formats: string[]) {
   const summary = { candidates: 0, splittable: 0, untouched: 0, communityAdded: 0 };
   for (const v of vitolas) {
     if (v.name !== null || !v.format) continue;
+    if (isCanonicalFormat(v.format, formats)) continue; // already canonical, not a candidate
     const split = splitFormat(v.format, formats);
-    if (!split && formats.some((f) => f.toLowerCase() === v.format!.trim().toLowerCase())) continue; // already canonical, not a candidate
     summary.candidates++;
     if (!split) { summary.untouched++; continue; }
     summary.splittable++;
