@@ -162,9 +162,31 @@ Steps 2–3 are separate runs on purpose: one receipt per rule family keeps undo
 - SQL rendering: snapshot tests of the generated SQL per op type.
 - Integration: one `preview` against prod before the first `execute` (read-only), reviewed by Dave. No automated test writes to prod.
 
-## 12. Out of scope (later passes, same executor)
+## 12. Pass 2: web-verified passes (same executor)
 
-- Fold-verdict pass on `deferred.json` (source-grounded + two-model agreement) — its generator emits `fold_line` / `rename_line` with `reviewed` set from Dave's disagreements review.
-- AI vitola naming (all chunks in one pass) — generator emits `write_name` with `confidence` and `sourceUrl`; high-confidence auto, the rest to the community queue.
-- The 29 dims flags — `update_vitola` ops once two sources agree.
-- Lazy cleanup trigger in the community review queue.
+Dave approved web research as part of this effort (2026-09-26). Pass 2 has two generators that read `deferred.json` and the catalog, research on the web, and emit ops with evidence. Dave reviews only what the evidence cannot settle.
+
+**Evidence on ops.** Every op may carry `evidence: [{ "url", "quote", "fetchedAt" }]` and `agreement: { "modelA", "modelB" }`. `preview.md` shows the first evidence URL beside each sample row so an approval is checkable in one click.
+
+**`verify-folds`** (the 155 named-remainder folds + 115 near-dupe series, minus anything pass 1 already resolved):
+
+1. For each candidate, fetch the brand's own product page and one retailer listing (search by brand + series). The question is factual: is the remainder a sub-brand / distinct line, or a size or wrapper suffix of the parent?
+2. Two independent model passes (Fable 5.1 and Opus 5.5), each given the fetched pages and the line's vitolas, each answering fold / keep / unsure with a one-line reason.
+3. Emit automatically only when **both sources support the same answer and both models agree**, the source line is seeded, and every child has zero real refs. Fold → `fold_line` (with `proposedVitolaName` written to the children as `write_name` when the remainder names a vitola); keep → no op, recorded as resolved-keep in `verdicts.json`.
+4. Everything else (disagreement, no usable source, community-added, real refs) goes to `review.json` with both models' reasons and the URLs. That file is Dave's entire review for this pass; his answers are applied by re-running the generator with `--verdicts review.json` which emits the ops with `reviewed: true`.
+5. QA gate: 10% random sample of the auto bucket is included in `preview.md` marked "QA sample". One wrong item in the sample drops the whole auto bucket back to `review.json`.
+
+**`name-vitolas`** (all remaining unnamed vitolas, all brands, one pass; replaces the chunk-by-10 plan):
+
+1. Per line, fetch the brand page and one retailer page listing the line's sizes; match each catalog vitola by dims (±1/8 inch, exact ring) to a published size name.
+2. Emit `write_name` with `confidence` (high = both sources list the same name for those dims; medium = one source; low = model inference only) and `sourceUrl`.
+3. The executor applies high only (`--min-confidence high`). Medium and low are written to `names-pending.json` for the community review queue (later work), not for Dave.
+4. Dims mismatches found on the way (our ring/length vs both sources) are appended to `dims-flags.json`, joining the 29 already parked; they become `update_vitola` ops only when both sources agree, in their own run.
+5. Spot-check: 20 random high-confidence names per run appear in `preview.md` with their URLs.
+
+Research runs as parallel subagents (batches of ~10 brands, as in chunk 1), read-only on the web, writing only into the scratchpad. Rate: chunk 1 hit 92% named at ~10 brands per batch; the whole catalog is ~71 brands, so one session.
+
+## 13. Out of scope
+
+- Lazy cleanup trigger in the community review queue (consumes `names-pending.json` later).
+- Applying the dims flags: their own small run once two sources agree; no new machinery.
