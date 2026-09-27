@@ -19,17 +19,25 @@ export function collectTouched(ops: Op[], ctx: CatalogContext) {
   return { lineIds: [...lineIds], vitolaIds: [...vitolaIds], mergeSourceIds };
 }
 
-export function buildReceipt(args: { runId: string; opsFile: string; ops: Op[]; lines: LineRow[]; vitolas: VitolaRow[]; refs: RefRow[] }): Receipt {
+export function buildReceipt(args: { runId: string; opsFile: string; ops: Op[]; lines: LineRow[]; vitolas: VitolaRow[]; refs: RefRow[]; touched?: { lineIds: string[]; vitolaIds: string[] } }): Receipt {
   const lines = new Map(args.lines.map((l) => [l.id, l]));
   const vitolas = new Map(args.vitolas.map((v) => [v.id, v]));
   const need = (ok: boolean, what: string) => { if (!ok) throw new Error(`receipt: missing snapshot for ${what}`); };
   for (const op of args.ops) {
     switch (op.type) {
-      case "fold_line": need(lines.has(op.sourceLineId), `line ${op.sourceLineId}`); need(lines.has(op.targetLineId), `line ${op.targetLineId}`); break;
+      case "fold_line":
+        need(lines.has(op.sourceLineId), `line ${op.sourceLineId}`);
+        need(lines.has(op.targetLineId), `line ${op.targetLineId}`);
+        for (const vid of Object.keys(op.childFills)) need(vitolas.has(vid), `vitola ${vid}`);
+        break;
       case "rename_line": need(lines.has(op.lineId), `line ${op.lineId}`); break;
       case "update_vitola": case "write_name": need(vitolas.has(op.vitolaId), `vitola ${op.vitolaId}`); break;
       case "merge_vitola": need(vitolas.has(op.sourceVitolaId), `vitola ${op.sourceVitolaId}`); need(vitolas.has(op.targetVitolaId), `vitola ${op.targetVitolaId}`); break;
     }
+  }
+  if (args.touched) {
+    for (const lid of args.touched.lineIds) need(lines.has(lid), `line ${lid}`);
+    for (const vid of args.touched.vitolaIds) need(vitolas.has(vid), `vitola ${vid}`);
   }
   return {
     runId: args.runId, executedAt: new Date().toISOString(), opsFile: args.opsFile, committed: false, ops: args.ops,

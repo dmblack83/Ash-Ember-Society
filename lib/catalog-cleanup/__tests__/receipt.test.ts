@@ -86,6 +86,19 @@ describe("buildReceipt + reverseSql", () => {
     const ops: Op[] = [{ ...base, type: "write_name", vitolaId: V2, name: "Classic" }];
     expect(() => buildReceipt({ runId: "r", opsFile: "o", ops, lines: [], vitolas: [], refs: [] })).toThrow(/snapshot/);
   });
+  it("throws when a fold child named in childFills has no snapshot", () => {
+    const c = ctx();
+    const ops: Op[] = [{ ...base, type: "fold_line", sourceLineId: B, targetLineId: A, childFills: { [V1]: { shade: "Natural" } } }];
+    expect(() => buildReceipt({ runId: "r", opsFile: "o", ops, lines: [...c.lines.values()], vitolas: [], refs: [] })).toThrow(/snapshot for vitola/);
+  });
+  it("throws when a touched id from collectTouched has no snapshot", () => {
+    const c = ctx();
+    const ops: Op[] = [{ ...base, type: "fold_line", sourceLineId: B, targetLineId: A, childFills: {} }];
+    const touched = collectTouched(ops, c);
+    expect(touched.vitolaIds.sort()).toEqual([V1, V2].sort());
+    expect(() => buildReceipt({ runId: "r", opsFile: "o", ops, lines: [...c.lines.values()], vitolas: [c.vitolas.get(V1)!], refs: [], touched })).toThrow(new RegExp(`snapshot for vitola ${V2}`));
+    expect(() => buildReceipt({ runId: "r", opsFile: "o", ops, lines: [...c.lines.values()], vitolas: [...c.vitolas.values()], refs: [], touched })).not.toThrow();
+  });
 });
 
 describe("reverseWarnings", () => {
